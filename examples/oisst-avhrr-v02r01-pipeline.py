@@ -13,7 +13,11 @@ class Pipeline(AbstractPipeline, XarrayPrefectPipelineMixin):
         import pandas as pd
 
         keys = pd.date_range("1981-09-01", "1981-09-10", freq="D")
-        source_url_pattern = "https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/{yyyymm}/oisst-avhrr-v02r01.{yyyymmdd}.nc"
+        source_url_pattern = (
+            "https://www.ncei.noaa.gov/data/"
+            "sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/"
+            "{yyyymm}/oisst-avhrr-v02r01.{yyyymmdd}.nc"
+        )
         source_urls = [
             source_url_pattern.format(yyyymm=key.strftime("%Y%m"), yyyymmdd=key.strftime("%Y%m%d"))
             for key in keys

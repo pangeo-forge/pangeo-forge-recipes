@@ -38,8 +38,6 @@ def daily_xarray_dataset():
 @pytest.fixture(scope="session")
 def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory):
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
-    ds = daily_xarray_dataset
-
     _, datasets = zip(*daily_xarray_dataset.groupby("time"))
     fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
     paths = [tmp_path.join(fname) for fname in fnames]
