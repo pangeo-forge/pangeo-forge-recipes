@@ -17,6 +17,7 @@ dependencies:
   - numpy
   - pandas
   - pip
+  - prefect
   - pydap
   - pynio
   - pytest
