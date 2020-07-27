@@ -7,10 +7,12 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 import fsspec
+import time
 
 
 @pytest.fixture(scope="session")
 def daily_xarray_dataset():
+    """Return a synthetic random xarray dataset."""
     np.random.seed(1)
     nt, ny, nx = 10, 18, 36
     time = pd.date_range(start="2010-01-01", periods=nt, freq="D")
@@ -35,13 +37,15 @@ def daily_xarray_dataset():
     return ds
 
 
-@pytest.fixture(scope="session")
-def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory):
+@pytest.fixture(scope="session", params=["D", "2D"])
+def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
+    """Return a list of paths pointing to netcdf files."""
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
-    _, datasets = zip(*daily_xarray_dataset.groupby("time"))
+    gb = daily_xarray_dataset.resample(time=request.param)
+    _, datasets = zip(*gb)
     fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
     paths = [tmp_path.join(fname) for fname in fnames]
-    print(paths)
+    print(len(paths))
     xr.save_mfdataset(datasets, [str(path) for path in paths])
     return paths
 
@@ -51,6 +55,7 @@ def netcdf_http_server(netcdf_local_paths):
     first_path = netcdf_local_paths[0]
     # assume that all files are in the same directory
     basedir = first_path.dirpath()
+    print(basedir)
     fnames = [path.basename for path in netcdf_local_paths]
 
     # this feels very hacky
@@ -59,6 +64,7 @@ def netcdf_http_server(netcdf_local_paths):
     command_list = ["python", "-m", "http.server", PORT, "--bind", ADDRESS]
     p = subprocess.Popen(command_list, cwd=basedir)
     url = f"http://{ADDRESS}:{PORT}"
+    time.sleep(0.1)  # let the server start up
     yield url, fnames
     p.kill()
 
