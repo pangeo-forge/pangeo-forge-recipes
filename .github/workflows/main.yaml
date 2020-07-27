@@ -79,6 +79,11 @@ jobs:
         with:
           path: ~/conda_pkgs_dir
           key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('../ci/py${{ matrix.python-version }}.yml') }}
+      - name: install pangeo-forge
+        shell: bash -l {0}
+        run: |
+          pwd
+          ls -1
       - name: setup miniconda
         uses: goanpeca/setup-miniconda@v1
         with:
