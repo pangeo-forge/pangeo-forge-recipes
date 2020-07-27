@@ -1,13 +1,13 @@
 """Integration testing of pipelines."""
 
 import subprocess
-
-import pytest
-import numpy as np
-import xarray as xr
-import fsspec
 import time
+
+import fsspec
+import numpy as np
 import pandas as pd
+import pytest
+import xarray as xr
 
 # classes tested here
 from pangeo_forge.pipeline import AbstractPipeline, XarrayPrefectPipelineMixin
