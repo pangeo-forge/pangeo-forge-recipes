@@ -5,9 +5,9 @@ import subprocess
 import pytest
 import numpy as np
 import xarray as xr
-import pandas as pd
 import fsspec
 import time
+import pandas as pd
 
 # classes tested here
 from pangeo_forge.pipeline import AbstractPipeline, XarrayPrefectPipelineMixin
@@ -110,10 +110,8 @@ class Pipeline(AbstractPipeline, XarrayPrefectPipelineMixin):
 
     @property
     def sources(self):
-        import pandas as pd
-
         keys = range(self._nfiles)
-        source_url_pattern = f"{self._url_base}/{n:03d}.nc"
+        source_url_pattern = self._url_base + "/{n:03d}.nc"
         source_urls = [source_url_pattern.format(n=key) for key in keys]
         return source_urls
 
