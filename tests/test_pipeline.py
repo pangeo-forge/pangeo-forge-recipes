@@ -2,11 +2,11 @@
 
 import subprocess
 
-import pytest
-import numpy as np
-import xarray as xr
-import pandas as pd
 import fsspec
+import numpy as np
+import pandas as pd
+import pytest
+import xarray as xr
 
 
 @pytest.fixture(scope="session")

@@ -1,0 +1,27 @@
+name: pangeo-forge
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8
+  - black
+  - boto3
+  - cfgrib
+  - dask
+  - distributed
+  - fsspec
+  - h5netcdf
+  - h5py
+  - hdf5
+  - lxml    # Optional dep of pydap
+  - netcdf4
+  - numpy
+  - pandas
+  - pip
+  - pydap
+  - pynio
+  - pytest
+  - rasterio
+  - scipy
+  - setuptools
+  - toolz
+  - zarr
