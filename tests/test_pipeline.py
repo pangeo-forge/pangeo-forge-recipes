@@ -94,7 +94,7 @@ def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
 # a pipeline to load that data
 
 
-class Pipeline(AbstractPipeline, XarrayPrefectPipelineMixin):
+class Pipeline(XarrayPrefectPipelineMixin, AbstractPipeline):
     def __init__(
         self, name, cache_path, target_path, concat_dim, files_per_chunk, url_base, nfiles
     ):
