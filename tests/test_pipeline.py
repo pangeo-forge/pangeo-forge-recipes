@@ -9,6 +9,13 @@ import pandas as pd
 import fsspec
 import time
 
+# classes tested here
+from pangeo_forge.pipeline import AbstractPipeline, XarrayPrefectPipelineMixin
+
+# where to run the http server
+_PORT = "8080"
+_ADDRESS = "127.0.0.1"
+
 
 @pytest.fixture(scope="session")
 def daily_xarray_dataset():
@@ -59,11 +66,9 @@ def netcdf_http_server(netcdf_local_paths):
     fnames = [path.basename for path in netcdf_local_paths]
 
     # this feels very hacky
-    PORT = "8080"
-    ADDRESS = "127.0.0.1"
-    command_list = ["python", "-m", "http.server", PORT, "--bind", ADDRESS]
+    command_list = ["python", "-m", "http.server", _PORT, "--bind", _ADDRESS]
     p = subprocess.Popen(command_list, cwd=basedir)
-    url = f"http://{ADDRESS}:{PORT}"
+    url = f"http://{_ADDRESS}:{_PORT}"
     time.sleep(0.1)  # let the server start up
     yield url, fnames
     p.kill()
@@ -84,3 +89,54 @@ def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
     open_files = [fsspec.open(url).open() for url in urls]
     ds = xr.open_mfdataset(open_files, combine="nested", concat_dim="time")
     assert ds.identical(daily_xarray_dataset)
+
+
+# a pipeline to load that data
+
+
+class Pipeline(AbstractPipeline, XarrayPrefectPipelineMixin):
+    def __init__(
+        self, name, cache_path, target_path, concat_dim, files_per_chunk, url_base, nfiles
+    ):
+        self.name = name
+        self.cache_location = f"{cache_path}/{name}-cache/"
+        self.target_location = f"{target_path}/{name}.zarr"
+        self.concat_dim = concat_dim
+        self.files_per_chunk = files_per_chunk
+
+        # needed to build up sources
+        self._url_base = url_base
+        self._nfiles = nfiles
+
+    @property
+    def sources(self):
+        import pandas as pd
+
+        keys = range(self._nfiles)
+        source_url_pattern = f"{self._url_base}/{n:03d}.nc"
+        source_urls = [source_url_pattern.format(n=key) for key in keys]
+        return source_urls
+
+    @property
+    def targets(self):
+        return [self.target_location]
+
+
+# a basic pipeline test
+
+
+def test_pipeline(daily_xarray_dataset, netcdf_http_server, tmpdir):
+    name = "TEST_DATASET"
+    cache_dir = tmpdir.mkdir("cache")
+    target_dir = tmpdir.mkdir("target")
+    concat_dim = "time"
+    files_per_chunk = 5
+
+    url_base, paths = netcdf_http_server
+    nfiles = len(paths)
+
+    pipeline = Pipeline(name, cache_dir, target_dir, concat_dim, files_per_chunk, url_base, nfiles)
+    pipeline.run()
+
+    ds_test = xr.open_zarr(pipeline.targets[0])
+    assert ds_test.identical(daily_xarray_dataset)
