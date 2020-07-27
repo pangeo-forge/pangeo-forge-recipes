@@ -78,7 +78,7 @@ jobs:
           CACHE_NUMBER: 0
         with:
           path: ~/conda_pkgs_dir
-          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('../ci/py${{ matrix.python-version }}.yml') }}
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('ci/py${{ matrix.python-version }}.yml') }}
       - name: install pangeo-forge
         shell: bash -l {0}
         run: |
@@ -88,7 +88,7 @@ jobs:
         uses: goanpeca/setup-miniconda@v1
         with:
           activate-environment: pangeo-forge
-          environment-file: ../ci/py${{ matrix.python-version }}.yml
+          environment-file: ci/py${{ matrix.python-version }}.yml
           python-version: ${{ matrix.python-version }}
           auto-activate-base: false
           use-only-tar-bz2: true
