@@ -6,4 +6,3 @@ prefect
 xarray
 zarr
 fsspec
-netCDF4
