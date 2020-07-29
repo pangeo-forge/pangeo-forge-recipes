@@ -1,20 +1,19 @@
 from prefect import Flow
 
-from ..utils import chunked_iterable
-
 from ..tasks.http import download
 from ..tasks.xarray import combine_and_write
 from ..tasks.zarr import consolidate_metadata
+from ..utils import chunked_iterable
+
 
 class HttpXarrayZarrMixin:
-
     @property
     def flow(self):
 
         if len(self.targets) == 1:
             target = self.targets[0]
         else:
-            raise ValueError('Zarr target requires self.targets be a length one list')
+            raise ValueError("Zarr target requires self.targets be a length one list")
 
         with Flow(self.name) as _flow:
 

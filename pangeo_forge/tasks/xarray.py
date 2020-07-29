@@ -1,14 +1,14 @@
 import fsspec
 import xarray as xr
-
 from prefect import task
+
 
 @task
 def combine_and_write(sources, target, append_dim, concat_dim, first=True):
-    '''
+    """
     Combine one or more source datasets into a single `Xarray.Dataset`, then
     write them to a Zarr store.
-    
+
     Parameters
     ----------
     sources : list of str
@@ -21,16 +21,16 @@ def combine_and_write(sources, target, append_dim, concat_dim, first=True):
         Name of the dimension of which datasets should be concatenated during read.
     first : bool
         Flag to indicate if the target dataset should be expected to already exist.
-    
+
     Returns
     -------
     target_url : str
         Path or url in the form of `{cache_location}/hash({source_url})`.
-    '''
+    """
 
     double_open_files = [fsspec.open(url).open() for url in sources]
     ds = xr.open_mfdataset(double_open_files, combine="nested", concat_dim=concat_dim)
-    
+
     # by definition, this should be a contiguous chunk
     ds = ds.chunk({append_dim: len(sources)})
 

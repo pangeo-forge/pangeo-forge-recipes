@@ -1,4 +1,3 @@
-
 from abc import ABC, abstractmethod
 from typing import List
 
@@ -6,7 +5,7 @@ from prefect import Flow
 
 
 class AbstractPipeline(ABC):
-    name = 'AbstractPipeline'
+    name = "AbstractPipeline"
 
     @property
     @abstractmethod

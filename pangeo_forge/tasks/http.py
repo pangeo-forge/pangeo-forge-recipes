@@ -1,13 +1,12 @@
 import os
 
 import fsspec
-
 from prefect import task
 
 
 @task
 def download(source_url, cache_location):
-    '''
+    """
     Download a remote file to a cache.
 
     Parameters
@@ -16,12 +15,12 @@ def download(source_url, cache_location):
         Path or url to the source file.
     cache_location : str
         Path or url to the target location for the source file.
-    
+
     Returns
     -------
     target_url : str
         Path or url in the form of `{cache_location}/hash({source_url})`.
-    '''
+    """
     target_url = os.path.join(cache_location, str(hash(source_url)))
 
     # there is probably a better way to do caching!
