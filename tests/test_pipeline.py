@@ -10,7 +10,8 @@ import pytest
 import xarray as xr
 
 # classes tested here
-from pangeo_forge.pipeline import AbstractPipeline, XarrayPrefectPipelineMixin
+from pangeo_forge.pipelines.base import AbstractPipeline
+from pangeo_forge.pipelines.http_xarray_zarr import HttpXarrayZarrMixin
 
 # where to run the http server
 _PORT = "8080"
@@ -94,13 +95,22 @@ def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
 # a pipeline to load that data
 
 
-class Pipeline(XarrayPrefectPipelineMixin, AbstractPipeline):
+class MyPipeline(HttpXarrayZarrMixin, AbstractPipeline):
     def __init__(
-        self, name, cache_path, target_path, concat_dim, files_per_chunk, url_base, nfiles
+        self,
+        name,
+        cache_path,
+        target_path,
+        concat_dim,
+        append_dim,
+        files_per_chunk,
+        url_base,
+        nfiles,
     ):
         self.name = name
         self.cache_location = f"{cache_path}/{name}-cache/"
         self.target_location = f"{target_path}/{name}.zarr"
+        self.append_dim = append_dim
         self.concat_dim = concat_dim
         self.files_per_chunk = files_per_chunk
 
@@ -121,20 +131,21 @@ class Pipeline(XarrayPrefectPipelineMixin, AbstractPipeline):
 
 
 # a basic pipeline test
-
-
 def test_pipeline(daily_xarray_dataset, netcdf_http_server, tmpdir):
     name = "TEST_DATASET"
     cache_dir = tmpdir.mkdir("cache")
     target_dir = tmpdir.mkdir("target")
     concat_dim = "time"
+    append_dim = "time"
     files_per_chunk = 5
 
     url_base, paths = netcdf_http_server
     nfiles = len(paths)
 
-    pipeline = Pipeline(name, cache_dir, target_dir, concat_dim, files_per_chunk, url_base, nfiles)
-    pipeline.run()
+    pipeline = MyPipeline(
+        name, cache_dir, target_dir, concat_dim, append_dim, files_per_chunk, url_base, nfiles
+    )
+    pipeline.flow.run()
 
     ds_test = xr.open_zarr(pipeline.targets[0])
     assert ds_test.identical(daily_xarray_dataset)
