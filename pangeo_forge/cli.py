@@ -31,8 +31,9 @@ def lint(pipeline):
 @click.command()
 @click.argument("pipeline", type=click.Path(exists=True))
 def register(pipeline):
-    pipe = runpy.run_path(pipeline)["pipeline"]
-    flow = runpy.run_path(pipeline)["flow"]
+    env = runpy.run_path(pipeline)
+    pipe = env["pipeline"]
+    flow = env["flow"]
 
     flow.environment = pipe.environment
     flow.storage = pipe.storage
