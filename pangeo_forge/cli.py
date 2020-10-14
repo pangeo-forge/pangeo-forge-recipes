@@ -1,12 +1,46 @@
+import runpy
+
 import click
 
 
-@click.command()
+@click.group()
 @click.version_option()
 def main():
-    """Pangeo-Forge: A tool for building and publishing analysis ready datasets.
+    pass
+
+
+@click.command()
+@click.argument("pipeline", type=click.Path(exists=True))
+def check(pipeline):
     """
-    click.secho("Hello World!", fg="green")
+    Check that the pipeline definition is valid. This does not run the pipeline.
+    """
+    result = runpy.run_path(pipeline)
+    missing = [key for key in ["pipeline", "flow"] if key not in result]
+    if missing:
+        click.echo(f"missing {missing}")
+    pipe = result["pipeline"]
+
+    pipe.flow.sorted_tasks()
+    pipe.flow.environment
+    pipe.flow.storage
+    pipe.flow.validate()
+    print("ok!")
+
+
+@click.command()
+@click.argument("pipeline", type=click.Path(exists=True))
+def register(pipeline):
+    pipe = runpy.run_path(pipeline)["pipeline"]
+    flow = runpy.run_path(pipeline)["flow"]
+
+    flow.environment = pipe.environment
+    flow.storage = pipe.storage
+    flow.register(project_name="pangeo-forge", labels=[])
+
+
+main.add_command(check)
+main.add_command(register)
 
 
 if __name__ == "__main__":
