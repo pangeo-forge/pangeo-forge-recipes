@@ -11,7 +11,7 @@ def main():
 
 @click.command()
 @click.argument("pipeline", type=click.Path(exists=True))
-def check(pipeline):
+def lint(pipeline):
     """
     Check that the pipeline definition is valid. This does not run the pipeline.
     """
@@ -39,7 +39,7 @@ def register(pipeline):
     flow.register(project_name="pangeo-forge", labels=[])
 
 
-main.add_command(check)
+main.add_command(lint)
 main.add_command(register)
 
 
