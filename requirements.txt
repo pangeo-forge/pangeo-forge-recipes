@@ -5,4 +5,4 @@ distributed
 prefect
 xarray
 zarr
-fsspec
+fsspec[http]
