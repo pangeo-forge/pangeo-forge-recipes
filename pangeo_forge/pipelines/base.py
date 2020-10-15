@@ -86,7 +86,7 @@ class AbstractPipeline(ABC):
             max_workers=30,
             scheduler_spec_file=scheduler_spec_file,
             worker_spec_file=worker_spec_file,
-            metadata=dict(image="tomaugspurger/pangeo-forge"),
+            metadata=dict(image="pangeoforge/default-image"),
         )
         return environment
 
