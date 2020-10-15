@@ -32,8 +32,10 @@ def lint(pipeline):
 @click.argument("pipeline", type=click.Path(exists=True))
 def register(pipeline):
     env = runpy.run_path(pipeline)
-    # pipe = env["pipeline"]
     flow = env["flow"]
+    # XXX: Setting after the fact doesn't seem to work.
+    # We need users to specify it when creating the `Flow`
+    # pipe = env["pipeline"]
     # flow.environment = pipe.environment
     # flow.storage = pipe.storage
     flow.register(project_name="pangeo-forge", labels=["gcp"])

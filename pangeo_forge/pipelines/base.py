@@ -12,19 +12,35 @@ their code is loaded into it.
 The Flow
 ========
 
-We use prefect_ to express ETL pipelines.
+We use prefect_ to express ETL pipelines. It provides us a few things:
+
+1. A Highlevel API for writing data transformations.
+2. A robust scheduling and orchestration system for executing pipelines.
+
+Every pangeo-forge recipe *must* have a ``prefect.Flow`` instance at the
+top-level of their pipeline module.
 
 
-Implementation
---------------
+.. code-block:: python
 
-Most recipes will inherit from :class:`AbstractPipeline`. This base class
-provides:
+   class Pipeline(pangeo_forge.AbstractPipeline):
+       @property
+       def flow(self) -> Flow:
+           with Flow(
+               self.name,
+               environment=self.environment,
+               storage=self.storage
+           ) as flow:
+              # Your pipeline goes here.
+              ...
 
-1. Abstract methods and properties required to run a pipeline
-2. Default Prefect Storage and Environment implementations.
+           return flow
 
-.. _prefect: https://docs.prefect.io/
+   pipeline = Pipeline()
+   flow = pipeline.flow
+
+The ``storage`` keyword controls how your source code is loaded into
+pangeo-forge, and the ``environment`` keyword controls where it's run.
 """
 from abc import ABC, abstractmethod
 from pathlib import Path
