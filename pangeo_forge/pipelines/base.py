@@ -1,3 +1,31 @@
+"""
+Base class for most pipelines.
+
+Design
+------
+
+To the extent possible, we want recipe maintainers to focus on the code
+needed to express the data transformations. In particular, we don't
+want them to worry about things like the execution environment and how
+their code is loaded into it.
+
+The Flow
+========
+
+We use prefect_ to express ETL pipelines.
+
+
+Implementation
+--------------
+
+Most recipes will inherit from :class:`AbstractPipeline`. This base class
+provides:
+
+1. Abstract methods and properties required to run a pipeline
+2. Default Prefect Storage and Environment implementations.
+
+.. _prefect: https://docs.prefect.io/
+"""
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
@@ -17,16 +45,25 @@ class AbstractPipeline(ABC):
 
     @property
     @abstractmethod
+    def repo(self):
+        """The GitHub repository containing the pipeline definition."""
+        # TODO: This changes when we merge it. From staged to feedstock?
+
+    @property
+    @abstractmethod
     def sources(self) -> List[str]:
+        """A list of source URLs containing the original data."""
         pass
 
     @property
     @abstractmethod
     def targets(self) -> List[str]:
+        """A list of target URLs where the transformed data is written."""
         pass
 
     @abstractmethod
     def flow(self) -> Flow:
+        """The """
         pass
 
     @property
