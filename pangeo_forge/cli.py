@@ -34,10 +34,9 @@ def register(pipeline):
     env = runpy.run_path(pipeline)
     pipe = env["pipeline"]
     flow = env["flow"]
-
     flow.environment = pipe.environment
     flow.storage = pipe.storage
-    flow.register(project_name="pangeo-forge", labels=[])
+    flow.register(project_name="pangeo-forge", labels=["gcp"])
 
 
 main.add_command(lint)

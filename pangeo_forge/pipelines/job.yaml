@@ -14,7 +14,6 @@ spec:
       serviceAccount: pangeo-forge
       containers:
         - name: flow
-          image: tomaugspurger/pangeo-forge  # overridden by metadata["image"]
           imagePullPolicy: Always
           command: ["/bin/sh", "-c"]
           args:
