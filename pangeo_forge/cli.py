@@ -16,7 +16,10 @@ def main():
 @click.argument("pipeline", type=click.Path(exists=True))
 def check(pipeline):
     """
-    Check that the pipeline definition is valid. This does not run the pipeline.
+    Check that the pipeline definition is valid. This does not run the
+    pipeline.
+
+    pipeline : path to the pipeline module (e.g. recipe/pipeline.py)
     """
     # result returns the namespace of the module as a dict of {name: value}.
     return_code = 0
@@ -44,6 +47,11 @@ def check(pipeline):
 @click.command()
 @click.argument("pipeline", type=click.Path(exists=True))
 def register(pipeline):
+    """
+    Register a pipeline with prefect.
+
+    pipeline : path to the pipeline module (e.g. recipe/pipeline.py)
+    """
     env = runpy.run_path(pipeline)
     flow = env["flow"]
     # XXX: Setting after the fact doesn't seem to work.
