@@ -95,7 +95,7 @@ jobs:
       - name: install pangeo-forge
         shell: bash -l {0}
         run: |
-          python -m pip install --no-deps -e .
+          python -m pip install -e .
       - name: Running Tests
         shell: bash -l {0}
         run: |
