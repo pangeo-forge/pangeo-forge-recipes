@@ -1,62 +1,87 @@
+import pathlib
 import runpy
 import sys
 
 import click
-from prefect.environments.execution.base import Environment
-from prefect.environments.storage.base import Storage
 
 
 @click.group()
 @click.version_option()
 def main():
+    """
+    CLI for working with pangeo-forge.
+
+    Once a pipeline recipe is written, the typical workflow is
+
+    * pangeo-forge check  # validate the pipeline
+    * pangeo-forge generate  # generate the run.py file for Prefect
+    * pangeo-forge register  # register with Prefect
+
+    At that point, the prefect flow run can be manually triggered.
+    """
     pass
 
 
 @click.command()
-@click.argument("pipeline", type=click.Path(exists=True))
-def check(pipeline):
+@click.argument("recipe", type=click.Path(exists=True), default="recipe")
+@click.option("--verbose/--no-verbose", help="Whether to print verbose output")
+def check(recipe, verbose):
     """
     Check that the pipeline definition is valid. This does not run the
     pipeline.
 
-    pipeline : path to the pipeline module (e.g. recipe/pipeline.py)
+    recipe : path to the recipe directory (e.g. 'recipe')
     """
+    # Validate the package structure
+    p = pathlib.Path(recipe)
+    errors = []
+
+    if not p.exists():
+        errors.append("Cannot find a directory named recipe")
+
+    if not (p / "__init__.py").exists():
+        errors.append("File 'recipe/__init__.py' does not exist")
+
+    if not (p / "pipeline.py").exists():
+        errors.append("File 'recipe/pipeline.py' does not exist")
+
     # result returns the namespace of the module as a dict of {name: value}.
-    return_code = 0
+    pipeline = str(p / "pipeline.py")
     result = runpy.run_path(pipeline)
-    # The toplevel of the recipe must have two instances
-    # 1. pipeline: required by pangeo-forge for metadata.
-    # 2. flow: required by Prefect for flow execution.
-    missing = [key for key in ["pipeline", "flow"] if key not in result]
 
-    if missing:
-        click.echo(f"missing {missing}", err=True)
-        return_code = 1
-    pipe = result["pipeline"]
+    if "Pipeline" not in result:
+        errors.append("File 'recipe/pipeline.py' must have a class named 'Pipeline'")
 
-    if not isinstance(pipe.flow.environment, Environment):
-        click.echo(f"Incorrect flow.environment {type(pipe.flow.environment)}", err=True)
-        return_code = 1
-    if not isinstance(pipe.flow.storage, Storage):
-        click.echo(f"Incorrect flow.storage {type(pipe.flow.storage)}", err=True)
-        return_code = 1
+    pipe = result["Pipeline"]()  # TODO: parameters
     pipe.flow.validate()
-    sys.exit(return_code)
+
+    if verbose:
+        if not errors:
+            print(f"The recipe '{recipe}' looks great!")
+
+    for error in errors:
+        click.echo(error, err=True)
+
+    sys.exit(int(bool(errors)))
 
 
 @click.command()
-@click.argument("pipeline", type=click.Path(exists=True))
-@click.argument("run-file", type=click.Path(), default="run.py")
+@click.argument("pipeline", type=click.Path(exists=True), default="recipe/pipeline.py")
+@click.argument("run-file", type=click.Path(), default="recipe/run.py")
 def generate(pipeline, run_file):
-    """Generate a run file."""
+    """Generate a run file for Prefect.
+
+    pipeline : Path to the pipeline definition (e.g. recipe/pipeline.py)
+    run-file : Path to the file for Prefect to run (e.g. recipe/run.py)
+    """
     result = runpy.run_path(pipeline)
-    template = result["Pipeline"]()._generate_run()
+    template = result["Pipeline"]()._generate_run(pipeline)
     with open(run_file, "w", encoding="utf-8") as f:
         f.write(template)
 
 
 @click.command()
-@click.argument("run-file", type=click.Path(exists=True), default="run.py")
+@click.argument("run-file", type=click.Path(exists=True), default="recipe/run.py")
 def register(run_file):
     """
     Register a pipeline with prefect.
