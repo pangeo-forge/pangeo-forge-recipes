@@ -46,23 +46,30 @@ def check(pipeline):
 
 @click.command()
 @click.argument("pipeline", type=click.Path(exists=True))
-def register(pipeline):
+@click.argument("run-file", type=click.Path(), default="run.py")
+def generate(pipeline, run_file):
+    """Generate a run file."""
+    result = runpy.run_path(pipeline)
+    template = result["Pipeline"]()._generate_run()
+    with open(run_file, "w", encoding="utf-8") as f:
+        f.write(template)
+
+
+@click.command()
+@click.argument("run-file", type=click.Path(exists=True), default="run.py")
+def register(run_file):
     """
     Register a pipeline with prefect.
 
-    pipeline : path to the pipeline module (e.g. recipe/pipeline.py)
+    pipeline : path to the run-file module (e.g. "run.py")
     """
-    env = runpy.run_path(pipeline)
+    env = runpy.run_path(run_file)
     flow = env["flow"]
-    # XXX: Setting after the fact doesn't seem to work.
-    # We need users to specify it when creating the `Flow`
-    # pipe = env["pipeline"]
-    # flow.environment = pipe.environment
-    # flow.storage = pipe.storage
     flow.register(project_name="pangeo-forge", labels=["gcp"])
 
 
 main.add_command(check)
+main.add_command(generate)
 main.add_command(register)
 
 
