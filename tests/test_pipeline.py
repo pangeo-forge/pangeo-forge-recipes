@@ -96,6 +96,8 @@ def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
 
 
 class MyPipeline(HttpXarrayZarrMixin, AbstractPipeline):
+    repo = "pangeo-forge/pangeo-forge"
+
     def __init__(
         self,
         name,
