@@ -47,8 +47,9 @@ def check(recipe, verbose):
     result = runpy.run_path(pipeline)
 
     if "flow" not in result:
-        if not isinstance(result["flow"], prefect.Flow):
-            errors.append("File 'recipe/pipeline.py' must have a prefect Flow named 'flow'")
+        errors.append("File 'recipe/pipeline.py' must have a prefect Flow named 'flow'")
+    elif not isinstance(result["flow"], prefect.Flow):
+        errors.append("File 'recipe/pipeline.py' must have a prefect Flow named 'flow'")
 
     flow = result["flow"]
     flow.validate()
