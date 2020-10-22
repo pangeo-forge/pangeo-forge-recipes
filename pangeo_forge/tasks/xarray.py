@@ -29,16 +29,30 @@ def combine_and_write(sources: List[str], target: str, concat_dim: str) -> List[
     >>> import pangeo_forge.tasks.xarray
     >>> import fsspec
     >>> import xarray as xr
+    >>> from prefect import Flow
 
     >>> # Load sample data into `sources`.
     >>> ds = xr.tutorial.open_dataset('rasm').load()
-    >>> a, b = ds.isel(time=slice(18)), ds.isel(time=slice(18, None))
     >>> fs = fsspec.get_filesystem_class("memory")()
+    >>> dsets = ds.isel(time=slice(18)), ds.isel(time=slice(18, None))
+    >>> for i, dset in enumerate(dsets):
+    ...     as_bytes = dset.to_netcdf()
+    ...     with fs.open(f"cache/{i}.nc", "wb") as f:
+    ...         f.write(as_bytes)
 
-    >>> sources = [f"{fs.protocol}://{source}" for source in fs.ls("cache")]
-    >>> pangeo_forge.tasks.xarray.combine_and_write.run(sources, "memory://out", concat_dim="time")
+    >>> sources = [f"memory://{dset}" for dset in fs.ls("cache")]
+    >>> with Flow("my-flow") as flow:
+    ...    result = pangeo_forge.tasks.xarray.combine_and_write(
+    ...        sources, "memory://target.zarr", concat_dim="time"
+    ...    )
+    >>> result
+    <Task: combine_and_write>
 
-
+    We can run that outside of a flow context with ``.run()``
+    >>> pangeo_forge.tasks.xarray.combine_and_write.run(
+    ...     sources, "memory://target.zarr", concat_dim="time"
+    ... )
+    'memory://target.zarr'
     """
     double_open_files = [fsspec.open(url).open() for url in sources]
     ds = xr.open_mfdataset(double_open_files, combine="nested", concat_dim=concat_dim)
