@@ -47,6 +47,9 @@ def check(recipe, verbose):
     pipeline = str(p / "pipeline.py")
     result = runpy.run_path(pipeline)
 
+    if "Pipeline" not in result:
+        errors.append("File 'recipe/pipeline.py' must have a class named 'Pipeline'")
+
     if "flow" not in result:
         errors.append("File 'recipe/pipeline.py' must have a prefect Flow named 'flow'")
     elif not isinstance(result["flow"], prefect.Flow):
@@ -86,7 +89,7 @@ def run(pipeline):
     """
     # TODO: Get from meta.yaml rather than executing code.
     env = runpy.run_path(pipeline)
-    name = env["pipeline"].Pipeline.name
+    name = env["Pipeline"].name
     subprocess.check_output(["prefect", "run", "flow", "--project", "pangeo-forge", "--name", name])
 
 
