@@ -19,15 +19,13 @@ class HttpXarrayZarrMixin:
 
             cached_sources = [download(k, self.cache_location) for k in self.sources]
 
-            first = True
             write_tasks = []
             for source_group in chunked_iterable(cached_sources, self.files_per_chunk):
                 write_task = combine_and_write(
-                    source_group, target, self.append_dim, self.concat_dim, first=first
+                    source_group, target, self.append_dim, self.concat_dim,
                 )
                 write_tasks.append(write_task)
-                first = False
-            cm = consolidate_metadata(target)
+            cm = consolidate_metadata(target, write_tasks)
 
         # create dependencies in imperative mode
         for n in range(1, len(write_tasks)):
