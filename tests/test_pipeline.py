@@ -151,3 +151,11 @@ def test_pipeline(daily_xarray_dataset, netcdf_http_server, tmpdir):
 
     ds_test = xr.open_zarr(pipeline.targets[0])
     assert ds_test.identical(daily_xarray_dataset)
+
+
+def test_storage_environment_set():
+    pipeline = MyPipeline(
+        "name", "cache", "target", "concat", "append", "files_per_chunk", "url_base", "nfiles"
+    )
+    assert pipeline.storage
+    assert pipeline.environment
