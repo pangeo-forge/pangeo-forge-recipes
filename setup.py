@@ -40,7 +40,5 @@ setup(
     license="Apache",
     zip_safe=False,
     keywords=["pangeo", "data"],
-    use_scm_version={"version_scheme": "post-release", "local_scheme": "dirty-tag"},
-    setup_requires=["setuptools_scm", "setuptools>=30.3.0"],
     entry_points=dict(console_scripts=["pangeo-forge = pangeo_forge.cli:main"]),
 )
