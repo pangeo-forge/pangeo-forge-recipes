@@ -1,5 +1,6 @@
 import pathlib
 import runpy
+import subprocess
 import sys
 
 import click
@@ -65,20 +66,33 @@ def check(recipe, verbose):
 
 
 @click.command()
-@click.argument("run-file", type=click.Path(exists=True), default="recipe/run.py")
-def register(run_file):
+@click.argument("pipeline", type=click.Path(exists=True), default="recipe/pipeline.py")
+def register(pipeline):
     """
     Register a pipeline with prefect.
 
-    pipeline : path to the run-file module (e.g. "run.py")
+    pipeline : path to the pipeline module (e.g. "recipe/pipeline.py)
     """
-    env = runpy.run_path(run_file)
+    env = runpy.run_path(pipeline)
     flow = env["flow"]
     flow.register(project_name="pangeo-forge", labels=["gcp"])
 
 
+@click.command()
+@click.argument("pipeline", type=click.Path(exists=True), default="recipe/pipeline.py")
+def run(pipeline):
+    """
+    Run a pipeline with prefect.
+    """
+    # TODO: Get from meta.yaml rather than executing code.
+    env = runpy.run_path(pipeline)
+    name = env["pipeline"].Pipeline.name
+    subprocess.check_output(["prefect", "run", "flow", "--project", "pangeo-forge", "--name", name])
+
+
 main.add_command(check)
 main.add_command(register)
+main.add_command(run)
 
 
 if __name__ == "__main__":
