@@ -55,16 +55,43 @@ from prefect.environments.storage.github import GitHub
 HERE = Path(__file__).parent.absolute()
 
 
+def finalize_flow(cls):
+    # Nothing to see here, move along.
+    # OK, fine... this is a small hack to hide Prefect's orchestration stuff
+    # (environments, storage) from the recipe writer. Prefect currently
+    # requires that the module stored on GitHub have
+    #   1. A `Flow` instance at the top-level of the module.
+    #   2. A properly set `storage` and `environment`.
+    # Which would require this at the bottom of every python module
+    # >>> pipeline = MyPipeline()
+    # >>> flow = pipeline.flow
+    # >>> flow.storage = pipeline.storage
+    # >>> flow.environment = pipeline.environment
+    # Which is ugly. To avoid that, we just override how `.` works on
+    # AbstractPipeline. If we're getting `.flow`, this little decorator
+    # takes over and attaches the storage and environment.
+    orig_getattribute = cls.__getattribute__
+
+    def new_getattribute(self, name):
+        result = orig_getattribute(self, name)
+        if name == "flow":
+            result.storage = self.storage
+            result.environment = self.environment
+        return result
+
+    cls.__getattribute__ = new_getattribute
+    return cls
+
+
+@finalize_flow
 class AbstractPipeline(ABC):
     name = "AbstractPipeline"
-    repo = None  # defaults to pangeo-forge/{feedstock}
-    path = "recipe/run.py"
+    path = "recipe/pipeline.py"
 
     @property
     @abstractmethod
     def repo(self):
         """The GitHub repository containing the pipeline definition."""
-        # TODO: This changes when we merge it. From staged to feedstock?
 
     @property
     @abstractmethod
