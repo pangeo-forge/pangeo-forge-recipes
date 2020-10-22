@@ -22,11 +22,15 @@ def test_combine_and_write():
 
     target = "memory://target.zarr"
     with Flow("test") as flow:
-        result = pangeo_forge.tasks.xarray.combine_and_write(sources, target, concat_dim="time")
+        result = pangeo_forge.tasks.xarray.combine_and_write(
+            sources, target, concat_dim="time", append_dim="time"
+        )
         assert isinstance(result, Task)
     flow.validate()
 
-    result = pangeo_forge.tasks.xarray.combine_and_write.run(sources, target, concat_dim="time")
+    result = pangeo_forge.tasks.xarray.combine_and_write.run(
+        sources, target, concat_dim="time", append_dim="time"
+    )
     assert result == target
     result = xr.open_zarr(fs.get_mapper("target.zarr"))
     xr.testing.assert_equal(ds, result)

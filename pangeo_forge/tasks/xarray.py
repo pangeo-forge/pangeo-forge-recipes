@@ -6,7 +6,9 @@ from prefect import task
 
 
 @task
-def combine_and_write(sources: List[str], target: str, concat_dim: str) -> List[str]:
+def combine_and_write(
+    sources: List[str], target: str, append_dim: str, concat_dim: str
+) -> List[str]:
     """
     Write a batch of intermediate files to a combined zarr store.
 
@@ -16,6 +18,8 @@ def combine_and_write(sources: List[str], target: str, concat_dim: str) -> List[
         A list of URLs pointing to the intermediate files.
     target : str
         The URL for the target combined store.
+    append_dim : str
+        Name of the dimension of which datasets should be appended during write.
     concat_dim : str
         The dimension to concatenate along.
 
@@ -57,13 +61,13 @@ def combine_and_write(sources: List[str], target: str, concat_dim: str) -> List[
     double_open_files = [fsspec.open(url).open() for url in sources]
     ds = xr.open_mfdataset(double_open_files, combine="nested", concat_dim=concat_dim)
     # by definition, this should be a contiguous chunk
-    ds = ds.chunk({concat_dim: len(sources)})
+    ds = ds.chunk({append_dim: len(sources)})
     mapper = fsspec.get_mapper(target)
 
     if not len(mapper):
         # The first write, .
         kwargs = dict(mode="w")
     else:
-        kwargs = dict(mode="a", append_dim=concat_dim)
+        kwargs = dict(mode="a", append_dim=append_dim)
     ds.to_zarr(mapper, **kwargs)
     return target
