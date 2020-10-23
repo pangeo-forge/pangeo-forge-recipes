@@ -1,0 +1,3 @@
+sphinx
+sphinx-pangeo-theme
+myst-parser
