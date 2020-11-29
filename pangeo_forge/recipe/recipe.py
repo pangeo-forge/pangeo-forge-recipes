@@ -2,10 +2,15 @@
 A Pangeo Forge Recipe
 """
 
+from dataclasses import dataclass
+
 import xarray as xr
 import fsspec
 from ..utils import chunked_iterable
 from .target import Target
+
+from typing import Optional, Iterable
+
 
 ### How to manually execute a recipe: ###
 #
@@ -27,10 +32,15 @@ from .target import Target
 # 2) Point the Recipe at its Target
 # 3) Initialize the recipe.
 #    Check if the target exists; if not, create it.
-#
+# 4) cache the inputs to proximate storage (OPTIONAL)
+#    Some recipes won't need this (e.g. cloud to cloud)
+#    If so, iter_inputs is just an empty iterator
+# 5) Load each chunk from the inputs and store it in the target
+#    Might be coming from the cache or might be read directly.
+# 6)
 
 
-#@dataclass
+@dataclass
 class DatasetRecipe():
     target: Target
 
@@ -71,23 +81,17 @@ class ZarrWriterMixin:
 
 
 
+@dataclass
 class FileSequenceRecipe(DatasetRecipe):
+    file_urls: Iterable[str]
+    sequence_dim: str
+    files_per_chunk: int = 1
+    nitems_per_file: int = 1
 
 
-    def __init__(self, file_urls, sequence_dim, files_per_chunk=1, nitems_per_file=1, chunksize_within_file=None):
-        self.file_urls = file_urls
-
-        if chunksize_within_file:
-            assert file_per_chunk is None
-            assert nitems_per_file >= chunksize_within_file
-
-        self.files_per_chunk = files_per_chunk
-        self.nitems_per_file = nitems_per_file
-        self.sequence_dim = sequence_dim
-
-        # mapping between chunks and file names
+    def __post_init__(self):
         self._chunks_files = {k: v for k, v in
-                              enumerate(chunked_iterable(file_urls, files_per_chunk))}
+                              enumerate(chunked_iterable(self.file_urls, self.files_per_chunk))}
 
 
     def filenames_for_chunk(self, chunk_key):

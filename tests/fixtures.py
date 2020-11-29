@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-
+from pangeo_forge.recipe.target import Target
 
 # where to run the http server
 _PORT = "8080"
@@ -71,6 +71,14 @@ def netcdf_http_server(netcdf_local_paths):
     p.kill()
 
 
+@pytest.fixture()
+def tmp_target(tmpdir_factory):
+    import fsspec
+    fs = fsspec.get_filesystem_class("file")()
+    path = str(tmpdir_factory.mktemp("target"))
+    return Target(fs, path)
+
+
 # tests that our fixtures work
 
 
@@ -86,3 +94,12 @@ def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
     open_files = [fsspec.open(url).open() for url in urls]
     ds = xr.open_mfdataset(open_files, combine="nested", concat_dim="time")
     assert ds.identical(daily_xarray_dataset)
+
+
+def test_target(tmp_target):
+    mapper = tmp_target.get_mapper()
+    mybytes = b'bar'
+    mapper['foo'] = b'bar'
+    with open(tmp_target.path + '/foo') as f:
+        res = f.read()
+    assert res == 'bar'

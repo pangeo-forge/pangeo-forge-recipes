@@ -17,7 +17,8 @@ def test_file_sequence_recipe(file_urls, files_per_chunk, expected_keys, expecte
     r = recipe.FileSequenceRecipe(
         file_urls=file_urls,
         sequence_dim="time",
-        files_per_chunk=files_per_chunk
+        files_per_chunk=files_per_chunk,
+        target=
     )
 
     chunk_keys = list(r.iter_chunks())
