@@ -2,7 +2,7 @@ import pytest
 
 from pangeo_forge.recipe import recipe
 
-from .fixtures import daily_xarray_dataset, netcdf_local_paths
+from .fixtures import daily_xarray_dataset, netcdf_local_paths, tmp_target
 
 dummy_fnames = ["a.nc", "b.nc", "c.nc"]
 @pytest.mark.parametrize(
@@ -12,13 +12,13 @@ dummy_fnames = ["a.nc", "b.nc", "c.nc"]
         (dummy_fnames, 2, [0, 1], [("a.nc", "b.nc",), ("c.nc",)])
     ]
 )
-def test_file_sequence_recipe(file_urls, files_per_chunk, expected_keys, expected_filenames):
+def test_file_sequence_recipe(file_urls, files_per_chunk, expected_keys, expected_filenames, tmp_target):
 
     r = recipe.FileSequenceRecipe(
         file_urls=file_urls,
         sequence_dim="time",
         files_per_chunk=files_per_chunk,
-        target=
+        target=tmp_target
     )
 
     chunk_keys = list(r.iter_chunks())
@@ -29,7 +29,7 @@ def test_file_sequence_recipe(file_urls, files_per_chunk, expected_keys, expecte
         assert fnames == expected
 
 
-def test_full_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_dir):
+def test_full_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target):
 
     r = StandardSequentialRecipe(
         file_urls=netcdf_local_paths,
