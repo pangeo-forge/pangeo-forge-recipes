@@ -2,7 +2,6 @@ setuptools
 click
 dask
 distributed
-prefect
 xarray
 zarr
 fsspec[http]
