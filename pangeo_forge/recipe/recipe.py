@@ -9,14 +9,13 @@ import fsspec
 from ..utils import chunked_iterable
 from .target import Target
 
-from typing import Optional, Iterable
+from typing import Optional, Iterable, Callable
 
 
 ### How to manually execute a recipe: ###
 #
-#   r = PangeoForgeTarget()
-#   r = MyRecipe(**opts) # 1
-#   r.set_target(tmp_dir) # 2
+#   t = PangeoForgeTarget()
+#   r = MyRecipe(target=t, **opts) # 1
 #   # manual execution of recipe
 #   r.prepare() # 3
 #   for input_key in r.iter_inputs():
@@ -44,39 +43,110 @@ from typing import Optional, Iterable
 class DatasetRecipe():
     target: Target
 
+    def prepare(self):
+        pass
 
-class FSSpecInputOpenerMixin:
+    def iter_inputs(self):
+        return []
 
-    def open_file(self, fname):
-        # todo: caching
-        return fsspec.open(fname)
+    def cache_input(self, input_key):
+        raise NotImplementedError
+
+    def iter_chunks(self):
+        raise NotImplementedError
+
+    def store_chunk(self, chunk_key):
+        raise NotImplementedError
+
+    def finalize(self):
+        raise NotImplementedError
 
 
-class XarrayChunkOpenerMixin:
+@dataclass
+class FSSpecFileOpenerMixin:
+    input_open_kwargs: dict = {}
 
-    def open_chunk(self, filenames, load=True):
-        files_to_open = [self.open_file(f) for f in filenames]
-        ds_chunk = xr.open_mfdataset(filenames, **self.open_chunk_kwargs)
-        if load:
-            ds_chunk.load()
-        return ds_chunk
+    @contextmanager
+    def input_opener(self, fname):
+        with fsspec.open(fname, **input_open_kwargs) as f:
+            yield f
+
+
+@dataclass
+class InputCachingMixin(FSSpecFileOpenerMixin):
+    input_cache: InputCache
+    require_cache: bool -> False
+
+    # returns a function that takes one input, the input_key
+    # this allows us to parallelize these operations
+    @property
+    def cache_input(self):
+
+        def cache_func(fname: str) -> None:
+            with super().input_opener(fname, mode="rb") as source:
+                with self.input_cache.open(fname, mode="wb") as target:
+                    target.write(source.read())
+
+        return cache_func
+
+    @contextmanager
+    def input_opener(self, fname):
+        if self.input_cache.exists(fname):
+            with self.input_chache.open(fname, mode='rb') as f:
+                yield f
+        elif self.require_cache:
+            raise IOError("Input can only be opened from cache. Call .cache_input first.")
+        else:
+            # This will bypass the cache. May be slow.
+            with super().input_opener(fname, mode="rb") as f:
+                yield f
+
+
+
+@dataclass
+class XarrayInputOpener:
+    xarray_open_kwargs: Any
+
+    def open_input(self, fname):
+        with self.input_opener(fname)  as f:
+            ds = xr.open_dataset(f, **self.xarray_open_kwargs)
+        return ds
+
+
+@dataclass
+class XarrayConcatChunkOpener(XarrayInputOpener):
+    xarray_concat_kwargs: Any
+
+    def open_chunk(self, chunk_key):
+        inputs = self.inputs_for_chunk(chunk_key)
+        dsets = [self.open_input(i) for i in inputs]
+        combined = xr.concat(dsets, **xarray_concat_kwargs)
+        # TODO: maybe do some chunking here?
+        return combined
 
 
 class ZarrWriterMixin:
 
+    @property
+    def store_chunk(self) -> Callable:
 
-    def store_chunk(self, chunk_key):
-        filenames = self.filenames_for_chunk(chunk_key)
-        ds_chunk = self.open_chunk(filenames)
-        target_mapper = self.target.get_mapper()
-        write_region = self.get_write_region(chunk_key)
-        ds_chunk.to_zarr(target_mapper, region=write_region, **target_kwargs)
+        def _store_chunk(chunk_key):
+            ds_chunk = self.open_chunk(chunk_key)
+            target_mapper = self.target.get_mapper()
+            write_region = self.get_write_region(chunk_key)
+            ds_chunk.to_zarr(target_mapper, region=write_region)
+
+        return _store_chunk
 
 
-    def open_target(self):
-        target_mapper = self.target.get_mapper()
-        return xr.open_zarr(target_mapper)
+    @property
+    def open_target(self) -> Callable:
 
+        def _open_target():
+            target_mapper = self.target.get_mapper()
+            return xr.open_zarr(target_mapper)
+
+        return _open_target
 
 
 
@@ -94,7 +164,7 @@ class FileSequenceRecipe(DatasetRecipe):
                               enumerate(chunked_iterable(self.file_urls, self.files_per_chunk))}
 
 
-    def filenames_for_chunk(self, chunk_key):
+    def inputs_for_chunk(self, chunk_key):
         return self._chunks_files[chunk_key]
 
 
