@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from pangeo_forge.recipe.target import Target
+from pangeo_forge.recipe.storage import Target, InputCache
 
 # where to run the http server
 _PORT = "8080"
@@ -79,6 +79,13 @@ def tmp_target(tmpdir_factory):
     return Target(fs, path)
 
 
+@pytest.fixture()
+def tmp_cache(tmpdir_factory):
+    path = str(tmpdir_factory.mktemp("cache"))
+    fs = fsspec.get_filesystem_class("file")()
+    cache = InputCache(fs, prefix='cache')
+    return cache
+
 # tests that our fixtures work
 
 
@@ -103,3 +110,14 @@ def test_target(tmp_target):
     with open(tmp_target.path + '/foo') as f:
         res = f.read()
     assert res == 'bar'
+
+
+def test_cache(tmp_cache):
+    assert not tmp_cache.exists('foo')
+    with tmp_cache.open('foo', mode='w') as f:
+        f.write('bar')
+    assert tmp_cache.exists('foo')
+    with tmp_cache.open('foo', mode='r') as f:
+        assert f.read() == 'bar'
+    tmp_cache.rm('foo')
+    assert not tmp_cache.exists('foo')

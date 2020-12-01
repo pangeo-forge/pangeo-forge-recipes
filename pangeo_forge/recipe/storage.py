@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from contextlib import closing, contextmanager
 import fsspec
+import os
 
 
 @dataclass
@@ -54,6 +55,10 @@ class InputCache:
         self.fs.rm(self._full_path(path))
 
     @contextmanager
-    def open(self, path):
-        with self.fs.open(self._full_path(path)) as f:
+    def open(self, path, **kwargs):
+        with self.fs.open(self._full_path(path), **kwargs) as f:
             yield f
+
+    def __post_init__(self):
+        if not self.fs.isdir(self.prefix):
+            self.fs.mkdir(self.prefix)
