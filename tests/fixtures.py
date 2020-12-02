@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from pangeo_forge.recipe.storage import Target, InputCache
+from pangeo_forge.storage import Target, InputCache
 
 # where to run the http server
 _PORT = "8080"

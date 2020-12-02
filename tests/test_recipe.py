@@ -2,7 +2,7 @@ import pytest
 import xarray as xr
 import zarr
 
-from pangeo_forge.recipe import recipe
+from pangeo_forge import recipe
 
 from .fixtures import daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache
 

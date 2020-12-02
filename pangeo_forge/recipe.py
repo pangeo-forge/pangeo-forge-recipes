@@ -12,7 +12,7 @@ import xarray as xr
 import fsspec
 import zarr
 
-from ..utils import chunked_iterable
+from .utils import chunked_iterable
 from .storage import Target, InputCache
 
 #logger = logging.getLogger(__name__)
@@ -252,7 +252,7 @@ class SequenceRecipe(DatasetRecipe):
             # writing a region means that all the variables MUST have sequence_dim
             to_drop = [v for v in ds.variables
                        if self.sequence_dim not in ds[v].dims]
-            return ds.drop(to_drop)
+            return ds.drop_vars(to_drop)
 
         self.chunk_preprocess_funcs.append(drop_vars)
 
