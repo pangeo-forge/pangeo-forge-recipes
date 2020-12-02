@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from pangeo_forge.storage import Target, InputCache
+from pangeo_forge.storage import InputCache, Target
 
 # where to run the http server
 _PORT = "8080"
@@ -46,7 +46,7 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
     """Return a list of paths pointing to netcdf files."""
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     items_per_file = {"D": 1, "2D": 2}
-    daily_xarray_dataset.attrs['items_per_file'] = items_per_file[request.param]
+    daily_xarray_dataset.attrs["items_per_file"] = items_per_file[request.param]
     gb = daily_xarray_dataset.resample(time=request.param)
     _, datasets = zip(*gb)
     fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
@@ -76,6 +76,7 @@ def netcdf_http_server(netcdf_local_paths):
 @pytest.fixture()
 def tmp_target(tmpdir_factory):
     import fsspec
+
     fs = fsspec.get_filesystem_class("file")()
     path = str(tmpdir_factory.mktemp("target"))
     return Target(fs, path)
@@ -85,8 +86,9 @@ def tmp_target(tmpdir_factory):
 def tmp_cache(tmpdir_factory):
     path = str(tmpdir_factory.mktemp("cache"))
     fs = fsspec.get_filesystem_class("file")()
-    cache = InputCache(fs, prefix='cache')
+    cache = InputCache(fs, prefix="cache")
     return cache
+
 
 # tests that our fixtures work
 
@@ -107,19 +109,19 @@ def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
 
 def test_target(tmp_target):
     mapper = tmp_target.get_mapper()
-    mybytes = b'bar'
-    mapper['foo'] = b'bar'
-    with open(tmp_target.path + '/foo') as f:
+    mybytes = b"bar"
+    mapper["foo"] = b"bar"
+    with open(tmp_target.path + "/foo") as f:
         res = f.read()
-    assert res == 'bar'
+    assert res == "bar"
 
 
 def test_cache(tmp_cache):
-    assert not tmp_cache.exists('foo')
-    with tmp_cache.open('foo', mode='w') as f:
-        f.write('bar')
-    assert tmp_cache.exists('foo')
-    with tmp_cache.open('foo', mode='r') as f:
-        assert f.read() == 'bar'
-    tmp_cache.rm('foo')
-    assert not tmp_cache.exists('foo')
+    assert not tmp_cache.exists("foo")
+    with tmp_cache.open("foo", mode="w") as f:
+        f.write("bar")
+    assert tmp_cache.exists("foo")
+    with tmp_cache.open("foo", mode="r") as f:
+        assert f.read() == "bar"
+    tmp_cache.rm("foo")
+    assert not tmp_cache.exists("foo")

@@ -4,15 +4,28 @@ import zarr
 
 from pangeo_forge import recipe
 
-from .fixtures import daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache
+from .fixtures import daily_xarray_dataset, netcdf_local_paths, tmp_cache, tmp_target
 
 dummy_fnames = ["a.nc", "b.nc", "c.nc"]
+
+
 @pytest.mark.parametrize(
     "file_urls, files_per_chunk, expected_keys, expected_filenames",
     [
         (dummy_fnames, 1, [0, 1, 2], [("a.nc",), ("b.nc",), ("c.nc",)]),
-        (dummy_fnames, 2, [0, 1], [("a.nc", "b.nc",), ("c.nc",)])
-    ]
+        (
+            dummy_fnames,
+            2,
+            [0, 1],
+            [
+                (
+                    "a.nc",
+                    "b.nc",
+                ),
+                ("c.nc",),
+            ],
+        ),
+    ],
 )
 def test_sequence_recipe(file_urls, files_per_chunk, expected_keys, expected_filenames, tmp_target):
 
@@ -47,7 +60,7 @@ def test_full_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_c
         input_urls=netcdf_local_paths,
         sequence_dim="time",
         inputs_per_chunk=1,
-        nitems_per_input=daily_xarray_dataset.attrs['items_per_file']
+        nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
     )
 
     # this is the cannonical way to manually execute a recipe

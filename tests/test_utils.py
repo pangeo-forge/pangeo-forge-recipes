@@ -8,9 +8,29 @@ import pangeo_forge.utils
     [
         ([1, 2, 3], 1, [(1,), (2,), (3,)]),
         ([1, 2, 3], 2, [(1, 2), (3,)]),
-        ([1, 2, 3], 3, [(1, 2, 3,)]),
-        ([1, 2, 3], 4, [(1, 2, 3,)])
-    ]
+        (
+            [1, 2, 3],
+            3,
+            [
+                (
+                    1,
+                    2,
+                    3,
+                )
+            ],
+        ),
+        (
+            [1, 2, 3],
+            4,
+            [
+                (
+                    1,
+                    2,
+                    3,
+                )
+            ],
+        ),
+    ],
 )
 def test_chunked_iterable(iterable, size, expected):
     actual = list(pangeo_forge.utils.chunked_iterable(iterable, size))
