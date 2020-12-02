@@ -2,6 +2,6 @@ setuptools
 click
 dask
 distributed
-xarray
-zarr
+xarray >= 0.16.2
+zarr >= 2.6.0
 fsspec[http]

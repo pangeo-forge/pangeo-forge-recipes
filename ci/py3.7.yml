@@ -25,4 +25,5 @@ dependencies:
   - scipy
   - setuptools
   - toolz
-  - zarr
+  - xarray>=0.16.2
+  - zarr>=2.6.0
