@@ -3,19 +3,19 @@ A Pangeo Forge Recipe
 """
 
 import logging
-from dataclasses import dataclass, field
 from contextlib import contextmanager
-from typing import Optional, Iterable, Callable, Any
+from dataclasses import dataclass, field
+from typing import Any, Callable, Iterable, Optional
 
+import fsspec
 import numpy as np
 import xarray as xr
-import fsspec
 import zarr
 
+from .storage import InputCache, Target
 from .utils import chunked_iterable
-from .storage import Target, InputCache
 
-#logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 logger = logging.getLogger("recipe")
 
 ### How to manually execute a recipe: ###
@@ -46,7 +46,7 @@ logger = logging.getLogger("recipe")
 
 
 @dataclass
-class DatasetRecipe():
+class DatasetRecipe:
     target: Target
     chunk_preprocess_funcs: Iterable[Callable]
 
@@ -54,6 +54,7 @@ class DatasetRecipe():
     def prepare(self):
         def _prepare():
             pass
+
         return _prepare
 
     def iter_inputs(self):
@@ -69,7 +70,7 @@ class DatasetRecipe():
     # this only gets run when iterating, not preparing!
     def preprocess_chunk(self, ds):
         for f in self.chunk_preprocess_funcs:
-             ds = f(ds)
+            ds = f(ds)
         return ds
 
     def iter_chunks(self):
@@ -88,14 +89,16 @@ class DatasetRecipe():
     #         pass
     #     return _finalize
 
+
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
 # This means that, for now, I can't get default arguments to work.
 
+
 @dataclass
 class FSSpecFileOpenerMixin:
-    #input_open_kwargs: dict #= field(default_factory=dict)
+    # input_open_kwargs: dict #= field(default_factory=dict)
 
     @contextmanager
     def input_opener(self, fname, **kwargs):
@@ -106,7 +109,7 @@ class FSSpecFileOpenerMixin:
 
 @dataclass
 class InputCachingMixin(FSSpecFileOpenerMixin):
-    require_cache: bool #= False
+    require_cache: bool  # = False
     input_cache: InputCache
 
     # returns a function that takes one input, the input_key
@@ -115,6 +118,7 @@ class InputCachingMixin(FSSpecFileOpenerMixin):
     def cache_input(self):
 
         opener = super().input_opener
+
         def cache_func(fname: str) -> None:
             logger.info(f"Caching input '{fname}'")
             with opener(fname, mode="rb") as source:
@@ -127,7 +131,7 @@ class InputCachingMixin(FSSpecFileOpenerMixin):
     def input_opener(self, fname):
         if self.input_cache.exists(fname):
             logger.info(f"Input '{fname}' found in cache")
-            with self.input_cache.open(fname, mode='rb') as f:
+            with self.input_cache.open(fname, mode="rb") as f:
                 yield f
         elif self.require_cache:
             # this creates an error on prepare because nothing is cached
@@ -137,7 +141,6 @@ class InputCachingMixin(FSSpecFileOpenerMixin):
             # This will bypass the cache. May be slow.
             with super().input_opener(fname, mode="rb") as f:
                 yield f
-
 
 
 @dataclass
@@ -167,7 +170,7 @@ class XarrayConcatChunkOpener(XarrayInputOpener):
         logger.debug(f"{ds}")
 
         # do we really want to just delete all encoding?
-        #for v in ds.variables:
+        # for v in ds.variables:
         #    ds[v].encoding = {}
 
         # TODO: maybe do some chunking here?
@@ -176,10 +179,8 @@ class XarrayConcatChunkOpener(XarrayInputOpener):
 
 @dataclass
 class ZarrXarrayWriterMixin:
-
     @property
     def store_chunk(self) -> Callable:
-
         def _store_chunk(chunk_key):
             ds_chunk = self.open_chunk(chunk_key)
             ds_chunk = self.preprocess_chunk(ds_chunk)
@@ -190,26 +191,21 @@ class ZarrXarrayWriterMixin:
 
         return _store_chunk
 
-
     def open_target(self):
         target_mapper = self.target.get_mapper()
         return xr.open_zarr(target_mapper)
 
-
     def initialize_target(self, ds, **expand_dims):
         logger.info(f"Creating a new dataset in target")
         target_mapper = self.target.get_mapper()
-        ds.to_zarr(target_mapper, mode='w', compute=False)
-
+        ds.to_zarr(target_mapper, mode="w", compute=False)
 
     def expand_target_dim(self, dim, dimsize):
         target_mapper = self.target.get_mapper()
         zgroup = zarr.open_group(target_mapper)
 
         ds = self.open_target()
-        sequence_axes = {v: ds[v].get_axis_num(dim)
-                         for v in ds.variables
-                         if dim in ds[v].dims}
+        sequence_axes = {v: ds[v].get_axis_num(dim) for v in ds.variables if dim in ds[v].dims}
 
         for v, axis in sequence_axes.items():
             arr = zgroup[v]
@@ -218,15 +214,12 @@ class ZarrXarrayWriterMixin:
             arr.resize(shape)
 
 
-
-
 @dataclass
-class ZarrConsolidatorMixin():
-    consolidate_zarr: bool #= True
+class ZarrConsolidatorMixin:
+    consolidate_zarr: bool  # = True
 
     @property
     def finalize(self):
-
         def _finalize():
             if self.consolidate_zarr:
                 logger.info(f"Consolidating Zarr metadata")
@@ -243,54 +236,43 @@ class SequenceRecipe(DatasetRecipe):
     inputs_per_chunk: int = 1
     nitems_per_input: int = 1
 
-
     def __post_init__(self):
-        self._chunks_inputs = {k: v for k, v in
-                              enumerate(chunked_iterable(self.input_urls, self.inputs_per_chunk))}
+        self._chunks_inputs = {
+            k: v for k, v in enumerate(chunked_iterable(self.input_urls, self.inputs_per_chunk))
+        }
 
         def drop_vars(ds):
             # writing a region means that all the variables MUST have sequence_dim
-            to_drop = [v for v in ds.variables
-                       if self.sequence_dim not in ds[v].dims]
+            to_drop = [v for v in ds.variables if self.sequence_dim not in ds[v].dims]
             return ds.drop_vars(to_drop)
 
         self.chunk_preprocess_funcs.append(drop_vars)
 
-
     def inputs_for_chunk(self, chunk_key):
         return self._chunks_inputs[chunk_key]
-
 
     def iter_inputs(self):
         for chunk_key in self.iter_chunks():
             for input in self.inputs_for_chunk(chunk_key):
                 yield input
 
-
     def nitems_for_chunk(self, chunk_key):
         return self.nitems_per_input * len(self.inputs_for_chunk(chunk_key))
-
 
     def region_for_chunk(self, chunk_key):
         # return a dict suitable to pass to xr.to_zarr(region=...)
         # specifies where in the overall array to put this chunk's data
         stride = self.nitems_per_input * self.inputs_per_chunk
         start = chunk_key * stride
-        return {
-            self.sequence_dim:
-                slice(start, start + self.nitems_for_chunk(chunk_key))
-        }
-
+        return {self.sequence_dim: slice(start, start + self.nitems_for_chunk(chunk_key))}
 
     def sequence_len(self):
         # tells the total size of dataset along the sequence dimension
         return sum([self.nitems_for_chunk(k) for k in self.iter_chunks()])
 
-
     def sequence_chunks(self):
         # chunking
         return {self.sequence_dim: self.inputs_per_chunk * self.nitems_per_input}
-
 
     def iter_chunks(self):
         for k in self._chunks_inputs:
@@ -298,7 +280,6 @@ class SequenceRecipe(DatasetRecipe):
 
     @property
     def prepare(self):
-
         def _prepare():
 
             target_store = self.target.get_mapper()
@@ -313,7 +294,7 @@ class SequenceRecipe(DatasetRecipe):
 
                 # make sure the concat dim has a valid fill_value to avoid
                 # overruns when writing chunk
-                ds[self.sequence_dim].encoding = {'_FillValue': -1}
+                ds[self.sequence_dim].encoding = {"_FillValue": -1}
                 # actually not necessary if we use decode_times=False
                 self.initialize_target(ds)
 
@@ -324,12 +305,12 @@ class SequenceRecipe(DatasetRecipe):
 
 @dataclass
 class StandardSequentialRecipe(
-        SequenceRecipe,
-        InputCachingMixin,
-        XarrayConcatChunkOpener,
-        ZarrXarrayWriterMixin,
-        ZarrConsolidatorMixin
-    ):
+    SequenceRecipe,
+    InputCachingMixin,
+    XarrayConcatChunkOpener,
+    ZarrXarrayWriterMixin,
+    ZarrConsolidatorMixin,
+):
     pass
 
 
@@ -338,7 +319,6 @@ class StandardSequentialRecipe(
 # only needed because of
 # https://github.com/pydata/xarray/issues/4631
 def _fix_scalar_attr_encoding(ds):
-
     def _fixed_attrs(d):
         fixed = {}
         for k, v in d.items():

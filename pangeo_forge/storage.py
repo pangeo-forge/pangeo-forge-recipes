@@ -1,7 +1,8 @@
-from dataclasses import dataclass
-from contextlib import closing, contextmanager
-import fsspec
 import os
+from contextlib import closing, contextmanager
+from dataclasses import dataclass
+
+import fsspec
 
 
 @dataclass
