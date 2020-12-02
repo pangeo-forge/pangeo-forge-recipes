@@ -45,6 +45,8 @@ def daily_xarray_dataset():
 def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
     """Return a list of paths pointing to netcdf files."""
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
+    items_per_file = {"D": 1, "2D": 2}
+    daily_xarray_dataset.attrs['items_per_file'] = items_per_file[request.param]
     gb = daily_xarray_dataset.resample(time=request.param)
     _, datasets = zip(*gb)
     fnames = [f"{n:03d}.nc" for n in range(len(datasets))]

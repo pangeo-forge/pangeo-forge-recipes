@@ -175,7 +175,7 @@ class XarrayConcatChunkOpener(XarrayInputOpener):
 
 
 @dataclass
-class ZarrWriterMixin:
+class ZarrXarrayWriterMixin:
 
     @property
     def store_chunk(self) -> Callable:
@@ -313,7 +313,7 @@ class SequenceRecipe(DatasetRecipe):
 
                 # make sure the concat dim has a valid fill_value to avoid
                 # overruns when writing chunk
-                #ds[self.sequence_dim].encoding = {'_FillValue': 0}
+                ds[self.sequence_dim].encoding = {'_FillValue': -1}
                 # actually not necessary if we use decode_times=False
                 self.initialize_target(ds)
 
@@ -327,7 +327,7 @@ class StandardSequentialRecipe(
         SequenceRecipe,
         InputCachingMixin,
         XarrayConcatChunkOpener,
-        ZarrWriterMixin,
+        ZarrXarrayWriterMixin,
         ZarrConsolidatorMixin
     ):
     pass
