@@ -4,21 +4,20 @@ A Pangeo Forge Recipe
 
 import logging
 from contextlib import contextmanager
-from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Optional
+from dataclasses import dataclass
+from typing import Callable, Iterable
 
 import fsspec
-import numpy as np
 import xarray as xr
 import zarr
 
 from .storage import InputCache, Target
-from .utils import chunked_iterable
+from .utils import chunked_iterable, fix_scalar_attr_encoding
 
 # logger = logging.getLogger(__name__)
 logger = logging.getLogger("recipe")
 
-### How to manually execute a recipe: ###
+# How to manually execute a recipe: ###
 #
 #   t = PangeoForgeTarget()
 #   r = MyRecipe(target=t, **opts) # 1
@@ -29,8 +28,6 @@ logger = logging.getLogger("recipe")
 #   for chunk_key in r.iter_chunks():
 #       r.store_chunk(chunk_key) # 5
 #   r.finalize() # 6
-#
-###
 
 
 # 1) Initialize the Recipe object
@@ -152,7 +149,7 @@ class XarrayInputOpener:
             logger.info(f"Opening input with Xarray '{fname}'")
             ds = xr.open_dataset(f, **self.xarray_open_kwargs).load()
             # do we always want to remove encoding? I think so.
-        ds = _fix_scalar_attr_encoding(ds)
+        ds = fix_scalar_attr_encoding(ds)
         logger.debug(f"{ds}")
         return ds
 
@@ -196,7 +193,7 @@ class ZarrXarrayWriterMixin:
         return xr.open_zarr(target_mapper)
 
     def initialize_target(self, ds, **expand_dims):
-        logger.info(f"Creating a new dataset in target")
+        logger.info("Creating a new dataset in target")
         target_mapper = self.target.get_mapper()
         ds.to_zarr(target_mapper, mode="w", compute=False)
 
@@ -222,7 +219,7 @@ class ZarrConsolidatorMixin:
     def finalize(self):
         def _finalize():
             if self.consolidate_zarr:
-                logger.info(f"Consolidating Zarr metadata")
+                logger.info("Consolidating Zarr metadata")
                 target_mapper = self.target.get_mapper()
                 zarr.consolidate_metadata(target_mapper)
 
@@ -231,10 +228,21 @@ class ZarrConsolidatorMixin:
 
 @dataclass
 class SequenceRecipe(DatasetRecipe):
+    """There are many inputs (a.k.a. files, granules), arranged in a sequence
+    along the dimension `sequence_dim`. Each file may contain multiple variables.
+    """
+
     input_urls: Iterable[str]
+    """The inputs used to generate the dataset."""
+
     sequence_dim: str
+    """The dimension name along which the inputs will be concatenated."""
+
     inputs_per_chunk: int = 1
+    """The number of inputs to use in each chunk."""
+
     nitems_per_input: int = 1
+    """The length of each input along the `sequence_dim` dimension."""
 
     def __post_init__(self):
         self._chunks_inputs = {
@@ -282,11 +290,9 @@ class SequenceRecipe(DatasetRecipe):
     def prepare(self):
         def _prepare():
 
-            target_store = self.target.get_mapper()
-
             try:
                 ds = self.open_target()
-                logger.info(f"Found an existing dataset in target")
+                logger.info("Found an existing dataset in target")
                 logger.debug(f"{ds}")
             except (IOError, zarr.errors.GroupNotFoundError):
                 first_chunk_key = next(self.iter_chunks())
@@ -315,21 +321,3 @@ class StandardSequentialRecipe(
 
 
 # helper utilities
-
-# only needed because of
-# https://github.com/pydata/xarray/issues/4631
-def _fix_scalar_attr_encoding(ds):
-    def _fixed_attrs(d):
-        fixed = {}
-        for k, v in d.items():
-            if isinstance(v, np.ndarray) and len(v) == 1:
-                fixed[k] = v[0]
-        return fixed
-
-    ds = ds.copy()
-    ds.attrs.update(_fixed_attrs(ds.attrs))
-    ds.encoding.update(_fixed_attrs(ds.encoding))
-    for v in ds.variables:
-        ds[v].attrs.update(_fixed_attrs(ds[v].attrs))
-        ds[v].encoding.update(_fixed_attrs(ds[v].encoding))
-    return ds

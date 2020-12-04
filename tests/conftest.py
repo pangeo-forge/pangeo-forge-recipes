@@ -86,42 +86,5 @@ def tmp_target(tmpdir_factory):
 def tmp_cache(tmpdir_factory):
     path = str(tmpdir_factory.mktemp("cache"))
     fs = fsspec.get_filesystem_class("file")()
-    cache = InputCache(fs, prefix="cache")
+    cache = InputCache(fs, prefix=path)
     return cache
-
-
-# tests that our fixtures work
-
-
-def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
-    paths = [str(path) for path in netcdf_local_paths]
-    ds = xr.open_mfdataset(paths, combine="nested", concat_dim="time")
-    assert ds.identical(daily_xarray_dataset)
-
-
-def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
-    url, paths = netcdf_http_server
-    urls = ["/".join([url, str(path)]) for path in paths]
-    open_files = [fsspec.open(url).open() for url in urls]
-    ds = xr.open_mfdataset(open_files, combine="nested", concat_dim="time")
-    assert ds.identical(daily_xarray_dataset)
-
-
-def test_target(tmp_target):
-    mapper = tmp_target.get_mapper()
-    mybytes = b"bar"
-    mapper["foo"] = b"bar"
-    with open(tmp_target.path + "/foo") as f:
-        res = f.read()
-    assert res == "bar"
-
-
-def test_cache(tmp_cache):
-    assert not tmp_cache.exists("foo")
-    with tmp_cache.open("foo", mode="w") as f:
-        f.write("bar")
-    assert tmp_cache.exists("foo")
-    with tmp_cache.open("foo", mode="r") as f:
-        assert f.read() == "bar"
-    tmp_cache.rm("foo")
-    assert not tmp_cache.exists("foo")

@@ -1,11 +1,11 @@
-from typing import Any, Iterable, Tuple
+from typing import Any
 
 import prefect
 
 from ..recipe import DatasetRecipe
 
-class PrefectExecutor():
 
+class PrefectExecutor:
     def prepare_plan(self, r: DatasetRecipe) -> prefect.Flow:
 
         # wrap our functions as prefect tasks
@@ -32,7 +32,6 @@ class PrefectExecutor():
             finalize()
 
         return flow
-
 
     def execute_plan(self, plan: prefect.Flow, **kwargs):
         return plan.run(**kwargs)

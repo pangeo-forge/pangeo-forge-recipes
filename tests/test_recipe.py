@@ -1,10 +1,7 @@
 import pytest
 import xarray as xr
-import zarr
 
 from pangeo_forge import recipe
-
-from .fixtures import daily_xarray_dataset, netcdf_local_paths, tmp_cache, tmp_target
 
 dummy_fnames = ["a.nc", "b.nc", "c.nc"]
 

@@ -1,5 +1,5 @@
 import os
-from contextlib import closing, contextmanager
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import fsspec
