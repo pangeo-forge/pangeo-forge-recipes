@@ -46,6 +46,8 @@ def test_sequence_recipe(file_urls, files_per_chunk, expected_keys, expected_fil
 
 def test_full_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
 
+    # the same recipe is created as a fixture in conftest.py
+    # I left it here explicitly because it makes the test easier to read.
     r = recipe.StandardSequentialRecipe(
         consolidate_zarr=True,
         xarray_open_kwargs={},

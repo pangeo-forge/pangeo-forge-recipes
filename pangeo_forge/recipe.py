@@ -318,6 +318,3 @@ class StandardSequentialRecipe(
     ZarrConsolidatorMixin,
 ):
     pass
-
-
-# helper utilities

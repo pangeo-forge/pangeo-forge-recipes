@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
+from pangeo_forge import recipe
 from pangeo_forge.storage import InputCache, Target
 
 # where to run the http server
@@ -88,3 +89,21 @@ def tmp_cache(tmpdir_factory):
     fs = fsspec.get_filesystem_class("file")()
     cache = InputCache(fs, prefix=path)
     return cache
+
+
+@pytest.fixture
+def sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
+    r = recipe.StandardSequentialRecipe(
+        consolidate_zarr=True,
+        xarray_open_kwargs={},
+        xarray_concat_kwargs={},
+        require_cache=False,
+        input_cache=tmp_cache,
+        target=tmp_target,
+        chunk_preprocess_funcs=[],
+        input_urls=netcdf_local_paths,
+        sequence_dim="time",
+        inputs_per_chunk=1,
+        nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
+    )
+    return r, daily_xarray_dataset, tmp_target
