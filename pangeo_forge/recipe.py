@@ -40,22 +40,26 @@ logger = logging.getLogger(__name__)
 #    Might be coming from the cache or might be read directly.
 # 6)
 
+
 @contextmanager
 def input_opener(fname, **kwargs):
     logger.info(f"Opening input '{fname}'")
     with fsspec.open(fname, **kwargs) as f:
         yield f
 
+
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
 # This means that, for now, I can't get default arguments to work.
+
 
 @dataclass
 class NetCDFtoZarrSequentialRecipe:
     """There are many inputs (a.k.a. files, granules), arranged in a sequence
     along the dimension `sequence_dim`. Each file may contain multiple variables.
     """
+
     input_urls: Iterable[str]
     """The inputs used to generate the dataset."""
 
@@ -140,6 +144,7 @@ class NetCDFtoZarrSequentialRecipe:
         chunk_key : str
             The identifier for the chunk
         """
+
         def _store_chunk(chunk_key):
             ds_chunk = self.open_chunk(chunk_key)
 
@@ -180,8 +185,9 @@ class NetCDFtoZarrSequentialRecipe:
             with self.input_cache.open(fname, mode="rb") as f:
                 yield f
         else:
-            raise ValueError(f"Input '{fname}' has not been cached yet. "
-                             "Call .cache_input() first.")
+            raise ValueError(
+                f"Input '{fname}' has not been cached yet. " "Call .cache_input() first."
+            )
 
     def open_input(self, fname: str):
         with self.input_opener(fname) as f:

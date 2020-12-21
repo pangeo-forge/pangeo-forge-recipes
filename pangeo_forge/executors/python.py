@@ -3,6 +3,7 @@ from typing import Callable, Iterable
 
 Task = Callable[[], None]
 
+
 class PythonExecutor:
     def prepare_plan(self, r):
         tasks = []

@@ -11,18 +11,7 @@ dummy_fnames = ["a.nc", "b.nc", "c.nc"]
     "file_urls, files_per_chunk, expected_keys, expected_filenames",
     [
         (dummy_fnames, 1, [0, 1, 2], [("a.nc",), ("b.nc",), ("c.nc",)]),
-        (
-            dummy_fnames,
-            2,
-            [0, 1],
-            [
-                (
-                    "a.nc",
-                    "b.nc",
-                ),
-                ("c.nc",),
-            ],
-        ),
+        (dummy_fnames, 2, [0, 1], [("a.nc", "b.nc",), ("c.nc",)]),
     ],
 )
 def test_sequence_recipe(file_urls, files_per_chunk, expected_keys, expected_filenames, tmp_target):
@@ -45,7 +34,9 @@ def test_sequence_recipe(file_urls, files_per_chunk, expected_keys, expected_fil
         assert fnames == expected
 
 
-def test_NetCDFtoZarrSequentialRecipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
+def test_NetCDFtoZarrSequentialRecipe(
+    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache
+):
 
     # the same recipe is created as a fixture in conftest.py
     # I left it here explicitly because it makes the test easier to read.
