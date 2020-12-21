@@ -92,18 +92,13 @@ def tmp_cache(tmpdir_factory):
 
 
 @pytest.fixture
-def sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
-    r = recipe.StandardSequentialRecipe(
-        consolidate_zarr=True,
-        xarray_open_kwargs={},
-        xarray_concat_kwargs={},
-        require_cache=False,
-        input_cache=tmp_cache,
-        target=tmp_target,
-        chunk_preprocess_funcs=[],
+def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
+    r = recipe.NetCDFtoZarrSequentialRecipe(
         input_urls=netcdf_local_paths,
         sequence_dim="time",
         inputs_per_chunk=1,
         nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
+        target=tmp_target,
+        input_cache=tmp_cache,
     )
     return r, daily_xarray_dataset, tmp_target

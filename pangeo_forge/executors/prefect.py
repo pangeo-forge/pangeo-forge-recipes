@@ -2,11 +2,9 @@ from typing import Any
 
 import prefect
 
-from ..recipe import DatasetRecipe
-
 
 class PrefectExecutor:
-    def prepare_plan(self, r: DatasetRecipe) -> prefect.Flow:
+    def prepare_plan(self, r) -> prefect.Flow:
 
         # wrap our functions as prefect tasks
         @prefect.task
@@ -26,10 +24,13 @@ class PrefectExecutor:
             r.finalize()
 
         with prefect.Flow("Pangeo-Forge") as flow:
-            prepare()
-            cache_input.map(list(r.iter_inputs()))
-            store_chunk.map(list(r.iter_chunks()))
-            finalize()
+            prep_task = prepare()
+            cache_task = cache_input.map(list(r.iter_inputs()))
+            cache_task.set_dependencies(upstream_tasks=[prep_task])
+            store_task = store_chunk.map(list(r.iter_chunks()))
+            store_task.set_dependencies(upstream_tasks=[cache_task])
+            finalize_task = finalize()
+            finalize_task.set_dependencies(upstream_tasks=[store_task])
 
         return flow
 

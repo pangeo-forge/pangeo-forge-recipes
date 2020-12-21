@@ -1,14 +1,10 @@
 from functools import partial
 from typing import Callable, Iterable
 
-# from ..types import Pipeline, Stage, Task
-from ..recipe import DatasetRecipe
-
 Task = Callable[[], None]
 
-
 class PythonExecutor:
-    def prepare_plan(self, r: DatasetRecipe) -> Task:
+    def prepare_plan(self, r):
         tasks = []
         tasks.append(r.prepare)
         for input in r.iter_inputs():

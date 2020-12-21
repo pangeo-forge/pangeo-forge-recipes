@@ -4,8 +4,8 @@ A Pangeo Forge Recipe
 
 import logging
 from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import Callable, Iterable
+from dataclasses import dataclass, field
+from typing import Callable, Iterable, Optional
 
 import fsspec
 import xarray as xr
@@ -14,8 +14,7 @@ import zarr
 from .storage import InputCache, Target
 from .utils import chunked_iterable, fix_scalar_attr_encoding
 
-# logger = logging.getLogger(__name__)
-logger = logging.getLogger("recipe")
+logger = logging.getLogger(__name__)
 
 # How to manually execute a recipe: ###
 #
@@ -41,122 +40,158 @@ logger = logging.getLogger("recipe")
 #    Might be coming from the cache or might be read directly.
 # 6)
 
-
-@dataclass
-class DatasetRecipe:
-    target: Target
-    chunk_preprocess_funcs: Iterable[Callable]
-
-    @property
-    def prepare(self):
-        def _prepare():
-            pass
-
-        return _prepare
-
-    def iter_inputs(self):
-        return []
-
-    # need to figure out what's going on with these methods and inheritance
-    # @property
-    # def cache_input(self):
-    #     def _cache_input(input_key):
-    #         raise NotImplementedError
-    #     return _cache_input
-
-    # this only gets run when iterating, not preparing!
-    def preprocess_chunk(self, ds):
-        for f in self.chunk_preprocess_funcs:
-            ds = f(ds)
-        return ds
-
-    def iter_chunks(self):
-        raise NotImplementedError
-
-    # @property
-    # def store_chunk(self):
-    #     def _store_chunk(chunk_key):
-    #         raise NotImplementedError
-    #     return _store_chunk
-
-    # @property
-    # def finalize(self):
-    #
-    #     def _finalize():
-    #         pass
-    #     return _finalize
-
+@contextmanager
+def input_opener(fname, **kwargs):
+    logger.info(f"Opening input '{fname}'")
+    with fsspec.open(fname, **kwargs) as f:
+        yield f
 
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
 # This means that, for now, I can't get default arguments to work.
 
-
 @dataclass
-class FSSpecFileOpenerMixin:
-    # input_open_kwargs: dict #= field(default_factory=dict)
+class NetCDFtoZarrSequentialRecipe:
+    """There are many inputs (a.k.a. files, granules), arranged in a sequence
+    along the dimension `sequence_dim`. Each file may contain multiple variables.
+    """
+    input_urls: Iterable[str]
+    """The inputs used to generate the dataset."""
 
-    @contextmanager
-    def input_opener(self, fname, **kwargs):
-        logger.info(f"Opening input '{fname}'")
-        with fsspec.open(fname, **kwargs) as f:
-            yield f
+    sequence_dim: str
+    """The dimension name along which the inputs will be concatenated."""
 
+    inputs_per_chunk: int = 1
+    """The number of inputs to use in each chunk."""
 
-@dataclass
-class InputCachingMixin(FSSpecFileOpenerMixin):
-    require_cache: bool  # = False
-    input_cache: InputCache
+    nitems_per_input: int = 1
+    """The length of each input along the `sequence_dim` dimension."""
 
-    # returns a function that takes one input, the input_key
-    # this allows us to parallelize these operations
+    target: Optional[Target] = None
+    """A location in which to put the dataset."""
+
+    input_cache: Optional[InputCache] = None
+    """The length of each input along the `sequence_dim` dimension."""
+
+    consolidate_zarr: bool = True
+    """Whether to consolidate the resulting Zarr dataset."""
+
+    xarray_open_kwargs: dict = field(default_factory=dict)
+    """Extra options for opening the inputs with Xarray."""
+
+    xarray_concat_kwargs: dict = field(default_factory=dict)
+    """Extra options to pass to Xarray when concatenating the inputs to form a chunk."""
+
+    def __post_init__(self):
+        self._chunks_inputs = {
+            k: v for k, v in enumerate(chunked_iterable(self.input_urls, self.inputs_per_chunk))
+        }
+
     @property
-    def cache_input(self):
+    def prepare(self) -> Callable:
+        """Prepare target for storing dataset."""
 
-        opener = super().input_opener
+        def _prepare():
+
+            try:
+                ds = self.open_target()
+                logger.info("Found an existing dataset in target")
+                logger.debug(f"{ds}")
+            except (IOError, zarr.errors.GroupNotFoundError):
+                first_chunk_key = next(self.iter_chunks())
+                for input_url in self.inputs_for_chunk(first_chunk_key):
+                    self.cache_input(input_url)
+                ds = self.open_chunk(first_chunk_key).chunk()
+
+                # make sure the concat dim has a valid fill_value to avoid
+                # overruns when writing chunk
+                ds[self.sequence_dim].encoding = {"_FillValue": -1}
+                # actually not necessary if we use decode_times=False
+                self.initialize_target(ds)
+
+            self.expand_target_dim(self.sequence_dim, self.sequence_len())
+
+        return _prepare
+
+    @property
+    def cache_input(self) -> Callable:
+        """Cache the input.
+
+        Properties
+        ----------
+        url : URL pointing to the input file. Must be openable by fsspec.
+        """
 
         def cache_func(fname: str) -> None:
             logger.info(f"Caching input '{fname}'")
-            with opener(fname, mode="rb") as source:
+            with input_opener(fname, mode="rb") as source:
                 with self.input_cache.open(fname, mode="wb") as target:
                     target.write(source.read())
 
         return cache_func
 
+    @property
+    def store_chunk(self) -> Callable:
+        """Store a chunk in the target.
+
+        Parameters
+        ----------
+        chunk_key : str
+            The identifier for the chunk
+        """
+        def _store_chunk(chunk_key):
+            ds_chunk = self.open_chunk(chunk_key)
+
+            def drop_vars(ds):
+                # writing a region means that all the variables MUST have sequence_dim
+                to_drop = [v for v in ds.variables if self.sequence_dim not in ds[v].dims]
+                return ds.drop_vars(to_drop)
+
+            ds_chunk = drop_vars(ds_chunk)
+            target_mapper = self.target.get_mapper()
+            write_region = self.region_for_chunk(chunk_key)
+            logger.info(f"Storing chunk '{chunk_key}' to Zarr region {write_region}")
+            ds_chunk.to_zarr(target_mapper, region=write_region)
+
+        return _store_chunk
+
+    @property
+    def finalize(self) -> Callable:
+        """Finalize writing of dataset."""
+
+        def _finalize():
+            if self.consolidate_zarr:
+                logger.info("Consolidating Zarr metadata")
+                target_mapper = self.target.get_mapper()
+                zarr.consolidate_metadata(target_mapper)
+
+        return _finalize
+
     @contextmanager
-    def input_opener(self, fname):
-        if self.input_cache.exists(fname):
+    def input_opener(self, fname: str):
+        if self.input_cache is None:
+            logger.info(f"No cache. Opening input `{fname}` directly.")
+            # This will bypass the cache. May be slow.
+            with input_opener(fname, mode="rb") as f:
+                yield f
+        elif self.input_cache.exists(fname):
             logger.info(f"Input '{fname}' found in cache")
             with self.input_cache.open(fname, mode="rb") as f:
                 yield f
-        elif self.require_cache:
-            # this creates an error on prepare because nothing is cached
-            raise IOError("Input can only be opened from cache. Call .cache_input first.")
         else:
-            logger.info(f"Input '{fname}' not found in cache. Opening directly.")
-            # This will bypass the cache. May be slow.
-            with super().input_opener(fname, mode="rb") as f:
-                yield f
+            raise ValueError(f"Input '{fname}' has not been cached yet. "
+                             "Call .cache_input() first.")
 
-
-@dataclass
-class XarrayInputOpener:
-    xarray_open_kwargs: dict
-
-    def open_input(self, fname):
+    def open_input(self, fname: str):
         with self.input_opener(fname) as f:
             logger.info(f"Opening input with Xarray '{fname}'")
-            ds = xr.open_dataset(f, **self.xarray_open_kwargs).load()
-            # do we always want to remove encoding? I think so.
+            ds = xr.open_dataset(f, **self.xarray_open_kwargs)
+            # explicitly load into memory
+            ds = ds.load()
         ds = fix_scalar_attr_encoding(ds)
         logger.debug(f"{ds}")
         return ds
-
-
-@dataclass
-class XarrayConcatChunkOpener(XarrayInputOpener):
-    xarray_concat_kwargs: dict
 
     def open_chunk(self, chunk_key):
         logger.info(f"Concatenating inputs for chunk '{chunk_key}'")
@@ -166,27 +201,8 @@ class XarrayConcatChunkOpener(XarrayInputOpener):
         ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
         logger.debug(f"{ds}")
 
-        # do we really want to just delete all encoding?
-        # for v in ds.variables:
-        #    ds[v].encoding = {}
-
         # TODO: maybe do some chunking here?
         return ds
-
-
-@dataclass
-class ZarrXarrayWriterMixin:
-    @property
-    def store_chunk(self) -> Callable:
-        def _store_chunk(chunk_key):
-            ds_chunk = self.open_chunk(chunk_key)
-            ds_chunk = self.preprocess_chunk(ds_chunk)
-            target_mapper = self.target.get_mapper()
-            write_region = self.region_for_chunk(chunk_key)
-            logger.info(f"Storing chunk '{chunk_key}' to Zarr region {write_region}")
-            ds_chunk.to_zarr(target_mapper, region=write_region)
-
-        return _store_chunk
 
     def open_target(self):
         target_mapper = self.target.get_mapper()
@@ -210,52 +226,6 @@ class ZarrXarrayWriterMixin:
             shape[axis] = dimsize
             arr.resize(shape)
 
-
-@dataclass
-class ZarrConsolidatorMixin:
-    consolidate_zarr: bool  # = True
-
-    @property
-    def finalize(self):
-        def _finalize():
-            if self.consolidate_zarr:
-                logger.info("Consolidating Zarr metadata")
-                target_mapper = self.target.get_mapper()
-                zarr.consolidate_metadata(target_mapper)
-
-        return _finalize
-
-
-@dataclass
-class SequenceRecipe(DatasetRecipe):
-    """There are many inputs (a.k.a. files, granules), arranged in a sequence
-    along the dimension `sequence_dim`. Each file may contain multiple variables.
-    """
-
-    input_urls: Iterable[str]
-    """The inputs used to generate the dataset."""
-
-    sequence_dim: str
-    """The dimension name along which the inputs will be concatenated."""
-
-    inputs_per_chunk: int = 1
-    """The number of inputs to use in each chunk."""
-
-    nitems_per_input: int = 1
-    """The length of each input along the `sequence_dim` dimension."""
-
-    def __post_init__(self):
-        self._chunks_inputs = {
-            k: v for k, v in enumerate(chunked_iterable(self.input_urls, self.inputs_per_chunk))
-        }
-
-        def drop_vars(ds):
-            # writing a region means that all the variables MUST have sequence_dim
-            to_drop = [v for v in ds.variables if self.sequence_dim not in ds[v].dims]
-            return ds.drop_vars(to_drop)
-
-        self.chunk_preprocess_funcs.append(drop_vars)
-
     def inputs_for_chunk(self, chunk_key):
         return self._chunks_inputs[chunk_key]
 
@@ -272,7 +242,8 @@ class SequenceRecipe(DatasetRecipe):
         # specifies where in the overall array to put this chunk's data
         stride = self.nitems_per_input * self.inputs_per_chunk
         start = chunk_key * stride
-        return {self.sequence_dim: slice(start, start + self.nitems_for_chunk(chunk_key))}
+        region_slice = slice(start, start + self.nitems_for_chunk(chunk_key))
+        return {self.sequence_dim: region_slice}
 
     def sequence_len(self):
         # tells the total size of dataset along the sequence dimension
@@ -285,36 +256,3 @@ class SequenceRecipe(DatasetRecipe):
     def iter_chunks(self):
         for k in self._chunks_inputs:
             yield k
-
-    @property
-    def prepare(self):
-        def _prepare():
-
-            try:
-                ds = self.open_target()
-                logger.info("Found an existing dataset in target")
-                logger.debug(f"{ds}")
-            except (IOError, zarr.errors.GroupNotFoundError):
-                first_chunk_key = next(self.iter_chunks())
-                ds = self.open_chunk(first_chunk_key).chunk()
-
-                # make sure the concat dim has a valid fill_value to avoid
-                # overruns when writing chunk
-                ds[self.sequence_dim].encoding = {"_FillValue": -1}
-                # actually not necessary if we use decode_times=False
-                self.initialize_target(ds)
-
-            self.expand_target_dim(self.sequence_dim, self.sequence_len())
-
-        return _prepare
-
-
-@dataclass
-class StandardSequentialRecipe(
-    SequenceRecipe,
-    InputCachingMixin,
-    XarrayConcatChunkOpener,
-    ZarrXarrayWriterMixin,
-    ZarrConsolidatorMixin,
-):
-    pass
