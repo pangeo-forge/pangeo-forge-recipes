@@ -11,7 +11,7 @@ dummy_fnames = ["a.nc", "b.nc", "c.nc"]
     "file_urls, files_per_chunk, expected_keys, expected_filenames",
     [
         (dummy_fnames, 1, [0, 1, 2], [("a.nc",), ("b.nc",), ("c.nc",)]),
-        (dummy_fnames, 2, [0, 1], [("a.nc", "b.nc",), ("c.nc",)]),
+        (dummy_fnames, 2, [0, 1], [("a.nc", "b.nc",), ("c.nc",),],),  # noqa: E231
     ],
 )
 def test_sequence_recipe(file_urls, files_per_chunk, expected_keys, expected_filenames, tmp_target):
