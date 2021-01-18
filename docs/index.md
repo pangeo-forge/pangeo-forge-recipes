@@ -4,6 +4,7 @@
 :maxdepth: 2
 :caption: Contents
 
-contribute
-design
+concepts
+contribte
+
 ```

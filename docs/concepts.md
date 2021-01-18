@@ -1,7 +1,18 @@
-# Design
+# Concepts
 
 pangeo-forge is modeled after [conda-forge], a community-led collection of recipes
 for building conda packages.
+
+## Recipes
+
+The most important concept in Pangeo Forge is a ``Recipe``.
+A recipe defines how to transform data in one format / location into another format / location.
+
+
+## Storage
+
+
+
 
 ## Components
 

@@ -3,9 +3,10 @@ A Pangeo Forge Recipe
 """
 
 import logging
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Optional
+from typing import Callable, Hashable, Iterable, NoReturn, Optional
 
 import fsspec
 import xarray as xr
@@ -49,14 +50,60 @@ def input_opener(fname, **kwargs):
         yield f
 
 
+class BaseRecipe(ABC):
+    @property
+    @abstractmethod
+    def prepare(self) -> Callable[[], NoReturn]:
+        pass
+
+    @abstractmethod
+    def iter_inputs(self) -> Iterable[Hashable]:
+        pass
+
+    @property
+    @abstractmethod
+    def cache_input(self) -> Callable[[Hashable], NoReturn]:
+        pass
+
+    @abstractmethod
+    def iter_chunks(self) -> Iterable[Hashable]:
+        pass
+
+    @property
+    @abstractmethod
+    def store_chunk(self) -> Callable[[Hashable], NoReturn]:
+        pass
+
+    @property
+    @abstractmethod
+    def finalize(self) -> Callable[[], NoReturn]:
+        pass
+
+    def to_pipelines(self) -> ParallelPipelines:
+        """Translate recipe to pipelines
+
+        Returns
+        -------
+        pipeline : ParallelPipelines
+        """
+
+        pipeline = []  # type: MultiStagePipeline
+        pipeline.append(Stage(self.prepare))
+        pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
+        pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
+        pipeline.append(Stage(self.finalize))
+        pipelines = []  # type: ParallelPipelines
+        pipelines.append(pipeline)
+        return pipelines
+
+
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
-# This means that, for now, I can't get default arguments to work.
 
 
 @dataclass
-class NetCDFtoZarrSequentialRecipe:
+class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     """There are many inputs (a.k.a. files, granules), arranged in a sequence
     along the dimension `sequence_dim`. Each file may contain multiple variables.
     """
@@ -92,14 +139,6 @@ class NetCDFtoZarrSequentialRecipe:
         self._chunks_inputs = {
             k: v for k, v in enumerate(chunked_iterable(self.input_urls, self.inputs_per_chunk))
         }
-
-    def to_pipelines(self) -> ParallelPipelines:
-        pipeline = []  # type: MultiStagePipeline
-        pipeline.append(Stage(self.prepare))
-        pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
-        pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
-        pipeline.append(Stage(self.finalize))
-        return [pipeline]  # type: ParallelPipelines
 
     @property
     def prepare(self) -> Callable:
