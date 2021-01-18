@@ -27,3 +27,5 @@ dependencies:
   - toolz
   - xarray>=0.16.2
   - zarr>=2.6.0
+  - pip:
+    - git+https://github.com/rabernat/rechunker.git@refactor-executors
