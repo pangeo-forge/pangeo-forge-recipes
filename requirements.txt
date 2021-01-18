@@ -2,6 +2,7 @@ setuptools
 click
 dask
 distributed
+rechunker
 xarray >= 0.16.2
 zarr >= 2.6.0
 fsspec[http]
