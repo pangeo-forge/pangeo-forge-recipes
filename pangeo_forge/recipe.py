@@ -10,6 +10,7 @@ from typing import Callable, Iterable, Optional
 import fsspec
 import xarray as xr
 import zarr
+from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
 from .storage import InputCache, Target
 from .utils import chunked_iterable, fix_scalar_attr_encoding
@@ -91,6 +92,14 @@ class NetCDFtoZarrSequentialRecipe:
         self._chunks_inputs = {
             k: v for k, v in enumerate(chunked_iterable(self.input_urls, self.inputs_per_chunk))
         }
+
+    def to_pipelines(self) -> ParallelPipelines:
+        pipeline = []  # type: MultiStagePipeline
+        pipeline.append(Stage(self.prepare))
+        pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
+        pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
+        pipeline.append(Stage(self.finalize))
+        return [pipeline]  # type: ParallelPipelines
 
     @property
     def prepare(self) -> Callable:
