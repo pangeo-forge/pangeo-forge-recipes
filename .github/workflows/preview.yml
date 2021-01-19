@@ -18,11 +18,11 @@ jobs:
         docs-folder: "docs/"
     - name: Commit documentation changes to preview branch
       run: |
-        if git clone https://github.com/pangeo-data/pangeo.git --branch ${{ github.head_ref }}-preview --single-branch gh-pages ; then
+        if git clone https://github.com/pangeo-forge/pangeo-forge.git --branch ${{ github.head_ref }}-preview --single-branch gh-pages ; then
           cd gh-pages
           echo "COMMENT_ON_PR=false" >> $GITHUB_ENV
         else
-          git clone https://github.com/pangeo-data/pangeo.git --branch gh-pages --single-branch gh-pages
+          git clone https://github.com/pangeo-forge/pangeo-forge.git --branch gh-pages --single-branch gh-pages
           cd gh-pages
           git checkout -b ${{ github.head_ref }}-preview
           echo "COMMENT_ON_PR=true" >> $GITHUB_ENV
@@ -48,7 +48,7 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: 'Thank you for your contributions!\n\nA preview of your changes can be viewed at:\n- https://raw.githack.com/pangeo-data/pangeo/${{ github.head_ref }}-preview/index.html'
+            body: 'Thank you for your contributions!\n\nA preview of your changes can be viewed at:\n- https://raw.githack.com/pangeo-forge/pangeo-forge/${{ github.head_ref }}-preview/index.html'
             })
   build:
     if: github.event.pull_request.head.repo.full_name != github.repository
