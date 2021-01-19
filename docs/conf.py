@@ -11,6 +11,9 @@ author = "Pangeo Community"
 
 extensions = [
     "myst_parser",
+    "sphinx.ext.autodoc",
+    # "numpydoc",
+    "sphinx_autodoc_typehints",
 ]
 
 templates_path = ["_templates"]
@@ -21,5 +24,6 @@ master_doc = "index"
 
 html_theme = "pangeo"
 html_static_path = ["_static"]
+html_sidebars = {"index": [], "**": ["localtoc.html"]}
 
 myst_heading_anchors = 2

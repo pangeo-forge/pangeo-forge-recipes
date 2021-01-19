@@ -51,40 +51,53 @@ def input_opener(fname, **kwargs):
 
 
 class BaseRecipe(ABC):
+    """Base recipe class from which all other Recipes inherit.
+    """
+
     @property
     @abstractmethod
     def prepare(self) -> Callable[[], NoReturn]:
+        """Prepare the recipe for execution by initializing the target.
+        Attribute that returns a callable function.
+        """
         pass
 
     @abstractmethod
     def iter_inputs(self) -> Iterable[Hashable]:
+        """Iterate over all inputs."""
         pass
 
     @property
     @abstractmethod
     def cache_input(self) -> Callable[[Hashable], NoReturn]:
+        """Copy an input from its source location to the cache.
+        Attribute that returns a callable function.
+        """
         pass
 
     @abstractmethod
     def iter_chunks(self) -> Iterable[Hashable]:
+        """Iterate over all target chunks."""
         pass
 
     @property
     @abstractmethod
     def store_chunk(self) -> Callable[[Hashable], NoReturn]:
+        """Store a chunk of data in the target.
+        Attribute that returns a callable function.
+        """
         pass
 
     @property
     @abstractmethod
     def finalize(self) -> Callable[[], NoReturn]:
+        """Final step to finish the recipe after data has been written.
+        Attribute that returns a callable function.
+        """
         pass
 
     def to_pipelines(self) -> ParallelPipelines:
-        """Translate recipe to pipelines
-
-        Returns
-        -------
-        pipeline : ParallelPipelines
+        """Translate recipe to pipeline for execution.
         """
 
         pipeline = []  # type: MultiStagePipeline
@@ -106,34 +119,28 @@ class BaseRecipe(ABC):
 class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     """There are many inputs (a.k.a. files, granules), arranged in a sequence
     along the dimension `sequence_dim`. Each file may contain multiple variables.
+
+    :param input_urls: The inputs used to generate the dataset.
+    :param sequence_dim: The dimension name along which the inputs will be concatenated.
+    :param inputs_per_chunk: The number of inputs to use in each chunk.
+    :param nitems_per_input: The length of each input along the `sequence_dim` dimension.
+    :param target: A location in which to put the dataset. Can also be assigned at run time.
+    :param input_cache: A location in which to cache temporary data.
+    :param consolidate_zarr: Whether to consolidate the resulting Zarr dataset.
+    :param xarray_open_kwargs: Extra options for opening the inputs with Xarray.
+    :param xarray_concat_kwargs: Extra options to pass to Xarray when concatenating
+       the inputs to form a chunk.
     """
 
     input_urls: Iterable[str]
-    """The inputs used to generate the dataset."""
-
     sequence_dim: str
-    """The dimension name along which the inputs will be concatenated."""
-
     inputs_per_chunk: int = 1
-    """The number of inputs to use in each chunk."""
-
     nitems_per_input: int = 1
-    """The length of each input along the `sequence_dim` dimension."""
-
     target: Optional[Target] = None
-    """A location in which to put the dataset."""
-
     input_cache: Optional[InputCache] = None
-    """The length of each input along the `sequence_dim` dimension."""
-
     consolidate_zarr: bool = True
-    """Whether to consolidate the resulting Zarr dataset."""
-
     xarray_open_kwargs: dict = field(default_factory=dict)
-    """Extra options for opening the inputs with Xarray."""
-
     xarray_concat_kwargs: dict = field(default_factory=dict)
-    """Extra options to pass to Xarray when concatenating the inputs to form a chunk."""
 
     def __post_init__(self):
         self._chunks_inputs = {
