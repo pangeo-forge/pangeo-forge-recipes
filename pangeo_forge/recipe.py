@@ -119,6 +119,7 @@ class BaseRecipe(ABC):
 class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     """There are many inputs (a.k.a. files, granules), arranged in a sequence
     along the dimension `sequence_dim`. Each file may contain multiple variables.
+    This class uses Xarray to read and write data.
 
     :param input_urls: The inputs used to generate the dataset.
     :param sequence_dim: The dimension name along which the inputs will be concatenated.
@@ -149,8 +150,6 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
 
     @property
     def prepare(self) -> Callable:
-        """Prepare target for storing dataset."""
-
         def _prepare():
 
             try:
@@ -175,13 +174,6 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
 
     @property
     def cache_input(self) -> Callable:
-        """Cache the input.
-
-        Properties
-        ----------
-        url : URL pointing to the input file. Must be openable by fsspec.
-        """
-
         def cache_func(fname: str) -> None:
             logger.info(f"Caching input '{fname}'")
             with input_opener(fname, mode="rb") as source:
@@ -192,14 +184,6 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
 
     @property
     def store_chunk(self) -> Callable:
-        """Store a chunk in the target.
-
-        Parameters
-        ----------
-        chunk_key : str
-            The identifier for the chunk
-        """
-
         def _store_chunk(chunk_key):
             ds_chunk = self.open_chunk(chunk_key)
 
@@ -218,8 +202,6 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
 
     @property
     def finalize(self) -> Callable:
-        """Finalize writing of dataset."""
-
         def _finalize():
             if self.consolidate_zarr:
                 logger.info("Consolidating Zarr metadata")
