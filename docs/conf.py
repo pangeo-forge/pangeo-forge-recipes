@@ -1,4 +1,4 @@
-import sphinx_pangeo_theme  # noqa
+# import sphinx_pangeo_theme  # noqa
 
 # -- Project information -----------------------------------------------------
 
@@ -19,7 +19,7 @@ master_doc = "index"
 
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = "pangeo"
+# html_theme = "pangeo"
 html_static_path = ["_static"]
 
 myst_heading_anchors = 2
