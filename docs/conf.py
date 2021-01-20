@@ -19,7 +19,7 @@ master_doc = "index"
 
 # -- Options for HTML output -------------------------------------------------
 
-# html_theme = "pangeo"
+html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
 myst_heading_anchors = 2
