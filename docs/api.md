@@ -4,12 +4,12 @@
 ## Storage
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.storage.Target
+.. autoclass:: pangeo_forge.storage.FSSpecTarget
     :members:
 ```
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.storage.InputCache
+.. autoclass:: pangeo_forge.storage.CacheFSSpecTarget
     :members:
 ```
 

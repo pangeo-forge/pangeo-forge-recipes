@@ -138,7 +138,9 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     :param consolidate_zarr: Whether to consolidate the resulting Zarr dataset.
     :param xarray_open_kwargs: Extra options for opening the inputs with Xarray.
     :param xarray_concat_kwargs: Extra options to pass to Xarray when concatenating
-       the inputs to form a chunk.
+      the inputs to form a chunk.
+    :param delete_input_encoding: Whether to remove Xarray encoding from variables
+      in the input dataset
     """
 
     input_urls: Iterable[str] = field(repr=False)
@@ -151,6 +153,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_kwargs: dict = field(default_factory=dict)
+    delete_input_encoding: bool = True
 
     def __post_init__(self):
         self._chunks_inputs = {
@@ -245,6 +248,11 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
             # explicitly load into memory
             ds = ds.load()
         ds = fix_scalar_attr_encoding(ds)
+
+        if self.delete_input_encoding:
+            for var in ds.variables:
+                ds[var].encoding = {}
+
         logger.debug(f"{ds}")
         return ds
 
@@ -255,8 +263,6 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
         # CONCAT DELETES ENCODING!!!
         # OR NO IT DOESN'T! Not in the latest version of xarray?
         ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
-        for var in ds.variables:
-            ds[var].encoding = {}
         logger.debug(f"{ds}")
 
         # TODO: maybe do some chunking here?

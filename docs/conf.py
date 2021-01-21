@@ -15,18 +15,22 @@ extensions = [
     "sphinx.ext.autodoc",
     # "numpydoc",
     "sphinx_autodoc_typehints",
+    "sphinx_copybutton",
 ]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 master_doc = "index"
 
+# we always have to manually run the notebooks because they are slow / expensive
+jupyter_execute_notebooks = "off"
+
 # -- Options for HTML output -------------------------------------------------
 
 html_theme = "sphinx_book_theme"
 html_logo = "_static/pangeo-forge-logo-blue.png"
-# html_theme = "pangeo"
-# html_static_path = ["_static"]
-# html_sidebars = {"index": [], "**": ["localtoc.html"]}
-
+html_static_path = ["_static"]
 myst_heading_anchors = 2
+html_css_files = [
+    "custom.css",
+]

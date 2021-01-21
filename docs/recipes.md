@@ -12,7 +12,7 @@ you are reading matches your installed version of pangeo_forge.
 
 Recipes need a place to store data.
 The location where the final dataset produced by the recipe is stored is called the
-``Target``. Pangeo forge has a special class for this: {class}`pangeo_forge.storage.Target`
+``Target``. Pangeo forge has a special class for this: {class}`pangeo_forge.storage.FSSpecTarget`
 
 Creating a Target requires two arguments:
 - The ``fs`` argument is an [fsspec](https://filesystem-spec.readthedocs.io/en/latest/)
@@ -20,20 +20,17 @@ Creating a Target requires two arguments:
   [built in](https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations)
   and [third party](https://filesystem-spec.readthedocs.io/en/latest/api.html#other-known-implementations)
   implementations.
-- The `path` argument specifies the specific path where the data should be stored.
+- The `root_path` argument specifies the specific path where the data should be stored.
 
 For example, creating a storage target for AWS S3 might look like this:
 ```{code-block} python
 import s3fs
 fs = s3fs.S3FileSystem(key="MY_AWS_KEY", secret="MY_AWS_SECRET")
 target_path = "pangeo-forge-bucket/my-dataset-v1.zarr"
-target = Target(fs=fs, path=target_path)
+target = FSSpecTarget(fs=fs, root_path=target_path)
 ```
 
-Temporary data can be stored in an {class}`pangeo_forge.storage.InputCache` object.
-``InputCache`` is similar to ``Target``, but instead of specifying a ``path``,
-you specify ``prefix``.
-
+Temporary data is recommended to use a {class}`pangeo_forge.storage.CacheFSSpecTarget` object.
 
 ## The Base Recipe Class
 
@@ -43,9 +40,6 @@ recipe = Recipe(option1='foo', option2=)
 ```
 
 All recipes follow the same basic steps.
-
-
-
 
 
 ## Specific Recipe Classes
