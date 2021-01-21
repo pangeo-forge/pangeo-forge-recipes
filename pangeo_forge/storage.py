@@ -85,6 +85,12 @@ class FlatFSSpecTarget(FSSpecTarget):
         return os.path.join(self.root_path, new_path)
 
 
+class CacheFSSpecTarget(FlatFSSpecTarget):
+    """Alias for FlatFSSpecTarget"""
+
+    pass
+
+
 def _slugify(value):
     # Adopted from
     # https://github.com/django/django/blob/master/django/utils/text.py

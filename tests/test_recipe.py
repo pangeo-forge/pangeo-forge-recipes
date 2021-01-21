@@ -2,6 +2,7 @@ import pytest
 import xarray as xr
 
 from pangeo_forge import recipe
+from pangeo_forge.storage import UninitializedTargetError
 
 dummy_fnames = ["a.nc", "b.nc", "c.nc"]
 
@@ -50,13 +51,29 @@ def test_NetCDFtoZarrSequentialRecipe(
     )
 
     # this is the cannonical way to manually execute a recipe
-    r.prepare()
     for input_key in r.iter_inputs():
         r.cache_input(input_key)
+    r.prepare_target()
     for chunk_key in r.iter_chunks():
         r.store_chunk(chunk_key)
-    r.finalize()
+    r.finalize_target()
 
     ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).load()
     ds_expected = daily_xarray_dataset.compute()
     assert ds_target.identical(ds_expected)
+
+
+def test_NetCDFtoZarrSequentialRecipeNoTarget(
+    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache
+):
+
+    r = recipe.NetCDFtoZarrSequentialRecipe(
+        input_urls=netcdf_local_paths,
+        sequence_dim="time",
+        inputs_per_chunk=1,
+        nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
+    )
+
+    # this is the cannonical way to manually execute a recipe
+    with pytest.raises(UninitializedTargetError):
+        r.cache_input(next(r.iter_inputs()))

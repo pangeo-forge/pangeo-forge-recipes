@@ -13,7 +13,7 @@ import xarray as xr
 import zarr
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
-from .storage import AbstractTarget
+from .storage import AbstractTarget, UninitializedTarget
 from .utils import chunked_iterable, fix_scalar_attr_encoding
 
 logger = logging.getLogger(__name__)
@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 #   t = PangeoForgeTarget()
 #   r = MyRecipe(target=t, **opts) # 1
 #   # manual execution of recipe
-#   r.prepare() # 3
 #   for input_key in r.iter_inputs():
 #       r.cache_input(input_key) # 4
+#   r.prepare_target() # 3
 #   for chunk_key in r.iter_chunks():
 #       r.store_chunk(chunk_key) # 5
-#   r.finalize() # 6
+#   r.finalize_target() # 6
 
 
 # 1) Initialize the Recipe object
@@ -56,7 +56,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def prepare(self) -> Callable[[], NoReturn]:
+    def prepare_target(self) -> Callable[[], NoReturn]:
         """Prepare the recipe for execution by initializing the target.
         Attribute that returns a callable function.
         """
@@ -90,7 +90,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def finalize(self) -> Callable[[], NoReturn]:
+    def finalize_target(self) -> Callable[[], NoReturn]:
         """Final step to finish the recipe after data has been written.
         Attribute that returns a callable function.
         """
@@ -101,10 +101,10 @@ class BaseRecipe(ABC):
         """
 
         pipeline = []  # type: MultiStagePipeline
-        pipeline.append(Stage(self.prepare))
         pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
+        pipeline.append(Stage(self.prepare_target))
         pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
-        pipeline.append(Stage(self.finalize))
+        pipeline.append(Stage(self.finalize_target))
         pipelines = []  # type: ParallelPipelines
         pipelines.append(pipeline)
         return pipelines
@@ -145,8 +145,8 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     sequence_dim: str
     inputs_per_chunk: int = 1
     nitems_per_input: int = 1
-    target: Optional[AbstractTarget] = None
-    input_cache: Optional[AbstractTarget] = None
+    target: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
+    input_cache: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
     require_cache: bool = True
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
@@ -158,8 +158,8 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
         }
 
     @property
-    def prepare(self) -> Callable:
-        def _prepare():
+    def prepare_target(self) -> Callable:
+        def _prepare_target():
 
             try:
                 ds = self.open_target()
@@ -167,8 +167,8 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
                 logger.debug(f"{ds}")
             except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
                 first_chunk_key = next(self.iter_chunks())
-                for input_url in self.inputs_for_chunk(first_chunk_key):
-                    self.cache_input(input_url)
+                # for input_url in self.inputs_for_chunk(first_chunk_key):
+                #    self.cache_input(input_url)
                 ds = self.open_chunk(first_chunk_key).chunk()
 
                 # make sure the concat dim has a valid fill_value to avoid
@@ -179,7 +179,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
 
             self.expand_target_dim(self.sequence_dim, self.sequence_len())
 
-        return _prepare
+        return _prepare_target
 
     @property
     def cache_input(self) -> Callable:
@@ -210,14 +210,14 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
         return _store_chunk
 
     @property
-    def finalize(self) -> Callable:
-        def _finalize():
+    def finalize_target(self) -> Callable:
+        def _finalize_target():
             if self.consolidate_zarr:
                 logger.info("Consolidating Zarr metadata")
                 target_mapper = self.target.get_mapper()
                 zarr.consolidate_metadata(target_mapper)
 
-        return _finalize
+        return _finalize_target
 
     @contextmanager
     def input_opener(self, fname: str):
@@ -227,7 +227,11 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
                 yield f
         except (IOError, FileNotFoundError):
             if self.require_cache:
-                raise
+                raise FileNotFoundError(
+                    f"You are trying to open input {fname}, but the file is "
+                    "not cached yet. First call `cache_input` or set "
+                    "`require_cache=False`."
+                )
             else:
                 logger.info(f"No cache found. Opening input `{fname}` directly.")
                 # This will bypass the cache. May be slow.
@@ -249,7 +253,10 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
         inputs = self.inputs_for_chunk(chunk_key)
         dsets = [self.open_input(i) for i in inputs]
         # CONCAT DELETES ENCODING!!!
+        # OR NO IT DOESN'T! Not in the latest version of xarray?
         ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
+        for var in ds.variables:
+            ds[var].encoding = {}
         logger.debug(f"{ds}")
 
         # TODO: maybe do some chunking here?
