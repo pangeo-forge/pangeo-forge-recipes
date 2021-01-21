@@ -8,7 +8,7 @@ import pytest
 import xarray as xr
 
 from pangeo_forge import recipe
-from pangeo_forge.storage import FlatFSSpecTarget, FSSpecTarget
+from pangeo_forge.storage import FlatFSSpecTarget, FSSpecTarget, UninitializedTarget
 
 # where to run the http server
 _PORT = "8080"
@@ -89,6 +89,11 @@ def tmp_cache(tmpdir_factory):
     fs = fsspec.get_filesystem_class("file")()
     cache = FlatFSSpecTarget(fs, path)
     return cache
+
+
+@pytest.fixture()
+def uninitialized_target():
+    return UninitializedTarget()
 
 
 @pytest.fixture

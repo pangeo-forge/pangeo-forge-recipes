@@ -1,6 +1,8 @@
 import fsspec
+import pytest
 import xarray as xr
 
+from pangeo_forge.storage import UninitializedTargetError
 from pangeo_forge.utils import fix_scalar_attr_encoding
 
 
@@ -27,6 +29,24 @@ def test_target(tmp_target):
     with open(tmp_target.root_path + "/foo") as f:
         res = f.read()
     assert res == "bar"
+    with pytest.raises(FileNotFoundError):
+        tmp_target.rm("baz")
+    with pytest.raises(FileNotFoundError):
+        with tmp_target.open("baz"):
+            pass
+
+
+def test_uninitialized_target(uninitialized_target):
+    target = uninitialized_target
+    with pytest.raises(UninitializedTargetError):
+        target.get_mapper()
+    with pytest.raises(UninitializedTargetError):
+        target.exists("foo")
+    with pytest.raises(UninitializedTargetError):
+        target.rm("foo")
+    with pytest.raises(UninitializedTargetError):
+        with target.open("foo"):
+            pass
 
 
 def test_cache(tmp_cache):

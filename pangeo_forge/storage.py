@@ -93,3 +93,29 @@ def _slugify(value):
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     value = re.sub(r"[^\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
+
+
+class UninitializedTarget(AbstractTarget):
+    def get_mapper(self):
+        raise UninitializedTargetError
+
+    def exists(self, path) -> bool:
+        raise UninitializedTargetError
+
+    def rm(self, path) -> NoReturn:
+        raise UninitializedTargetError
+
+    def open(self, path, **kwargs) -> BinaryIO:
+        raise UninitializedTargetError
+
+
+class TargetError(Exception):
+    """Base class for exceptions in this module."""
+
+    pass
+
+
+class UninitializedTargetError(TargetError):
+    """Operation on an uninitialized Target."""
+
+    pass

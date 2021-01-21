@@ -165,7 +165,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
                 ds = self.open_target()
                 logger.info("Found an existing dataset in target")
                 logger.debug(f"{ds}")
-            except (IOError, zarr.errors.GroupNotFoundError):
+            except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
                 first_chunk_key = next(self.iter_chunks())
                 for input_url in self.inputs_for_chunk(first_chunk_key):
                     self.cache_input(input_url)
@@ -225,7 +225,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
             with self.input_cache.open(fname, mode="rb") as f:
                 logger.info(f"Opening '{fname}' from cache")
                 yield f
-        except IOError:  # TODO figure out the excpetion to catch
+        except (IOError, FileNotFoundError):
             if self.require_cache:
                 raise
             else:
