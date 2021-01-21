@@ -24,7 +24,7 @@ def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
 def test_target(tmp_target):
     mapper = tmp_target.get_mapper()
     mapper["foo"] = b"bar"
-    with open(tmp_target.path + "/foo") as f:
+    with open(tmp_target.root_path + "/foo") as f:
         res = f.read()
     assert res == "bar"
 

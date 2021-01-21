@@ -13,7 +13,7 @@ import xarray as xr
 import zarr
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
-from .storage import InputCache, Target
+from .storage import AbstractTarget
 from .utils import chunked_iterable, fix_scalar_attr_encoding
 
 logger = logging.getLogger(__name__)
@@ -132,6 +132,9 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     :param nitems_per_input: The length of each input along the `sequence_dim` dimension.
     :param target: A location in which to put the dataset. Can also be assigned at run time.
     :param input_cache: A location in which to cache temporary data.
+    :param require_cache: Whether to allow opening inputs directly which have not
+      yet been cached. This could lead to very slow behavior if the inputs
+      live on a slow network.
     :param consolidate_zarr: Whether to consolidate the resulting Zarr dataset.
     :param xarray_open_kwargs: Extra options for opening the inputs with Xarray.
     :param xarray_concat_kwargs: Extra options to pass to Xarray when concatenating
@@ -142,8 +145,9 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     sequence_dim: str
     inputs_per_chunk: int = 1
     nitems_per_input: int = 1
-    target: Optional[Target] = None
-    input_cache: Optional[InputCache] = None
+    target: Optional[AbstractTarget] = None
+    input_cache: Optional[AbstractTarget] = None
+    require_cache: bool = True
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_kwargs: dict = field(default_factory=dict)
@@ -217,19 +221,18 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
 
     @contextmanager
     def input_opener(self, fname: str):
-        if self.input_cache is None:
-            logger.info(f"No cache. Opening input `{fname}` directly.")
-            # This will bypass the cache. May be slow.
-            with input_opener(fname, mode="rb") as f:
-                yield f
-        elif self.input_cache.exists(fname):
-            logger.info(f"Input '{fname}' found in cache")
+        try:
             with self.input_cache.open(fname, mode="rb") as f:
+                logger.info(f"Opening '{fname}' from cache")
                 yield f
-        else:
-            raise ValueError(
-                f"Input '{fname}' has not been cached yet. " "Call .cache_input() first."
-            )
+        except IOError:  # TODO figure out the excpetion to catch
+            if self.require_cache:
+                raise
+            else:
+                logger.info(f"No cache found. Opening input `{fname}` directly.")
+                # This will bypass the cache. May be slow.
+                with input_opener(fname, mode="rb") as f:
+                    yield f
 
     def open_input(self, fname: str):
         with self.input_opener(fname) as f:
