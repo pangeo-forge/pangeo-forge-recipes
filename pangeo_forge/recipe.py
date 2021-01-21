@@ -117,8 +117,13 @@ class BaseRecipe(ABC):
 
 @dataclass
 class NetCDFtoZarrSequentialRecipe(BaseRecipe):
-    """There are many inputs (a.k.a. files, granules), arranged in a sequence
-    along the dimension `sequence_dim`. Each file may contain multiple variables.
+    """This class represents a dataset composed of many individual NetCDF files.
+    The files are arraged in a sequence along a single dimension, called the
+    `sequence_dim`. Each file may contain multiple variables.
+
+    The dataset is assembled by concatenating all of these files along `sequence_dim`.
+    The target is written in Zarr format.
+
     This class uses Xarray to read and write data.
 
     :param input_urls: The inputs used to generate the dataset.
@@ -133,7 +138,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
        the inputs to form a chunk.
     """
 
-    input_urls: Iterable[str]
+    input_urls: Iterable[str] = field(repr=False)
     sequence_dim: str
     inputs_per_chunk: int = 1
     nitems_per_input: int = 1

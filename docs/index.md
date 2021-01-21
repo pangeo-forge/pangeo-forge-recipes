@@ -35,6 +35,7 @@ For more information, see {doc}`bakeries`.
 :caption: Contents
 
 recipes
+recipe_tutorial
 execution
 bakeries
 contribute

@@ -11,14 +11,14 @@ author = "Pangeo Community"
 # -- General configuration ---------------------------------------------------
 
 extensions = [
-    "myst_parser",
+    "myst_nb",
     "sphinx.ext.autodoc",
     # "numpydoc",
     "sphinx_autodoc_typehints",
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 master_doc = "index"
 
 # -- Options for HTML output -------------------------------------------------
