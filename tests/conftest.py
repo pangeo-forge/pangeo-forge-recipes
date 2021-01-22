@@ -57,7 +57,7 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
     return paths
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture()
 def netcdf_http_server(netcdf_local_paths):
     first_path = netcdf_local_paths[0]
     # assume that all files are in the same directory
