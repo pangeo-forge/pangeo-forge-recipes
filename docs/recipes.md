@@ -32,20 +32,43 @@ target = FSSpecTarget(fs=fs, root_path=target_path)
 
 Temporary data is recommended to use a {class}`pangeo_forge.storage.CacheFSSpecTarget` object.
 
-## The Base Recipe Class
+## The Recipe Object
 
-A recipe is initialized from a recipe class.
+You define a recipe by instantiating a class that inherits from {class}`pangeo_forge.recipe.BaseRecipe`.
+The `pangeo_forge` package includes several pre-defined Recipe classes which
+cover common scenarios. You can also define your own Recipe class.
+
+For a the common scenario of assembling many NetCDF files into a single Zarr
+group, we use {class}`pangeo_forge.recipe.NetCDFtoZarrSequentialRecipe`.
+Initializing a recipe looks something like this.
+
 ```{code-block} python
-recipe = Recipe(option1='foo', option2=)
+from pangeo_forge.recipes import NetCDFtoZarrSequentialRecipe
+input_urls = [...]  # build a list of inputs
+recipe = NetCDFtoZarrSequentialRecipe(
+    input_urls=input_urls,
+    sequence_dim="time"
+)
 ```
 
-All recipes follow the same basic steps.
+There are many other options we can pass, all covered in the [API documentation](api).
+For a deeper dive on how to pick these options and what they mean, check out the
+tutorial: {doc}`tutorials/netcdf_zarr_sequential`.
 
+Your recipe will also need storage.
+If you have already defined a `Target` object (as in the the [Storage section](#storage)),
+then you can either assign it when you initialize the recipe or later, e.g.
 
-## Specific Recipe Classes
-
-```{eval-rst}
-.. autoclass:: pangeo_forge.recipe.NetCDFtoZarrSequentialRecipe
-    :show-inheritance:
-    :noindex:
+```{code-block} python
+recipe.target = FSSpecTarget(fs=fs, root_path=target_path)
 ```
+
+This particular class of recipe also requires a cache, a place to store temporary
+files. We can create one as follows.
+
+```{code-block} python
+recipe.input_cache = CacheFSSpecTarget(fs=fs, root_path=cache_path)
+```
+
+Once your recipe is defined and has its targets assigned, you're ready to
+move on to {doc}`execution`.

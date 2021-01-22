@@ -9,8 +9,15 @@
 ```
 
 ```{eval-rst}
+.. autoclass:: pangeo_forge.storage.FlatFSSpecTarget
+    :members:
+    :show-inheritance:
+```
+
+```{eval-rst}
 .. autoclass:: pangeo_forge.storage.CacheFSSpecTarget
     :members:
+    :show-inheritance:
 ```
 
 ## Recipes
@@ -23,4 +30,21 @@
 ```{eval-rst}
 .. autoclass:: pangeo_forge.recipe.NetCDFtoZarrSequentialRecipe
     :show-inheritance:
+```
+
+## Excutors
+
+```{eval-rst}
+.. autoclass:: pangeo_forge.executors.PythonPipelineExecutor
+    :members:
+```
+
+```{eval-rst}
+.. autoclass:: pangeo_forge.executors.DaskPipelineExecutor
+    :members:
+```
+
+```{eval-rst}
+.. autoclass:: pangeo_forge.executors.PrefectPipelineExecutor
+    :members:
 ```

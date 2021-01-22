@@ -1,6 +1,7 @@
 import pytest
 import xarray as xr
-from rechunker.executors import (
+
+from pangeo_forge.executors import (
     DaskPipelineExecutor,
     PrefectPipelineExecutor,
     PythonPipelineExecutor,

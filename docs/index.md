@@ -14,7 +14,8 @@ The most important concept in Pangeo Forge is a ``recipe``.
 A recipe defines how to transform data in one format / location into another format / location.
 The primary way people contribute to Pangeo Forge is by writing / maintaining recipes.
 Recipes developed by the community are stored in GitHub repositories.
-For information about how to write a recipe, see {doc}`recipes`.
+For information about how recipes work see {doc}`recipes`.
+The {doc}`tutorials/index` provide deep dives into how to develop and debug Pangeo Forge recipes.
 
 ## Recipe Execution
 
@@ -35,7 +36,7 @@ For more information, see {doc}`bakeries`.
 :caption: Contents
 
 recipes
-recipe_tutorial
+tutorials/index
 execution
 bakeries
 contribute
