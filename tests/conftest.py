@@ -1,3 +1,4 @@
+import os
 import subprocess
 import time
 
@@ -57,8 +58,10 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
     return paths
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture()
 def netcdf_http_server(netcdf_local_paths):
+    if os.environ.get("GITHUB_WORKFLOW"):
+        pytest.skip("Skipping test inside GitHub Workflow")
     first_path = netcdf_local_paths[0]
     # assume that all files are in the same directory
     basedir = first_path.dirpath()
