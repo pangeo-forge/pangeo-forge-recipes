@@ -1,6 +1,6 @@
 # Contribute a Recipe
 
-To add a dataset to pangeo-forge you'll need to create a new recipe. This is a test commit.
+To add a dataset to pangeo-forge you'll need to create a new recipe. This is another test commit.
 
 ## Overview
 
