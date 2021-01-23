@@ -38,7 +38,7 @@ You define a recipe by instantiating a class that inherits from {class}`pangeo_f
 The `pangeo_forge` package includes several pre-defined Recipe classes which
 cover common scenarios. You can also define your own Recipe class.
 
-For a the common scenario of assembling many NetCDF files into a single Zarr
+For the common scenario of assembling many NetCDF files into a single Zarr
 group, we use {class}`pangeo_forge.recipe.NetCDFtoZarrSequentialRecipe`.
 Initializing a recipe looks something like this.
 
