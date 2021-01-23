@@ -1,5 +1,9 @@
+import sys
+
 # import sphinx_pangeo_theme  # noqa
 import sphinx_book_theme  # noqa
+
+sys.path.append("..")
 
 # -- Project information -----------------------------------------------------
 

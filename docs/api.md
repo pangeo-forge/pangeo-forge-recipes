@@ -32,7 +32,7 @@
     :show-inheritance:
 ```
 
-## Excutors
+## Executors
 
 ```{eval-rst}
 .. autoclass:: pangeo_forge.executors.PythonPipelineExecutor

@@ -5,3 +5,5 @@ myst-parser
 myst-nb
 sphinx-copybutton
 sphinx-autodoc-typehints
+fsspec
+rechunker
