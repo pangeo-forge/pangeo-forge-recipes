@@ -28,7 +28,8 @@ def daily_xarray_dataset():
     lat_attrs = {"units": "degrees_north", "long_name": "latitude"}
     foo = np.random.rand(nt, ny, nx)
     foo_attrs = {"long_name": "Fantastic Foo"}
-    bar = np.random.rand(nt, ny, nx)
+    # make sure things work with heterogenous data types
+    bar = np.random.randint(0, 10, size=(nt, ny, nx))
     bar_attrs = {"long_name": "Beautiful Bar"}
     dims = ("time", "lat", "lon")
     ds = xr.Dataset(
