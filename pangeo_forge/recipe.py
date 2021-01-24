@@ -141,6 +141,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
       the inputs to form a chunk.
     :param delete_input_encoding: Whether to remove Xarray encoding from variables
       in the input dataset
+    :param fsspec_open_kwargs: Extra options for opening the inputs with fsspec.
     """
 
     input_urls: Iterable[str] = field(repr=False)
@@ -154,6 +155,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_kwargs: dict = field(default_factory=dict)
     delete_input_encoding: bool = True
+    fsspec_open_kwargs: dict = field(default_factory=dict)
 
     def __post_init__(self):
         self._chunks_inputs = {
@@ -188,7 +190,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     def cache_input(self) -> Callable:
         def cache_func(fname: str) -> None:
             logger.info(f"Caching input '{fname}'")
-            with input_opener(fname, mode="rb") as source:
+            with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as source:
                 with self.input_cache.open(fname, mode="wb") as target:
                     target.write(source.read())
 
@@ -238,7 +240,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
             else:
                 logger.info(f"No cache found. Opening input `{fname}` directly.")
                 # This will bypass the cache. May be slow.
-                with input_opener(fname, mode="rb") as f:
+                with input_opener(fname, mode="rb", **self.file_system_kwargs) as f:
                     yield f
 
     def open_input(self, fname: str):
