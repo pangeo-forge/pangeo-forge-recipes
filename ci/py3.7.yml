@@ -6,6 +6,7 @@ dependencies:
   - black
   - boto3
   - cfgrib
+  - codecov
   - dask
   - distributed
   - fsspec
@@ -21,6 +22,7 @@ dependencies:
   - pydap
   - pynio
   - pytest
+  - pytest-cov
   - rasterio
   - scipy
   - setuptools

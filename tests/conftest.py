@@ -54,7 +54,6 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
     _, datasets = zip(*gb)
     fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
     paths = [tmp_path.join(fname) for fname in fnames]
-    print(len(paths))
     xr.save_mfdataset(datasets, [str(path) for path in paths])
     return paths
 
@@ -66,7 +65,6 @@ def netcdf_http_server(netcdf_local_paths):
     first_path = netcdf_local_paths[0]
     # assume that all files are in the same directory
     basedir = first_path.dirpath()
-    print(basedir)
     fnames = [path.basename for path in netcdf_local_paths]
 
     # this feels very hacky
