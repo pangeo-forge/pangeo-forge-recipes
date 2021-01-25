@@ -1,6 +1,7 @@
 # pangeo-forge
 
 ![CI](https://github.com/pangeo-forge/pangeo-forge/workflows/CI/badge.svg)
+![Codecov](https://img.shields.io/codecov/c/github/pangeo-forge/pangeo-forge)
 [![Documentation Status](https://readthedocs.org/projects/pangeo-forge/badge/?version=latest)](https://pangeo-forge.readthedocs.io/en/latest/?badge=latest)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
