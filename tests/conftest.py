@@ -1,3 +1,4 @@
+import os
 import subprocess
 import time
 
@@ -58,19 +59,35 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
 
 
 @pytest.fixture()
-def netcdf_http_server(netcdf_local_paths):
-    first_path = netcdf_local_paths[0]
-    # assume that all files are in the same directory
-    basedir = first_path.dirpath()
-    fnames = [path.basename for path in netcdf_local_paths]
+def netcdf_http_server(netcdf_local_paths, request):
+    def make_netcdf_http_server(username="", password=""):
+        first_path = netcdf_local_paths[0]
+        # assume that all files are in the same directory
+        basedir = first_path.dirpath()
+        fnames = [path.basename for path in netcdf_local_paths]
 
-    # this feels very hacky
-    command_list = ["python", "-m", "http.server", _PORT, "--bind", _ADDRESS]
-    p = subprocess.Popen(command_list, cwd=basedir)
-    url = f"http://{_ADDRESS}:{_PORT}"
-    time.sleep(1)  # let the server start up
-    yield url, fnames
-    p.kill()
+        this_dir = os.path.dirname(os.path.abspath(__file__))
+        command_list = [
+            "python",
+            os.path.join(this_dir, "http_auth_server.py"),
+            _PORT,
+            _ADDRESS,
+            username,
+            password,
+        ]
+        if username:
+            command_list += [username, password]
+        p = subprocess.Popen(command_list, cwd=basedir)
+        url = f"http://{_ADDRESS}:{_PORT}"
+        time.sleep(1)  # let the server start up
+
+        def teardown():
+            p.kill()
+
+        request.addfinalizer(teardown)
+        return url, fnames
+
+    return make_netcdf_http_server
 
 
 @pytest.fixture()

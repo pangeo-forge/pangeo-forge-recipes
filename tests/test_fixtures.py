@@ -13,7 +13,7 @@ def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
 
 
 def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
-    url, paths = netcdf_http_server
+    url, paths = netcdf_http_server()
     urls = ["/".join([url, str(path)]) for path in paths]
     open_files = [fsspec.open(url).open() for url in urls]
     ds = xr.open_mfdataset(open_files, combine="nested", concat_dim="time").load()
