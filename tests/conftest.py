@@ -1,4 +1,5 @@
 import os
+import socket
 import subprocess
 import time
 
@@ -11,9 +12,14 @@ import xarray as xr
 from pangeo_forge import recipe
 from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
 
-# where to run the http server
-_PORT = "8080"
-_ADDRESS = "127.0.0.1"
+
+def get_open_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("", 0))
+    s.listen(1)
+    port = str(s.getsockname()[1])
+    s.close()
+    return port
 
 
 @pytest.fixture(scope="session")
@@ -67,18 +73,19 @@ def netcdf_http_server(netcdf_local_paths, request):
         fnames = [path.basename for path in netcdf_local_paths]
 
         this_dir = os.path.dirname(os.path.abspath(__file__))
+        port = get_open_port()
         command_list = [
             "python",
             os.path.join(this_dir, "http_auth_server.py"),
-            _PORT,
-            _ADDRESS,
+            port,
+            "127.0.0.1",
             username,
             password,
         ]
         if username:
             command_list += [username, password]
         p = subprocess.Popen(command_list, cwd=basedir)
-        url = f"http://{_ADDRESS}:{_PORT}"
+        url = f"http://127.0.0.1:{port}"
         time.sleep(1)  # let the server start up
 
         def teardown():
