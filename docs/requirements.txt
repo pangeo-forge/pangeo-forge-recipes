@@ -6,5 +6,5 @@ myst-nb
 sphinx-copybutton
 sphinx-autodoc-typehints
 fsspec
-rechunker
+git+https://github.com/pangeo-data/rechunker.git
 -e .
