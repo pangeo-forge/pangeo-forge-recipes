@@ -143,7 +143,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
       in the input dataset
     :param fsspec_open_kwargs: Extra options for opening the inputs with fsspec.
     :param process_input: Function to call on each opened input, with signature
-      `(ds: xr.Dataset, fname: str) -> ds: xr.Dataset`.
+      `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
     :param process_chunk: Function to call on each concatenated chunk, with signature
       `(ds: xr.Dataset) -> ds: xr.Dataset`.
     """
