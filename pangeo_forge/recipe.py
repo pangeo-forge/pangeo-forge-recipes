@@ -142,6 +142,8 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     :param delete_input_encoding: Whether to remove Xarray encoding from variables
       in the input dataset
     :param fsspec_open_kwargs: Extra options for opening the inputs with fsspec.
+    :param process_input: Function to call on each opened input, with signature
+      `(fname: str, ds: xr.Dataset) -> ds: xr.Dataset`.
     """
 
     input_urls: Iterable[str] = field(repr=False)
@@ -156,6 +158,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     xarray_concat_kwargs: dict = field(default_factory=dict)
     delete_input_encoding: bool = True
     fsspec_open_kwargs: dict = field(default_factory=dict)
+    process_input: Optional[callable] = None
 
     def __post_init__(self):
         self._chunks_inputs = {
@@ -255,7 +258,11 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
             for var in ds.variables:
                 ds[var].encoding = {}
 
+        if self.process_input is not None:
+            ds = self.process_input(fname, ds)
+
         logger.debug(f"{ds}")
+
         return ds
 
     def open_chunk(self, chunk_key):
