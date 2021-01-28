@@ -143,7 +143,9 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
       in the input dataset
     :param fsspec_open_kwargs: Extra options for opening the inputs with fsspec.
     :param process_input: Function to call on each opened input, with signature
-      `(fname: str, ds: xr.Dataset) -> ds: xr.Dataset`.
+      `(ds: xr.Dataset, fname: str) -> ds: xr.Dataset`.
+    :param process_chunk: Function to call on each concatenated chunk, with signature
+      `(ds: xr.Dataset) -> ds: xr.Dataset`.
     """
 
     input_urls: Iterable[str] = field(repr=False)
@@ -159,6 +161,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     delete_input_encoding: bool = True
     fsspec_open_kwargs: dict = field(default_factory=dict)
     process_input: Optional[callable] = None
+    process_chunk: Optional[callable] = None
 
     def __post_init__(self):
         self._chunks_inputs = {
@@ -259,7 +262,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
                 ds[var].encoding = {}
 
         if self.process_input is not None:
-            ds = self.process_input(fname, ds)
+            ds = self.process_input(ds, str(fname))
 
         logger.debug(f"{ds}")
 
@@ -272,6 +275,10 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
         # CONCAT DELETES ENCODING!!!
         # OR NO IT DOESN'T! Not in the latest version of xarray?
         ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
+
+        if self.process_chunk is not None:
+            ds = self.process_chunk(ds)
+
         logger.debug(f"{ds}")
 
         # TODO: maybe do some chunking here?
