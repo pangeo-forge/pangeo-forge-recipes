@@ -160,7 +160,7 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     xarray_concat_kwargs: dict = field(default_factory=dict)
     delete_input_encoding: bool = True
     fsspec_open_kwargs: dict = field(default_factory=dict)
-    process_input: Optional[callable] = None
+    process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset] = None
     process_chunk: Optional[callable] = None
 
     def __post_init__(self):
