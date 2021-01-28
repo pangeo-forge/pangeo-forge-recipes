@@ -8,7 +8,7 @@ from pangeo_forge.storage import UninitializedTargetError
 dummy_fnames = ["a.nc", "b.nc", "c.nc"]
 
 
-def incr_date(ds, fname=""):
+def incr_date(ds, filename=""):
     # add one day
     t = [d + int(24 * 3600e9) for d in ds.time.values]
     ds = ds.assign_coords(time=t)
