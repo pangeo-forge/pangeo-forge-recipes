@@ -8,6 +8,13 @@ from pangeo_forge.storage import UninitializedTargetError
 dummy_fnames = ["a.nc", "b.nc", "c.nc"]
 
 
+def incr_date(ds, filename=""):
+    # add one day
+    t = [d + int(24 * 3600e9) for d in ds.time.values]
+    ds = ds.assign_coords(time=t)
+    return ds
+
+
 @pytest.mark.skip(reason="Removed this class for now")
 @pytest.mark.parametrize(
     "file_urls, files_per_chunk, expected_keys, expected_filenames",
@@ -72,8 +79,12 @@ def test_NetCDFtoZarrSequentialRecipeHttpAuth(
         assert ds_target.identical(ds_expected)
 
 
+@pytest.mark.parametrize(
+    "process_input, process_chunk",
+    [(None, None), (incr_date, None), (None, incr_date), (incr_date, incr_date)],
+)
 def test_NetCDFtoZarrSequentialRecipe(
-    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache
+    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache, process_input, process_chunk
 ):
 
     # the same recipe is created as a fixture in conftest.py
@@ -85,6 +96,8 @@ def test_NetCDFtoZarrSequentialRecipe(
         nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
         target=tmp_target,
         input_cache=tmp_cache,
+        process_input=process_input,
+        process_chunk=process_chunk,
     )
 
     # this is the cannonical way to manually execute a recipe
@@ -97,6 +110,18 @@ def test_NetCDFtoZarrSequentialRecipe(
 
     ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).load()
     ds_expected = daily_xarray_dataset.compute()
+
+    if process_input is not None:
+        # check that the process_input hook made some changes
+        assert not ds_target.identical(ds_expected)
+        # apply these changes to the expected dataset
+        ds_expected = process_input(ds_expected)
+    if process_chunk is not None:
+        # check that the process_chunk hook made some changes
+        assert not ds_target.identical(ds_expected)
+        # apply these changes to the expected dataset
+        ds_expected = process_chunk(ds_expected)
+
     assert ds_target.identical(ds_expected)
 
 
