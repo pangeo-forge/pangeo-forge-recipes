@@ -7,6 +7,7 @@ import fsspec
 import numpy as np
 import pandas as pd
 import pytest
+import requests
 import xarray as xr
 
 from pangeo_forge import recipe
@@ -86,7 +87,23 @@ def netcdf_http_server(netcdf_local_paths, request):
             command_list += [username, password]
         p = subprocess.Popen(command_list, cwd=basedir)
         url = f"http://127.0.0.1:{port}"
-        time.sleep(1)  # let the server start up
+
+        # wait for the server to start up
+        timeout = 5
+        dt = 0.1
+        while True:
+            try:
+                if username:
+                    r = requests.get(f"{url}/{fnames[0]}", auth=(username, password))
+                else:
+                    r = requests.get(f"{url}/{fnames[0]}")
+                if r.ok:
+                    break
+            except requests.exceptions.ConnectionError:
+                pass
+            timeout -= dt
+            assert timeout > 0, "Timed out waiting for server"
+            time.sleep(dt)
 
         def teardown():
             p.kill()
