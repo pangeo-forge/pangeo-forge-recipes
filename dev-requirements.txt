@@ -1,6 +1,7 @@
 pytest
 pytest-sugar
 pytest-cov
+pytest-httpserver
 scipy
 netcdf4
 h5netcdf

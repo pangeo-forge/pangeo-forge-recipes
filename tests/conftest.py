@@ -1,13 +1,12 @@
 import os
 import socket
-import subprocess
-import time
 
 import fsspec
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from pytest_httpserver import HTTPServer
 
 from pangeo_forge import recipe
 from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
@@ -65,33 +64,19 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
 
 
 @pytest.fixture()
-def netcdf_http_server(netcdf_local_paths, request):
+def netcdf_http_server(netcdf_local_paths, request, httpserver: HTTPServer):
     def make_netcdf_http_server(username="", password=""):
         first_path = netcdf_local_paths[0]
         # assume that all files are in the same directory
         basedir = first_path.dirpath()
         fnames = [path.basename for path in netcdf_local_paths]
 
-        this_dir = os.path.dirname(os.path.abspath(__file__))
-        port = get_open_port()
-        command_list = [
-            "python",
-            os.path.join(this_dir, "http_auth_server.py"),
-            port,
-            "127.0.0.1",
-            username,
-            password,
-        ]
-        if username:
-            command_list += [username, password]
-        p = subprocess.Popen(command_list, cwd=basedir)
-        url = f"http://127.0.0.1:{port}"
-        time.sleep(1)  # let the server start up
+        url = f"http://127.0.0.1:{httpserver.port}"
+        for fname in fnames:
+            with open(os.path.join(basedir, fname), "rb") as f:
+                data = f.read()
+            httpserver.expect_request(f"/{fname}").respond_with_data(data)
 
-        def teardown():
-            p.kill()
-
-        request.addfinalizer(teardown)
         return url, fnames
 
     return make_netcdf_http_server

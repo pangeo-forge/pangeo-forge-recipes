@@ -23,6 +23,7 @@ dependencies:
   - pynio
   - pytest
   - pytest-cov
+  - pytest-httpserver
   - rasterio
   - scipy
   - setuptools

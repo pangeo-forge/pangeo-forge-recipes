@@ -1,4 +1,3 @@
-import aiohttp
 import pytest
 import xarray as xr
 
@@ -44,11 +43,16 @@ def test_sequence_recipe(file_urls, files_per_chunk, expected_keys, expected_fil
 
 
 @pytest.mark.parametrize(
-    "username, password", [("foo", "bar"), ("foo", "wrong"),],  # noqa: E231
+    "timeout", [None, 0],
 )
 def test_NetCDFtoZarrSequentialRecipeHttpAuth(
-    daily_xarray_dataset, netcdf_http_server, tmp_target, tmp_cache, username, password
+    daily_xarray_dataset, netcdf_http_server, tmp_target, tmp_cache, timeout
 ):
+
+    if timeout is None:
+        fsspec_open_kwargs = {}
+    else:
+        fsspec_open_kwargs = {"client_kwargs": {"timeout": timeout}}
 
     url, fnames = netcdf_http_server("foo", "bar")
     urls = [f"{url}/{fname}" for fname in fnames]
@@ -59,13 +63,10 @@ def test_NetCDFtoZarrSequentialRecipeHttpAuth(
         nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
         target=tmp_target,
         input_cache=tmp_cache,
-        fsspec_open_kwargs={"client_kwargs": {"auth": aiohttp.BasicAuth(username, password)}},
+        fsspec_open_kwargs=fsspec_open_kwargs,
     )
 
-    if password == "wrong":
-        with pytest.raises(aiohttp.client_exceptions.ClientResponseError):
-            r.cache_input(next(r.iter_inputs()))
-    else:
+    if timeout is None:
         # this is the cannonical way to manually execute a recipe
         for input_key in r.iter_inputs():
             r.cache_input(input_key)
@@ -77,6 +78,9 @@ def test_NetCDFtoZarrSequentialRecipeHttpAuth(
         ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).load()
         ds_expected = daily_xarray_dataset.compute()
         assert ds_target.identical(ds_expected)
+    else:
+        with pytest.raises(FileNotFoundError):
+            r.cache_input(next(r.iter_inputs()))
 
 
 @pytest.mark.parametrize(
