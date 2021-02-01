@@ -9,6 +9,14 @@ from pangeo_forge.utils import fix_scalar_attr_encoding
 def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
     paths = [str(path) for path in netcdf_local_paths]
     ds = xr.open_mfdataset(paths, combine="nested", concat_dim="time")
+    del ds.attrs["items_per_file"]  # avoid metadata conflicts
+    assert ds.identical(daily_xarray_dataset)
+
+
+def test_fixture_local_files_by_variable(daily_xarray_dataset, netcdf_local_paths_by_variable):
+    paths = [str(path) for path in netcdf_local_paths_by_variable]
+    ds = xr.open_mfdataset(paths, combine="by_coords", concat_dim="time")
+    del ds.attrs["items_per_file"]  # avoid metadata conflicts
     assert ds.identical(daily_xarray_dataset)
 
 

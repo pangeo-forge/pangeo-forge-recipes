@@ -39,7 +39,7 @@ def daily_xarray_dataset():
     bar_attrs = {"long_name": "Beautiful Bar"}
     dims = ("time", "lat", "lon")
     ds = xr.Dataset(
-        {"foo": (dims, foo, foo_attrs), "bar": (dims, bar, bar_attrs)},
+        {"bar": (dims, bar, bar_attrs), "foo": (dims, foo, foo_attrs)},
         coords={
             "time": ("time", time),
             "lat": ("lat", lat, lat_attrs),
@@ -50,18 +50,47 @@ def daily_xarray_dataset():
     return ds
 
 
+def _split_up_files_by_day(ds, day_param):
+    items_per_file = {"D": 1, "2D": 2}
+    ds.attrs["items_per_file"] = items_per_file[day_param]
+    gb = ds.resample(time=day_param)
+    _, datasets = zip(*gb)
+    fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
+    return datasets, fnames
+
+
+def _split_up_files_by_variable_and_day(ds, day_param):
+    all_dsets = []
+    all_fnames = []
+    for varname in ds.data_vars:
+        var_dsets, fnames = _split_up_files_by_day(ds[[varname]], day_param)
+        fnames = [f"{varname}_{fname}" for fname in fnames]
+        all_dsets += var_dsets
+        all_fnames += fnames
+    return all_dsets, all_fnames
+
+
 @pytest.fixture(scope="session", params=["D", "2D"])
 def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
     """Return a list of paths pointing to netcdf files."""
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
-    items_per_file = {"D": 1, "2D": 2}
-    daily_xarray_dataset.attrs["items_per_file"] = items_per_file[request.param]
-    gb = daily_xarray_dataset.resample(time=request.param)
-    _, datasets = zip(*gb)
-    fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
-    paths = [tmp_path.join(fname) for fname in fnames]
-    xr.save_mfdataset(datasets, [str(path) for path in paths])
-    return paths
+    # copy needed to avoid polluting metadata across multiple tests
+    datasets, fnames = _split_up_files_by_day(daily_xarray_dataset.copy(), request.param)
+    full_paths = [tmp_path.join(fname) for fname in fnames]
+    xr.save_mfdataset(datasets, [str(path) for path in full_paths])
+    return full_paths
+
+
+@pytest.fixture(scope="session", params=["D", "2D"])
+def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request):
+    """Return a list of paths pointing to netcdf files."""
+    tmp_path = tmpdir_factory.mktemp("netcdf_data")
+    datasets, fnames = _split_up_files_by_variable_and_day(
+        daily_xarray_dataset.copy(), request.param
+    )
+    full_paths = [tmp_path.join(fname) for fname in fnames]
+    xr.save_mfdataset(datasets, [str(path) for path in full_paths])
+    return full_paths
 
 
 @pytest.fixture()
