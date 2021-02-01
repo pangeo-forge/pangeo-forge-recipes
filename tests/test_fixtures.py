@@ -7,9 +7,9 @@ from pangeo_forge.utils import fix_scalar_attr_encoding
 
 
 def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
-    paths = [str(path) for path in netcdf_local_paths]
+    paths, items_per_file = netcdf_local_paths
+    paths = [str(path) for path in paths]
     ds = xr.open_mfdataset(paths, combine="nested", concat_dim="time")
-    del ds.attrs["items_per_file"]  # avoid metadata conflicts
     assert ds.identical(daily_xarray_dataset)
 
 
@@ -17,18 +17,15 @@ def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
 def test_fixture_local_files_by_variable(daily_xarray_dataset, netcdf_local_paths_by_variable):
     paths = [str(path) for path in netcdf_local_paths_by_variable]
     ds = xr.open_mfdataset(paths, combine="by_coords", concat_dim="time")
-    del ds.attrs["items_per_file"]  # avoid metadata conflicts
     assert ds.identical(daily_xarray_dataset)
 
 
 def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
-    url, paths = netcdf_http_server()
+    url, paths, items_per_file = netcdf_http_server()
     urls = ["/".join([url, str(path)]) for path in paths]
     open_files = [fsspec.open(url).open() for url in urls]
     ds = xr.open_mfdataset(open_files, combine="nested", concat_dim="time").load()
     ds = fix_scalar_attr_encoding(ds)
-    print(ds)
-    print(daily_xarray_dataset)
     assert ds.identical(daily_xarray_dataset)
 
 

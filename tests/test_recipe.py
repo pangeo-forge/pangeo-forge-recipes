@@ -43,6 +43,16 @@ def test_sequence_recipe(file_urls, files_per_chunk, expected_keys, expected_fil
         assert fnames == expected
 
 
+def _manually_execute_recipe(r):
+    # this is the cannonical way to manually execute a recipe
+    for input_key in r.iter_inputs():
+        r.cache_input(input_key)
+    r.prepare_target()
+    for chunk_key in r.iter_chunks():
+        r.store_chunk(chunk_key)
+    r.finalize_target()
+
+
 @pytest.mark.parametrize(
     "username, password", [("foo", "bar"), ("foo", "wrong"),],  # noqa: E231
 )
@@ -50,13 +60,13 @@ def test_NetCDFtoZarrSequentialRecipeHttpAuth(
     daily_xarray_dataset, netcdf_http_server, tmp_target, tmp_cache, username, password
 ):
 
-    url, fnames = netcdf_http_server("foo", "bar")
+    url, fnames, items_per_file = netcdf_http_server("foo", "bar")
     urls = [f"{url}/{fname}" for fname in fnames]
     r = recipe.NetCDFtoZarrSequentialRecipe(
         input_urls=urls,
         sequence_dim="time",
         inputs_per_chunk=1,
-        nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
+        nitems_per_input=items_per_file,
         target=tmp_target,
         input_cache=tmp_cache,
         fsspec_open_kwargs={"client_kwargs": {"auth": aiohttp.BasicAuth(username, password)}},
@@ -66,13 +76,7 @@ def test_NetCDFtoZarrSequentialRecipeHttpAuth(
         with pytest.raises(aiohttp.client_exceptions.ClientResponseError):
             r.cache_input(next(r.iter_inputs()))
     else:
-        # this is the cannonical way to manually execute a recipe
-        for input_key in r.iter_inputs():
-            r.cache_input(input_key)
-        r.prepare_target()
-        for chunk_key in r.iter_chunks():
-            r.store_chunk(chunk_key)
-        r.finalize_target()
+        _manually_execute_recipe(r)
 
         ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).load()
         ds_expected = daily_xarray_dataset.compute()
@@ -89,11 +93,12 @@ def test_NetCDFtoZarrSequentialRecipe(
 
     # the same recipe is created as a fixture in conftest.py
     # I left it here explicitly because it makes the test easier to read.
+    paths, items_per_file = netcdf_local_paths
     r = recipe.NetCDFtoZarrSequentialRecipe(
-        input_urls=netcdf_local_paths,
+        input_urls=paths,
         sequence_dim="time",
         inputs_per_chunk=1,
-        nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
+        nitems_per_input=items_per_file,
         target=tmp_target,
         input_cache=tmp_cache,
         process_input=process_input,
@@ -101,12 +106,7 @@ def test_NetCDFtoZarrSequentialRecipe(
     )
 
     # this is the cannonical way to manually execute a recipe
-    for input_key in r.iter_inputs():
-        r.cache_input(input_key)
-    r.prepare_target()
-    for chunk_key in r.iter_chunks():
-        r.store_chunk(chunk_key)
-    r.finalize_target()
+    _manually_execute_recipe(r)
 
     ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).load()
     ds_expected = daily_xarray_dataset.compute()
@@ -129,11 +129,9 @@ def test_NetCDFtoZarrSequentialRecipeNoTarget(
     daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache
 ):
 
+    paths, items_per_file = netcdf_local_paths
     r = recipe.NetCDFtoZarrSequentialRecipe(
-        input_urls=netcdf_local_paths,
-        sequence_dim="time",
-        inputs_per_chunk=1,
-        nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
+        input_urls=paths, sequence_dim="time", inputs_per_chunk=1, nitems_per_input=items_per_file,
     )
 
     # this is the cannonical way to manually execute a recipe

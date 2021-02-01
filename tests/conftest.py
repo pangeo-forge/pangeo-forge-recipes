@@ -51,8 +51,6 @@ def daily_xarray_dataset():
 
 
 def _split_up_files_by_day(ds, day_param):
-    items_per_file = {"D": 1, "2D": 2}
-    ds.attrs["items_per_file"] = items_per_file[day_param]
     gb = ds.resample(time=day_param)
     _, datasets = zip(*gb)
     fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
@@ -78,7 +76,8 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
     datasets, fnames = _split_up_files_by_day(daily_xarray_dataset.copy(), request.param)
     full_paths = [tmp_path.join(fname) for fname in fnames]
     xr.save_mfdataset(datasets, [str(path) for path in full_paths])
-    return full_paths
+    items_per_file = {"D": 1, "2D": 2}[request.param]
+    return full_paths, items_per_file
 
 
 # TODO: this is quite repetetive of the fixture above. Replace with parametrization.
@@ -98,11 +97,13 @@ def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request
 # duplicating the whole test.
 @pytest.fixture()
 def netcdf_http_server(netcdf_local_paths, request):
+    paths, items_per_file = netcdf_local_paths
+
     def make_netcdf_http_server(username="", password=""):
-        first_path = netcdf_local_paths[0]
+        first_path = paths[0]
         # assume that all files are in the same directory
         basedir = first_path.dirpath()
-        fnames = [path.basename for path in netcdf_local_paths]
+        fnames = [path.basename for path in paths]
 
         this_dir = os.path.dirname(os.path.abspath(__file__))
         port = get_open_port()
@@ -124,7 +125,7 @@ def netcdf_http_server(netcdf_local_paths, request):
             p.kill()
 
         request.addfinalizer(teardown)
-        return url, fnames
+        return url, fnames, items_per_file
 
     return make_netcdf_http_server
 
@@ -153,11 +154,12 @@ def uninitialized_target():
 
 @pytest.fixture
 def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
+    paths, items_per_file = netcdf_local_paths
     r = recipe.NetCDFtoZarrSequentialRecipe(
-        input_urls=netcdf_local_paths,
+        input_urls=paths,
         sequence_dim="time",
         inputs_per_chunk=1,
-        nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
+        nitems_per_input=items_per_file,
         target=tmp_target,
         input_cache=tmp_cache,
     )
