@@ -81,6 +81,7 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
     return full_paths
 
 
+# TODO: this is quite repetetive of the fixture above. Replace with parametrization.
 @pytest.fixture(scope="session", params=["D", "2D"])
 def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request):
     """Return a list of paths pointing to netcdf files."""
@@ -93,6 +94,8 @@ def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request
     return full_paths
 
 
+# TODO: refactor to allow netcdf_local_paths_by_variable to be passed without
+# duplicating the whole test.
 @pytest.fixture()
 def netcdf_http_server(netcdf_local_paths, request):
     def make_netcdf_http_server(username="", password=""):

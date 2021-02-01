@@ -13,6 +13,7 @@ def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
     assert ds.identical(daily_xarray_dataset)
 
 
+# TODO: this is quite repetetive of the test above. Replace with parametrization.
 def test_fixture_local_files_by_variable(daily_xarray_dataset, netcdf_local_paths_by_variable):
     paths = [str(path) for path in netcdf_local_paths_by_variable]
     ds = xr.open_mfdataset(paths, combine="by_coords", concat_dim="time")
