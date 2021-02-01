@@ -1,5 +1,6 @@
 setuptools
-click
+typer >=0.3
+rich>=9.10
 dask
 distributed
 rechunker
