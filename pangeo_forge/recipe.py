@@ -13,6 +13,7 @@ import xarray as xr
 import zarr
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
+from .patterns import ExplicitURLSequence
 from .storage import AbstractTarget, UninitializedTarget
 from .utils import chunked_iterable, fix_scalar_attr_encoding
 
@@ -148,8 +149,8 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
       `(ds: xr.Dataset) -> ds: xr.Dataset`.
     """
 
-    input_urls: Iterable[str] = field(repr=False)
-    sequence_dim: str
+    input_urls: Iterable[str] = field(repr=False, default_factory=list)
+    sequence_dim: str = ""
     inputs_per_chunk: int = 1
     nitems_per_input: int = 1
     target: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
@@ -164,8 +165,10 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
 
     def __post_init__(self):
+        input_pattern = ExplicitURLSequence(self.input_urls)
+        self._inputs = {k: v for k, v in input_pattern}
         self._chunks_inputs = {
-            k: v for k, v in enumerate(chunked_iterable(self.input_urls, self.inputs_per_chunk))
+            k: v for k, v in enumerate(chunked_iterable(self._inputs, self.inputs_per_chunk))
         }
 
     @property
@@ -194,8 +197,9 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
 
     @property
     def cache_input(self) -> Callable:
-        def cache_func(fname: str) -> None:
-            logger.info(f"Caching input '{fname}'")
+        def cache_func(input_key: Hashable) -> None:
+            fname = self._inputs[input_key]
+            logger.info(f"Caching input {input_key}: '{fname}'")
             with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as source:
                 with self.input_cache.open(fname, mode="wb") as target:
                     target.write(source.read())
@@ -249,9 +253,10 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
                 with input_opener(fname, mode="rb", **self.file_system_kwargs) as f:
                     yield f
 
-    def open_input(self, fname: str):
+    def open_input(self, input_key: Hashable):
+        fname = self._inputs[input_key]
         with self.input_opener(fname) as f:
-            logger.info(f"Opening input with Xarray '{fname}'")
+            logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
             ds = xr.open_dataset(f, **self.xarray_open_kwargs)
             # explicitly load into memory
             ds = ds.load()
