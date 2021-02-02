@@ -1,13 +1,11 @@
 import typer
 
-from .bakery import app as bakery_app
-from .forge import app as forge_app
-from .smithy import app as smithy_app
+from . import bakery, forge, smithy
 
 app = typer.Typer(help="CLI for working with pangeo-forge.")
-app.add_typer(bakery_app, name="bakery")
-app.add_typer(forge_app, name="forge")
-app.add_typer(smithy_app, name="smithy")
+app.add_typer(bakery.app, name="bakery")
+app.add_typer(forge.app, name="forge")
+app.add_typer(smithy.app, name="smithy")
 
 
 def version_callback(value: bool):

@@ -9,7 +9,12 @@ def check():
 
 
 @app.command()
-def create():
+def submit():
+    ...
+
+
+@app.command()
+def list():
     ...
 
 
