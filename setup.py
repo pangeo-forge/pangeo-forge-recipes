@@ -40,9 +40,6 @@ setup(
     license="Apache",
     zip_safe=False,
     keywords=["pangeo", "data"],
-    entry_points=dict(console_scripts=["pangeo-forge = pangeo_forge.cli:main"]),
-    use_scm_version={
-        'version_scheme': 'post-release',
-        'local_scheme': 'dirty-tag',
-    }
+    entry_points=dict(console_scripts=["pangeo = pangeo_forge.cli.main:main"]),
+    use_scm_version={"version_scheme": "post-release", "local_scheme": "dirty-tag"},
 )
