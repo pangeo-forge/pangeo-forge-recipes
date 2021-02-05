@@ -33,6 +33,19 @@ class URLPattern(BasePattern):
 
 
 @dataclass
+class VariableSequencePattern(URLPattern):
+    def __post_init__(self):
+
+        if not len(self.keys) == 2:
+            raise ValueError("Exactly two keys are required for VariableSequencePattern")
+        if "variable" not in self.keys:
+            raise ValueError("keys must contain `variable` for VariableSequencePattern")
+        self._sequence_key = [k for k in self.keys if k != "variable"][0]
+
+        super().__post_init__()
+
+
+@dataclass
 class ExplicitURLSequence(BasePattern):
     urls: List[str]
 
