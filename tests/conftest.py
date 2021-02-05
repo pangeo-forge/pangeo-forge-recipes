@@ -1,3 +1,4 @@
+import base64
 import os
 import socket
 
@@ -7,6 +8,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 from pytest_httpserver import HTTPServer
+from werkzeug.wrappers import Response
 
 from pangeo_forge import recipe
 from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
@@ -70,12 +72,26 @@ def netcdf_http_server(netcdf_local_paths, request, httpserver: HTTPServer):
         # assume that all files are in the same directory
         basedir = first_path.dirpath()
         fnames = [path.basename for path in netcdf_local_paths]
-
         url = f"http://127.0.0.1:{httpserver.port}"
-        for fname in fnames:
+
+        if username:
+            headers = {
+                "Authorization": "Basic "
+                + str(base64.b64encode((username + ":" + password).encode("utf-8")), "utf-8")
+            }
+        else:
+            headers = None
+
+        def handler(request):
+            fname = request.path[1:]
             with open(os.path.join(basedir, fname), "rb") as f:
                 data = f.read()
-            httpserver.expect_request(f"/{fname}").respond_with_data(data)
+            return Response(data)
+
+        for fname in fnames:
+            httpserver.expect_request(uri=f"/{fname}", headers=headers).respond_with_handler(
+                handler
+            )
 
         return url, fnames
 
