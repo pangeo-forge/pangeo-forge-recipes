@@ -119,7 +119,7 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
     pattern = VariableSequencePattern(
         path_format, keys={"variable": ["foo", "bar"], "n": list(range(len(paths) // 2))}
     )
-    _ = recipe.NetCDFtoZarrMultiVarSequentialRecipe(
+    r = recipe.NetCDFtoZarrMultiVarSequentialRecipe(
         input_pattern=pattern,
         sequence_dim="time",
         inputs_per_chunk=1,
@@ -127,3 +127,5 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
         target=tmp_target,
         input_cache=tmp_cache,
     )
+
+    _manually_execute_recipe(r)
