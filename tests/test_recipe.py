@@ -1,9 +1,9 @@
 import aiohttp
 import pytest
 import xarray as xr
-from pange_forge.patterns import VariableSequencePattern
 
 from pangeo_forge import recipe
+from pangeo_forge.patterns import VariableSequencePattern
 from pangeo_forge.storage import UninitializedTargetError
 
 dummy_fnames = ["a.nc", "b.nc", "c.nc"]
@@ -92,6 +92,9 @@ def test_NetCDFtoZarrSequentialRecipe(
         assert not ds_target.identical(ds_expected)
         # apply these changes to the expected dataset
         ds_expected = process_chunk(ds_expected)
+
+    print(ds_target)
+    print(ds_expected)
 
     assert ds_target.identical(ds_expected)
 

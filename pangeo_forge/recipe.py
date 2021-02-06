@@ -179,7 +179,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     ).chunk()  # make sure data are not in memory
                     init_dsets.append(chunk_ds)
                 # TODO: create csutomizable option for this step
-                ds = xr.merge(init_dsets, compat="identical", join="exact")
+                ds = xr.merge(
+                    init_dsets, compat="identical", join="exact", combine_attrs="override"
+                )
 
                 # make sure the concat dim has a valid fill_value to avoid
                 # overruns when writing chunk
@@ -359,7 +361,7 @@ class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
 
 @dataclass
 class test_NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
-    input_pattern: VariableSequencePattern
+    input_pattern: VariableSequencePattern = field(default_factory=VariableSequencePattern)
     sequence_dim: str = ""
 
     def __post_init__(self):
