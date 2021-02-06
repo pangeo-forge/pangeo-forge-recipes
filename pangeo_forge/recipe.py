@@ -13,7 +13,7 @@ import xarray as xr
 import zarr
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
-from .patterns import ExplicitURLSequence
+from .patterns import ExplicitURLSequence, VariableSequencePattern
 from .storage import AbstractTarget, UninitializedTarget
 from .utils import chunked_iterable, fix_scalar_attr_encoding
 
@@ -117,7 +117,7 @@ class BaseRecipe(ABC):
 
 
 @dataclass
-class NetCDFtoZarrSequentialRecipe(BaseRecipe):
+class NetCDFtoZarrRecipe(BaseRecipe):
     """This class represents a dataset composed of many individual NetCDF files.
     The files are arraged in a sequence along a single dimension, called the
     `sequence_dim`. Each file may contain multiple variables.
@@ -149,8 +149,6 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
       `(ds: xr.Dataset) -> ds: xr.Dataset`.
     """
 
-    input_urls: Iterable[str] = field(repr=False, default_factory=list)
-    sequence_dim: str = ""
     inputs_per_chunk: int = 1
     nitems_per_input: int = 1
     target: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
@@ -164,13 +162,6 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
 
-    def __post_init__(self):
-        input_pattern = ExplicitURLSequence(self.input_urls)
-        self._inputs = {k: v for k, v in input_pattern}
-        self._chunks_inputs = {
-            k: v for k, v in enumerate(chunked_iterable(self._inputs, self.inputs_per_chunk))
-        }
-
     @property
     def prepare_target(self) -> Callable:
         def _prepare_target():
@@ -180,17 +171,25 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
                 logger.info("Found an existing dataset in target")
                 logger.debug(f"{ds}")
             except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
-                first_chunk_key = next(self.iter_chunks())
-                # for input_url in self.inputs_for_chunk(first_chunk_key):
-                #    self.cache_input(input_url)
-                ds = self.open_chunk(first_chunk_key).chunk()
+
+                init_dsets = []
+                for chunk_key in self._init_chunks:
+                    chunk_ds = self.open_chunk(
+                        chunk_key
+                    ).chunk()  # make sure data are not in memory
+                    init_dsets.append(chunk_ds)
+                # TODO: create csutomizable option for this step
+                ds = xr.merge(init_dsets, compat="identical", join="exact")
 
                 # make sure the concat dim has a valid fill_value to avoid
                 # overruns when writing chunk
                 ds[self.sequence_dim].encoding = {"_FillValue": -1}
                 # actually not necessary if we use decode_times=False
+
                 self.initialize_target(ds)
 
+            # Regardless of whether there is an existing dataset or we are creating a new one,
+            # we need to expand the sequence_dim to hold the entire expected size of the data
             self.expand_target_dim(self.sequence_dim, self.sequence_len())
 
         return _prepare_target
@@ -341,3 +340,48 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     def iter_chunks(self):
         for k in self._chunks_inputs:
             yield k
+
+
+@dataclass
+class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
+    input_urls: Iterable[str] = field(repr=False, default_factory=list)
+    sequence_dim: str = ""
+
+    def __post_init__(self):
+        input_pattern = ExplicitURLSequence(self.input_urls)
+        self._inputs = {k: v for k, v in input_pattern}
+        self._chunks_inputs = {
+            k: v for k, v in enumerate(chunked_iterable(self._inputs, self.inputs_per_chunk))
+        }
+        # just the first chunk is needed to initialize the recipe
+        self._init_chunks = [next(iter(self._chunks_inputs))]
+
+
+@dataclass
+class test_NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
+    input_pattern: VariableSequencePattern
+    sequence_dim: str = ""
+
+    def __post_init__(self):
+        self._variables = self.input_pattern.keys["variable"]
+        self._inputs = {k: v for k, v in self.input_pattern}
+        # input keys are tuples like
+        #  ("temp", 0)
+        #  ("temp", 1)
+        #  ...
+        #  ("salt", n)
+        # chunk_keys will be similarly named, but the index will have a different meaning
+
+        chunks_inputs = {}
+        # generate this iteratively
+        for vname in self._variables:
+            # a hacky way to filter
+            sequence_keys = [k[1] for k in self._inputs if k[0] == vname]
+            for chunk_key, chunk_inputs in enumerate(
+                chunked_iterable(sequence_keys, self.inputs_per_chunk)
+            ):
+                chunks_inputs[(vname, chunk_key)] = (vname, chunk_inputs)
+        self._chunks_inputs = chunks_inputs
+
+        # should be the first chunk from each variable
+        self._init_chunks = [chunk_key for chunk_key in self._chunks_inpust if chunk_key[1] == 0]

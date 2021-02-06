@@ -10,6 +10,7 @@ import pytest
 import xarray as xr
 
 from pangeo_forge import recipe
+from pangeo_forge.patterns import VariableSequencePattern
 from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
 
 
@@ -60,12 +61,14 @@ def _split_up_files_by_day(ds, day_param):
 def _split_up_files_by_variable_and_day(ds, day_param):
     all_dsets = []
     all_fnames = []
+    fnames_by_variable = {}
     for varname in ds.data_vars:
         var_dsets, fnames = _split_up_files_by_day(ds[[varname]], day_param)
         fnames = [f"{varname}_{fname}" for fname in fnames]
         all_dsets += var_dsets
         all_fnames += fnames
-    return all_dsets, all_fnames
+        fnames_by_variable[varname] = fnames
+    return all_dsets, all_fnames, fnames_by_variable
 
 
 @pytest.fixture(scope="session", params=["D", "2D"])
@@ -85,12 +88,15 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
 def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request):
     """Return a list of paths pointing to netcdf files."""
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
-    datasets, fnames = _split_up_files_by_variable_and_day(
+    datasets, fnames, fnames_by_variable = _split_up_files_by_variable_and_day(
         daily_xarray_dataset.copy(), request.param
     )
     full_paths = [tmp_path.join(fname) for fname in fnames]
     xr.save_mfdataset(datasets, [str(path) for path in full_paths])
-    return full_paths
+    items_per_file = {"D": 1, "2D": 2}[request.param]
+    path_format = str(tmp_path) + "/{variable}_{n:03d}.nc"
+    print(path_format)
+    return full_paths, items_per_file, fnames_by_variable, path_format
 
 
 # TODO: refactor to allow netcdf_local_paths_by_variable to be passed without
@@ -157,6 +163,25 @@ def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp
     paths, items_per_file = netcdf_local_paths
     r = recipe.NetCDFtoZarrSequentialRecipe(
         input_urls=paths,
+        sequence_dim="time",
+        inputs_per_chunk=1,
+        nitems_per_input=items_per_file,
+        target=tmp_target,
+        input_cache=tmp_cache,
+    )
+    return r, daily_xarray_dataset, tmp_target
+
+
+@pytest.fixture
+def netCDFtoZarr_sequential_multi_variable_recipe(
+    daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache
+):
+    paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
+    pattern = VariableSequencePattern(
+        path_format, keys={"variable": ["foo", "bar"], "n": list(range(len(paths) / 2))}
+    )
+    r = recipe.NetCDFtoZarrMultiVarSequentialRecipe(
+        input_pattern=pattern,
         sequence_dim="time",
         inputs_per_chunk=1,
         nitems_per_input=items_per_file,
