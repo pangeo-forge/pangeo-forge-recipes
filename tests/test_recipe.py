@@ -112,13 +112,12 @@ def test_NetCDFtoZarrSequentialRecipeNoTarget(
         r.cache_input(next(r.iter_inputs()))
 
 
-@pytest.fixture
 def test_NetCDFtoZarrMultiVarSequentialRecipe(
     daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache
 ):
     paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
     pattern = VariableSequencePattern(
-        path_format, keys={"variable": ["foo", "bar"], "n": list(range(len(paths) / 2))}
+        path_format, keys={"variable": ["foo", "bar"], "n": list(range(len(paths) // 2))}
     )
     _ = recipe.NetCDFtoZarrMultiVarSequentialRecipe(
         input_pattern=pattern,

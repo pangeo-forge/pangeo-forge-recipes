@@ -179,6 +179,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     ).chunk()  # make sure data are not in memory
                     init_dsets.append(chunk_ds)
                 # TODO: create csutomizable option for this step
+                # How to combine attrs is particularly important. It seems like
+                # xarray is missing a "minimal" option to only keep the attrs
+                # that are the same among all input variables.
                 ds = xr.merge(
                     init_dsets, compat="identical", join="exact", combine_attrs="override"
                 )
@@ -360,7 +363,7 @@ class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
 
 
 @dataclass
-class test_NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
+class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
     input_pattern: VariableSequencePattern = field(default_factory=VariableSequencePattern)
     sequence_dim: str = ""
 
@@ -386,4 +389,4 @@ class test_NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
         self._chunks_inputs = chunks_inputs
 
         # should be the first chunk from each variable
-        self._init_chunks = [chunk_key for chunk_key in self._chunks_inpust if chunk_key[1] == 0]
+        self._init_chunks = [chunk_key for chunk_key in self._chunks_inputs if chunk_key[1] == 0]
