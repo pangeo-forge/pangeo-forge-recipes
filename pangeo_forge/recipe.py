@@ -202,8 +202,8 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     @property
     def cache_input(self) -> Callable:
         def cache_func(input_key: Hashable) -> None:
+            logger.info(f"Caching input {input_key}")
             fname = self._inputs[input_key]
-            logger.info(f"Caching input {input_key}: '{fname}'")
             with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as source:
                 with self.input_cache.open(fname, mode="wb") as target:
                     target.write(source.read())
@@ -330,7 +330,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         # return a dict suitable to pass to xr.to_zarr(region=...)
         # specifies where in the overall array to put this chunk's data
         stride = self.nitems_per_input * self.inputs_per_chunk
-        start = chunk_key * stride
+        start = self.chunk_position(chunk_key) * stride
         region_slice = slice(start, start + self.nitems_for_chunk(chunk_key))
         return {self.sequence_dim: region_slice}
 
@@ -361,6 +361,9 @@ class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
         # just the first chunk is needed to initialize the recipe
         self._init_chunks = [next(iter(self._chunks_inputs))]
 
+    def chunk_position(self, chunk_key):
+        return chunk_key
+
 
 @dataclass
 class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
@@ -385,8 +388,13 @@ class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
             for chunk_key, chunk_inputs in enumerate(
                 chunked_iterable(sequence_keys, self.inputs_per_chunk)
             ):
-                chunks_inputs[(vname, chunk_key)] = (vname, chunk_inputs)
+                chunks_inputs[(vname, chunk_key)] = [
+                    (vname, input_sequence_key) for input_sequence_key in chunk_inputs
+                ]
         self._chunks_inputs = chunks_inputs
 
         # should be the first chunk from each variable
         self._init_chunks = [chunk_key for chunk_key in self._chunks_inputs if chunk_key[1] == 0]
+
+    def chunk_position(self, chunk_key):
+        return chunk_key[1]

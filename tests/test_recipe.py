@@ -127,5 +127,4 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
         target=tmp_target,
         input_cache=tmp_cache,
     )
-
     _manually_execute_recipe(r)
