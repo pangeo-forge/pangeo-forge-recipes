@@ -93,9 +93,6 @@ def test_NetCDFtoZarrSequentialRecipe(
         # apply these changes to the expected dataset
         ds_expected = process_chunk(ds_expected)
 
-    print(ds_target)
-    print(ds_expected)
-
     assert ds_target.identical(ds_expected)
 
 
