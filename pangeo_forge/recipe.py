@@ -6,7 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Callable, Hashable, Iterable, NoReturn, Optional
+from typing import Callable, Dict, Hashable, Iterable, NoReturn, Optional
 
 import fsspec
 import xarray as xr
@@ -110,6 +110,12 @@ class BaseRecipe(ABC):
         pipelines.append(pipeline)
         return pipelines
 
+    # https://stackoverflow.com/questions/59986413/achieving-multiple-inheritance-using-python-dataclasses
+    def __post_init__(self):
+        # just intercept the __post_init__ calls so they
+        # aren't relayed to `object`
+        pass
+
 
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
@@ -147,8 +153,10 @@ class NetCDFtoZarrRecipe(BaseRecipe):
       `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
     :param process_chunk: Function to call on each concatenated chunk, with signature
       `(ds: xr.Dataset) -> ds: xr.Dataset`.
+    :param target_chunks: Desired chunk structure for the targret dataset.
     """
 
+    sequence_dim: str = ""
     inputs_per_chunk: int = 1
     nitems_per_input: int = 1
     target: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
@@ -161,6 +169,23 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     fsspec_open_kwargs: dict = field(default_factory=dict)
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
+    target_chunks: Optional[Dict[str, int]] = None
+
+    def __post_init__(self):
+        if self.target_chunks:
+            sequence_dim_chunks = self.target_chunks.get(self.sequence_dim)
+            if sequence_dim_chunks:
+                if sequence_dim_chunks > self.nitems_per_input:
+                    raise ValueError(
+                        f"`sequence_dim_chunks` ({sequence_dim_chunks}) must be ",
+                        f"<= `nitems_per_input` ({self.nitems_per_input})",
+                    )
+                if self.nitems_per_input % sequence_dim_chunks > 0:
+                    raise ValueError(
+                        "`sequence_dim_chunks` ({sequence_dim_chunks}) must "
+                        f"evenly divide `nitems_per_input` ({self.nitems_per_input})"
+                    )
+        # TODO: more input validation
 
     @property
     def prepare_target(self) -> Callable:
@@ -170,6 +195,12 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                 ds = self.open_target()
                 logger.info("Found an existing dataset in target")
                 logger.debug(f"{ds}")
+
+                if self.target_chunks:
+                    # TODO: check that target_chunks id compatibile with the
+                    # existing chunks
+                    pass
+
             except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
 
                 init_dsets = []
@@ -188,8 +219,14 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
                 # make sure the concat dim has a valid fill_value to avoid
                 # overruns when writing chunk
-                ds[self.sequence_dim].encoding = {"_FillValue": -1}
+                # this is problematic because this value will always come out as NaN
+                # when we open up the target
+                # ds[self.sequence_dim].encoding = {"_FillValue": -1}
                 # actually not necessary if we use decode_times=False
+
+                if self.target_chunks:
+                    # target_chunks has undergone some validation in __post_init__
+                    ds = ds.chunk(self.target_chunks)
 
                 self.initialize_target(ds)
 
@@ -315,6 +352,11 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             shape[axis] = dimsize
             arr.resize(shape)
 
+        # now explicity write the sequence coordinate to avoid missing data
+        # when reopening
+        if dim in zgroup:
+            zgroup[dim][:] = 0
+
     def inputs_for_chunk(self, chunk_key):
         return self._chunks_inputs[chunk_key]
 
@@ -334,10 +376,6 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         region_slice = slice(start, start + self.nitems_for_chunk(chunk_key))
         return {self.sequence_dim: region_slice}
 
-    def sequence_len(self):
-        # tells the total size of dataset along the sequence dimension
-        return sum([self.nitems_for_chunk(k) for k in self.iter_chunks()])
-
     def sequence_chunks(self):
         # chunking
         return {self.sequence_dim: self.inputs_per_chunk * self.nitems_per_input}
@@ -350,9 +388,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 @dataclass
 class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
     input_urls: Iterable[str] = field(repr=False, default_factory=list)
-    sequence_dim: str = ""
 
     def __post_init__(self):
+        super().__post_init__()
         input_pattern = ExplicitURLSequence(self.input_urls)
         self._inputs = {k: v for k, v in input_pattern}
         self._chunks_inputs = {
@@ -364,13 +402,17 @@ class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
     def chunk_position(self, chunk_key):
         return chunk_key
 
+    def sequence_len(self):
+        # tells the total size of dataset along the sequence dimension
+        return sum([self.nitems_for_chunk(k) for k in self.iter_chunks()])
+
 
 @dataclass
 class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
     input_pattern: VariableSequencePattern = field(default_factory=VariableSequencePattern)
-    sequence_dim: str = ""
 
     def __post_init__(self):
+        super().__post_init__()
         self._variables = self.input_pattern.keys["variable"]
         self._inputs = {k: v for k, v in self.input_pattern}
         # input keys are tuples like
@@ -398,3 +440,7 @@ class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
 
     def chunk_position(self, chunk_key):
         return chunk_key[1]
+
+    def sequence_len(self):
+        n_sequence = len(self.input_pattern.keys[self.input_pattern._sequence_key])
+        return self.nitems_per_input * n_sequence

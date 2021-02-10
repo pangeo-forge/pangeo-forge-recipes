@@ -1,3 +1,5 @@
+from contextlib import nullcontext as does_not_raise
+
 import aiohttp
 import pytest
 import xarray as xr
@@ -59,27 +61,62 @@ def test_NetCDFtoZarrSequentialRecipeHttpAuth(
     "process_input, process_chunk",
     [(None, None), (incr_date, None), (None, incr_date), (incr_date, incr_date)],
 )
+@pytest.mark.parametrize("inputs_per_chunk", [1, 2])
+@pytest.mark.parametrize(
+    "target_chunks,chunk_expectation",
+    [
+        (None, does_not_raise()),
+        ({"lon": 12}, does_not_raise()),
+        ({"lon": 12, "time": 1}, does_not_raise()),
+        ({"lon": 12, "time": 3}, pytest.raises(ValueError)),
+    ],
+)
 def test_NetCDFtoZarrSequentialRecipe(
-    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache, process_input, process_chunk
+    daily_xarray_dataset,
+    netcdf_local_paths,
+    tmp_target,
+    tmp_cache,
+    process_input,
+    process_chunk,
+    inputs_per_chunk,
+    target_chunks,
+    chunk_expectation,
 ):
 
     # the same recipe is created as a fixture in conftest.py
     # I left it here explicitly because it makes the test easier to read.
     paths, items_per_file = netcdf_local_paths
-    r = recipe.NetCDFtoZarrSequentialRecipe(
-        input_urls=paths,
-        sequence_dim="time",
-        inputs_per_chunk=1,
-        nitems_per_input=items_per_file,
-        target=tmp_target,
-        input_cache=tmp_cache,
-        process_input=process_input,
-        process_chunk=process_chunk,
-    )
+    with chunk_expectation as excinfo:
+        r = recipe.NetCDFtoZarrSequentialRecipe(
+            input_urls=paths,
+            sequence_dim="time",
+            inputs_per_chunk=inputs_per_chunk,
+            nitems_per_input=items_per_file,
+            target=tmp_target,
+            input_cache=tmp_cache,
+            process_input=process_input,
+            process_chunk=process_chunk,
+            target_chunks=target_chunks,
+        )
+    if excinfo:
+        # don't continue if we got an exception
+        return
 
     _manually_execute_recipe(r)
 
-    ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).load()
+    ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True)
+
+    # chunk validation
+    sequence_chunks = ds_target.chunks["time"]
+    if target_chunks is None:
+        target_chunks = {}
+    seq_chunk_len = target_chunks.pop("time", None) or (items_per_file * inputs_per_chunk)
+    # we expect all chunks but the last to have the expected size
+    assert all([item == seq_chunk_len for item in sequence_chunks[:-1]])
+    for other_dim, chunk_len in target_chunks.items():
+        all([item == chunk_len for item in ds_target.chunks[other_dim][:-1]])
+
+    ds_target.load()
     ds_expected = daily_xarray_dataset.compute()
 
     if process_input is not None:
@@ -125,3 +162,8 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
         input_cache=tmp_cache,
     )
     _manually_execute_recipe(r)
+
+    ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).compute()
+    print(ds_target)
+    print(daily_xarray_dataset)
+    assert ds_target.identical(daily_xarray_dataset)

@@ -27,6 +27,8 @@ def get_open_port():
 def daily_xarray_dataset():
     """Return a synthetic random xarray dataset."""
     np.random.seed(1)
+    # TODO: change nt to 11 in order to catch the edge case where
+    # items_per_input does not evenly divide the length of the sequence dimension
     nt, ny, nx = 10, 18, 36
     time = pd.date_range(start="2010-01-01", periods=nt, freq="D")
     lon = (np.arange(nx) + 0.5) * 360 / nx

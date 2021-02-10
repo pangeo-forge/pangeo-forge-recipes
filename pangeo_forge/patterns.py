@@ -3,7 +3,6 @@ Filename patterns.
 """
 
 import itertools
-import string
 from abc import ABC
 from dataclasses import dataclass
 from typing import Dict, Generator, Iterable, List, Tuple
@@ -20,11 +19,15 @@ class URLPattern(BasePattern):
     keys: Dict[str, Iterable]
 
     def __post_init__(self):
-        fmt_string_keys = [
-            t[1] for t in string.Formatter().parse(self.fmt_string) if t[1] is not None
-        ]
-        if not set(fmt_string_keys) == set(self.keys):
-            raise KeyError("Specified keys don't match fmt_string")
+        pass
+        # TODO: make a better check
+        # this check does not work if you have to use the keys multiple times in the format string
+        # fmt_string_keys = [
+        #     t[1] for t in string.Formatter().parse(self.fmt_string) if t[1] is not None
+        # ]
+        # e.g. '{variable}/{variable[0]}.nc'
+        # if not set(fmt_string_keys) == set(self.keys):
+        #    raise KeyError("Specified keys don't match fmt_string")
 
     def __iter__(self):
         for keys in itertools.product(*self.keys.values()):
