@@ -15,6 +15,12 @@ class BasePattern(ABC):
 
 @dataclass
 class URLPattern(BasePattern):
+    """A generic pattern for representing a URL pattern
+
+    :param fmt_string: A string that will be used to generate the URLs
+    :param keys: Keys used to populate the template
+    """
+
     fmt_string: str
     keys: Dict[str, Iterable]
 
@@ -37,6 +43,14 @@ class URLPattern(BasePattern):
 
 @dataclass
 class VariableSequencePattern(URLPattern):
+    """A pattern for representing a dataset stored in a sequence (e.g. time)
+    with different variables in different files.
+
+    :param fmt_string: A string that will be used to generate the URLs
+    :param keys: Keys used to populate the template. One key must be called ``variable``.
+       The other can have any name. Only two keys are allowed.
+    """
+
     def __post_init__(self):
 
         if not len(self.keys) == 2:
@@ -50,6 +64,11 @@ class VariableSequencePattern(URLPattern):
 
 @dataclass
 class ExplicitURLSequence(BasePattern):
+    """A pattern for representing a dataset stored in a sequence of URLs.
+
+    :param urls: list of URLs.
+    """
+
     urls: List[str]
 
     def __iter__(self):
