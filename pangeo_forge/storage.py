@@ -97,7 +97,7 @@ def _slugify(value):
     # https://stackoverflow.com/questions/295135/turn-a-string-into-a-valid-filename
     value = str(value)
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
-    value = re.sub(r"[^\w\s-]+", "_", value.lower())
+    value = re.sub(r"[^.\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
 
 

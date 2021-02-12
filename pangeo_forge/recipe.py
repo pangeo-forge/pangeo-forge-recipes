@@ -158,7 +158,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
     sequence_dim: str = ""
     inputs_per_chunk: int = 1
-    nitems_per_input: int = 1
+    nitems_per_input: Optional[int] = 1
     target: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
     input_cache: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
     require_cache: bool = True
