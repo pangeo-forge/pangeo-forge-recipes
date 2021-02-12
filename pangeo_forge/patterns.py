@@ -9,7 +9,7 @@ from typing import Dict, Generator, Iterable, List, Tuple
 
 
 class BasePattern(ABC):
-    def __iter__(self) -> Generator[Tuple[Tuple, str], None, None]:
+    def __iter__(self) -> Generator[Tuple[Hashable, str], None, None]:
         pass
 
 
