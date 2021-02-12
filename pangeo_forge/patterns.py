@@ -5,11 +5,11 @@ Filename patterns.
 import itertools
 from abc import ABC
 from dataclasses import dataclass
-from typing import Dict, Generator, Iterable, List, Tuple
+from typing import Dict, Generator, Hashable, Iterable, List, Tuple
 
 
 class BasePattern(ABC):
-    def __iter__(self) -> Generator[Tuple[Tuple, str], None, None]:
+    def __iter__(self) -> Generator[Tuple[Hashable, str], None, None]:
         pass
 
 
