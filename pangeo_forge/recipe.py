@@ -2,11 +2,12 @@
 A Pangeo Forge Recipe
 """
 
+import json
 import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Hashable, Iterable, NoReturn, Optional
+from typing import Callable, Dict, Hashable, Iterable, List, NoReturn, Optional
 
 import fsspec
 import xarray as xr
@@ -117,9 +118,23 @@ class BaseRecipe(ABC):
         pass
 
 
+def _encode_key(key) -> str:
+    return "-".join([str(k) for k in key])
+
+
+def _input_metadata_fname(input_key):
+    return "input-meta-" + _encode_key(input_key) + ".json"
+
+
+def _chunk_metadata_fname(chunk_key) -> str:
+    return "chunk-meta-" + _encode_key(chunk_key) + ".json"
+
+
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
+
+_GLOBAL_METADATA_KEY = "pangeo-forge-recipe-metadata.json"
 
 
 @dataclass
@@ -139,6 +154,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     :param nitems_per_input: The length of each input along the `sequence_dim` dimension.
     :param target: A location in which to put the dataset. Can also be assigned at run time.
     :param input_cache: A location in which to cache temporary data.
+    :param input_cache: A location in which to cache metadata for inputs and chunks.
     :param require_cache: Whether to allow opening inputs directly which have not
       yet been cached. This could lead to very slow behavior if the inputs
       live on a slow network.
@@ -161,6 +177,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     nitems_per_input: Optional[int] = 1
     target: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
     input_cache: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
+    metadata_cache: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
     require_cache: bool = True
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
@@ -172,6 +189,8 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     target_chunks: Optional[Dict[str, int]] = None
 
     def __post_init__(self):
+        self._cache_metadata = self.nitems_per_input is None
+
         if self.target_chunks:
             sequence_dim_chunks = self.target_chunks.get(self.sequence_dim)
             if sequence_dim_chunks:
@@ -232,7 +251,15 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
             # Regardless of whether there is an existing dataset or we are creating a new one,
             # we need to expand the sequence_dim to hold the entire expected size of the data
-            self.expand_target_dim(self.sequence_dim, self.sequence_len())
+            input_sequence_lens = self.sequence_lens()
+            n_sequence = sum(input_sequence_lens)
+            self.expand_target_dim(self.sequence_dim, n_sequence)
+
+            if not self.nitems_per_input:
+                # if nitems_per_input is not constant, we need to cache this info
+                recipe_meta = {"input_sequence_lens": input_sequence_lens}
+                meta_mapper = self.metadata_cache.get_mapper()
+                meta_mapper[_GLOBAL_METADATA_KEY] = json.dumps(recipe_meta).encode("utf-8")
 
         return _prepare_target
 
@@ -241,9 +268,13 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         def cache_func(input_key: Hashable) -> None:
             logger.info(f"Caching input {input_key}")
             fname = self._inputs[input_key]
+            # TODO: check and see if the file already exists in the cache
             with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as source:
                 with self.input_cache.open(fname, mode="wb") as target:
                     target.write(source.read())
+
+            if self._cache_metadata:
+                self.cache_input_metadata(input_key)
 
         return cache_func
 
@@ -311,8 +342,14 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             ds = self.process_input(ds, str(fname))
 
         logger.debug(f"{ds}")
-
         return ds
+
+    def cache_input_metadata(self, input_key: Hashable):
+        logger.info(f"Caching metadata for input '{input_key}'")
+        ds = self.open_input(input_key)
+        metadata = ds.to_dict(data=False)
+        mapper = self.metadata_cache.get_mapper()
+        mapper[_input_metadata_fname(input_key)] = json.dumps(metadata).encode("utf-8")
 
     def open_chunk(self, chunk_key):
         logger.info(f"Concatenating inputs for chunk '{chunk_key}'")
@@ -365,24 +402,40 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             for input in self.inputs_for_chunk(chunk_key):
                 yield input
 
-    def nitems_for_chunk(self, chunk_key):
-        return self.nitems_per_input * len(self.inputs_for_chunk(chunk_key))
-
     def region_for_chunk(self, chunk_key):
         # return a dict suitable to pass to xr.to_zarr(region=...)
         # specifies where in the overall array to put this chunk's data
-        stride = self.nitems_per_input * self.inputs_per_chunk
-        start = self.chunk_position(chunk_key) * stride
-        region_slice = slice(start, start + self.nitems_for_chunk(chunk_key))
-        return {self.sequence_dim: region_slice}
+        if self.nitems_per_input:
+            stride = self.nitems_per_input * self.inputs_per_chunk
+            start = self.chunk_position(chunk_key) * stride
+            stop = start + stride
+        else:
+            input_keys = self.inputs_for_chunk(chunk_key)
+            input_sequence_lens = json.loads(
+                self.metadata_cache.get_mapper()[_GLOBAL_METADATA_KEY]
+            )["input_sequence_lens"]
+            start = sum(input_sequence_lens[: self.input_position(input_keys[0])])
+            chunk_len = sum([input_sequence_lens[self.input_position(k)] for k in input_keys])
+            stop = start + chunk_len
 
-    def sequence_chunks(self):
-        # chunking
-        return {self.sequence_dim: self.inputs_per_chunk * self.nitems_per_input}
+        region_slice = slice(start, stop)
+        return {self.sequence_dim: region_slice}
 
     def iter_chunks(self):
         for k in self._chunks_inputs:
             yield k
+
+    def get_input_meta(self, *input_keys) -> Dict:
+        meta_mapper = self.metadata_cache.get_mapper()
+        # getitems should be async; much faster than serial calls
+        all_meta_raw = meta_mapper.getitems([_input_metadata_fname(k) for k in input_keys])
+        return {k: json.loads(raw_bytes) for k, raw_bytes in all_meta_raw.items()}
+
+    def input_sequence_lens(self, *input_keys) -> List[int]:
+        if self.nitems_per_input:
+            return (self.nitems_per_input,) * len(input_keys)
+        input_meta = self.get_input_meta(*input_keys)
+        return [m["dims"][self.sequence_dim] for m in input_meta.values()]
 
 
 @dataclass
@@ -394,17 +447,19 @@ class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
         input_pattern = ExplicitURLSequence(self.input_urls)
         self._inputs = {k: v for k, v in input_pattern}
         self._chunks_inputs = {
-            k: v for k, v in enumerate(chunked_iterable(self._inputs, self.inputs_per_chunk))
+            (k,): v for k, v in enumerate(chunked_iterable(self._inputs, self.inputs_per_chunk))
         }
         # just the first chunk is needed to initialize the recipe
         self._init_chunks = [next(iter(self._chunks_inputs))]
 
-    def chunk_position(self, chunk_key):
-        return chunk_key
+    def input_position(self, input_key):
+        return input_key[0]
 
-    def sequence_len(self):
-        # tells the total size of dataset along the sequence dimension
-        return sum([self.nitems_for_chunk(k) for k in self.iter_chunks()])
+    def chunk_position(self, chunk_key):
+        return chunk_key[0]
+
+    def sequence_lens(self):
+        return self.input_sequence_lens(*self.iter_inputs())
 
 
 @dataclass
@@ -438,9 +493,19 @@ class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
         # should be the first chunk from each variable
         self._init_chunks = [chunk_key for chunk_key in self._chunks_inputs if chunk_key[1] == 0]
 
+    def input_position(self, input_key):
+        return input_key[1]
+
     def chunk_position(self, chunk_key):
         return chunk_key[1]
 
-    def sequence_len(self):
-        n_sequence = len(self.input_pattern.keys[self.input_pattern._sequence_key])
-        return self.nitems_per_input * n_sequence
+    def sequence_lens(self):
+        variables = self.input_pattern.keys["variable"]
+        lens_by_variable = {}
+        for v in variables:
+            variable_input_keys = [k for k in self.iter_inputs() if k[0] == v]
+            lens_by_variable[v] = self.input_sequence_lens(*variable_input_keys)
+        if not all([lens_by_variable[v] == lens_by_variable[variables[0]]]):
+            raise ValueError(f"Inconsistent sequence_len found for variables. f{lens_by_variable}")
+
+        return lens_by_variable[variables[0]]

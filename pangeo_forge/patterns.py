@@ -73,4 +73,4 @@ class ExplicitURLSequence(BasePattern):
 
     def __iter__(self):
         for n, item in enumerate(self.urls):
-            yield n, item
+            yield (n,), item

@@ -71,7 +71,8 @@ def test_NetCDFtoZarrSequentialRecipeHttpAuth(
         ({"lon": 12, "time": 3}, pytest.raises(ValueError)),
     ],
 )
-def test_NetCDFtoZarrSequentialRecipe(
+@pytest.mark.parametrize("specify_nitems_per_input", [True, False])
+def test_NetCDFtoZarrSequentialRecipe_options(
     daily_xarray_dataset,
     netcdf_local_paths,
     tmp_target,
@@ -81,19 +82,28 @@ def test_NetCDFtoZarrSequentialRecipe(
     inputs_per_chunk,
     target_chunks,
     chunk_expectation,
+    specify_nitems_per_input,
 ):
 
     # the same recipe is created as a fixture in conftest.py
     # I left it here explicitly because it makes the test easier to read.
     paths, items_per_file = netcdf_local_paths
+    if specify_nitems_per_input:
+        nitems_per_input = items_per_file
+        metadata_cache = None
+    else:
+        # file will be scanned and metadata cached
+        nitems_per_input = None
+        metadata_cache = tmp_cache
     with chunk_expectation as excinfo:
         r = recipe.NetCDFtoZarrSequentialRecipe(
             input_urls=paths,
             sequence_dim="time",
             inputs_per_chunk=inputs_per_chunk,
-            nitems_per_input=items_per_file,
+            nitems_per_input=nitems_per_input,
             target=tmp_target,
             input_cache=tmp_cache,
+            metadata_cache=metadata_cache,
             process_input=process_input,
             process_chunk=process_chunk,
             target_chunks=target_chunks,
