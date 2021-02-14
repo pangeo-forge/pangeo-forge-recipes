@@ -156,10 +156,22 @@ def test_NetCDFtoZarrSequentialRecipeNoTarget(
         r.cache_input(next(r.iter_inputs()))
 
 
+@pytest.mark.parametrize("specify_nitems_per_input", [True, False])
 def test_NetCDFtoZarrMultiVarSequentialRecipe(
-    daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache
+    daily_xarray_dataset,
+    netcdf_local_paths_by_variable,
+    tmp_target,
+    tmp_cache,
+    specify_nitems_per_input,
 ):
     paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
+    if specify_nitems_per_input:
+        nitems_per_input = items_per_file
+        metadata_cache = None
+    else:
+        # file will be scanned and metadata cached
+        nitems_per_input = None
+        metadata_cache = tmp_cache
     pattern = VariableSequencePattern(
         path_format, keys={"variable": ["foo", "bar"], "n": list(range(len(paths) // 2))}
     )
@@ -167,9 +179,10 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
         input_pattern=pattern,
         sequence_dim="time",
         inputs_per_chunk=1,
-        nitems_per_input=items_per_file,
+        nitems_per_input=nitems_per_input,
         target=tmp_target,
         input_cache=tmp_cache,
+        metadata_cache=metadata_cache,
     )
     _manually_execute_recipe(r)
 
