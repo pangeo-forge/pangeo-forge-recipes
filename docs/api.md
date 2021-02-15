@@ -32,6 +32,11 @@
     :show-inheritance:
 ```
 
+```{eval-rst}
+.. autoclass:: pangeo_forge.recipe.NetCDFtoZarrMultiVarSequentialRecipe
+    :show-inheritance:
+```
+
 ## Patterns
 
 ```{eval-rst}

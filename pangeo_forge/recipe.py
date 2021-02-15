@@ -125,15 +125,10 @@ class BaseRecipe(ABC):
 @dataclass
 class NetCDFtoZarrRecipe(BaseRecipe):
     """This class represents a dataset composed of many individual NetCDF files.
-    The files are arraged in a sequence along a single dimension, called the
-    `sequence_dim`. Each file may contain multiple variables.
+    This class uses Xarray to read and write data and writes its output to Zarr.
+    The files are assumed to be arranged in a sequence along dimension ``sequence_dim``
+    (commonly "time".)
 
-    The dataset is assembled by concatenating all of these files along `sequence_dim`.
-    The target is written in Zarr format.
-
-    This class uses Xarray to read and write data.
-
-    :param input_urls: The inputs used to generate the dataset.
     :param sequence_dim: The dimension name along which the inputs will be concatenated.
     :param inputs_per_chunk: The number of inputs to use in each chunk.
     :param nitems_per_input: The length of each input along the `sequence_dim` dimension.
@@ -156,7 +151,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     :param target_chunks: Desired chunk structure for the targret dataset.
     """
 
-    sequence_dim: str = ""
+    sequence_dim: Optional[str] = None
     inputs_per_chunk: int = 1
     nitems_per_input: int = 1
     target: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
@@ -387,6 +382,12 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
 @dataclass
 class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
+    """There is only one sequence of input files. Each file can contain
+    many variables.
+
+    :param input_urls: The inputs used to generate the dataset.
+    """
+
     input_urls: Iterable[str] = field(repr=False, default_factory=list)
 
     def __post_init__(self):
@@ -409,6 +410,12 @@ class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
 
 @dataclass
 class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
+    """There are muliples sequences of input files (but all along the same dimension.)
+    Different variables live in different files.
+
+    :param input_pattern: An pattern used to generate the input file names.
+    """
+
     input_pattern: VariableSequencePattern = field(default_factory=VariableSequencePattern)
 
     def __post_init__(self):
