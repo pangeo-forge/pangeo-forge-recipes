@@ -190,3 +190,20 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
     print(ds_target)
     print(daily_xarray_dataset)
     assert ds_target.identical(daily_xarray_dataset)
+
+
+# WIP
+# _recipes = {"test_NetCDFtoZarrSequentialRecipe": {}, "NetCDFtoZarrMultiVarSequentialRecipe": {}}
+#
+#
+# @pytest.fixture(params=[list(_recipes)])
+# def recipe_class_and_kwargs(request):
+#     Recipe = getattr(pangeo_forge.recipe, request.param)
+#     recipe_kwargs = _recipes[request.param]
+#     if request.param ==
+#     return Recipe, recipe_kwargs
+#
+#
+# def test_recipe_options(recipe_class_and_kwargs):
+#     Recipe, recipe_kwargs = recipe_class_and_kwargs
+#     r = Recipe(**recipe_kwargs)
