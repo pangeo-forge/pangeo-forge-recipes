@@ -16,7 +16,12 @@ from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
 from .patterns import ExplicitURLSequence, VariableSequencePattern
 from .storage import AbstractTarget, UninitializedTarget
-from .utils import chunked_iterable, fix_scalar_attr_encoding
+from .utils import (
+    calc_chunk_conflicts,
+    chunked_iterable,
+    fix_scalar_attr_encoding,
+    lock_for_conflicts,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -181,24 +186,19 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     fsspec_open_kwargs: dict = field(default_factory=dict)
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
-    target_chunks: Optional[Dict[str, int]] = None
+    target_chunks: Dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self):
         self._cache_metadata = self.nitems_per_input is None
 
-        if self.target_chunks:
-            sequence_dim_chunks = self.target_chunks.get(self.sequence_dim)
-            if sequence_dim_chunks:
-                if sequence_dim_chunks > self.nitems_per_input:
-                    raise ValueError(
-                        f"`sequence_dim_chunks` ({sequence_dim_chunks}) must be ",
-                        f"<= `nitems_per_input` ({self.nitems_per_input})",
-                    )
-                if self.nitems_per_input % sequence_dim_chunks > 0:
-                    raise ValueError(
-                        "`sequence_dim_chunks` ({sequence_dim_chunks}) must "
-                        f"evenly divide `nitems_per_input` ({self.nitems_per_input})"
-                    )
+        target_sequence_dim_chunks = self.target_chunks.get(self.sequence_dim)
+        if (self.nitems_per_input is None) and (target_sequence_dim_chunks is None):
+            raise ValueError("Unable to determine target chunks.")
+        elif target_sequence_dim_chunks:
+            self.sequence_dim_chunks = target_sequence_dim_chunks
+        else:
+            self.sequence_dim_chunks = self.nitems_per_input * self.inputs_per_chunk
+
         # TODO: more input validation
 
     @property
@@ -285,9 +285,10 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
             ds_chunk = drop_vars(ds_chunk)
             target_mapper = self.target.get_mapper()
-            write_region = self.region_for_chunk(chunk_key)
-            logger.info(f"Storing chunk '{chunk_key}' to Zarr region {write_region}")
-            ds_chunk.to_zarr(target_mapper, region=write_region)
+            write_region, conflicts = self.region_and_conflicts_for_chunk(chunk_key)
+            with lock_for_conflicts(conflicts):
+                logger.info(f"Storing chunk '{chunk_key}' to Zarr region {write_region}")
+                ds_chunk.to_zarr(target_mapper, region=write_region)
 
         return _store_chunk
 
@@ -397,13 +398,14 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             for input in self.inputs_for_chunk(chunk_key):
                 yield input
 
-    def region_for_chunk(self, chunk_key):
+    def region_and_conflicts_for_chunk(self, chunk_key):
         # return a dict suitable to pass to xr.to_zarr(region=...)
         # specifies where in the overall array to put this chunk's data
         if self.nitems_per_input:
             stride = self.nitems_per_input * self.inputs_per_chunk
             start = self.chunk_position(chunk_key) * stride
             stop = start + stride
+            this_chunk_conflicts = []
         else:
             input_keys = self.inputs_for_chunk(chunk_key)
             input_sequence_lens = json.loads(
@@ -412,9 +414,13 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             start = sum(input_sequence_lens[: self.input_position(input_keys[0])])
             chunk_len = sum([input_sequence_lens[self.input_position(k)] for k in input_keys])
             stop = start + chunk_len
+            all_chunk_conflicts = calc_chunk_conflicts(
+                input_sequence_lens, self.sequence_dim_chunks
+            )
+            this_chunk_conflicts = [all_chunk_conflicts[self.input_position(k)] for k in input_keys]
 
         region_slice = slice(start, stop)
-        return {self.sequence_dim: region_slice}
+        return {self.sequence_dim: region_slice}, this_chunk_conflicts
 
     def iter_chunks(self):
         for k in self._chunks_inputs:

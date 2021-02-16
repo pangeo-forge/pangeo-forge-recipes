@@ -1,7 +1,9 @@
 import itertools
+from contextlib import contextmanager
 from typing import Iterable, List, Tuple
 
 import numpy as np
+from dask.distributed import Lock
 
 
 # https://alexwlchan.net/2018/12/iterating-in-fixed-size-chunks/
@@ -57,3 +59,15 @@ def calc_chunk_conflicts(chunks: Iterable[int], zchunks: int) -> List[Tuple[int]
         chunk_conflicts.append(tuple(conflicts))
 
     return chunk_conflicts
+
+
+@contextmanager
+def lock_for_conflicts(conflicts, base_name="pangeo-forge"):
+    locks = [Lock(f"{base_name}-{c}") for c in conflicts]
+    for lock in locks:
+        lock.acquire()
+    try:
+        yield
+    finally:
+        for lock in locks:
+            lock.release()
