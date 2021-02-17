@@ -7,10 +7,13 @@ import fsspec
 import numpy as np
 import pandas as pd
 import pytest
+import uvloop
 import xarray as xr
 
 from pangeo_forge import recipe
 from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
+
+uvloop.install()
 
 
 def get_open_port():

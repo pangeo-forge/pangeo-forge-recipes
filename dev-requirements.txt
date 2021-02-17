@@ -1,6 +1,7 @@
 pytest
 pytest-sugar
 pytest-cov
+uvloop
 scipy
 netcdf4
 h5netcdf

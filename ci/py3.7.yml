@@ -23,6 +23,7 @@ dependencies:
   - pynio
   - pytest
   - pytest-cov
+  - uvloop
   - rasterio
   - scipy
   - setuptools
