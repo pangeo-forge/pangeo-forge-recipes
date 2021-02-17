@@ -190,7 +190,6 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
     def __post_init__(self):
         self._cache_metadata = self.nitems_per_input is None
-
         target_sequence_dim_chunks = self.target_chunks.get(self.sequence_dim)
         if (self.nitems_per_input is None) and (target_sequence_dim_chunks is None):
             raise ValueError("Unable to determine target chunks.")
@@ -401,23 +400,24 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     def region_and_conflicts_for_chunk(self, chunk_key):
         # return a dict suitable to pass to xr.to_zarr(region=...)
         # specifies where in the overall array to put this chunk's data
+        # also return the conflicts with other chunks
+
+        input_keys = self.inputs_for_chunk(chunk_key)
         if self.nitems_per_input:
             stride = self.nitems_per_input * self.inputs_per_chunk
             start = self.chunk_position(chunk_key) * stride
             stop = start + stride
-            this_chunk_conflicts = []
+            input_sequence_lens = (self.nitems_per_input,) * self._n_inputs_along_sequence
         else:
-            input_keys = self.inputs_for_chunk(chunk_key)
             input_sequence_lens = json.loads(
                 self.metadata_cache.get_mapper()[_GLOBAL_METADATA_KEY]
             )["input_sequence_lens"]
             start = sum(input_sequence_lens[: self.input_position(input_keys[0])])
             chunk_len = sum([input_sequence_lens[self.input_position(k)] for k in input_keys])
             stop = start + chunk_len
-            all_chunk_conflicts = calc_chunk_conflicts(
-                input_sequence_lens, self.sequence_dim_chunks
-            )
-            this_chunk_conflicts = [all_chunk_conflicts[self.input_position(k)] for k in input_keys]
+
+        all_chunk_conflicts = calc_chunk_conflicts(input_sequence_lens, self.sequence_dim_chunks)
+        this_chunk_conflicts = [all_chunk_conflicts[self.input_position(k)] for k in input_keys]
 
         region_slice = slice(start, stop)
         return {self.sequence_dim: region_slice}, this_chunk_conflicts
@@ -456,6 +456,8 @@ class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
         self._chunks_inputs = {
             (k,): v for k, v in enumerate(chunked_iterable(self._inputs, self.inputs_per_chunk))
         }
+        self._n_inputs_along_sequence = len(self._inputs)
+
         # just the first chunk is needed to initialize the recipe
         self._init_chunks = [next(iter(self._chunks_inputs))]
 
@@ -482,6 +484,7 @@ class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
     def __post_init__(self):
         super().__post_init__()
         self._variables = self.input_pattern.keys["variable"]
+        self._other_key = [k for k in self.input_pattern.keys if k != "foo"][0]
         self._inputs = {k: v for k, v in self.input_pattern}
         # input keys are tuples like
         #  ("temp", 0)
@@ -502,6 +505,7 @@ class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
                     (vname, input_sequence_key) for input_sequence_key in chunk_inputs
                 ]
         self._chunks_inputs = chunks_inputs
+        self._n_inputs_along_sequence = len(self.input_pattern.keys[self._other_key])
 
         # should be the first chunk from each variable
         self._init_chunks = [chunk_key for chunk_key in self._chunks_inputs if chunk_key[1] == 0]

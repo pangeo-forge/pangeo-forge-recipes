@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from typing import Iterable, List, Tuple
 
 import numpy as np
-from dask.distributed import Lock
+from dask.distributed import Lock, client
 
 
 # https://alexwlchan.net/2018/12/iterating-in-fixed-size-chunks/
@@ -63,11 +63,19 @@ def calc_chunk_conflicts(chunks: Iterable[int], zchunks: int) -> List[Tuple[int]
 
 @contextmanager
 def lock_for_conflicts(conflicts, base_name="pangeo-forge"):
-    locks = [Lock(f"{base_name}-{c}") for c in conflicts]
-    for lock in locks:
-        lock.acquire()
+
+    # https://stackoverflow.com/questions/59070260/dask-client-detect-local-default-cluster-already-running
+    is_distributed = client._get_global_client() is not None
+    # Don't bother with locks if we are not in a distributed context
+    # NOTE! This means we HAVE to use dask.distributed as our parallel execution enviroment
+    # That is compatible with Prefect.
+    if is_distributed:
+        locks = [Lock(f"{base_name}-{c}") for c in conflicts]
+        for lock in locks:
+            lock.acquire()
     try:
         yield
     finally:
-        for lock in locks:
-            lock.release()
+        if is_distributed:
+            for lock in locks:
+                lock.release()

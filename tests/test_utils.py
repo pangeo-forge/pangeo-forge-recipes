@@ -30,6 +30,12 @@ def test_chunk_conflicts():
 
 @pytest.mark.parametrize("conflicts", [{}, {0}, {0, 1}])
 def test_locks(conflicts):
+
+    # first make sure the locks work without a cluster
+    with utils.lock_for_conflicts(conflicts):
+        # todo; how to actually test for concurrency! hard!
+        pass
+
     # TOOD: move this into a fixture
     with LocalCluster(n_workers=1, processes=False, threads_per_worker=1,) as cluster, Client(
         cluster

@@ -63,15 +63,26 @@ def test_NetCDFtoZarrSequentialRecipeHttpAuth(
 )
 @pytest.mark.parametrize("inputs_per_chunk", [1, 2])
 @pytest.mark.parametrize(
-    "target_chunks,chunk_expectation",
+    "target_chunks,specify_nitems_per_input,chunk_expectation",
     [
-        (None, does_not_raise()),
-        ({"lon": 12}, does_not_raise()),
-        ({"lon": 12, "time": 1}, does_not_raise()),
-        ({"lon": 12, "time": 3}, pytest.raises(ValueError)),
+        ({}, True, does_not_raise()),
+        ({"lon": 12}, True, does_not_raise()),
+        ({"lon": 12, "time": 1}, True, does_not_raise()),
+        (
+            {"lon": 12, "time": 3},
+            True,
+            does_not_raise(),
+        ),  # currently failing because we don't handle last chunk properly
+        ({}, False, pytest.raises(ValueError)),  # can't determine target chunks
+        ({"lon": 12}, False, pytest.raises(ValueError)),  # can't determine target_chunks
+        ({"lon": 12, "time": 1}, False, does_not_raise()),
+        (
+            {"lon": 12, "time": 3},
+            False,
+            does_not_raise(),
+        ),  # currently failing because we don't handle last chunk properly
     ],
 )
-@pytest.mark.parametrize("specify_nitems_per_input", [True, False])
 def test_NetCDFtoZarrSequentialRecipe_options(
     daily_xarray_dataset,
     netcdf_local_paths,
@@ -118,13 +129,13 @@ def test_NetCDFtoZarrSequentialRecipe_options(
 
     # chunk validation
     sequence_chunks = ds_target.chunks["time"]
-    if target_chunks is None:
-        target_chunks = {}
-    seq_chunk_len = target_chunks.pop("time", None) or (items_per_file * inputs_per_chunk)
+    seq_chunk_len = target_chunks.get("time", None) or (items_per_file * inputs_per_chunk)
     # we expect all chunks but the last to have the expected size
     assert all([item == seq_chunk_len for item in sequence_chunks[:-1]])
     for other_dim, chunk_len in target_chunks.items():
-        all([item == chunk_len for item in ds_target.chunks[other_dim][:-1]])
+        if other_dim == "time":
+            continue
+        assert all([item == chunk_len for item in ds_target.chunks[other_dim][:-1]])
 
     ds_target.load()
     ds_expected = daily_xarray_dataset.compute()
@@ -187,8 +198,6 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
     _manually_execute_recipe(r)
 
     ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).compute()
-    print(ds_target)
-    print(daily_xarray_dataset)
     assert ds_target.identical(daily_xarray_dataset)
 
 
