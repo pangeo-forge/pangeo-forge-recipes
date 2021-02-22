@@ -152,7 +152,7 @@ def test_NetCDFtoZarrSequentialRecipe_options(
         # apply these changes to the expected dataset
         ds_expected = process_chunk(ds_expected)
 
-    assert ds_target.identical(ds_expected)
+    xr.testing.assert_identical(ds_target, ds_expected)
 
 
 def test_NetCDFtoZarrSequentialRecipeNoTarget(
@@ -180,12 +180,16 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
     if specify_nitems_per_input:
         nitems_per_input = items_per_file
         metadata_cache = None
+        target_chunks = {}
     else:
         # file will be scanned and metadata cached
         nitems_per_input = None
         metadata_cache = tmp_cache
+        target_chunks = {"time": 1}
+    time_index = list(range(len(paths) // 2))
+    print("time_index", time_index)
     pattern = VariableSequencePattern(
-        path_format, keys={"variable": ["foo", "bar"], "n": list(range(len(paths) // 2))}
+        path_format, keys={"variable": ["foo", "bar"], "n": time_index}
     )
     r = recipe.NetCDFtoZarrMultiVarSequentialRecipe(
         input_pattern=pattern,
@@ -195,6 +199,7 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
         target=tmp_target,
         input_cache=tmp_cache,
         metadata_cache=metadata_cache,
+        target_chunks=target_chunks,
     )
     _manually_execute_recipe(r)
 

@@ -215,39 +215,32 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     pass
 
             except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
+                logger.info("Creating a new dataset in target")
+                # need to rewrite this as an append loop
+                for chunk_key in self._init_chunks:
+                    with self.open_chunk(chunk_key) as ds:
+                        # need to have the data in memory to avoid weird chunk problems
+                        ds.load()
 
-                with ExitStack() as stack:
-                    # TODO: there is no guarntee that open_chunk is lazy!
-                    # If the preproc function triggers computing, it will be eager
-                    # How do we avoid blowing out memory if there are many variables?
-                    dsets = [
-                        stack.enter_context(self.open_chunk(chunk_key)).chunk()
-                        for chunk_key in self._init_chunks
-                    ]
-
-                    # TODO: create customizable option for this step
-                    # How to combine attrs is particularly important. It seems like
-                    # xarray is missing a "minimal" option to only keep the attrs
-                    # that are the same among all input variables.
-                    ds = xr.merge(dsets, compat="identical", join="exact", combine_attrs="override")
-
-                    # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
-                    if self.target_chunks:
-                        ds = ds.chunk(self.target_chunks)
+                        # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
                         for v in ds.variables:
-                            this_var = ds[v]
-                            chunks = {
-                                this_var.get_axis_num(dim): chunk
-                                for dim, chunk in self.target_chunks.items()
-                                if dim in this_var.dims
-                            }
+                            if self.target_chunks:
+                                this_var = ds[v]
+                                chunks = {
+                                    this_var.get_axis_num(dim): chunk
+                                    for dim, chunk in self.target_chunks.items()
+                                    if dim in this_var.dims
+                                }
 
-                            chunks = tuple(chunks.get(n, s) for n, s in enumerate(this_var.shape))
-                            ds[v].encoding["chunks"] = chunks
-                    else:
-                        ds = ds.chunk({self.sequence_dim: -1})
+                                chunks = tuple(
+                                    chunks.get(n, s) for n, s in enumerate(this_var.shape)
+                                )
+                                ds[v].encoding["chunks"] = chunks
+                            else:
+                                ds[v].encoding["chunks"] = ds[v].shape
 
-                    self.initialize_target(ds)
+                        target_mapper = self.target.get_mapper()
+                        ds.to_zarr(target_mapper, mode="a", compute=False)
 
             # Regardless of whether there is an existing dataset or we are creating a new one,
             # we need to expand the sequence_dim to hold the entire expected size of the data
@@ -364,7 +357,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         with ExitStack() as stack:
             dsets = [stack.enter_context(self.open_input(i)) for i in inputs]
             # explicitly chunking prevents eager evaluation during concat
-            dsets = [ds.chunk() for ds in dsets]
+            # dsets = [ds.chunk() for ds in dsets]
+            # but that leads to corrupted data!
+
             # CONCAT DELETES ENCODING!!!
             # OR NO IT DOESN'T! Not in the latest version of xarray?
             ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
@@ -380,11 +375,6 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     def open_target(self):
         target_mapper = self.target.get_mapper()
         return xr.open_zarr(target_mapper)
-
-    def initialize_target(self, ds, **expand_dims):
-        logger.info("Creating a new dataset in target")
-        target_mapper = self.target.get_mapper()
-        ds.to_zarr(target_mapper, mode="w", compute=False)
 
     def expand_target_dim(self, dim, dimsize):
         target_mapper = self.target.get_mapper()
@@ -499,7 +489,7 @@ class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
     def __post_init__(self):
         super().__post_init__()
         self._variables = self.input_pattern.keys["variable"]
-        self._other_key = [k for k in self.input_pattern.keys if k != "foo"][0]
+        self._other_key = [k for k in self.input_pattern.keys if k != "variable"][0]
         self._inputs = {k: v for k, v in self.input_pattern}
         # input keys are tuples like
         #  ("temp", 0)
