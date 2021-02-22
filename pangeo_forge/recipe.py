@@ -325,7 +325,10 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         with self.input_opener(fname) as f:
             logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
             ds = xr.open_dataset(f, **self.xarray_open_kwargs)
-            # explicitly load into memory
+            # Explicitly load into memory;
+            # if we don't do this, we get a ValueError: seek of closed file.
+            # But there will be some cases where we really don't want to load.
+            # how to keep around the open file object?
             ds = ds.load()
         ds = fix_scalar_attr_encoding(ds)
 
