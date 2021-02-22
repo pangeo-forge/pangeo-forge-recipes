@@ -6,13 +6,14 @@ import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Callable, Hashable, Iterable, NoReturn, Optional
+from typing import Callable, Dict, Hashable, Iterable, NoReturn, Optional
 
 import fsspec
 import xarray as xr
 import zarr
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
+from .patterns import ExplicitURLSequence, VariableSequencePattern
 from .storage import AbstractTarget, UninitializedTarget
 from .utils import chunked_iterable, fix_scalar_attr_encoding
 
@@ -109,6 +110,12 @@ class BaseRecipe(ABC):
         pipelines.append(pipeline)
         return pipelines
 
+    # https://stackoverflow.com/questions/59986413/achieving-multiple-inheritance-using-python-dataclasses
+    def __post_init__(self):
+        # just intercept the __post_init__ calls so they
+        # aren't relayed to `object`
+        pass
+
 
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
@@ -116,17 +123,12 @@ class BaseRecipe(ABC):
 
 
 @dataclass
-class NetCDFtoZarrSequentialRecipe(BaseRecipe):
+class NetCDFtoZarrRecipe(BaseRecipe):
     """This class represents a dataset composed of many individual NetCDF files.
-    The files are arraged in a sequence along a single dimension, called the
-    `sequence_dim`. Each file may contain multiple variables.
+    This class uses Xarray to read and write data and writes its output to Zarr.
+    The files are assumed to be arranged in a sequence along dimension ``sequence_dim``
+    (commonly "time".)
 
-    The dataset is assembled by concatenating all of these files along `sequence_dim`.
-    The target is written in Zarr format.
-
-    This class uses Xarray to read and write data.
-
-    :param input_urls: The inputs used to generate the dataset.
     :param sequence_dim: The dimension name along which the inputs will be concatenated.
     :param inputs_per_chunk: The number of inputs to use in each chunk.
     :param nitems_per_input: The length of each input along the `sequence_dim` dimension.
@@ -146,10 +148,10 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
       `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
     :param process_chunk: Function to call on each concatenated chunk, with signature
       `(ds: xr.Dataset) -> ds: xr.Dataset`.
+    :param target_chunks: Desired chunk structure for the targret dataset.
     """
 
-    input_urls: Iterable[str] = field(repr=False)
-    sequence_dim: str
+    sequence_dim: Optional[str] = None
     inputs_per_chunk: int = 1
     nitems_per_input: int = 1
     target: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
@@ -162,11 +164,23 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     fsspec_open_kwargs: dict = field(default_factory=dict)
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
+    target_chunks: Optional[Dict[str, int]] = None
 
     def __post_init__(self):
-        self._chunks_inputs = {
-            k: v for k, v in enumerate(chunked_iterable(self.input_urls, self.inputs_per_chunk))
-        }
+        if self.target_chunks:
+            sequence_dim_chunks = self.target_chunks.get(self.sequence_dim)
+            if sequence_dim_chunks:
+                if sequence_dim_chunks > self.nitems_per_input:
+                    raise ValueError(
+                        f"`sequence_dim_chunks` ({sequence_dim_chunks}) must be ",
+                        f"<= `nitems_per_input` ({self.nitems_per_input})",
+                    )
+                if self.nitems_per_input % sequence_dim_chunks > 0:
+                    raise ValueError(
+                        "`sequence_dim_chunks` ({sequence_dim_chunks}) must "
+                        f"evenly divide `nitems_per_input` ({self.nitems_per_input})"
+                    )
+        # TODO: more input validation
 
     @property
     def prepare_target(self) -> Callable:
@@ -176,26 +190,52 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
                 ds = self.open_target()
                 logger.info("Found an existing dataset in target")
                 logger.debug(f"{ds}")
+
+                if self.target_chunks:
+                    # TODO: check that target_chunks id compatibile with the
+                    # existing chunks
+                    pass
+
             except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
-                first_chunk_key = next(self.iter_chunks())
-                # for input_url in self.inputs_for_chunk(first_chunk_key):
-                #    self.cache_input(input_url)
-                ds = self.open_chunk(first_chunk_key).chunk()
+
+                init_dsets = []
+                for chunk_key in self._init_chunks:
+                    chunk_ds = self.open_chunk(
+                        chunk_key
+                    ).chunk()  # make sure data are not in memory
+                    init_dsets.append(chunk_ds)
+                # TODO: create csutomizable option for this step
+                # How to combine attrs is particularly important. It seems like
+                # xarray is missing a "minimal" option to only keep the attrs
+                # that are the same among all input variables.
+                ds = xr.merge(
+                    init_dsets, compat="identical", join="exact", combine_attrs="override"
+                )
 
                 # make sure the concat dim has a valid fill_value to avoid
                 # overruns when writing chunk
-                ds[self.sequence_dim].encoding = {"_FillValue": -1}
+                # this is problematic because this value will always come out as NaN
+                # when we open up the target
+                # ds[self.sequence_dim].encoding = {"_FillValue": -1}
                 # actually not necessary if we use decode_times=False
+
+                if self.target_chunks:
+                    # target_chunks has undergone some validation in __post_init__
+                    ds = ds.chunk(self.target_chunks)
+
                 self.initialize_target(ds)
 
+            # Regardless of whether there is an existing dataset or we are creating a new one,
+            # we need to expand the sequence_dim to hold the entire expected size of the data
             self.expand_target_dim(self.sequence_dim, self.sequence_len())
 
         return _prepare_target
 
     @property
     def cache_input(self) -> Callable:
-        def cache_func(fname: str) -> None:
-            logger.info(f"Caching input '{fname}'")
+        def cache_func(input_key: Hashable) -> None:
+            logger.info(f"Caching input {input_key}")
+            fname = self._inputs[input_key]
             with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as source:
                 with self.input_cache.open(fname, mode="wb") as target:
                     target.write(source.read())
@@ -249,9 +289,10 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
                 with input_opener(fname, mode="rb", **self.file_system_kwargs) as f:
                     yield f
 
-    def open_input(self, fname: str):
+    def open_input(self, input_key: Hashable):
+        fname = self._inputs[input_key]
         with self.input_opener(fname) as f:
-            logger.info(f"Opening input with Xarray '{fname}'")
+            logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
             ds = xr.open_dataset(f, **self.xarray_open_kwargs)
             # explicitly load into memory
             ds = ds.load()
@@ -306,6 +347,11 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
             shape[axis] = dimsize
             arr.resize(shape)
 
+        # now explicity write the sequence coordinate to avoid missing data
+        # when reopening
+        if dim in zgroup:
+            zgroup[dim][:] = 0
+
     def inputs_for_chunk(self, chunk_key):
         return self._chunks_inputs[chunk_key]
 
@@ -321,13 +367,9 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
         # return a dict suitable to pass to xr.to_zarr(region=...)
         # specifies where in the overall array to put this chunk's data
         stride = self.nitems_per_input * self.inputs_per_chunk
-        start = chunk_key * stride
+        start = self.chunk_position(chunk_key) * stride
         region_slice = slice(start, start + self.nitems_for_chunk(chunk_key))
         return {self.sequence_dim: region_slice}
-
-    def sequence_len(self):
-        # tells the total size of dataset along the sequence dimension
-        return sum([self.nitems_for_chunk(k) for k in self.iter_chunks()])
 
     def sequence_chunks(self):
         # chunking
@@ -336,3 +378,76 @@ class NetCDFtoZarrSequentialRecipe(BaseRecipe):
     def iter_chunks(self):
         for k in self._chunks_inputs:
             yield k
+
+
+@dataclass
+class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
+    """There is only one sequence of input files. Each file can contain
+    many variables.
+
+    :param input_urls: The inputs used to generate the dataset.
+    """
+
+    input_urls: Iterable[str] = field(repr=False, default_factory=list)
+
+    def __post_init__(self):
+        super().__post_init__()
+        input_pattern = ExplicitURLSequence(self.input_urls)
+        self._inputs = {k: v for k, v in input_pattern}
+        self._chunks_inputs = {
+            k: v for k, v in enumerate(chunked_iterable(self._inputs, self.inputs_per_chunk))
+        }
+        # just the first chunk is needed to initialize the recipe
+        self._init_chunks = [next(iter(self._chunks_inputs))]
+
+    def chunk_position(self, chunk_key):
+        return chunk_key
+
+    def sequence_len(self):
+        # tells the total size of dataset along the sequence dimension
+        return sum([self.nitems_for_chunk(k) for k in self.iter_chunks()])
+
+
+@dataclass
+class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
+    """There are muliples sequences of input files (but all along the same dimension.)
+    Different variables live in different files.
+
+    :param input_pattern: An pattern used to generate the input file names.
+    """
+
+    input_pattern: VariableSequencePattern = field(default_factory=VariableSequencePattern)
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._variables = self.input_pattern.keys["variable"]
+        self._inputs = {k: v for k, v in self.input_pattern}
+        # input keys are tuples like
+        #  ("temp", 0)
+        #  ("temp", 1)
+        #  ...
+        #  ("salt", n)
+        # chunk_keys will be similarly named, but the index will have a different meaning
+
+        chunks_inputs = {}
+        # generate this iteratively
+        for vname in self._variables:
+            # a hacky way to filter
+            sequence_keys = [k[1] for k in self._inputs if k[0] == vname]
+            for chunk_key, chunk_inputs in enumerate(
+                chunked_iterable(sequence_keys, self.inputs_per_chunk)
+            ):
+                chunks_inputs[(vname, chunk_key)] = [
+                    (vname, input_sequence_key) for input_sequence_key in chunk_inputs
+                ]
+        self._chunks_inputs = chunks_inputs
+
+        # should be the first chunk from each variable
+        self._init_chunks = [chunk_key for chunk_key in self._chunks_inputs if chunk_key[1] == 0]
+
+    def chunk_position(self, chunk_key):
+        return chunk_key[1]
+
+    def sequence_len(self):
+        n_sequence = len(self.input_pattern.keys[self.input_pattern._sequence_key])
+        return self.nitems_per_input * n_sequence

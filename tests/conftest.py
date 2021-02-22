@@ -10,6 +10,7 @@ import pytest
 import xarray as xr
 
 from pangeo_forge import recipe
+from pangeo_forge.patterns import VariableSequencePattern
 from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
 
 
@@ -26,6 +27,8 @@ def get_open_port():
 def daily_xarray_dataset():
     """Return a synthetic random xarray dataset."""
     np.random.seed(1)
+    # TODO: change nt to 11 in order to catch the edge case where
+    # items_per_input does not evenly divide the length of the sequence dimension
     nt, ny, nx = 10, 18, 36
     time = pd.date_range(start="2010-01-01", periods=nt, freq="D")
     lon = (np.arange(nx) + 0.5) * 360 / nx
@@ -39,7 +42,7 @@ def daily_xarray_dataset():
     bar_attrs = {"long_name": "Beautiful Bar"}
     dims = ("time", "lat", "lon")
     ds = xr.Dataset(
-        {"foo": (dims, foo, foo_attrs), "bar": (dims, bar, bar_attrs)},
+        {"bar": (dims, bar, bar_attrs), "foo": (dims, foo, foo_attrs)},
         coords={
             "time": ("time", time),
             "lat": ("lat", lat, lat_attrs),
@@ -50,27 +53,65 @@ def daily_xarray_dataset():
     return ds
 
 
+def _split_up_files_by_day(ds, day_param):
+    gb = ds.resample(time=day_param)
+    _, datasets = zip(*gb)
+    fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
+    return datasets, fnames
+
+
+def _split_up_files_by_variable_and_day(ds, day_param):
+    all_dsets = []
+    all_fnames = []
+    fnames_by_variable = {}
+    for varname in ds.data_vars:
+        var_dsets, fnames = _split_up_files_by_day(ds[[varname]], day_param)
+        fnames = [f"{varname}_{fname}" for fname in fnames]
+        all_dsets += var_dsets
+        all_fnames += fnames
+        fnames_by_variable[varname] = fnames
+    return all_dsets, all_fnames, fnames_by_variable
+
+
 @pytest.fixture(scope="session", params=["D", "2D"])
 def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
     """Return a list of paths pointing to netcdf files."""
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
-    items_per_file = {"D": 1, "2D": 2}
-    daily_xarray_dataset.attrs["items_per_file"] = items_per_file[request.param]
-    gb = daily_xarray_dataset.resample(time=request.param)
-    _, datasets = zip(*gb)
-    fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
-    paths = [tmp_path.join(fname) for fname in fnames]
-    xr.save_mfdataset(datasets, [str(path) for path in paths])
-    return paths
+    # copy needed to avoid polluting metadata across multiple tests
+    datasets, fnames = _split_up_files_by_day(daily_xarray_dataset.copy(), request.param)
+    full_paths = [tmp_path.join(fname) for fname in fnames]
+    xr.save_mfdataset(datasets, [str(path) for path in full_paths])
+    items_per_file = {"D": 1, "2D": 2}[request.param]
+    return full_paths, items_per_file
 
 
+# TODO: this is quite repetetive of the fixture above. Replace with parametrization.
+@pytest.fixture(scope="session", params=["D", "2D"])
+def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request):
+    """Return a list of paths pointing to netcdf files."""
+    tmp_path = tmpdir_factory.mktemp("netcdf_data")
+    datasets, fnames, fnames_by_variable = _split_up_files_by_variable_and_day(
+        daily_xarray_dataset.copy(), request.param
+    )
+    full_paths = [tmp_path.join(fname) for fname in fnames]
+    xr.save_mfdataset(datasets, [str(path) for path in full_paths])
+    items_per_file = {"D": 1, "2D": 2}[request.param]
+    path_format = str(tmp_path) + "/{variable}_{n:03d}.nc"
+    print(path_format)
+    return full_paths, items_per_file, fnames_by_variable, path_format
+
+
+# TODO: refactor to allow netcdf_local_paths_by_variable to be passed without
+# duplicating the whole test.
 @pytest.fixture()
 def netcdf_http_server(netcdf_local_paths, request):
+    paths, items_per_file = netcdf_local_paths
+
     def make_netcdf_http_server(username="", password=""):
-        first_path = netcdf_local_paths[0]
+        first_path = paths[0]
         # assume that all files are in the same directory
         basedir = first_path.dirpath()
-        fnames = [path.basename for path in netcdf_local_paths]
+        fnames = [path.basename for path in paths]
 
         this_dir = os.path.dirname(os.path.abspath(__file__))
         port = get_open_port()
@@ -92,7 +133,7 @@ def netcdf_http_server(netcdf_local_paths, request):
             p.kill()
 
         request.addfinalizer(teardown)
-        return url, fnames
+        return url, fnames, items_per_file
 
     return make_netcdf_http_server
 
@@ -121,11 +162,31 @@ def uninitialized_target():
 
 @pytest.fixture
 def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
+    paths, items_per_file = netcdf_local_paths
     r = recipe.NetCDFtoZarrSequentialRecipe(
-        input_urls=netcdf_local_paths,
+        input_urls=paths,
         sequence_dim="time",
         inputs_per_chunk=1,
-        nitems_per_input=daily_xarray_dataset.attrs["items_per_file"],
+        nitems_per_input=items_per_file,
+        target=tmp_target,
+        input_cache=tmp_cache,
+    )
+    return r, daily_xarray_dataset, tmp_target
+
+
+@pytest.fixture
+def netCDFtoZarr_sequential_multi_variable_recipe(
+    daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache
+):
+    paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
+    pattern = VariableSequencePattern(
+        path_format, keys={"variable": ["foo", "bar"], "n": list(range(len(paths) / 2))}
+    )
+    r = recipe.NetCDFtoZarrMultiVarSequentialRecipe(
+        input_pattern=pattern,
+        sequence_dim="time",
+        inputs_per_chunk=1,
+        nitems_per_input=items_per_file,
         target=tmp_target,
         input_cache=tmp_cache,
     )
