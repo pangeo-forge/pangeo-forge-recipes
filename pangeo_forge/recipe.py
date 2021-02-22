@@ -5,7 +5,7 @@ A Pangeo Forge Recipe
 import json
 import logging
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Hashable, Iterable, List, NoReturn, Optional
 
@@ -216,32 +216,30 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
             except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
 
-                init_dsets = []
-                for chunk_key in self._init_chunks:
-                    chunk_ds = self.open_chunk(
-                        chunk_key
-                    ).chunk()  # make sure data are not in memory
-                    init_dsets.append(chunk_ds)
-                # TODO: create csutomizable option for this step
-                # How to combine attrs is particularly important. It seems like
-                # xarray is missing a "minimal" option to only keep the attrs
-                # that are the same among all input variables.
-                ds = xr.merge(
-                    init_dsets, compat="identical", join="exact", combine_attrs="override"
-                )
+                with ExitStack() as stack:
+                    dsets = [
+                        stack.enter_context(self.open_chunk(chunk_key)).chunk()
+                        for chunk_key in self._init_chunks
+                    ]
 
-                # make sure the concat dim has a valid fill_value to avoid
-                # overruns when writing chunk
-                # this is problematic because this value will always come out as NaN
-                # when we open up the target
-                # ds[self.sequence_dim].encoding = {"_FillValue": -1}
-                # actually not necessary if we use decode_times=False
+                    # TODO: create customizable option for this step
+                    # How to combine attrs is particularly important. It seems like
+                    # xarray is missing a "minimal" option to only keep the attrs
+                    # that are the same among all input variables.
+                    ds = xr.merge(dsets, compat="identical", join="exact", combine_attrs="override")
 
-                if self.target_chunks:
-                    # target_chunks has undergone some validation in __post_init__
-                    ds = ds.chunk(self.target_chunks)
+                    # make sure the concat dim has a valid fill_value to avoid
+                    # overruns when writing chunk
+                    # this is problematic because this value will always come out as NaN
+                    # when we open up the target
+                    # ds[self.sequence_dim].encoding = {"_FillValue": -1}
+                    # actually not necessary if we use decode_times=False
 
-                self.initialize_target(ds)
+                    if self.target_chunks:
+                        # target_chunks has undergone some validation in __post_init__
+                        ds = ds.chunk(self.target_chunks)
+
+                    self.initialize_target(ds)
 
             # Regardless of whether there is an existing dataset or we are creating a new one,
             # we need to expand the sequence_dim to hold the entire expected size of the data
@@ -275,19 +273,17 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     @property
     def store_chunk(self) -> Callable:
         def _store_chunk(chunk_key):
-            ds_chunk = self.open_chunk(chunk_key)
-
-            def drop_vars(ds):
+            with self.open_chunk(chunk_key) as ds_chunk:
                 # writing a region means that all the variables MUST have sequence_dim
-                to_drop = [v for v in ds.variables if self.sequence_dim not in ds[v].dims]
-                return ds.drop_vars(to_drop)
-
-            ds_chunk = drop_vars(ds_chunk)
-            target_mapper = self.target.get_mapper()
-            write_region, conflicts = self.region_and_conflicts_for_chunk(chunk_key)
-            with lock_for_conflicts(conflicts):
-                logger.info(f"Storing chunk '{chunk_key}' to Zarr region {write_region}")
-                ds_chunk.to_zarr(target_mapper, region=write_region)
+                to_drop = [
+                    v for v in ds_chunk.variables if self.sequence_dim not in ds_chunk[v].dims
+                ]
+                ds_chunk = ds_chunk.drop_vars(to_drop)
+                target_mapper = self.target.get_mapper()
+                write_region, conflicts = self.region_and_conflicts_for_chunk(chunk_key)
+                with lock_for_conflicts(conflicts):
+                    logger.info(f"Storing chunk '{chunk_key}' to Zarr region {write_region}")
+                    ds_chunk.to_zarr(target_mapper, region=write_region)
 
         return _store_chunk
 
@@ -320,6 +316,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                 with input_opener(fname, mode="rb", **self.file_system_kwargs) as f:
                     yield f
 
+    @contextmanager
     def open_input(self, input_key: Hashable):
         fname = self._inputs[input_key]
         with self.input_opener(fname) as f:
@@ -329,41 +326,46 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             # if we don't do this, we get a ValueError: seek of closed file.
             # But there will be some cases where we really don't want to load.
             # how to keep around the open file object?
-            ds = ds.load()
-        ds = fix_scalar_attr_encoding(ds)
+            # ds = ds.load()
 
-        if self.delete_input_encoding:
-            for var in ds.variables:
-                ds[var].encoding = {}
+            ds = fix_scalar_attr_encoding(ds)
 
-        if self.process_input is not None:
-            ds = self.process_input(ds, str(fname))
+            if self.delete_input_encoding:
+                for var in ds.variables:
+                    ds[var].encoding = {}
 
-        logger.debug(f"{ds}")
-        return ds
+            if self.process_input is not None:
+                ds = self.process_input(ds, str(fname))
+
+            logger.debug(f"{ds}")
+            yield ds
 
     def cache_input_metadata(self, input_key: Hashable):
         logger.info(f"Caching metadata for input '{input_key}'")
-        ds = self.open_input(input_key)
-        metadata = ds.to_dict(data=False)
-        mapper = self.metadata_cache.get_mapper()
-        mapper[_input_metadata_fname(input_key)] = json.dumps(metadata).encode("utf-8")
+        with self.open_input(input_key) as ds:
+            metadata = ds.to_dict(data=False)
+            mapper = self.metadata_cache.get_mapper()
+            mapper[_input_metadata_fname(input_key)] = json.dumps(metadata).encode("utf-8")
 
+    @contextmanager
     def open_chunk(self, chunk_key):
         logger.info(f"Concatenating inputs for chunk '{chunk_key}'")
         inputs = self.inputs_for_chunk(chunk_key)
-        dsets = [self.open_input(i) for i in inputs]
-        # CONCAT DELETES ENCODING!!!
-        # OR NO IT DOESN'T! Not in the latest version of xarray?
-        ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
 
-        if self.process_chunk is not None:
-            ds = self.process_chunk(ds)
+        # need to open an unknown number of contexts at the same time
+        with ExitStack() as stack:
+            dsets = [stack.enter_context(self.open_input(i)) for i in inputs]
+            # CONCAT DELETES ENCODING!!!
+            # OR NO IT DOESN'T! Not in the latest version of xarray?
+            ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
 
-        logger.debug(f"{ds}")
+            if self.process_chunk is not None:
+                ds = self.process_chunk(ds)
 
-        # TODO: maybe do some chunking here?
-        return ds
+            logger.debug(f"{ds}")
+
+            # TODO: maybe do some chunking here?
+            yield ds
 
     def open_target(self):
         target_mapper = self.target.get_mapper()
