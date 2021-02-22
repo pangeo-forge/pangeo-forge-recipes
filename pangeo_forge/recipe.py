@@ -235,9 +235,18 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     # ds[self.sequence_dim].encoding = {"_FillValue": -1}
                     # actually not necessary if we use decode_times=False
 
+                    # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
                     if self.target_chunks:
-                        # target_chunks has undergone some validation in __post_init__
-                        ds = ds.chunk(self.target_chunks)
+                        for v in ds.variables:
+                            this_var = ds[v]
+                            chunks = {
+                                this_var.get_axis_num(dim): chunk
+                                for dim, chunk in self.target_chunks.items()
+                                if dim in this_var.dims
+                            }
+
+                            chunks = tuple(chunks.get(n, s) for n, s in enumerate(this_var.shape))
+                            ds[v].encoding["chunks"] = chunks
 
                     self.initialize_target(ds)
 
