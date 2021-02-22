@@ -522,7 +522,7 @@ class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
         self._init_chunks = [chunk_key for chunk_key in self._chunks_inputs if chunk_key[1] == 0]
 
     def input_position(self, input_key):
-        return input_key[1]
+        return self.input_pattern.keys[self._other_key].index(input_key[1])
 
     def chunk_position(self, chunk_key):
         return chunk_key[1]

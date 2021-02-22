@@ -187,7 +187,6 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
         metadata_cache = tmp_cache
         target_chunks = {"time": 1}
     time_index = list(range(len(paths) // 2))
-    print("time_index", time_index)
     pattern = VariableSequencePattern(
         path_format, keys={"variable": ["foo", "bar"], "n": time_index}
     )
