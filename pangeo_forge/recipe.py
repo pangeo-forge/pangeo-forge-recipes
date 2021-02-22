@@ -264,7 +264,13 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             # TODO: check and see if the file already exists in the cache
             with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as source:
                 with self.input_cache.open(fname, mode="wb") as target:
-                    target.write(source.read())
+                    # TODO: make this configurable? Would we ever want to change it?
+                    BLOCK_SIZE = 10_000_000  # 10 MB
+                    while True:
+                        data = source.read(BLOCK_SIZE)
+                        if not data:
+                            break
+                        target.write(data)
 
             if self._cache_metadata:
                 self.cache_input_metadata(input_key)
