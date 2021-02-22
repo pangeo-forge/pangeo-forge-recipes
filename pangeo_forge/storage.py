@@ -1,6 +1,7 @@
 import os
 import re
 import unicodedata
+import zlib
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -78,9 +79,10 @@ class FlatFSSpecTarget(FSSpecTarget):
     Designed to be used as a cache for inputs.
     """
 
-    def _full_path(self, path):
+    def _full_path(self, path) -> str:
+        # this is just in case _slugify(path) is non-unique
+        prefix = hex(zlib.adler32(str(path).encode("utf8")))[2:10]
         slug = _slugify(path)
-        prefix = prefix = hex(hash(path))[2:10]
         new_path = "-".join([prefix, slug])
         return os.path.join(self.root_path, new_path)
 

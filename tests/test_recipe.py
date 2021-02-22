@@ -131,6 +131,7 @@ def test_NetCDFtoZarrSequentialRecipe_options(
     sequence_chunks = ds_target.chunks["time"]
     seq_chunk_len = target_chunks.get("time", None) or (items_per_file * inputs_per_chunk)
     # we expect all chunks but the last to have the expected size
+    print(seq_chunk_len, sequence_chunks)
     assert all([item == seq_chunk_len for item in sequence_chunks[:-1]])
     for other_dim, chunk_len in target_chunks.items():
         if other_dim == "time":

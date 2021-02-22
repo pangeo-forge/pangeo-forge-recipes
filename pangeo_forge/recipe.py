@@ -217,6 +217,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
 
                 with ExitStack() as stack:
+                    # TODO: there is no guarntee that open_chunk is lazy!
+                    # If the preproc function triggers computing, it will be eager
+                    # How do we avoid blowing out memory if there are many variables?
                     dsets = [
                         stack.enter_context(self.open_chunk(chunk_key)).chunk()
                         for chunk_key in self._init_chunks
@@ -228,15 +231,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     # that are the same among all input variables.
                     ds = xr.merge(dsets, compat="identical", join="exact", combine_attrs="override")
 
-                    # make sure the concat dim has a valid fill_value to avoid
-                    # overruns when writing chunk
-                    # this is problematic because this value will always come out as NaN
-                    # when we open up the target
-                    # ds[self.sequence_dim].encoding = {"_FillValue": -1}
-                    # actually not necessary if we use decode_times=False
-
                     # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
                     if self.target_chunks:
+                        ds = ds.chunk(self.target_chunks)
                         for v in ds.variables:
                             this_var = ds[v]
                             chunks = {
@@ -247,6 +244,8 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
                             chunks = tuple(chunks.get(n, s) for n, s in enumerate(this_var.shape))
                             ds[v].encoding["chunks"] = chunks
+                    else:
+                        ds = ds.chunk({self.sequence_dim: -1})
 
                     self.initialize_target(ds)
 
@@ -364,6 +363,8 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         # need to open an unknown number of contexts at the same time
         with ExitStack() as stack:
             dsets = [stack.enter_context(self.open_input(i)) for i in inputs]
+            # explicitly chunking prevents eager evaluation during concat
+            dsets = [ds.chunk() for ds in dsets]
             # CONCAT DELETES ENCODING!!!
             # OR NO IT DOESN'T! Not in the latest version of xarray?
             ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
