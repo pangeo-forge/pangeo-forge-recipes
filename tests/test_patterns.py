@@ -41,4 +41,4 @@ def test_variable_sequence_pattern():
 
 def test_explicit_url_sequence():
     seq = ExplicitURLSequence(["a", "b", "c"])
-    assert list(seq) == [(0, "a"), (1, "b"), (2, "c")]
+    assert list(seq) == [((0,), "a"), ((1,), "b"), ((2,), "c")]
