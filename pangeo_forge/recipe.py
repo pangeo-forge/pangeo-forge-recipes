@@ -326,8 +326,8 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     @contextmanager
     def open_input(self, input_key: Hashable):
         fname = self._inputs[input_key]
+        logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
         with self.input_opener(fname) as f:
-            logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
             ds = xr.open_dataset(f, **self.xarray_open_kwargs)
             # Explicitly load into memory;
             # if we don't do this, we get a ValueError: seek of closed file.
