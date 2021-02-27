@@ -162,7 +162,7 @@ def uninitialized_target():
 @pytest.fixture
 def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
     paths, items_per_file = netcdf_local_paths
-    r = recipe.NetCDFtoZarrSequentialRecipe(
+    kwargs = dict(
         input_urls=paths,
         sequence_dim="time",
         inputs_per_chunk=1,
@@ -170,7 +170,7 @@ def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp
         target=tmp_target,
         input_cache=tmp_cache,
     )
-    return r, daily_xarray_dataset, tmp_target
+    return recipe.NetCDFtoZarrSequentialRecipe, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture
@@ -182,7 +182,7 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
     pattern = VariableSequencePattern(
         path_format, keys={"variable": ["foo", "bar"], "n": timesteps}
     )
-    r = recipe.NetCDFtoZarrMultiVarSequentialRecipe(
+    kwargs = dict(
         input_pattern=pattern,
         sequence_dim="time",
         inputs_per_chunk=1,
@@ -190,4 +190,4 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
         target=tmp_target,
         input_cache=tmp_cache,
     )
-    return r, daily_xarray_dataset, tmp_target
+    return recipe.NetCDFtoZarrMultiVarSequentialRecipe, kwargs, daily_xarray_dataset, tmp_target
