@@ -8,8 +8,14 @@ import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from dask.distributed import Client, LocalCluster
 
 from pangeo_forge import recipe
+from pangeo_forge.executors import (
+    DaskPipelineExecutor,
+    PrefectPipelineExecutor,
+    PythonPipelineExecutor,
+)
 from pangeo_forge.patterns import VariableSequencePattern
 from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
 
@@ -139,8 +145,6 @@ def netcdf_http_server(netcdf_local_paths, request):
 
 @pytest.fixture()
 def tmp_target(tmpdir_factory):
-    import fsspec
-
     fs = fsspec.get_filesystem_class("file")()
     path = str(tmpdir_factory.mktemp("target"))
     return FSSpecTarget(fs, path)
@@ -191,3 +195,51 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
         input_cache=tmp_cache,
     )
     return recipe.NetCDFtoZarrMultiVarSequentialRecipe, kwargs, daily_xarray_dataset, tmp_target
+
+
+@pytest.fixture(scope="module")
+def dask_cluster():
+    cluster = LocalCluster()
+    yield cluster
+    cluster.close()
+
+
+_executors = {
+    "python": PythonPipelineExecutor,
+    "dask": DaskPipelineExecutor,
+    "prefect": PrefectPipelineExecutor,
+    "prefect-dask": PrefectPipelineExecutor,
+}
+
+
+@pytest.fixture(params=["manual", "python", "dask", "prefect", "prefect-dask"])
+def execute_recipe(request, dask_cluster):
+    if request.param == "manual":
+
+        def execute(r):
+            for input_key in r.iter_inputs():
+                r.cache_input(input_key)
+            r.prepare_target()
+            for chunk_key in r.iter_chunks():
+                r.store_chunk(chunk_key)
+            r.finalize_target()
+
+    else:
+        ExecutorClass = _executors[request.param]
+
+        def execute(rec):
+            ex = ExecutorClass()
+            pipeline = rec.to_pipelines()
+            plan = ex.pipelines_to_plan(pipeline)
+
+            if request.param == "dask":
+                _ = Client(dask_cluster)
+            if request.param == "prefect-dask":
+                from prefect.executors import DaskExecutor
+
+                prefect_executor = DaskExecutor(address=dask_cluster.scheduler_address)
+                plan.run(executor=prefect_executor)
+            else:
+                ex.execute_plan(plan)
+
+    return execute
