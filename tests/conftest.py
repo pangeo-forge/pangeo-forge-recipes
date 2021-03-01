@@ -202,7 +202,7 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
     return recipe.NetCDFtoZarrMultiVarSequentialRecipe, kwargs, daily_xarray_dataset, tmp_target
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def dask_cluster():
     cluster = LocalCluster()
     yield cluster
