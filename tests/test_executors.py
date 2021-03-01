@@ -1,3 +1,5 @@
+from contextlib import nullcontext as does_not_raise
+
 import pytest
 import xarray as xr
 
@@ -51,4 +53,67 @@ def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
         assert not ds_actual.identical(ds_expected)
         ds_expected = incr_date(ds_expected)
 
+    xr.testing.assert_identical(ds_actual, ds_expected)
+
+
+@pytest.mark.parametrize("inputs_per_chunk", [1, 2])
+@pytest.mark.parametrize(
+    "target_chunks,specify_nitems_per_input,chunk_expectation",
+    [
+        ({}, True, does_not_raise()),
+        ({"lon": 12}, True, does_not_raise()),
+        ({"lon": 12, "time": 1}, True, does_not_raise()),
+        ({"lon": 12, "time": 3}, True, does_not_raise(),),
+        ({}, False, pytest.raises(ValueError)),  # can't determine target chunks
+        ({"lon": 12}, False, pytest.raises(ValueError)),  # can't determine target_chunks
+        ({"lon": 12, "time": 1}, False, does_not_raise()),
+        ({"lon": 12, "time": 3}, False, does_not_raise(),),
+    ],
+)
+@pytest.mark.parametrize("recipe_fixture", all_recipes)
+def test_chunks(
+    recipe_fixture,
+    execute_recipe,
+    inputs_per_chunk,
+    target_chunks,
+    chunk_expectation,
+    specify_nitems_per_input,
+):
+    """Check that chunking of datasets works as expected."""
+
+    RecipeClass, kwargs, ds_expected, target = recipe_fixture
+
+    kwargs["target_chunks"] = target_chunks
+    kwargs["inputs_per_chunk"] = inputs_per_chunk
+    if specify_nitems_per_input:
+        kwargs["nitems_per_input"] = kwargs["nitems_per_input"]  # it's already there in kwargs
+        kwargs["metadata_cache"] = None
+    else:
+        # file will be scanned and metadata cached
+        kwargs["nitems_per_input"] = None
+        kwargs["metadata_cache"] = kwargs["input_cache"]
+
+    with chunk_expectation as excinfo:
+        rec = RecipeClass(**kwargs)
+    if excinfo:
+        # don't continue if we got an exception
+        return
+
+    execute_recipe(rec)
+
+    # chunk validation
+    ds_actual = xr.open_zarr(target.get_mapper(), consolidated=True)
+    sequence_chunks = ds_actual.chunks["time"]
+    seq_chunk_len = target_chunks.get("time", None) or (
+        kwargs["nitems_per_input"] * inputs_per_chunk
+    )
+    # we expect all chunks but the last to have the expected size
+    print(sequence_chunks, seq_chunk_len)
+    assert all([item == seq_chunk_len for item in sequence_chunks[:-1]])
+    for other_dim, chunk_len in target_chunks.items():
+        if other_dim == "time":
+            continue
+        assert all([item == chunk_len for item in ds_actual.chunks[other_dim][:-1]])
+
+    ds_actual.load()
     xr.testing.assert_identical(ds_actual, ds_expected)
