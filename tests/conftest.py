@@ -182,17 +182,22 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
     daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache
 ):
     paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
-    timesteps = np.arange(len(paths) / 2)
+    nitems_per_input = items_per_file
+    metadata_cache = None
+    target_chunks = {}
+    time_index = list(range(len(paths) // 2))
     pattern = VariableSequencePattern(
-        path_format, keys={"variable": ["foo", "bar"], "n": timesteps}
+        path_format, keys={"variable": ["foo", "bar"], "n": time_index}
     )
     kwargs = dict(
         input_pattern=pattern,
         sequence_dim="time",
         inputs_per_chunk=1,
-        nitems_per_input=items_per_file,
+        nitems_per_input=nitems_per_input,
         target=tmp_target,
         input_cache=tmp_cache,
+        metadata_cache=metadata_cache,
+        target_chunks=target_chunks,
     )
     return recipe.NetCDFtoZarrMultiVarSequentialRecipe, kwargs, daily_xarray_dataset, tmp_target
 
