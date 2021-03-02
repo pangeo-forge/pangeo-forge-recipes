@@ -108,7 +108,6 @@ def test_chunks(
         kwargs["nitems_per_input"] * inputs_per_chunk
     )
     # we expect all chunks but the last to have the expected size
-    print(sequence_chunks, seq_chunk_len)
     assert all([item == seq_chunk_len for item in sequence_chunks[:-1]])
     for other_dim, chunk_len in target_chunks.items():
         if other_dim == "time":
