@@ -27,6 +27,41 @@ def _manually_execute_recipe(r):
     r.finalize_target()
 
 
+def test_NetCDFtoZarrSequentialRecipeIncremental(
+    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache
+):
+
+    paths, items_per_file = netcdf_local_paths
+    n = len(paths) // 2
+
+    paths1 = paths[:n]
+    r = recipe.NetCDFtoZarrSequentialRecipe(
+        input_urls=paths1,
+        sequence_dim="time",
+        inputs_per_chunk=1,
+        nitems_per_input=items_per_file,
+        target=tmp_target,
+        input_cache=tmp_cache,
+    )
+    _manually_execute_recipe(r)
+
+    paths2 = paths[n:]
+    r = recipe.NetCDFtoZarrSequentialRecipe(
+        processed_input_urls=paths1,
+        input_urls=paths2,
+        sequence_dim="time",
+        inputs_per_chunk=1,
+        nitems_per_input=items_per_file,
+        target=tmp_target,
+        input_cache=tmp_cache,
+    )
+    _manually_execute_recipe(r)
+
+    ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).load()
+    ds_expected = daily_xarray_dataset.compute()
+    assert ds_target.identical(ds_expected)
+
+
 @pytest.mark.parametrize(
     "username, password", [("foo", "bar"), ("foo", "wrong"),],  # noqa: E231
 )
@@ -164,6 +199,4 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
     _manually_execute_recipe(r)
 
     ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).compute()
-    print(ds_target)
-    print(daily_xarray_dataset)
     assert ds_target.identical(daily_xarray_dataset)
