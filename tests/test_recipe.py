@@ -200,3 +200,42 @@ def test_NetCDFtoZarrMultiVarSequentialRecipe(
 
     ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).compute()
     assert ds_target.identical(daily_xarray_dataset)
+
+
+def test_NetCDFtoZarrMultiVarSequentialRecipeIncremental(
+    daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache
+):
+    paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
+    pattern1 = VariableSequencePattern(
+        path_format, keys={"variable": ["foo", "bar"], "n": list(range(len(paths) // 4))}
+    )
+    r1 = recipe.NetCDFtoZarrMultiVarSequentialRecipe(
+        input_pattern=pattern1,
+        sequence_dim="time",
+        inputs_per_chunk=1,
+        nitems_per_input=items_per_file,
+        target=tmp_target,
+        input_cache=tmp_cache,
+    )
+
+    processed_input_urls = [v for k, v in pattern1]
+    pattern2 = VariableSequencePattern(
+        path_format, keys={"variable": ["foo", "bar"], "n": list(range(len(paths) // 2))}
+    )
+    r2 = recipe.NetCDFtoZarrMultiVarSequentialRecipe(
+        processed_input_urls=processed_input_urls,
+        input_pattern=pattern2,
+        sequence_dim="time",
+        inputs_per_chunk=1,
+        nitems_per_input=items_per_file,
+        target=tmp_target,
+        input_cache=tmp_cache,
+    )
+    # check that r2 needs r1 to be executed first
+    with pytest.raises(FileNotFoundError):
+        _manually_execute_recipe(r2)
+    _manually_execute_recipe(r1)
+    _manually_execute_recipe(r2)
+
+    ds_target = xr.open_zarr(tmp_target.get_mapper(), consolidated=True).compute()
+    assert ds_target.identical(daily_xarray_dataset)
