@@ -9,7 +9,7 @@ dependencies:
   - codecov
   - dask
   - distributed
-  - fsspec
+  # - fsspec
   - h5netcdf
   - h5py
   - hdf5
@@ -31,3 +31,4 @@ dependencies:
   - zarr>=2.6.0
   - pip:
     - git+https://github.com/rabernat/rechunker.git@refactor-executors
+    - git+https://github.com/martindurant/filesystem_spec.git@ioloop_massage2
