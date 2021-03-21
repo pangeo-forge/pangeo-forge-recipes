@@ -1,6 +1,9 @@
 import itertools
+from contextlib import contextmanager
+from typing import List, Sequence, Tuple
 
 import numpy as np
+from dask.distributed import Lock, client
 
 
 # https://alexwlchan.net/2018/12/iterating-in-fixed-size-chunks/
@@ -30,3 +33,50 @@ def fix_scalar_attr_encoding(ds):
         ds[v].attrs.update(_fixed_attrs(ds[v].attrs))
         ds[v].encoding.update(_fixed_attrs(ds[v].encoding))
     return ds
+
+
+def calc_chunk_conflicts(chunks: Sequence[int], zchunks: int) -> List[Tuple[int, ...]]:
+    n_chunks = len(chunks)
+
+    # coerce numpy array to list for mypy
+    chunk_bounds = list([int(item) for item in np.hstack([0, np.cumsum(chunks)])])
+    chunk_overlap = []
+    for start, stop in zip(chunk_bounds[:-1], chunk_bounds[1:]):
+        chunk_start = start // zchunks
+        chunk_stop = (stop - 1) // zchunks
+        chunk_overlap.append((chunk_start, chunk_stop))
+
+    chunk_conflicts = []
+    for n, chunk_pair in enumerate(chunk_overlap):
+        conflicts = set()
+        if n > 0:
+            prev_pair = chunk_overlap[n - 1]
+            if prev_pair[1] == chunk_pair[0]:
+                conflicts.add(chunk_pair[0])
+        if n < (n_chunks - 1):
+            next_pair = chunk_overlap[n + 1]
+            if next_pair[0] == chunk_pair[1]:
+                conflicts.add(chunk_pair[1])
+        chunk_conflicts.append(tuple(conflicts))
+
+    return chunk_conflicts
+
+
+@contextmanager
+def lock_for_conflicts(conflicts, base_name="pangeo-forge"):
+
+    # https://stackoverflow.com/questions/59070260/dask-client-detect-local-default-cluster-already-running
+    is_distributed = client._get_global_client() is not None
+    # Don't bother with locks if we are not in a distributed context
+    # NOTE! This means we HAVE to use dask.distributed as our parallel execution enviroment
+    # That is compatible with Prefect.
+    if is_distributed:
+        locks = [Lock(f"{base_name}-{c}") for c in conflicts]
+        for lock in locks:
+            lock.acquire()
+    try:
+        yield
+    finally:
+        if is_distributed:
+            for lock in locks:
+                lock.release()

@@ -1,6 +1,7 @@
 pytest
 pytest-sugar
 pytest-cov
+pytest-lazy-fixture
 scipy
 netcdf4
 h5netcdf

@@ -7,4 +7,5 @@ These tutorials are deep dives into how to develop and debug Pangeo Forge recipe
 
 netcdf_zarr_sequential
 multi_variable_recipe
+terraclimate
 ```

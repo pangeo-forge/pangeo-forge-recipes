@@ -8,8 +8,14 @@ import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from dask.distributed import Client, LocalCluster
 
 from pangeo_forge import recipe
+from pangeo_forge.executors import (
+    DaskPipelineExecutor,
+    PrefectPipelineExecutor,
+    PythonPipelineExecutor,
+)
 from pangeo_forge.patterns import VariableSequencePattern
 from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
 
@@ -97,7 +103,6 @@ def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request
     xr.save_mfdataset(datasets, [str(path) for path in full_paths])
     items_per_file = {"D": 1, "2D": 2}[request.param]
     path_format = str(tmp_path) + "/{variable}_{n:03d}.nc"
-    print(path_format)
     return full_paths, items_per_file, fnames_by_variable, path_format
 
 
@@ -140,8 +145,6 @@ def netcdf_http_server(netcdf_local_paths, request):
 
 @pytest.fixture()
 def tmp_target(tmpdir_factory):
-    import fsspec
-
     fs = fsspec.get_filesystem_class("file")()
     path = str(tmpdir_factory.mktemp("target"))
     return FSSpecTarget(fs, path)
@@ -163,7 +166,7 @@ def uninitialized_target():
 @pytest.fixture
 def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
     paths, items_per_file = netcdf_local_paths
-    r = recipe.NetCDFtoZarrSequentialRecipe(
+    kwargs = dict(
         input_urls=paths,
         sequence_dim="time",
         inputs_per_chunk=1,
@@ -171,7 +174,7 @@ def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp
         target=tmp_target,
         input_cache=tmp_cache,
     )
-    return r, daily_xarray_dataset, tmp_target
+    return recipe.NetCDFtoZarrSequentialRecipe, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture
@@ -179,15 +182,80 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
     daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache
 ):
     paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
+    nitems_per_input = items_per_file
+    time_index = list(range(len(paths) // 2))
     pattern = VariableSequencePattern(
-        path_format, keys={"variable": ["foo", "bar"], "n": list(range(len(paths) / 2))}
+        path_format, keys={"variable": ["foo", "bar"], "n": time_index}
     )
-    r = recipe.NetCDFtoZarrMultiVarSequentialRecipe(
+    kwargs = dict(
         input_pattern=pattern,
         sequence_dim="time",
         inputs_per_chunk=1,
-        nitems_per_input=items_per_file,
+        nitems_per_input=nitems_per_input,
         target=tmp_target,
         input_cache=tmp_cache,
     )
-    return r, daily_xarray_dataset, tmp_target
+    return recipe.NetCDFtoZarrMultiVarSequentialRecipe, kwargs, daily_xarray_dataset, tmp_target
+
+
+@pytest.fixture(scope="session")
+def dask_cluster():
+    cluster = LocalCluster(n_workers=2, threads_per_worker=1, silence_logs=False)
+
+    yield cluster
+    cluster.close()
+
+
+_executors = {
+    "python": PythonPipelineExecutor,
+    "dask": DaskPipelineExecutor,
+    "prefect": PrefectPipelineExecutor,
+    "prefect-dask": PrefectPipelineExecutor,
+}
+
+
+@pytest.fixture(params=["manual", "python", "dask", "prefect", "prefect-dask"])
+def execute_recipe(request, dask_cluster):
+    if request.param == "prefect-dask":
+        # TODO: turn this off and fix this case!
+        pytest.skip("Prefect with dask LocalCluster hangs inexplicably.")
+
+    if request.param == "manual":
+
+        def execute(r):
+            for input_key in r.iter_inputs():
+                r.cache_input(input_key)
+            r.prepare_target()
+            for chunk_key in r.iter_chunks():
+                r.store_chunk(chunk_key)
+            r.finalize_target()
+
+    else:
+        ExecutorClass = _executors[request.param]
+
+        def execute(rec):
+            ex = ExecutorClass()
+            pipeline = rec.to_pipelines()
+            plan = ex.pipelines_to_plan(pipeline)
+
+            if request.param == "dask":
+                client = Client(dask_cluster)
+
+                def set_blosc_threads():
+                    from numcodecs import blosc
+
+                    blosc.use_threads = False
+
+                client.run(set_blosc_threads)
+            if request.param == "prefect-dask":
+                from prefect.executors import DaskExecutor
+
+                prefect_executor = DaskExecutor(address=dask_cluster.scheduler_address)
+                plan.run(executor=prefect_executor)
+            else:
+                ex.execute_plan(plan)
+            if request.param == "dask":
+                client.close()
+                del client
+
+    return execute
