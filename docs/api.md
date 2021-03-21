@@ -28,6 +28,11 @@
 ```
 
 ```{eval-rst}
+.. autoclass:: pangeo_forge.recipe.NetCDFtoZarrRecipe
+    :members:
+```
+
+```{eval-rst}
 .. autoclass:: pangeo_forge.recipe.NetCDFtoZarrSequentialRecipe
     :show-inheritance:
 ```

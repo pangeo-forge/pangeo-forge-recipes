@@ -151,15 +151,20 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     The files are assumed to be arranged in a sequence along dimension ``sequence_dim``
     (commonly "time".)
 
+    This class should not be used on its own but rather via one of its sub-classes.
+
     :param sequence_dim: The dimension name along which the inputs will be concatenated.
     :param inputs_per_chunk: The number of inputs to use in each chunk.
-    :param nitems_per_input: The length of each input along the `sequence_dim` dimension.
+    :param nitems_per_input: The length of each input along the ``sequence_dim`` dimension.
+      If ``None``, each input will be scanned and its metadata cached in order to
+      determine the size of the target dataset.
     :param target: A location in which to put the dataset. Can also be assigned at run time.
     :param input_cache: A location in which to cache temporary data.
     :param metadata_cache: A location in which to cache metadata for inputs and chunks.
+      Required if ``nitems_per_input=None``.
     :param require_cache: Whether to allow opening inputs directly which have not
-      yet been cached. This could lead to very slow behavior if the inputs
-      live on a slow network.
+      yet been cached. This could lead to very unstanble behavior if the inputs
+      live behind a slow network connection.
     :param consolidate_zarr: Whether to consolidate the resulting Zarr dataset.
     :param xarray_open_kwargs: Extra options for opening the inputs with Xarray.
     :param xarray_concat_kwargs: Extra options to pass to Xarray when concatenating

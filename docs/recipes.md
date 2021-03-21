@@ -30,7 +30,9 @@ target_path = "pangeo-forge-bucket/my-dataset-v1.zarr"
 target = FSSpecTarget(fs=fs, root_path=target_path)
 ```
 
-Temporary data is recommended to use a {class}`pangeo_forge.storage.CacheFSSpecTarget` object.
+Temporary data is can be cached via a {class}`pangeo_forge.storage.CacheFSSpecTarget` object.
+Some recipes require separate caching of metadata, which is provided by a third {class}`pangeo_forge.storage.FSSpecTarget`.
+
 
 ## The Recipe Object
 

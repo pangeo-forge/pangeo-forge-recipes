@@ -63,11 +63,12 @@ def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
         ({}, True, does_not_raise()),
         ({"lon": 12}, True, does_not_raise()),
         ({"lon": 12, "time": 1}, True, does_not_raise()),
-        ({"lon": 12, "time": 3}, True, does_not_raise(),),
-        ({}, False, pytest.raises(ValueError)),  # can't determine target chunks
-        ({"lon": 12}, False, pytest.raises(ValueError)),  # can't determine target_chunks
+        ({"lon": 12, "time": 3}, True, does_not_raise()),
         ({"lon": 12, "time": 1}, False, does_not_raise()),
-        ({"lon": 12, "time": 3}, False, does_not_raise(),),
+        ({"lon": 12, "time": 3}, False, does_not_raise()),
+        # can't determine target chunks for the next two because # 'time' missing from target_chunks
+        ({}, False, pytest.raises(ValueError)),
+        ({"lon": 12}, False, pytest.raises(ValueError)),
     ],
 )
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
