@@ -23,6 +23,10 @@ from .utils import (
     lock_for_conflicts,
 )
 
+# use this filename to store global recipe metadata in the metadata_cache
+# it will be written once (by prepare_target) and read many times (by store_chunk)
+_GLOBAL_METADATA_KEY = "pangeo-forge-recipe-metadata.json"
+
 logger = logging.getLogger(__name__)
 
 # How to manually execute a recipe: ###
@@ -139,8 +143,6 @@ def _chunk_metadata_fname(chunk_key) -> str:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
 
-_GLOBAL_METADATA_KEY = "pangeo-forge-recipe-metadata.json"
-
 
 @dataclass
 class NetCDFtoZarrRecipe(BaseRecipe):
@@ -154,7 +156,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     :param nitems_per_input: The length of each input along the `sequence_dim` dimension.
     :param target: A location in which to put the dataset. Can also be assigned at run time.
     :param input_cache: A location in which to cache temporary data.
-    :param input_cache: A location in which to cache metadata for inputs and chunks.
+    :param metadata_cache: A location in which to cache metadata for inputs and chunks.
     :param require_cache: Whether to allow opening inputs directly which have not
       yet been cached. This could lead to very slow behavior if the inputs
       live on a slow network.
@@ -192,11 +194,14 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         self._cache_metadata = self.nitems_per_input is None
         target_sequence_dim_chunks = self.target_chunks.get(self.sequence_dim)
         if (self.nitems_per_input is None) and (target_sequence_dim_chunks is None):
-            raise ValueError("Unable to determine target chunks.")
+            raise ValueError(
+                "Unable to determine target chunks. Please specify either "
+                "`target_chunks` or `nitems_per_input`"
+            )
         elif target_sequence_dim_chunks:
-            self.sequence_dim_chunks = target_sequence_dim_chunks
+            self._sequence_dim_chunks = target_sequence_dim_chunks
         else:
-            self.sequence_dim_chunks = self.nitems_per_input * self.inputs_per_chunk
+            self._sequence_dim_chunks = self.nitems_per_input * self.inputs_per_chunk
 
         # TODO: more input validation
 
@@ -252,6 +257,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                 # if nitems_per_input is not constant, we need to cache this info
                 recipe_meta = {"input_sequence_lens": input_sequence_lens}
                 meta_mapper = self.metadata_cache.get_mapper()
+                # we are saving a dictionary with one key (input_sequence_lens)
                 meta_mapper[_GLOBAL_METADATA_KEY] = json.dumps(recipe_meta).encode("utf-8")
 
         return _prepare_target
@@ -427,7 +433,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             chunk_len = sum([input_sequence_lens[self.input_position(k)] for k in input_keys])
             stop = start + chunk_len
 
-        all_chunk_conflicts = calc_chunk_conflicts(input_sequence_lens, self.sequence_dim_chunks)
+        all_chunk_conflicts = calc_chunk_conflicts(input_sequence_lens, self._sequence_dim_chunks)
         this_chunk_conflicts = [all_chunk_conflicts[self.input_position(k)] for k in input_keys]
 
         region_slice = slice(start, stop)
@@ -446,6 +452,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     def input_sequence_lens(self, *input_keys) -> List[int]:
         if self.nitems_per_input:
             return (self.nitems_per_input,) * len(input_keys)
+        # read per-input metadata; this is distinct from global metadata
         input_meta = self.get_input_meta(*input_keys)
         return [m["dims"][self.sequence_dim] for m in input_meta.values()]
 
