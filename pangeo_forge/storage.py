@@ -5,7 +5,7 @@ import zlib
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import BinaryIO, NoReturn
+from typing import Iterator
 
 import fsspec
 
@@ -16,17 +16,17 @@ class AbstractTarget(ABC):
         pass
 
     @abstractmethod
-    def exists(self, path) -> bool:
+    def exists(self, path: str) -> bool:
         """Check that the file exists."""
         pass
 
     @abstractmethod
-    def rm(self, path) -> NoReturn:
+    def rm(self, path: str) -> None:
         """Remove file."""
         pass
 
     @contextmanager
-    def open(self, path, **kwargs) -> BinaryIO:
+    def open(self, path: str, **kwargs):  # don't know how to type hint this
         """Open file with a context manager."""
         pass
 
@@ -50,19 +50,19 @@ class FSSpecTarget(AbstractTarget):
         """Get a mutable mapping object suitable for storing Zarr data."""
         return self.fs.get_mapper(self.root_path)
 
-    def _full_path(self, path):
+    def _full_path(self, path: str):
         return os.path.join(self.root_path, path)
 
-    def exists(self, path) -> bool:
+    def exists(self, path: str) -> bool:
         """Check that the file is in the cache."""
         return self.fs.exists(self._full_path(path))
 
-    def rm(self, path) -> NoReturn:
+    def rm(self, path: str) -> None:
         """Remove file from the cache."""
         self.fs.rm(self._full_path(path))
 
     @contextmanager
-    def open(self, path, **kwargs) -> BinaryIO:
+    def open(self, path: str, **kwargs) -> Iterator[None]:
         """Open file with a context manager."""
         with self.fs.open(self._full_path(path), **kwargs) as f:
             yield f
@@ -79,7 +79,7 @@ class FlatFSSpecTarget(FSSpecTarget):
     Designed to be used as a cache for inputs.
     """
 
-    def _full_path(self, path) -> str:
+    def _full_path(self, path: str) -> str:
         # this is just in case _slugify(path) is non-unique
         prefix = hex(zlib.adler32(str(path).encode("utf8")))[2:10]
         slug = _slugify(path)
@@ -93,7 +93,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
     pass
 
 
-def _slugify(value):
+def _slugify(value: str) -> str:
     # Adopted from
     # https://github.com/django/django/blob/master/django/utils/text.py
     # https://stackoverflow.com/questions/295135/turn-a-string-into-a-valid-filename
@@ -107,13 +107,13 @@ class UninitializedTarget(AbstractTarget):
     def get_mapper(self):
         raise UninitializedTargetError
 
-    def exists(self, path) -> bool:
+    def exists(self, path: str) -> bool:
         raise UninitializedTargetError
 
-    def rm(self, path) -> NoReturn:
+    def rm(self, path: str) -> None:
         raise UninitializedTargetError
 
-    def open(self, path, **kwargs) -> BinaryIO:
+    def open(self, path: str, **kwargs):  # don't know how to type hint this
         raise UninitializedTargetError
 
 

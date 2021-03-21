@@ -142,6 +142,10 @@ def _chunk_metadata_fname(chunk_key) -> str:
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
+# The main awkward thing here is that, because we are using multiple inheritance
+# with dataclasses, _ALL_ fields must have default values. This makes it impossible
+# to have "required" keyword arguments--everything needs some default.
+# That's whay we end up with `UninitializedTarget` and `_variable_sequence_pattern_default_factory`
 
 
 @dataclass
@@ -182,9 +186,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     sequence_dim: Optional[str] = None
     inputs_per_chunk: int = 1
     nitems_per_input: Optional[int] = 1
-    target: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
-    input_cache: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
-    metadata_cache: Optional[AbstractTarget] = field(default_factory=UninitializedTarget)
+    target: AbstractTarget = field(default_factory=UninitializedTarget)
+    input_cache: AbstractTarget = field(default_factory=UninitializedTarget)
+    metadata_cache: AbstractTarget = field(default_factory=UninitializedTarget)
     require_cache: bool = True
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
@@ -194,6 +198,10 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
     target_chunks: Dict[str, int] = field(default_factory=dict)
+
+    # private attributes, needed for type hints, not meant to be seen or accessed by user
+    _sequence_dim_chunks: List[int] = field(default_factory=list, repr=False, init=False)
+    _inputs: Dict[Hashable, str] = field(default_factory=dict, repr=False, init=False)
 
     def __post_init__(self):
         self._cache_metadata = self.nitems_per_input is None
@@ -331,7 +339,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             else:
                 logger.info(f"No cache found. Opening input `{fname}` directly.")
                 # This will bypass the cache. May be slow.
-                with input_opener(fname, mode="rb", **self.file_system_kwargs) as f:
+                with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as f:
                     yield f
 
     @contextmanager
@@ -456,7 +464,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
     def input_sequence_lens(self, *input_keys) -> List[int]:
         if self.nitems_per_input:
-            return (self.nitems_per_input,) * len(input_keys)
+            return list((self.nitems_per_input,) * len(input_keys))  # struggling to please flake8
         # read per-input metadata; this is distinct from global metadata
         input_meta = self.get_input_meta(*input_keys)
         return [m["dims"][self.sequence_dim] for m in input_meta.values()]
@@ -494,6 +502,10 @@ class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
         return self.input_sequence_lens(*self.iter_inputs())
 
 
+def _variable_sequence_pattern_default_factory() -> VariableSequencePattern:
+    return VariableSequencePattern(fmt_string="", keys={"variable": [], "_null": []})
+
+
 @dataclass
 class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
     """There are muliples sequences of input files (but all along the same dimension.)
@@ -502,7 +514,9 @@ class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
     :param input_pattern: An pattern used to generate the input file names.
     """
 
-    input_pattern: VariableSequencePattern = field(default_factory=VariableSequencePattern)
+    input_pattern: VariableSequencePattern = field(
+        default_factory=_variable_sequence_pattern_default_factory
+    )
 
     def __post_init__(self):
         super().__post_init__()

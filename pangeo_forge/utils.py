@@ -1,6 +1,6 @@
 import itertools
 from contextlib import contextmanager
-from typing import Iterable, List, Tuple
+from typing import List, Sequence, Tuple
 
 import numpy as np
 from dask.distributed import Lock, client
@@ -35,10 +35,11 @@ def fix_scalar_attr_encoding(ds):
     return ds
 
 
-def calc_chunk_conflicts(chunks: Iterable[int], zchunks: int) -> List[Tuple[int]]:
+def calc_chunk_conflicts(chunks: Sequence[int], zchunks: int) -> List[Tuple[int, ...]]:
     n_chunks = len(chunks)
 
-    chunk_bounds = np.hstack([0, np.cumsum(chunks)])
+    # coerce numpy array to list for mypy
+    chunk_bounds = list([int(item) for item in np.hstack([0, np.cumsum(chunks)])])
     chunk_overlap = []
     for start, stop in zip(chunk_bounds[:-1], chunk_bounds[1:]):
         chunk_start = start // zchunks
