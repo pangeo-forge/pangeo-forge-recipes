@@ -7,7 +7,7 @@ import logging
 from abc import ABC, abstractmethod
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Hashable, Iterable, List, NoReturn, Optional
+from typing import Callable, Dict, Hashable, Iterable, List, Optional
 
 import fsspec
 import xarray as xr
@@ -63,7 +63,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def prepare_target(self) -> Callable[[], NoReturn]:
+    def prepare_target(self) -> Callable[[], None]:
         """Prepare the recipe for execution by initializing the target.
         Attribute that returns a callable function.
         """
@@ -76,7 +76,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def cache_input(self) -> Callable[[Hashable], NoReturn]:
+    def cache_input(self) -> Callable[[Hashable], None]:
         """Copy an input from its source location to the cache.
         Attribute that returns a callable function.
         """
@@ -89,7 +89,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def store_chunk(self) -> Callable[[Hashable], NoReturn]:
+    def store_chunk(self) -> Callable[[Hashable], None]:
         """Store a chunk of data in the target.
         Attribute that returns a callable function.
         """
@@ -97,7 +97,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def finalize_target(self) -> Callable[[], NoReturn]:
+    def finalize_target(self) -> Callable[[], None]:
         """Final step to finish the recipe after data has been written.
         Attribute that returns a callable function.
         """
