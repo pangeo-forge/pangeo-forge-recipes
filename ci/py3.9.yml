@@ -29,8 +29,9 @@ dependencies:
   - scipy
   - setuptools
   - toolz
-  - xarray>=0.16.2
+#  - xarray>=0.16.2
   - zarr>=2.6.0
   - pip:
+    - git+https://github.com/rabernat/xarray.git@zarr-chunk-fixes
     - git+https://github.com/pangeo-data/rechunker.git@master
     - git+https://github.com/intake/filesystem_spec.git@master
