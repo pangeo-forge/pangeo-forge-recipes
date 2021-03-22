@@ -217,6 +217,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             self._sequence_dim_chunks = self.nitems_per_input * self.inputs_per_chunk
 
         # TODO: more input validation
+        # for example: check required args (e.g. sequence_dim)
 
     @property
     def prepare_target(self) -> Callable:
@@ -237,8 +238,8 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                 # need to rewrite this as an append loop
                 for chunk_key in self._init_chunks:
                     with self.open_chunk(chunk_key) as ds:
-                        # need to have the data in memory to avoid weird chunk problems
-                        ds.load()
+                        # chunking ensures that we won't write anything by default
+                        ds = ds.chunk()
 
                         # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
                         for v in ds.variables:
@@ -257,7 +258,17 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                             else:
                                 ds[v].encoding["chunks"] = ds[v].shape
 
+                        # load all variables that don't have the sequence dim in them
+                        # these are usually coordinates
+                        # TODO: make this behavior customizable
+                        for v in ds.variables:
+                            if self.sequence_dim not in ds[v].dims:
+                                ds[v].load()
+
                         target_mapper = self.target.get_mapper()
+                        # note we do NOT need the safe_chunks=False option here because
+                        # we only have ONE CHUNK per variable. Xarray has a special case
+                        # for this.
                         ds.to_zarr(target_mapper, mode="a", compute=False)
 
             # Regardless of whether there is an existing dataset or we are creating a new one,
