@@ -9,7 +9,9 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Hashable, Iterable, List, Optional
 
+import dask
 import fsspec
+import numpy as np
 import xarray as xr
 import zarr
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
@@ -238,8 +240,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                 # need to rewrite this as an append loop
                 for chunk_key in self._init_chunks:
                     with self.open_chunk(chunk_key) as ds:
-                        # chunking ensures that we won't write anything by default
-                        ds = ds.chunk()
+                        # ds is already chunked
 
                         # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
                         for v in ds.variables:
@@ -259,17 +260,15 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                                 ds[v].encoding["chunks"] = ds[v].shape
 
                         # load all variables that don't have the sequence dim in them
-                        # these are usually coordinates
+                        # these are usually coordinates.
+                        # Variables that are loaded will be written even with compute=False
                         # TODO: make this behavior customizable
                         for v in ds.variables:
                             if self.sequence_dim not in ds[v].dims:
                                 ds[v].load()
 
                         target_mapper = self.target.get_mapper()
-                        # note we do NOT need the safe_chunks=False option here because
-                        # we only have ONE CHUNK per variable. Xarray has a special case
-                        # for this.
-                        ds.to_zarr(target_mapper, mode="a", compute=False)
+                        ds.to_zarr(target_mapper, mode="a", compute=False, safe_chunks=False)
 
             # Regardless of whether there is an existing dataset or we are creating a new one,
             # we need to expand the sequence_dim to hold the entire expected size of the data
@@ -316,11 +315,31 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     v for v in ds_chunk.variables if self.sequence_dim not in ds_chunk[v].dims
                 ]
                 ds_chunk = ds_chunk.drop_vars(to_drop)
+
                 target_mapper = self.target.get_mapper()
                 write_region, conflicts = self.region_and_conflicts_for_chunk(chunk_key)
-                with lock_for_conflicts(conflicts):
-                    logger.info(f"Storing chunk '{chunk_key}' to Zarr region {write_region}")
-                    ds_chunk.to_zarr(target_mapper, region=write_region)
+
+                zgroup = zarr.open_group(target_mapper)
+                for vname, var_coded in ds_chunk.variables.items():
+                    zarr_array = zgroup[vname]
+                    # get encoding for variable from zarr attributes
+                    # could this backfire some way?
+                    var_coded.encoding.update(zarr_array.attrs)
+                    var = xr.backends.zarr.encode_zarr_variable(var_coded)
+                    zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
+                    with dask.config.set(
+                        scheduler="single-threaded"
+                    ):  # make sure we don't use a scheduler
+                        data = np.asarray(
+                            var.data
+                        )  # TODO: can we buffer large data rather than loading it all?
+                    zarr_array = zgroup[vname]
+                    with lock_for_conflicts((vname, conflicts)):
+                        logger.info(
+                            f"Storing variable {vname} chunk {chunk_key}"
+                            f"to Zarr region {zarr_region}"
+                        )
+                        zarr_array[zarr_region] = data
 
         return _store_chunk
 
@@ -392,13 +411,20 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         # need to open an unknown number of contexts at the same time
         with ExitStack() as stack:
             dsets = [stack.enter_context(self.open_input(i)) for i in inputs]
+            dsets = [ds.chunk() for ds in dsets]
+
             # explicitly chunking prevents eager evaluation during concat
             # dsets = [ds.chunk() for ds in dsets]
             # but that leads to corrupted data!
 
             # CONCAT DELETES ENCODING!!!
             # OR NO IT DOESN'T! Not in the latest version of xarray?
-            ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
+            if len(dsets) > 1:
+                ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
+            elif len(dsets) == 1:
+                ds = dsets[0]
+            else:  # pragma: no cover
+                assert False, "Should never happen"
 
             if self.process_chunk is not None:
                 ds = self.process_chunk(ds)
