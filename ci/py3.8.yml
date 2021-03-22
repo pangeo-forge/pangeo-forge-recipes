@@ -9,7 +9,7 @@ dependencies:
   - codecov
   - dask
   - distributed
-  - fsspec
+#  - fsspec
   - h5netcdf
   - h5py
   - hdf5
@@ -31,4 +31,5 @@ dependencies:
   - xarray>=0.16.2
   - zarr>=2.6.0
   - pip:
-    - git+https://github.com/rabernat/rechunker.git@refactor-executors
+    - git+https://github.com/pangeo-data/rechunker.git@master
+    - git+https://github.com/intake/filesystem_spec.git@master

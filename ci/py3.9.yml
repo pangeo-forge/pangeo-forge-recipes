@@ -2,14 +2,14 @@ name: pangeo-forge
 channels:
   - conda-forge
 dependencies:
-  - python=3.7
+  - python=3.9
   - black
   - boto3
   - cfgrib
   - codecov
   - dask
-  - distributed
-#  - fsspec
+#  - distributed
+  - fsspec
   - h5netcdf
   - h5py
   - hdf5
@@ -20,7 +20,8 @@ dependencies:
   - pip
   - prefect
   - pydap
-  - pynio
+# bring back eventually once pynio conda-forge package supports py3.9
+#  - pynio
   - pytest
   - pytest-cov
   - pytest-lazy-fixture
