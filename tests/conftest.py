@@ -257,8 +257,9 @@ def execute_recipe(request, dask_cluster):
     if request.param == "manual":
 
         def execute(r):
-            for input_key in r.iter_inputs():
-                r.cache_input(input_key)
+            if r.cache_inputs:
+                for input_key in r.iter_inputs():
+                    r.cache_input(input_key)
             r.prepare_target()
             for chunk_key in r.iter_chunks():
                 r.store_chunk(chunk_key)
