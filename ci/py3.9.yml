@@ -20,7 +20,8 @@ dependencies:
   - pip
   - prefect
   - pydap
-  - pynio
+# bring back eventually once pynio conda-forge package supports py3.9
+#  - pynio
   - pytest
   - pytest-cov
   - pytest-lazy-fixture
