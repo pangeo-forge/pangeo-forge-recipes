@@ -411,15 +411,10 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         # need to open an unknown number of contexts at the same time
         with ExitStack() as stack:
             dsets = [stack.enter_context(self.open_input(i)) for i in inputs]
-            dsets = [ds.chunk() for ds in dsets]
-
             # explicitly chunking prevents eager evaluation during concat
-            # dsets = [ds.chunk() for ds in dsets]
-            # but that leads to corrupted data!
-
-            # CONCAT DELETES ENCODING!!!
-            # OR NO IT DOESN'T! Not in the latest version of xarray?
+            dsets = [ds.chunk() for ds in dsets]
             if len(dsets) > 1:
+                # TODO: check what happens to encoding and attributes during concat
                 ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
             elif len(dsets) == 1:
                 ds = dsets[0]
