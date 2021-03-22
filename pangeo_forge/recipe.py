@@ -56,13 +56,6 @@ logger = logging.getLogger(__name__)
 # 6)
 
 
-@contextmanager
-def input_opener(fname, **kwargs):
-    logger.info(f"Opening input '{fname}'")
-    with fsspec.open(fname, **kwargs) as f:
-        yield f
-
-
 class BaseRecipe(ABC):
     """Base recipe class from which all other Recipes inherit.
     """
@@ -141,6 +134,16 @@ def _chunk_metadata_fname(chunk_key) -> str:
     return "chunk-meta-" + _encode_key(chunk_key) + ".json"
 
 
+def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
+    with input_opener as source:
+        with output_opener as target:
+            while True:
+                data = source.read(BLOCK_SIZE)
+                if not data:
+                    break
+                target.write(data)
+
+
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
@@ -171,6 +174,10 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     :param require_cache: Whether to allow opening inputs directly which have not
       yet been cached. This could lead to very unstanble behavior if the inputs
       live behind a slow network connection.
+    :param copy_input_to_local_file: Whether to copy the inputs to a temporary
+      local file. In this case, a path (rather than file object) is passed to
+      ``xr.open_dataset``. This is required for engines that can't open
+      file-like objects (e.g. pynio).
     :param consolidate_zarr: Whether to consolidate the resulting Zarr dataset.
     :param xarray_open_kwargs: Extra options for opening the inputs with Xarray.
     :param xarray_concat_kwargs: Extra options to pass to Xarray when concatenating
@@ -192,6 +199,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     input_cache: AbstractTarget = field(default_factory=UninitializedTarget)
     metadata_cache: AbstractTarget = field(default_factory=UninitializedTarget)
     require_cache: bool = True
+    copy_input_to_local_file = False
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_kwargs: dict = field(default_factory=dict)
@@ -296,16 +304,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             logger.info(f"Caching input {input_key}")
             fname = self._inputs[input_key]
             # TODO: check and see if the file already exists in the cache
-            with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as source:
-                with self.input_cache.open(fname, mode="wb") as target:
-                    # TODO: make this configurable? Would we ever want to change it?
-                    BLOCK_SIZE = 10_000_000  # 10 MB
-                    while True:
-                        data = source.read(BLOCK_SIZE)
-                        if not data:
-                            break
-                        target.write(data)
-
+            input_opener = fsspec.open(fname, mode="rb", **self.fsspec_open_kwargs)
+            target_opener = self.input_cache.open(fname, mode="wb")
+            _copy_btw_filesystems(input_opener, target_opener)
             if self._cache_metadata:
                 self.cache_input_metadata(input_key)
 
@@ -379,7 +380,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             else:
                 logger.info(f"No cache found. Opening input `{fname}` directly.")
                 # This will bypass the cache. May be slow.
-                with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as f:
+                with fsspec.open(fname, mode="rb", **self.fsspec_open_kwargs) as f:
                     yield f
 
     @contextmanager
