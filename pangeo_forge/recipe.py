@@ -160,6 +160,19 @@ def _maybe_open_or_copy_to_local(opener, copy_to_local, orig_name):
         ntf.close()  # cleans up the temporary file
     else:
         with opener as fp:
+            with fp as fp2:
+                yield fp2
+
+
+@contextmanager
+def _fsspec_safe_open(fname, **kwargs):
+    # workaround for inconsistent behavior of fsspec.open
+    # https://github.com/intake/filesystem_spec/issues/579
+    with fsspec.open(fname, **kwargs) as fp:
+        if isinstance(fp, fsspec.implementations.local.LocalFileOpener):
+            with fp as fp2:
+                yield fp2
+        else:
             yield fp
 
 
@@ -323,7 +336,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             logger.info(f"Caching input {input_key}")
             fname = self._inputs[input_key]
             # TODO: check and see if the file already exists in the cache
-            input_opener = fsspec.open(fname, mode="rb", **self.fsspec_open_kwargs)
+            input_opener = _fsspec_safe_open(fname, mode="rb", **self.fsspec_open_kwargs)
             target_opener = self.input_cache.open(fname, mode="wb")
             _copy_btw_filesystems(input_opener, target_opener)
             if self._cache_metadata:
@@ -397,20 +410,17 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     "not cached yet. First call `cache_input` or set "
                     "`cache_inputs=False`."
                 )
-            else:
-                logger.info(f"No cache found. Opening input `{fname}` directly.")
-                # This will bypass the cache. May be slow.
-                opener = fsspec.open(fname, mode="rb", **self.fsspec_open_kwargs)
-                with _maybe_open_or_copy_to_local(
-                    opener, self.copy_input_to_local_file, fname
-                ) as fp:
-                    yield fp
+            logger.info(f"No cache found. Opening input `{fname}` directly.")
+            opener = _fsspec_safe_open(fname, mode="rb", **self.fsspec_open_kwargs)
+            with _maybe_open_or_copy_to_local(opener, self.copy_input_to_local_file, fname) as fp:
+                yield fp
 
     @contextmanager
     def open_input(self, input_key: Hashable):
         fname = self._inputs[input_key]
         logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
         with self.input_opener(fname) as f:
+            logger.info(f"f is {f}")
             ds = xr.open_dataset(f, **self.xarray_open_kwargs)
             # Explicitly load into memory;
             # if we don't do this, we get a ValueError: seek of closed file.
