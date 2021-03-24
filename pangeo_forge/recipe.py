@@ -255,9 +255,11 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                                 chunks = tuple(
                                     chunks.get(n, s) for n, s in enumerate(this_var.shape)
                                 )
-                                ds[v].encoding["chunks"] = chunks
+                                encoding_chunks = chunks
                             else:
-                                ds[v].encoding["chunks"] = ds[v].shape
+                                encoding_chunks = ds[v].shape
+                            logger.debug(f"Setting variable {v} encoding chunks to {encoding_chunks}")
+                            ds[v].encoding["chunks"] = encoding_chunks
 
                         # load all variables that don't have the sequence dim in them
                         # these are usually coordinates.
@@ -268,6 +270,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                                 ds[v].load()
 
                         target_mapper = self.target.get_mapper()
+                        logger.debug(f"Storing dataset:\n{ds}")
                         ds.to_zarr(target_mapper, mode="a", compute=False, safe_chunks=False)
 
             # Regardless of whether there is an existing dataset or we are creating a new one,
@@ -325,6 +328,10 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     # get encoding for variable from zarr attributes
                     # could this backfire some way?
                     var_coded.encoding.update(zarr_array.attrs)
+                    # just delete all attributes from the var;
+                    # they are not used anyway, and there can be conflicts
+                    # related to xarray.coding.variables.safe_setitem
+                    var_coded.attrs = {}
                     var = xr.backends.zarr.encode_zarr_variable(var_coded)
                     zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
                     with dask.config.set(
@@ -336,7 +343,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     zarr_array = zgroup[vname]
                     with lock_for_conflicts((vname, conflicts)):
                         logger.info(
-                            f"Storing variable {vname} chunk {chunk_key}"
+                            f"Storing variable {vname} chunk {chunk_key} "
                             f"to Zarr region {zarr_region}"
                         )
                         zarr_array[zarr_region] = data
@@ -436,7 +443,6 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     def expand_target_dim(self, dim, dimsize):
         target_mapper = self.target.get_mapper()
         zgroup = zarr.open_group(target_mapper)
-
         ds = self.open_target()
         sequence_axes = {v: ds[v].get_axis_num(dim) for v in ds.variables if dim in ds[v].dims}
 
@@ -444,6 +450,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             arr = zgroup[v]
             shape = list(arr.shape)
             shape[axis] = dimsize
+            logger.debug(f"resizing array {v} to shape {shape}")
             arr.resize(shape)
 
         # now explicity write the sequence coordinate to avoid missing data
