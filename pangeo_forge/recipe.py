@@ -169,11 +169,8 @@ def _fsspec_safe_open(fname, **kwargs):
     # workaround for inconsistent behavior of fsspec.open
     # https://github.com/intake/filesystem_spec/issues/579
     with fsspec.open(fname, **kwargs) as fp:
-        if isinstance(fp, fsspec.implementations.local.LocalFileOpener):
-            with fp as fp2:
-                yield fp2
-        else:
-            yield fp
+        with fp as fp2:
+            yield fp2
 
 
 # Notes about dataclasses:
