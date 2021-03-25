@@ -270,7 +270,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                                 ds[v].load()
 
                         target_mapper = self.target.get_mapper()
-                        logger.debug(f"Storing dataset:\n{ds}")
+                        logger.debug(f"Storing dataset:\n {ds}")
                         ds.to_zarr(target_mapper, mode="a", compute=False, safe_chunks=False)
 
             # Regardless of whether there is an existing dataset or we are creating a new one,
@@ -332,16 +332,17 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     # they are not used anyway, and there can be conflicts
                     # related to xarray.coding.variables.safe_setitem
                     var_coded.attrs = {}
-                    var = xr.backends.zarr.encode_zarr_variable(var_coded)
-                    zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
                     with dask.config.set(
                         scheduler="single-threaded"
                     ):  # make sure we don't use a scheduler
+                        var = xr.backends.zarr.encode_zarr_variable(var_coded)
                         data = np.asarray(
                             var.data
                         )  # TODO: can we buffer large data rather than loading it all?
-                    zarr_array = zgroup[vname]
-                    with lock_for_conflicts((vname, conflicts)):
+                    zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
+                    lock_keys = [f"{vname}-{c}" for c in conflicts]
+                    logger.debug(f'Acquiring locks {lock_keys}')
+                    with lock_for_conflicts(lock_keys):
                         logger.info(
                             f"Storing variable {vname} chunk {chunk_key} "
                             f"to Zarr region {zarr_region}"
@@ -486,7 +487,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             stop = start + chunk_len
 
         all_chunk_conflicts = calc_chunk_conflicts(input_sequence_lens, self._sequence_dim_chunks)
-        this_chunk_conflicts = [all_chunk_conflicts[self.input_position(k)] for k in input_keys]
+        this_chunk_conflicts = []
+        for k in input_keys:
+            this_chunk_conflicts.extend(all_chunk_conflicts[self.input_position(k)])
 
         region_slice = slice(start, stop)
         return {self.sequence_dim: region_slice}, this_chunk_conflicts
