@@ -172,6 +172,11 @@ def _fsspec_safe_open(fname, **kwargs):
         with fp as fp2:
             yield fp2
 
+            
+def _get_url_size(fname):
+    with fsspec.open(fname, mode='rb') as of:
+        size = of.fs.size(fname)
+    return size
 
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
@@ -332,7 +337,15 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         def cache_func(input_key: Hashable) -> None:
             logger.info(f"Caching input {input_key}")
             fname = self._inputs[input_key]
-            # TODO: check and see if the file already exists in the cache
+            
+            # check and see if the file already exists in the cache
+            if self.input_cache.exists(fname):
+                cached_size = self.input_cache.size(fname)
+                remote_size = _get_url_size(fname)
+                if cached_size == remote_size:
+                    logger.info(f"Input {input_key} file {fname} is already cached")
+                    return
+            
             input_opener = _fsspec_safe_open(fname, mode="rb", **self.fsspec_open_kwargs)
             target_opener = self.input_cache.open(fname, mode="wb")
             _copy_btw_filesystems(input_opener, target_opener)

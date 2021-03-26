@@ -60,6 +60,9 @@ class FSSpecTarget(AbstractTarget):
     def rm(self, path: str) -> None:
         """Remove file from the cache."""
         self.fs.rm(self._full_path(path))
+        
+    def size(self, path: str) -> int:
+        return self.fs.size(self._full_path(path))
 
     @contextmanager
     def open(self, path: str, **kwargs) -> Iterator[None]:
