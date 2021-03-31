@@ -258,7 +258,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                                 encoding_chunks = chunks
                             else:
                                 encoding_chunks = ds[v].shape
-                            logger.debug(f"Setting variable {v} encoding chunks to {encoding_chunks}")
+                            logger.debug(
+                                f"Setting variable {v} encoding chunks to {encoding_chunks}"
+                            )
                             ds[v].encoding["chunks"] = encoding_chunks
 
                         # load all variables that don't have the sequence dim in them
@@ -341,7 +343,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                         )  # TODO: can we buffer large data rather than loading it all?
                     zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
                     lock_keys = [f"{vname}-{c}" for c in conflicts]
-                    logger.debug(f'Acquiring locks {lock_keys}')
+                    logger.debug(f"Acquiring locks {lock_keys}")
                     with lock_for_conflicts(lock_keys):
                         logger.info(
                             f"Storing variable {vname} chunk {chunk_key} "
