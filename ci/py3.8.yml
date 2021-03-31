@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.8
+  - aiohttp
   - black
   - boto3
   - cfgrib
@@ -25,6 +26,7 @@ dependencies:
   - pytest-cov
   - pytest-lazy-fixture
   - rasterio
+  - requests
   - scipy
   - setuptools
   - toolz
@@ -34,4 +36,3 @@ dependencies:
     - git+https://github.com/rabernat/xarray.git@zarr-chunk-fixes
     - git+https://github.com/pangeo-data/rechunker.git@master
     - git+https://github.com/intake/filesystem_spec.git@master
-    - fsspec[http]
