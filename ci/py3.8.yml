@@ -34,3 +34,4 @@ dependencies:
     - git+https://github.com/rabernat/xarray.git@zarr-chunk-fixes
     - git+https://github.com/pangeo-data/rechunker.git@master
     - git+https://github.com/intake/filesystem_spec.git@master
+    - fsspec[http]
