@@ -476,28 +476,23 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         # also return the conflicts with other chunks
 
         input_keys = self.inputs_for_chunk(chunk_key)
+
+        # TODO: refactor into a separate method
         if self.nitems_per_input:
-            stride = self.nitems_per_input * self.inputs_per_chunk
-            start = self.chunk_position(chunk_key) * stride
-            stop = start + stride
             input_sequence_lens = (self.nitems_per_input,) * self._n_inputs_along_sequence
         else:
             input_sequence_lens = json.loads(
                 self.metadata_cache.get_mapper()[_GLOBAL_METADATA_KEY]
             )["input_sequence_lens"]
-            start = sum(input_sequence_lens[: self.input_position(input_keys[0])])
-            chunk_len = sum([input_sequence_lens[self.input_position(k)] for k in input_keys])
-            stop = start + chunk_len
 
         chunk_bounds, all_chunk_conflicts = chunk_bounds_and_conflicts(
             input_sequence_lens, self._sequence_dim_chunks
         )
-        computed_bounds = (
-            chunk_bounds[self.input_position(input_keys[0])],
-            chunk_bounds[self.input_position(input_keys[-1]) + 1],
-        )
-        print(chunk_key, (start, stop), computed_bounds)
-        # assert (start, stop) == computed_bounds, "Consistency check for region bounds"
+        # for multi-variable recipes, there is something redunandt about this
+        # logic that feels error prone
+        start = chunk_bounds[self.input_position(input_keys[0])]
+        stop = chunk_bounds[self.input_position(input_keys[-1]) + 1]
+
         this_chunk_conflicts = set()
         for k in input_keys:
             # for multi-variable recipes, the confilcts will usually be the same
