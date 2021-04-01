@@ -1,3 +1,4 @@
+import logging
 import os
 import socket
 import subprocess
@@ -18,6 +19,12 @@ from pangeo_forge.executors import (
 )
 from pangeo_forge.patterns import VariableSequencePattern
 from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--redirect-dask-worker-logs-to-stdout", action="store", default="NOTSET",
+    )
 
 
 def get_open_port():
@@ -199,10 +206,37 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
 
 
 @pytest.fixture(scope="session")
-def dask_cluster():
+def dask_cluster(request):
     cluster = LocalCluster(n_workers=2, threads_per_worker=1, silence_logs=False)
 
+    client = Client(cluster)
+
+    # cluster setup
+
+    def set_blosc_threads():
+        from numcodecs import blosc
+
+        blosc.use_threads = False
+
+    log_level_name = request.config.getoption("--redirect-dask-worker-logs-to-stdout")
+    level = logging.getLevelName(log_level_name)
+
+    def redirect_logs():
+        import logging
+
+        logger = logging.getLogger("pangeo_forge")
+        handler = logging.StreamHandler()
+        handler.setLevel(level)
+        logger.setLevel(level)
+        logger.addHandler(handler)
+
+    client.run(set_blosc_threads)
+    client.run(redirect_logs)
+    client.close()
+    del client
+
     yield cluster
+
     cluster.close()
 
 
@@ -241,12 +275,6 @@ def execute_recipe(request, dask_cluster):
             if request.param == "dask":
                 client = Client(dask_cluster)
 
-                def set_blosc_threads():
-                    from numcodecs import blosc
-
-                    blosc.use_threads = False
-
-                client.run(set_blosc_threads)
             if request.param == "prefect-dask":
                 from prefect.executors import DaskExecutor
 

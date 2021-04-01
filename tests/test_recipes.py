@@ -64,6 +64,7 @@ def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
         ({"lon": 12}, True, does_not_raise()),
         ({"lon": 12, "time": 1}, True, does_not_raise()),
         ({"lon": 12, "time": 3}, True, does_not_raise()),
+        ({"time": 100}, True, does_not_raise()),  # only one big chunk
         ({"lon": 12, "time": 1}, False, does_not_raise()),
         ({"lon": 12, "time": 3}, False, does_not_raise()),
         # can't determine target chunks for the next two because 'time' missing from target_chunks
@@ -116,4 +117,5 @@ def test_chunks(
         assert all([item == chunk_len for item in ds_actual.chunks[other_dim][:-1]])
 
     ds_actual.load()
+    print(ds_actual)
     xr.testing.assert_identical(ds_actual, ds_expected)

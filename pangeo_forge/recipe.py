@@ -19,7 +19,7 @@ from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 from .patterns import ExplicitURLSequence, VariableSequencePattern
 from .storage import AbstractTarget, UninitializedTarget
 from .utils import (
-    calc_chunk_conflicts,
+    chunk_bounds_and_conflicts,
     chunked_iterable,
     fix_scalar_attr_encoding,
     lock_for_conflicts,
@@ -489,11 +489,21 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             chunk_len = sum([input_sequence_lens[self.input_position(k)] for k in input_keys])
             stop = start + chunk_len
 
-        all_chunk_conflicts = calc_chunk_conflicts(input_sequence_lens, self._sequence_dim_chunks)
-        this_chunk_conflicts = []
+        chunk_bounds, all_chunk_conflicts = chunk_bounds_and_conflicts(
+            input_sequence_lens, self._sequence_dim_chunks
+        )
+        computed_bounds = (
+            chunk_bounds[self.input_position(input_keys[0])],
+            chunk_bounds[self.input_position(input_keys[-1]) + 1],
+        )
+        print(chunk_key, (start, stop), computed_bounds)
+        # assert (start, stop) == computed_bounds, "Consistency check for region bounds"
+        this_chunk_conflicts = set()
         for k in input_keys:
-            this_chunk_conflicts.extend(all_chunk_conflicts[self.input_position(k)])
-
+            # for multi-variable recipes, the confilcts will usually be the same
+            # for each variable. using a set avoids duplicate locks
+            for input_conflict in all_chunk_conflicts[self.input_position(k)]:
+                this_chunk_conflicts.add(input_conflict)
         region_slice = slice(start, stop)
         return {self.sequence_dim: region_slice}, this_chunk_conflicts
 

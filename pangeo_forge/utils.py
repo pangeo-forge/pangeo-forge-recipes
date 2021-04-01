@@ -1,9 +1,12 @@
 import itertools
+import logging
 from contextlib import contextmanager
 from typing import List, Sequence, Tuple
 
 import numpy as np
-from dask.distributed import Lock, client
+from dask.distributed import Lock, get_client
+
+logger = logging.getLogger(__name__)
 
 
 # https://alexwlchan.net/2018/12/iterating-in-fixed-size-chunks/
@@ -35,7 +38,21 @@ def fix_scalar_attr_encoding(ds):
     return ds
 
 
-def calc_chunk_conflicts(chunks: Sequence[int], zchunks: int) -> List[Tuple[int, ...]]:
+def chunk_bounds_and_conflicts(chunks: Sequence[int], zchunks: int) -> List[Tuple[int, ...]]:
+    """
+    Calculate the boundaries of contiguous put possibly uneven blocks over
+    a regularly chunked array
+
+    Parameters
+    ----------
+    chunks : A list of chunk lengths. Len of array is the sum of each length.
+    zchunks : A constant on-disk chunk
+
+    Returns
+    -------
+    chunk_bounds : the boundaries of the regions to write (1 longer than chunks)
+    conflicts: a list of conflicts for each chunk, None for no conflicts
+    """
     n_chunks = len(chunks)
 
     # coerce numpy array to list for mypy
@@ -59,24 +76,34 @@ def calc_chunk_conflicts(chunks: Sequence[int], zchunks: int) -> List[Tuple[int,
                 conflicts.add(chunk_pair[1])
         chunk_conflicts.append(tuple(conflicts))
 
-    return chunk_conflicts
+    return chunk_bounds, chunk_conflicts
 
 
 @contextmanager
+# TODO: use a recipe-specific base_name to handle multiple recipes potentially
+# running at the same time
 def lock_for_conflicts(conflicts, base_name="pangeo-forge"):
 
-    # https://stackoverflow.com/questions/59070260/dask-client-detect-local-default-cluster-already-running
-    is_distributed = client._get_global_client() is not None
-    # Don't bother with locks if we are not in a distributed context
-    # NOTE! This means we HAVE to use dask.distributed as our parallel execution enviroment
-    # That is compatible with Prefect.
+    try:
+        global_client = get_client()
+        is_distributed = True
+    except ValueError:
+        # Don't bother with locks if we are not in a distributed context
+        # NOTE! This means we HAVE to use dask.distributed as our parallel execution enviroment
+        # This should be compatible with Prefect.
+        is_distributed = False
     if is_distributed:
-        locks = [Lock(f"{base_name}-{c}") for c in conflicts]
+        locks = [Lock(f"{base_name}-{c}", global_client) for c in conflicts]
         for lock in locks:
+            logger.debug(f"Acquiring lock {lock.name}...")
             lock.acquire()
+            logger.debug(f"Acquired lock {lock.name}")
+    else:
+        logger.debug(f"Asked to lock {conflicts} but no Dask client found.")
     try:
         yield
     finally:
         if is_distributed:
             for lock in locks:
                 lock.release()
+                logger.debug(f"Released lock {lock.name}")
