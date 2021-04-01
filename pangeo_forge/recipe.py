@@ -424,7 +424,8 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             # explicitly chunking prevents eager evaluation during concat
             dsets = [ds.chunk() for ds in dsets]
             if len(dsets) > 1:
-                # TODO: check what happens to encoding and attributes during concat
+                # During concat, attributes and encoding are taken from the first dataset
+                # https://github.com/pydata/xarray/issues/1614
                 ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
             elif len(dsets) == 1:
                 ds = dsets[0]
