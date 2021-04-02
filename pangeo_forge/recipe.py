@@ -4,6 +4,8 @@ A Pangeo Forge Recipe
 
 import json
 import logging
+import os
+import tempfile
 from abc import ABC, abstractmethod
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
@@ -54,13 +56,6 @@ logger = logging.getLogger(__name__)
 # 5) Load each chunk from the inputs and store it in the target
 #    Might be coming from the cache or might be read directly.
 # 6)
-
-
-@contextmanager
-def input_opener(fname, **kwargs):
-    logger.info(f"Opening input '{fname}'")
-    with fsspec.open(fname, **kwargs) as f:
-        yield f
 
 
 class BaseRecipe(ABC):
@@ -114,7 +109,8 @@ class BaseRecipe(ABC):
         """
 
         pipeline = []  # type: MultiStagePipeline
-        pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
+        if getattr(self, "cache_inputs", False):  # TODO: formalize this contract
+            pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
         pipeline.append(Stage(self.prepare_target))
         pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
         pipeline.append(Stage(self.finalize_target))
@@ -139,6 +135,42 @@ def _input_metadata_fname(input_key):
 
 def _chunk_metadata_fname(chunk_key) -> str:
     return "chunk-meta-" + _encode_key(chunk_key) + ".json"
+
+
+def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
+    with input_opener as source:
+        with output_opener as target:
+            while True:
+                data = source.read(BLOCK_SIZE)
+                if not data:
+                    break
+                target.write(data)
+
+
+@contextmanager
+def _maybe_open_or_copy_to_local(opener, copy_to_local, orig_name):
+    _, suffix = os.path.splitext(orig_name)
+    if copy_to_local:
+        ntf = tempfile.NamedTemporaryFile(suffix=suffix)
+        tmp_name = ntf.name
+        logger.info(f"Copying {orig_name} to local file {tmp_name}")
+        target_opener = open(tmp_name, mode="wb")
+        _copy_btw_filesystems(opener, target_opener)
+        yield tmp_name
+        ntf.close()  # cleans up the temporary file
+    else:
+        with opener as fp:
+            with fp as fp2:
+                yield fp2
+
+
+@contextmanager
+def _fsspec_safe_open(fname, **kwargs):
+    # workaround for inconsistent behavior of fsspec.open
+    # https://github.com/intake/filesystem_spec/issues/579
+    with fsspec.open(fname, **kwargs) as fp:
+        with fp as fp2:
+            yield fp2
 
 
 # Notes about dataclasses:
@@ -168,9 +200,13 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     :param input_cache: A location in which to cache temporary data.
     :param metadata_cache: A location in which to cache metadata for inputs and chunks.
       Required if ``nitems_per_input=None``.
-    :param require_cache: Whether to allow opening inputs directly which have not
+    :param cache_inputs: Whether to allow opening inputs directly which have not
       yet been cached. This could lead to very unstanble behavior if the inputs
       live behind a slow network connection.
+    :param copy_input_to_local_file: Whether to copy the inputs to a temporary
+      local file. In this case, a path (rather than file object) is passed to
+      ``xr.open_dataset``. This is required for engines that can't open
+      file-like objects (e.g. pynio).
     :param consolidate_zarr: Whether to consolidate the resulting Zarr dataset.
     :param xarray_open_kwargs: Extra options for opening the inputs with Xarray.
     :param xarray_concat_kwargs: Extra options to pass to Xarray when concatenating
@@ -191,7 +227,8 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     target: AbstractTarget = field(default_factory=UninitializedTarget)
     input_cache: AbstractTarget = field(default_factory=UninitializedTarget)
     metadata_cache: AbstractTarget = field(default_factory=UninitializedTarget)
-    require_cache: bool = True
+    cache_inputs: bool = True
+    copy_input_to_local_file: bool = False
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_kwargs: dict = field(default_factory=dict)
@@ -296,16 +333,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             logger.info(f"Caching input {input_key}")
             fname = self._inputs[input_key]
             # TODO: check and see if the file already exists in the cache
-            with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as source:
-                with self.input_cache.open(fname, mode="wb") as target:
-                    # TODO: make this configurable? Would we ever want to change it?
-                    BLOCK_SIZE = 10_000_000  # 10 MB
-                    while True:
-                        data = source.read(BLOCK_SIZE)
-                        if not data:
-                            break
-                        target.write(data)
-
+            input_opener = _fsspec_safe_open(fname, mode="rb", **self.fsspec_open_kwargs)
+            target_opener = self.input_cache.open(fname, mode="wb")
+            _copy_btw_filesystems(input_opener, target_opener)
             if self._cache_metadata:
                 self.cache_input_metadata(input_key)
 
@@ -366,27 +396,28 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     @contextmanager
     def input_opener(self, fname: str):
         try:
-            with self.input_cache.open(fname, mode="rb") as f:
-                logger.info(f"Opening '{fname}' from cache")
-                yield f
+            logger.info(f"Opening '{fname}' from cache")
+            opener = self.input_cache.open(fname, mode="rb")
+            with _maybe_open_or_copy_to_local(opener, self.copy_input_to_local_file, fname) as fp:
+                yield fp
         except (IOError, FileNotFoundError):
-            if self.require_cache:
+            if self.cache_inputs:
                 raise FileNotFoundError(
                     f"You are trying to open input {fname}, but the file is "
                     "not cached yet. First call `cache_input` or set "
-                    "`require_cache=False`."
+                    "`cache_inputs=False`."
                 )
-            else:
-                logger.info(f"No cache found. Opening input `{fname}` directly.")
-                # This will bypass the cache. May be slow.
-                with input_opener(fname, mode="rb", **self.fsspec_open_kwargs) as f:
-                    yield f
+            logger.info(f"No cache found. Opening input `{fname}` directly.")
+            opener = _fsspec_safe_open(fname, mode="rb", **self.fsspec_open_kwargs)
+            with _maybe_open_or_copy_to_local(opener, self.copy_input_to_local_file, fname) as fp:
+                yield fp
 
     @contextmanager
     def open_input(self, input_key: Hashable):
         fname = self._inputs[input_key]
         logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
         with self.input_opener(fname) as f:
+            logger.info(f"f is {f}")
             ds = xr.open_dataset(f, **self.xarray_open_kwargs)
             # Explicitly load into memory;
             # if we don't do this, we get a ValueError: seek of closed file.

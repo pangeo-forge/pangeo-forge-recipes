@@ -23,6 +23,22 @@ def test_recipe(recipe_fixture, execute_recipe):
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
+@pytest.mark.parametrize("cache_inputs", [True, False])
+@pytest.mark.parametrize("copy_input_to_local_file", [True, False])
+def test_recipe_caching_copying(
+    netCDFtoZarr_sequential_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
+):
+    """The basic recipe test. Use this as a template for other tests."""
+
+    RecipeClass, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+    rec = RecipeClass(
+        **kwargs, cache_inputs=cache_inputs, copy_input_to_local_file=copy_input_to_local_file
+    )
+    execute_recipe(rec)
+    ds_actual = xr.open_zarr(target.get_mapper()).load()
+    xr.testing.assert_identical(ds_actual, ds_expected)
+
+
 # function passed to preprocessing
 def incr_date(ds, filename=""):
     # add one day
