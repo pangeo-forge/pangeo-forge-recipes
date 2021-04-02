@@ -9,7 +9,9 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Hashable, Iterable, List, Optional
 
+import dask
 import fsspec
+import numpy as np
 import xarray as xr
 import zarr
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
@@ -17,7 +19,7 @@ from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 from .patterns import ExplicitURLSequence, VariableSequencePattern
 from .storage import AbstractTarget, UninitializedTarget
 from .utils import (
-    calc_chunk_conflicts,
+    chunk_bounds_and_conflicts,
     chunked_iterable,
     fix_scalar_attr_encoding,
     lock_for_conflicts,
@@ -217,6 +219,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             self._sequence_dim_chunks = self.nitems_per_input * self.inputs_per_chunk
 
         # TODO: more input validation
+        # for example: check required args (e.g. sequence_dim)
 
     @property
     def prepare_target(self) -> Callable:
@@ -237,8 +240,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                 # need to rewrite this as an append loop
                 for chunk_key in self._init_chunks:
                     with self.open_chunk(chunk_key) as ds:
-                        # need to have the data in memory to avoid weird chunk problems
-                        ds.load()
+                        # ds is already chunked
 
                         # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
                         for v in ds.variables:
@@ -253,12 +255,25 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                                 chunks = tuple(
                                     chunks.get(n, s) for n, s in enumerate(this_var.shape)
                                 )
-                                ds[v].encoding["chunks"] = chunks
+                                encoding_chunks = chunks
                             else:
-                                ds[v].encoding["chunks"] = ds[v].shape
+                                encoding_chunks = ds[v].shape
+                            logger.debug(
+                                f"Setting variable {v} encoding chunks to {encoding_chunks}"
+                            )
+                            ds[v].encoding["chunks"] = encoding_chunks
+
+                        # load all variables that don't have the sequence dim in them
+                        # these are usually coordinates.
+                        # Variables that are loaded will be written even with compute=False
+                        # TODO: make this behavior customizable
+                        for v in ds.variables:
+                            if self.sequence_dim not in ds[v].dims:
+                                ds[v].load()
 
                         target_mapper = self.target.get_mapper()
-                        ds.to_zarr(target_mapper, mode="a", compute=False)
+                        logger.debug(f"Storing dataset:\n {ds}")
+                        ds.to_zarr(target_mapper, mode="a", compute=False, safe_chunks=False)
 
             # Regardless of whether there is an existing dataset or we are creating a new one,
             # we need to expand the sequence_dim to hold the entire expected size of the data
@@ -305,11 +320,36 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                     v for v in ds_chunk.variables if self.sequence_dim not in ds_chunk[v].dims
                 ]
                 ds_chunk = ds_chunk.drop_vars(to_drop)
+
                 target_mapper = self.target.get_mapper()
                 write_region, conflicts = self.region_and_conflicts_for_chunk(chunk_key)
-                with lock_for_conflicts(conflicts):
-                    logger.info(f"Storing chunk '{chunk_key}' to Zarr region {write_region}")
-                    ds_chunk.to_zarr(target_mapper, region=write_region)
+
+                zgroup = zarr.open_group(target_mapper)
+                for vname, var_coded in ds_chunk.variables.items():
+                    zarr_array = zgroup[vname]
+                    # get encoding for variable from zarr attributes
+                    # could this backfire some way?
+                    var_coded.encoding.update(zarr_array.attrs)
+                    # just delete all attributes from the var;
+                    # they are not used anyway, and there can be conflicts
+                    # related to xarray.coding.variables.safe_setitem
+                    var_coded.attrs = {}
+                    with dask.config.set(
+                        scheduler="single-threaded"
+                    ):  # make sure we don't use a scheduler
+                        var = xr.backends.zarr.encode_zarr_variable(var_coded)
+                        data = np.asarray(
+                            var.data
+                        )  # TODO: can we buffer large data rather than loading it all?
+                    zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
+                    lock_keys = [f"{vname}-{c}" for c in conflicts]
+                    logger.debug(f"Acquiring locks {lock_keys}")
+                    with lock_for_conflicts(lock_keys):
+                        logger.info(
+                            f"Storing variable {vname} chunk {chunk_key} "
+                            f"to Zarr region {zarr_region}"
+                        )
+                        zarr_array[zarr_region] = data
 
         return _store_chunk
 
@@ -382,12 +422,15 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         with ExitStack() as stack:
             dsets = [stack.enter_context(self.open_input(i)) for i in inputs]
             # explicitly chunking prevents eager evaluation during concat
-            # dsets = [ds.chunk() for ds in dsets]
-            # but that leads to corrupted data!
-
-            # CONCAT DELETES ENCODING!!!
-            # OR NO IT DOESN'T! Not in the latest version of xarray?
-            ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
+            dsets = [ds.chunk() for ds in dsets]
+            if len(dsets) > 1:
+                # During concat, attributes and encoding are taken from the first dataset
+                # https://github.com/pydata/xarray/issues/1614
+                ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
+            elif len(dsets) == 1:
+                ds = dsets[0]
+            else:  # pragma: no cover
+                assert False, "Should never happen"
 
             if self.process_chunk is not None:
                 ds = self.process_chunk(ds)
@@ -404,7 +447,6 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     def expand_target_dim(self, dim, dimsize):
         target_mapper = self.target.get_mapper()
         zgroup = zarr.open_group(target_mapper)
-
         ds = self.open_target()
         sequence_axes = {v: ds[v].get_axis_num(dim) for v in ds.variables if dim in ds[v].dims}
 
@@ -412,6 +454,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             arr = zgroup[v]
             shape = list(arr.shape)
             shape[axis] = dimsize
+            logger.debug(f"resizing array {v} to shape {shape}")
             arr.resize(shape)
 
         # now explicity write the sequence coordinate to avoid missing data
@@ -433,22 +476,29 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         # also return the conflicts with other chunks
 
         input_keys = self.inputs_for_chunk(chunk_key)
+
+        # TODO: refactor into a separate method
         if self.nitems_per_input:
-            stride = self.nitems_per_input * self.inputs_per_chunk
-            start = self.chunk_position(chunk_key) * stride
-            stop = start + stride
             input_sequence_lens = (self.nitems_per_input,) * self._n_inputs_along_sequence
         else:
             input_sequence_lens = json.loads(
                 self.metadata_cache.get_mapper()[_GLOBAL_METADATA_KEY]
             )["input_sequence_lens"]
-            start = sum(input_sequence_lens[: self.input_position(input_keys[0])])
-            chunk_len = sum([input_sequence_lens[self.input_position(k)] for k in input_keys])
-            stop = start + chunk_len
 
-        all_chunk_conflicts = calc_chunk_conflicts(input_sequence_lens, self._sequence_dim_chunks)
-        this_chunk_conflicts = [all_chunk_conflicts[self.input_position(k)] for k in input_keys]
+        chunk_bounds, all_chunk_conflicts = chunk_bounds_and_conflicts(
+            input_sequence_lens, self._sequence_dim_chunks
+        )
+        # for multi-variable recipes, there is something redunandt about this
+        # logic that feels error prone
+        start = chunk_bounds[self.input_position(input_keys[0])]
+        stop = chunk_bounds[self.input_position(input_keys[-1]) + 1]
 
+        this_chunk_conflicts = set()
+        for k in input_keys:
+            # for multi-variable recipes, the confilcts will usually be the same
+            # for each variable. using a set avoids duplicate locks
+            for input_conflict in all_chunk_conflicts[self.input_position(k)]:
+                this_chunk_conflicts.add(input_conflict)
         region_slice = slice(start, stop)
         return {self.sequence_dim: region_slice}, this_chunk_conflicts
 
