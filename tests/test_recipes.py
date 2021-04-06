@@ -31,6 +31,8 @@ def test_recipe_caching_copying(
     """The basic recipe test. Use this as a template for other tests."""
 
     RecipeClass, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+    if not cache_inputs:
+        kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
     rec = RecipeClass(
         **kwargs, cache_inputs=cache_inputs, copy_input_to_local_file=copy_input_to_local_file
     )
