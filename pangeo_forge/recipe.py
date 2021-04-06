@@ -19,7 +19,7 @@ import zarr
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
 from .patterns import ExplicitURLSequence, VariableSequencePattern
-from .storage import AbstractTarget, UninitializedTarget
+from .storage import AbstractTarget, UninitializedTarget, UninitializedTargetError
 from .utils import (
     chunk_bounds_and_conflicts,
     chunked_iterable,
@@ -400,9 +400,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             opener = self.input_cache.open(fname, mode="rb")
             with _maybe_open_or_copy_to_local(opener, self.copy_input_to_local_file, fname) as fp:
                 yield fp
-        except (IOError, FileNotFoundError):
+        except (IOError, FileNotFoundError, UninitializedTargetError) as err:
             if self.cache_inputs:
-                raise FileNotFoundError(
+                raise err(
                     f"You are trying to open input {fname}, but the file is "
                     "not cached yet. First call `cache_input` or set "
                     "`cache_inputs=False`."
