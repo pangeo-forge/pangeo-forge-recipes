@@ -9,7 +9,8 @@ import tempfile
 from abc import ABC, abstractmethod
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Hashable, Iterable, List, Optional
+from itertools import product
+from typing import Callable, Dict, Hashable, Iterable, List, Optional, Sequence, Tuple
 
 import dask
 import fsspec
@@ -18,8 +19,8 @@ import xarray as xr
 import zarr
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
-from .patterns import ExplicitURLSequence, VariableSequencePattern
-from .storage import AbstractTarget, UninitializedTarget, UninitializedTargetError
+from .patterns import FilePattern
+from .storage import AbstractTarget, UninitializedTarget
 from .utils import (
     chunk_bounds_and_conflicts,
     chunked_iterable,
@@ -182,18 +183,22 @@ def _fsspec_safe_open(fname, **kwargs):
 # That's whay we end up with `UninitializedTarget` and `_variable_sequence_pattern_default_factory`
 
 
+ChunkKey = Tuple[int]
+InputKey = Tuple[int]
+
+
 @dataclass
-class NetCDFtoZarrRecipe(BaseRecipe):
+class XarrayZarrRecipe(BaseRecipe):
     """This class represents a dataset composed of many individual NetCDF files.
     This class uses Xarray to read and write data and writes its output to Zarr.
-    The files are assumed to be arranged in a sequence along dimension ``sequence_dim``
+    The files are assumed to be arranged in a sequence along dimension ``concat_dim``
     (commonly "time".)
 
     This class should not be used on its own but rather via one of its sub-classes.
 
-    :param sequence_dim: The dimension name along which the inputs will be concatenated.
+    :param concat_dim: The dimension name along which the inputs will be concatenated.
     :param inputs_per_chunk: The number of inputs to use in each chunk.
-    :param nitems_per_input: The length of each input along the ``sequence_dim`` dimension.
+    :param nitems_per_input: The length of each input along the ``concat_dim`` dimension.
       If ``None``, each input will be scanned and its metadata cached in order to
       determine the size of the target dataset.
     :param target: A location in which to put the dataset. Can also be assigned at run time.
@@ -221,9 +226,8 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     :param target_chunks: Desired chunk structure for the targret dataset.
     """
 
-    sequence_dim: Optional[str] = None
-    inputs_per_chunk: int = 1
-    nitems_per_input: Optional[int] = 1
+    inputs_per_chunk: Optional[int] = 1
+    file_pattern: Optional[FilePattern] = None
     target: AbstractTarget = field(default_factory=UninitializedTarget)
     input_cache: AbstractTarget = field(default_factory=UninitializedTarget)
     metadata_cache: AbstractTarget = field(default_factory=UninitializedTarget)
@@ -238,25 +242,100 @@ class NetCDFtoZarrRecipe(BaseRecipe):
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
-    # private attributes, needed for type hints, not meant to be seen or accessed by user
-    _sequence_dim_chunks: List[int] = field(default_factory=list, repr=False, init=False)
-    _inputs: Dict[Hashable, str] = field(default_factory=dict, repr=False, init=False)
+    # internal attributes not meant to be seen or accessed by user
+    _concat_dim: Optional[str] = None
+    """The concatenation dimension name."""
+
+    _concat_dim_chunks: Optional[int] = None
+    """The desired chunking along the sequence dimension."""
+
+    # Don't need, use filepath directly
+    # _inputs_files: Dict[InputKey, str] = field(default_factory=dict, repr=False, init=False)
+    """Mapping of input keys to filenames. Should be 1:1."""
+
+    # In general there may be a many-to-many relationship between input keys and chunk keys
+    _inputs_chunks: Dict[InputKey, Tuple[ChunkKey]] = field(
+        default_factory=dict, repr=False, init=False
+    )
+    """Mapping of input keys to chunk keys."""
+
+    _chunks_inputs: Dict[ChunkKey, Tuple[InputKey]] = field(
+        default_factory=dict, repr=False, init=False
+    )
+    """Mapping of chunk keys to input keys."""
+
+    _init_chunks: List[ChunkKey] = field(default_factory=list, repr=False, init=False)
+    """List of chunks needed to initialize the recipe."""
 
     def __post_init__(self):
-        self._cache_metadata = self.nitems_per_input is None
-        target_sequence_dim_chunks = self.target_chunks.get(self.sequence_dim)
-        if (self.nitems_per_input is None) and (target_sequence_dim_chunks is None):
+        self._validate_file_pattern()
+        # from here on we know there is at most one merge dim and one concat dim
+        self._concat_dim = self.file_pattern.concat_dims[0]
+        self._cache_metadata = any(
+            [v is None for v in self.file_pattern.concat_sequence_lens.values()]
+        )
+        self._nitems_per_input = self.file_pattern.nitems_per_input[self._concat_dim]
+
+        # now for the fancy bit: we have to define the mappings _inputs_chunks and _chunks_inputs
+        # this is where refactoring would need to happen to support more complex file patterns
+        # (e.g. multiple concat dims)
+        # for now we assume 1:many chunk_keys:input_keys
+        # theoretically this could handle more than one merge dimension
+
+        # list of iterators that iterates over merge dims normally
+        # but concat dims in chunks
+        dimension_iterators = [
+            range(v)
+            if k != self._concat_dim
+            else enumerate(chunked_iterable(range(v), self.inputs_per_chunk))
+            for k, v in self.file_pattern.dims.items()
+        ]
+        for k in product(*dimension_iterators):
+            # typical k would look like (0, (0, (0, 1)))
+            chunk_key = tuple([v[0] if hasattr(v, "__len__") else v for v in k])
+            all_as_tuples = tuple([v[1] if hasattr(v, "__len__") else (v,) for v in k])
+            input_keys = tuple(v for v in product(*all_as_tuples))
+            self._chunks_inputs[chunk_key] = input_keys
+            for input_key in input_keys:
+                self._inputs_chunks[input_key] = (chunk_key,)
+
+        # init chunks are all elements from merge dim and first element from concat dim
+        merge_dimension_iterators = [
+            range(v) if k != self._concat_dim else (range(1))
+            for k, v in self.file_pattern.dims.items()
+        ]
+        self._init_chunks = list(product(*merge_dimension_iterators))
+
+        self._validate_input_and_chunk_keys()
+        self._set_target_chunks()
+
+    def _validate_file_pattern(self):
+        if len(self.file_pattern.merge_dims) > 1:
+            raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
+        if len(self.file_pattern.concat_dims) > 1:
+            raise NotImplementedError("This Recipe class can't handle more than one concat dim.")
+
+    def _validate_input_and_chunk_keys(self):
+        all_input_keys = set(self._inputs_chunks.keys())
+        all_chunk_keys = set(self._chunks_inputs.keys())
+        if not all_input_keys == set(self.file_pattern):
+            raise ValueError("_inputs_chunks and file_pattern don't have the same keys")
+        if not all_input_keys == set([c for val in self._chunks_inputs.values() for c in val]):
+            raise ValueError("_inputs_chunks and _chunks_inputs don't use the same input keys.")
+        if not all_chunk_keys == set([c for val in self._inputs_chunks.values() for c in val]):
+            raise ValueError("_inputs_chunks and _chunks_inputs don't use the same chunk keys.")
+
+    def _set_target_chunks(self):
+        target_concat_dim_chunks = self.target_chunks.get(self._concat_dim)
+        if (self._nitems_per_input is None) and (target_concat_dim_chunks is None):
             raise ValueError(
                 "Unable to determine target chunks. Please specify either "
                 "`target_chunks` or `nitems_per_input`"
             )
-        elif target_sequence_dim_chunks:
-            self._sequence_dim_chunks = target_sequence_dim_chunks
+        elif target_concat_dim_chunks:
+            self._concat_dim_chunks = target_concat_dim_chunks
         else:
-            self._sequence_dim_chunks = self.nitems_per_input * self.inputs_per_chunk
-
-        # TODO: more input validation
-        # for example: check required args (e.g. sequence_dim)
+            self._concat_dim_chunks = self._nitems_per_input * self.inputs_per_chunk
 
     @property
     def prepare_target(self) -> Callable:
@@ -274,6 +353,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
             except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
                 logger.info("Creating a new dataset in target")
+
                 # need to rewrite this as an append loop
                 for chunk_key in self._init_chunks:
                     with self.open_chunk(chunk_key) as ds:
@@ -305,7 +385,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                         # Variables that are loaded will be written even with compute=False
                         # TODO: make this behavior customizable
                         for v in ds.variables:
-                            if self.sequence_dim not in ds[v].dims:
+                            if self._concat_dim not in ds[v].dims:
                                 ds[v].load()
 
                         target_mapper = self.target.get_mapper()
@@ -313,12 +393,12 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                         ds.to_zarr(target_mapper, mode="a", compute=False, safe_chunks=False)
 
             # Regardless of whether there is an existing dataset or we are creating a new one,
-            # we need to expand the sequence_dim to hold the entire expected size of the data
-            input_sequence_lens = self.sequence_lens()
+            # we need to expand the concat_dim to hold the entire expected size of the data
+            input_sequence_lens = self.calculate_sequence_lens()
             n_sequence = sum(input_sequence_lens)
-            self.expand_target_dim(self.sequence_dim, n_sequence)
+            self.expand_target_dim(self._concat_dim, n_sequence)
 
-            if not self.nitems_per_input:
+            if self._cache_metadata:
                 # if nitems_per_input is not constant, we need to cache this info
                 recipe_meta = {"input_sequence_lens": input_sequence_lens}
                 meta_mapper = self.metadata_cache.get_mapper()
@@ -329,13 +409,14 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
     @property
     def cache_input(self) -> Callable:
-        def cache_func(input_key: Hashable) -> None:
-            logger.info(f"Caching input {input_key}")
-            fname = self._inputs[input_key]
+        def cache_func(input_key: InputKey) -> None:
+            fname = self.file_pattern[input_key]
+            logger.info(f"Caching input {input_key}: {fname}")
             # TODO: check and see if the file already exists in the cache
             input_opener = _fsspec_safe_open(fname, mode="rb", **self.fsspec_open_kwargs)
             target_opener = self.input_cache.open(fname, mode="wb")
             _copy_btw_filesystems(input_opener, target_opener)
+            # TODO: make it so we can cache metadata WITHOUT copying the file
             if self._cache_metadata:
                 self.cache_input_metadata(input_key)
 
@@ -343,11 +424,11 @@ class NetCDFtoZarrRecipe(BaseRecipe):
 
     @property
     def store_chunk(self) -> Callable:
-        def _store_chunk(chunk_key):
+        def _store_chunk(chunk_key: ChunkKey):
             with self.open_chunk(chunk_key) as ds_chunk:
-                # writing a region means that all the variables MUST have sequence_dim
+                # writing a region means that all the variables MUST have concat_dim
                 to_drop = [
-                    v for v in ds_chunk.variables if self.sequence_dim not in ds_chunk[v].dims
+                    v for v in ds_chunk.variables if self._concat_dim not in ds_chunk[v].dims
                 ]
                 ds_chunk = ds_chunk.drop_vars(to_drop)
 
@@ -413,8 +494,8 @@ class NetCDFtoZarrRecipe(BaseRecipe):
                 yield fp
 
     @contextmanager
-    def open_input(self, input_key: Hashable):
-        fname = self._inputs[input_key]
+    def open_input(self, input_key: InputKey):
+        fname = self.file_pattern[input_key]
         logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
         with self.input_opener(fname) as f:
             logger.info(f"f is {f}")
@@ -437,7 +518,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             logger.debug(f"{ds}")
             yield ds
 
-    def cache_input_metadata(self, input_key: Hashable):
+    def cache_input_metadata(self, input_key: InputKey):
         logger.info(f"Caching metadata for input '{input_key}'")
         with self.open_input(input_key) as ds:
             metadata = ds.to_dict(data=False)
@@ -445,9 +526,9 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             mapper[_input_metadata_fname(input_key)] = json.dumps(metadata).encode("utf-8")
 
     @contextmanager
-    def open_chunk(self, chunk_key):
+    def open_chunk(self, chunk_key: ChunkKey):
         logger.info(f"Concatenating inputs for chunk '{chunk_key}'")
-        inputs = self.inputs_for_chunk(chunk_key)
+        inputs = self._chunks_inputs[chunk_key]
 
         # need to open an unknown number of contexts at the same time
         with ExitStack() as stack:
@@ -457,7 +538,7 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             if len(dsets) > 1:
                 # During concat, attributes and encoding are taken from the first dataset
                 # https://github.com/pydata/xarray/issues/1614
-                ds = xr.concat(dsets, self.sequence_dim, **self.xarray_concat_kwargs)
+                ds = xr.concat(dsets, self._concat_dim, **self.xarray_concat_kwargs)
             elif len(dsets) == 1:
                 ds = dsets[0]
             else:  # pragma: no cover
@@ -493,36 +574,32 @@ class NetCDFtoZarrRecipe(BaseRecipe):
         if dim in zgroup:
             zgroup[dim][:] = 0
 
-    def inputs_for_chunk(self, chunk_key):
-        return self._chunks_inputs[chunk_key]
-
     def iter_inputs(self):
-        for chunk_key in self.iter_chunks():
-            for input in self.inputs_for_chunk(chunk_key):
-                yield input
+        for input in self._inputs_chunks:
+            yield input
 
-    def region_and_conflicts_for_chunk(self, chunk_key):
+    def region_and_conflicts_for_chunk(self, chunk_key: ChunkKey):
         # return a dict suitable to pass to xr.to_zarr(region=...)
         # specifies where in the overall array to put this chunk's data
         # also return the conflicts with other chunks
 
-        input_keys = self.inputs_for_chunk(chunk_key)
+        input_keys = self._chunks_inputs[chunk_key]
 
-        # TODO: refactor into a separate method
-        if self.nitems_per_input:
-            input_sequence_lens = (self.nitems_per_input,) * self._n_inputs_along_sequence
+        if self._nitems_per_input:
+            input_sequence_lens = (self._nitems_per_input,) * self.file_pattern.dims[
+                self._concat_dim
+            ]
         else:
             input_sequence_lens = json.loads(
                 self.metadata_cache.get_mapper()[_GLOBAL_METADATA_KEY]
             )["input_sequence_lens"]
 
         chunk_bounds, all_chunk_conflicts = chunk_bounds_and_conflicts(
-            input_sequence_lens, self._sequence_dim_chunks
+            input_sequence_lens, self._concat_dim_chunks
         )
-        # for multi-variable recipes, there is something redunandt about this
-        # logic that feels error prone
-        start = chunk_bounds[self.input_position(input_keys[0])]
-        stop = chunk_bounds[self.input_position(input_keys[-1]) + 1]
+        input_positions = [self.input_position(input_key) for input_key in input_keys]
+        start = chunk_bounds[min(input_positions)]
+        stop = chunk_bounds[max(input_positions) + 1]
 
         this_chunk_conflicts = set()
         for k in input_keys:
@@ -531,116 +608,38 @@ class NetCDFtoZarrRecipe(BaseRecipe):
             for input_conflict in all_chunk_conflicts[self.input_position(k)]:
                 this_chunk_conflicts.add(input_conflict)
         region_slice = slice(start, stop)
-        return {self.sequence_dim: region_slice}, this_chunk_conflicts
+        return {self._concat_dim: region_slice}, this_chunk_conflicts
 
     def iter_chunks(self):
         for k in self._chunks_inputs:
             yield k
 
-    def get_input_meta(self, *input_keys) -> Dict:
+    def get_input_meta(self, *input_keys: Sequence[InputKey]) -> Dict:
         meta_mapper = self.metadata_cache.get_mapper()
         # getitems should be async; much faster than serial calls
         all_meta_raw = meta_mapper.getitems([_input_metadata_fname(k) for k in input_keys])
         return {k: json.loads(raw_bytes) for k, raw_bytes in all_meta_raw.items()}
 
-    def input_sequence_lens(self, *input_keys) -> List[int]:
-        if self.nitems_per_input:
-            return list((self.nitems_per_input,) * len(input_keys))  # struggling to please flake8
+    def input_position(self, input_key):
+        # returns the index position of an input key wrt the concat_dim
+        concat_dim_axis = list(self.file_pattern.dims).index(self._concat_dim)
+        return input_key[concat_dim_axis]
+
+    def calculate_sequence_lens(self):
+        if self._nitems_per_input:
+            return list((self._nitems_per_input,) * self.file_pattern.dims[self._concat_dim])
+
         # read per-input metadata; this is distinct from global metadata
-        input_meta = self.get_input_meta(*input_keys)
-        return [m["dims"][self.sequence_dim] for m in input_meta.values()]
-
-
-@dataclass
-class NetCDFtoZarrSequentialRecipe(NetCDFtoZarrRecipe):
-    """There is only one sequence of input files. Each file can contain
-    many variables.
-
-    :param input_urls: The inputs used to generate the dataset.
-    """
-
-    input_urls: Iterable[str] = field(repr=False, default_factory=list)
-
-    def __post_init__(self):
-        super().__post_init__()
-        input_pattern = ExplicitURLSequence(self.input_urls)
-        self._inputs = {k: v for k, v in input_pattern}
-        self._chunks_inputs = {
-            (k,): v for k, v in enumerate(chunked_iterable(self._inputs, self.inputs_per_chunk))
-        }
-        self._n_inputs_along_sequence = len(self._inputs)
-
-        # just the first chunk is needed to initialize the recipe
-        self._init_chunks = [next(iter(self._chunks_inputs))]
-
-    def input_position(self, input_key):
-        return input_key[0]
-
-    def chunk_position(self, chunk_key):
-        return chunk_key[0]
-
-    def sequence_lens(self):
-        return self.input_sequence_lens(*self.iter_inputs())
-
-
-def _variable_sequence_pattern_default_factory() -> VariableSequencePattern:
-    return VariableSequencePattern(fmt_string="", keys={"variable": [], "_null": []})
-
-
-@dataclass
-class NetCDFtoZarrMultiVarSequentialRecipe(NetCDFtoZarrRecipe):
-    """There are muliples sequences of input files (but all along the same dimension.)
-    Different variables live in different files.
-
-    :param input_pattern: An pattern used to generate the input file names.
-    """
-
-    input_pattern: VariableSequencePattern = field(
-        default_factory=_variable_sequence_pattern_default_factory
-    )
-
-    def __post_init__(self):
-        super().__post_init__()
-        self._variables = self.input_pattern.keys["variable"]
-        self._other_key = [k for k in self.input_pattern.keys if k != "variable"][0]
-        self._inputs = {k: v for k, v in self.input_pattern}
-        # input keys are tuples like
-        #  ("temp", 0)
-        #  ("temp", 1)
-        #  ...
-        #  ("salt", n)
-        # chunk_keys will be similarly named, but the index will have a different meaning
-
-        chunks_inputs = {}
-        # generate this iteratively
-        for vname in self._variables:
-            # a hacky way to filter
-            sequence_keys = [k[1] for k in self._inputs if k[0] == vname]
-            for chunk_key, chunk_inputs in enumerate(
-                chunked_iterable(sequence_keys, self.inputs_per_chunk)
-            ):
-                chunks_inputs[(vname, chunk_key)] = [
-                    (vname, input_sequence_key) for input_sequence_key in chunk_inputs
-                ]
-        self._chunks_inputs = chunks_inputs
-        self._n_inputs_along_sequence = len(self.input_pattern.keys[self._other_key])
-
-        # should be the first chunk from each variable
-        self._init_chunks = [chunk_key for chunk_key in self._chunks_inputs if chunk_key[1] == 0]
-
-    def input_position(self, input_key):
-        return self.input_pattern.keys[self._other_key].index(input_key[1])
-
-    def chunk_position(self, chunk_key):
-        return chunk_key[1]
-
-    def sequence_lens(self):
-        variables = self.input_pattern.keys["variable"]
-        lens_by_variable = {}
-        for v in variables:
-            variable_input_keys = [k for k in self.iter_inputs() if k[0] == v]
-            lens_by_variable[v] = self.input_sequence_lens(*variable_input_keys)
-        if not all([lens_by_variable[v] == lens_by_variable[variables[0]]]):
-            raise ValueError(f"Inconsistent sequence_len found for variables. f{lens_by_variable}")
-
-        return lens_by_variable[variables[0]]
+        # get the sequence length of every file
+        # this line could become problematic for large (> 10_000) lists of files
+        input_meta = self.get_input_meta(*self._inputs_chunks)
+        all_lens = [m["dims"][self._concat_dim] for m in input_meta.values()]
+        all_lens.shape = self.file_pattern.shape
+        # check that all lens are the same along the concat dim
+        concat_dim_axis = list(self.file_pattern.dims).index(self._concat_dim)
+        selector = [0] * len(self.file_pattern.dims)
+        selector[concat_dim_axis] = slice(None)
+        sequence_lens = all_lens(tuple(selector))
+        if not all(all_lens == sequence_lens):
+            raise ValueError(f"Inconsistent sequence lengths found: f{all_lens}")
+        return sequence_lens

@@ -17,7 +17,7 @@ from pangeo_forge.executors import (
     PrefectPipelineExecutor,
     PythonPipelineExecutor,
 )
-from pangeo_forge.patterns import VariableSequencePattern
+from pangeo_forge.patterns import ConcatDim, FilePattern, MergeDim, pattern_from_file_sequence
 from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
 
 
@@ -173,15 +173,11 @@ def uninitialized_target():
 @pytest.fixture
 def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
     paths, items_per_file = netcdf_local_paths
+    file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
     kwargs = dict(
-        input_urls=paths,
-        sequence_dim="time",
-        inputs_per_chunk=1,
-        nitems_per_input=items_per_file,
-        target=tmp_target,
-        input_cache=tmp_cache,
+        file_pattern=file_pattern, inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,
     )
-    return recipe.NetCDFtoZarrSequentialRecipe, kwargs, daily_xarray_dataset, tmp_target
+    return recipe.XarrayZarrRecipe, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture
@@ -189,20 +185,20 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
     daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache
 ):
     paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
-    nitems_per_input = items_per_file
     time_index = list(range(len(paths) // 2))
-    pattern = VariableSequencePattern(
-        path_format, keys={"variable": ["foo", "bar"], "n": time_index}
+
+    def format_function(variable, n):
+        return path_format.format(variable=variable, n=n)
+
+    file_pattern = FilePattern(
+        format_function,
+        ConcatDim("time", time_index, items_per_file),
+        MergeDim("variable", ["foo", "bar"]),
     )
     kwargs = dict(
-        input_pattern=pattern,
-        sequence_dim="time",
-        inputs_per_chunk=1,
-        nitems_per_input=nitems_per_input,
-        target=tmp_target,
-        input_cache=tmp_cache,
+        file_pattern=file_pattern, inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,
     )
-    return recipe.NetCDFtoZarrMultiVarSequentialRecipe, kwargs, daily_xarray_dataset, tmp_target
+    return recipe.XarrayZarrRecipe, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture(scope="session")

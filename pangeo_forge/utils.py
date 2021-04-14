@@ -38,7 +38,9 @@ def fix_scalar_attr_encoding(ds):
     return ds
 
 
-def chunk_bounds_and_conflicts(chunks: Sequence[int], zchunks: int) -> List[Tuple[int, ...]]:
+def chunk_bounds_and_conflicts(
+    chunks: Sequence[int], zchunks: int
+) -> Tuple[List[int], List[Tuple[int, ...]]]:
     """
     Calculate the boundaries of contiguous put possibly uneven blocks over
     a regularly chunked array
