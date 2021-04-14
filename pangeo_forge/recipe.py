@@ -20,7 +20,7 @@ import zarr
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
 from .patterns import FilePattern
-from .storage import AbstractTarget, UninitializedTarget
+from .storage import AbstractTarget, UninitializedTarget, UninitializedTargetError
 from .utils import (
     chunk_bounds_and_conflicts,
     chunked_iterable,
@@ -226,8 +226,8 @@ class XarrayZarrRecipe(BaseRecipe):
     :param target_chunks: Desired chunk structure for the targret dataset.
     """
 
+    file_pattern: FilePattern
     inputs_per_chunk: Optional[int] = 1
-    file_pattern: Optional[FilePattern] = None
     target: AbstractTarget = field(default_factory=UninitializedTarget)
     input_cache: AbstractTarget = field(default_factory=UninitializedTarget)
     metadata_cache: AbstractTarget = field(default_factory=UninitializedTarget)
@@ -633,13 +633,14 @@ class XarrayZarrRecipe(BaseRecipe):
         # get the sequence length of every file
         # this line could become problematic for large (> 10_000) lists of files
         input_meta = self.get_input_meta(*self._inputs_chunks)
-        all_lens = [m["dims"][self._concat_dim] for m in input_meta.values()]
-        all_lens.shape = self.file_pattern.shape
+        # use a numpy array to allow reshaping
+        all_lens = np.array([m["dims"][self._concat_dim] for m in input_meta.values()])
+        all_lens.shape = list(self.file_pattern.dims.values())
         # check that all lens are the same along the concat dim
         concat_dim_axis = list(self.file_pattern.dims).index(self._concat_dim)
         selector = [0] * len(self.file_pattern.dims)
         selector[concat_dim_axis] = slice(None)
-        sequence_lens = all_lens(tuple(selector))
-        if not all(all_lens == sequence_lens):
+        sequence_lens = all_lens[tuple(selector)]
+        if not (all_lens == sequence_lens).all():  # BROKEN! broadcasting isn't happening
             raise ValueError(f"Inconsistent sequence lengths found: f{all_lens}")
-        return sequence_lens
+        return sequence_lens.tolist()

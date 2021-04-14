@@ -109,7 +109,7 @@ def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request
     full_paths = [tmp_path.join(fname) for fname in fnames]
     xr.save_mfdataset(datasets, [str(path) for path in full_paths])
     items_per_file = {"D": 1, "2D": 2}[request.param]
-    path_format = str(tmp_path) + "/{variable}_{n:03d}.nc"
+    path_format = str(tmp_path) + "/{variable}_{time:03d}.nc"
     return full_paths, items_per_file, fnames_by_variable, path_format
 
 
@@ -174,10 +174,8 @@ def uninitialized_target():
 def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
     paths, items_per_file = netcdf_local_paths
     file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
-    kwargs = dict(
-        file_pattern=file_pattern, inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,
-    )
-    return recipe.XarrayZarrRecipe, kwargs, daily_xarray_dataset, tmp_target
+    kwargs = dict(inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,)
+    return recipe.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture
@@ -187,18 +185,16 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
     paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
     time_index = list(range(len(paths) // 2))
 
-    def format_function(variable, n):
-        return path_format.format(variable=variable, n=n)
+    def format_function(variable, time):
+        return path_format.format(variable=variable, time=time)
 
     file_pattern = FilePattern(
         format_function,
         ConcatDim("time", time_index, items_per_file),
         MergeDim("variable", ["foo", "bar"]),
     )
-    kwargs = dict(
-        file_pattern=file_pattern, inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,
-    )
-    return recipe.XarrayZarrRecipe, kwargs, daily_xarray_dataset, tmp_target
+    kwargs = dict(inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,)
+    return recipe.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture(scope="session")

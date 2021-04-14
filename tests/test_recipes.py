@@ -16,8 +16,8 @@ all_recipes = [
 def test_recipe(recipe_fixture, execute_recipe):
     """The basic recipe test. Use this as a template for other tests."""
 
-    RecipeClass, kwargs, ds_expected, target = recipe_fixture
-    rec = RecipeClass(**kwargs)
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
+    rec = RecipeClass(file_pattern, **kwargs)
     execute_recipe(rec)
     ds_actual = xr.open_zarr(target.get_mapper()).load()
     xr.testing.assert_identical(ds_actual, ds_expected)
@@ -30,11 +30,14 @@ def test_recipe_caching_copying(
 ):
     """The basic recipe test. Use this as a template for other tests."""
 
-    RecipeClass, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
     if not cache_inputs:
         kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
     rec = RecipeClass(
-        **kwargs, cache_inputs=cache_inputs, copy_input_to_local_file=copy_input_to_local_file
+        file_pattern,
+        **kwargs,
+        cache_inputs=cache_inputs,
+        copy_input_to_local_file=copy_input_to_local_file
     )
     execute_recipe(rec)
     ds_actual = xr.open_zarr(target.get_mapper()).load()
@@ -57,10 +60,10 @@ def incr_date(ds, filename=""):
 def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
     """Check that the process_chunk and process_input arguments work as expected."""
 
-    RecipeClass, kwargs, ds_expected, target = recipe_fixture
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
     kwargs["process_input"] = process_input
     kwargs["process_chunk"] = process_chunk
-    rec = RecipeClass(**kwargs)
+    rec = RecipeClass(file_pattern, **kwargs)
     execute_recipe(rec)
     ds_actual = xr.open_zarr(target.get_mapper()).load()
 
@@ -101,20 +104,21 @@ def test_chunks(
 ):
     """Check that chunking of datasets works as expected."""
 
-    RecipeClass, kwargs, ds_expected, target = recipe_fixture
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
 
     kwargs["target_chunks"] = target_chunks
     kwargs["inputs_per_chunk"] = inputs_per_chunk
     if specify_nitems_per_input:
-        kwargs["nitems_per_input"] = kwargs["nitems_per_input"]  # it's already there in kwargs
         kwargs["metadata_cache"] = None
     else:
-        # file will be scanned and metadata cached
-        kwargs["nitems_per_input"] = None
+        # modify file_pattern in place to remove nitems_per_file; a bit hacky
+        for cdim in file_pattern.combine_dims:
+            if hasattr(cdim, "nitems_per_file"):
+                cdim.nitems_per_file = None
         kwargs["metadata_cache"] = kwargs["input_cache"]
 
     with chunk_expectation as excinfo:
-        rec = RecipeClass(**kwargs)
+        rec = RecipeClass(file_pattern, **kwargs)
     if excinfo:
         # don't continue if we got an exception
         return
@@ -124,9 +128,8 @@ def test_chunks(
     # chunk validation
     ds_actual = xr.open_zarr(target.get_mapper(), consolidated=True)
     sequence_chunks = ds_actual.chunks["time"]
-    seq_chunk_len = target_chunks.get("time", None) or (
-        kwargs["nitems_per_input"] * inputs_per_chunk
-    )
+    nitems_per_input = list(file_pattern.nitems_per_input.values())[0]
+    seq_chunk_len = target_chunks.get("time", None) or (nitems_per_input * inputs_per_chunk)
     # we expect all chunks but the last to have the expected size
     assert all([item == seq_chunk_len for item in sequence_chunks[:-1]])
     for other_dim, chunk_len in target_chunks.items():
