@@ -395,6 +395,7 @@ class XarrayZarrRecipe(BaseRecipe):
             # Regardless of whether there is an existing dataset or we are creating a new one,
             # we need to expand the concat_dim to hold the entire expected size of the data
             input_sequence_lens = self.calculate_sequence_lens()
+            print(input_sequence_lens)
             n_sequence = sum(input_sequence_lens)
             self.expand_target_dim(self._concat_dim, n_sequence)
 
@@ -638,9 +639,9 @@ class XarrayZarrRecipe(BaseRecipe):
         all_lens.shape = list(self.file_pattern.dims.values())
         # check that all lens are the same along the concat dim
         concat_dim_axis = list(self.file_pattern.dims).index(self._concat_dim)
-        selector = [0] * len(self.file_pattern.dims)
-        selector[concat_dim_axis] = slice(None)
+        selector = [slice(0, 1)] * len(self.file_pattern.dims)
+        selector[concat_dim_axis] = slice(None)  # this should broadcast correctly agains all_lens
         sequence_lens = all_lens[tuple(selector)]
-        if not (all_lens == sequence_lens).all():  # BROKEN! broadcasting isn't happening
+        if not (all_lens == sequence_lens).all():
             raise ValueError(f"Inconsistent sequence lengths found: f{all_lens}")
-        return sequence_lens.tolist()
+        return sequence_lens.squeeze().tolist()
