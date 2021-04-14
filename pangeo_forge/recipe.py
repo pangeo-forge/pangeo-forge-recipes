@@ -484,7 +484,7 @@ class XarrayZarrRecipe(BaseRecipe):
                 yield fp
         except (IOError, FileNotFoundError, UninitializedTargetError) as err:
             if self.cache_inputs:
-                raise err(
+                raise err(  # type: ignore
                     f"You are trying to open input {fname}, but the file is "
                     "not cached yet. First call `cache_input` or set "
                     "`cache_inputs=False`."
@@ -588,7 +588,7 @@ class XarrayZarrRecipe(BaseRecipe):
 
         if self._nitems_per_input:
             input_sequence_lens = (self._nitems_per_input,) * self.file_pattern.dims[
-                self._concat_dim
+                self._concat_dim  # type: ignore
             ]
         else:
             input_sequence_lens = json.loads(
@@ -596,7 +596,7 @@ class XarrayZarrRecipe(BaseRecipe):
             )["input_sequence_lens"]
 
         chunk_bounds, all_chunk_conflicts = chunk_bounds_and_conflicts(
-            input_sequence_lens, self._concat_dim_chunks
+            input_sequence_lens, self._concat_dim_chunks  # type: ignore
         )
         input_positions = [self.input_position(input_key) for input_key in input_keys]
         start = chunk_bounds[min(input_positions)]

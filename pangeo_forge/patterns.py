@@ -46,7 +46,7 @@ class MergeDim:
     keys: Sequence[Any] = field(repr=False)
 
 
-Index = Tuple[int]
+Index = Tuple[int, ...]
 
 
 class FilePattern:
@@ -62,9 +62,7 @@ class FilePattern:
       product of the keys is used to generate the full list of file paths.
     """
 
-    def __init__(
-        self, format_function: Callable, *combine_dims: Sequence[Union[MergeDim, ConcatDim]]
-    ):
+    def __init__(self, format_function: Callable, *combine_dims: Union[MergeDim, ConcatDim]):
 
         self.format_function = format_function
         self.combine_dims = combine_dims
@@ -75,10 +73,12 @@ class FilePattern:
             kwargs = dict(zip(dim_names, keys))
             fnames.append(format_function(**kwargs))
         shape = [len(cdim.keys) for cdim in combine_dims]
-        fnames = np.array(fnames)
-        fnames.shape = shape
+        fnames_np = np.array(fnames)
+        fnames_np.shape = tuple(shape)
+        # This way of defining coords is incompatible with xarray type annotations.
+        # I don't understand why.
         coords = {cdim.name: (cdim.name, cdim.keys) for cdim in combine_dims}
-        self._da = xr.DataArray(fnames, dims=coords, coords=coords)
+        self._da = xr.DataArray(fnames_np, dims=list(coords), coords=coords)  # type: ignore
 
     @property
     def dims(self) -> Dict[str, int]:
@@ -87,7 +87,7 @@ class FilePattern:
         return {op.name: len(op.keys) for op in self.combine_dims}
 
     @property
-    def shape(self) -> Tuple[int]:
+    def shape(self) -> Tuple[int, ...]:
         """Shape of the filename matrix."""
         return self._da.shape
 
@@ -102,9 +102,9 @@ class FilePattern:
         return [op.name for op in self.combine_dims if isinstance(op, ConcatDim)]
 
     @property
-    def nitems_per_input(self) -> Dict[str, Optional[int]]:
+    def nitems_per_input(self) -> Dict[str, Union[int, None]]:
         """Dictionary mapping concat dims to number of items per file."""
-        nitems = {}
+        nitems = {}  # type: Dict[str, Union[int, None]]
         for op in self.combine_dims:
             if isinstance(op, ConcatDim):
                 if op.nitems_per_file:
