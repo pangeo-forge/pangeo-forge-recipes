@@ -80,6 +80,9 @@ class FilePattern:
         coords = {cdim.name: (cdim.name, cdim.keys) for cdim in combine_dims}
         self._da = xr.DataArray(fnames_np, dims=list(coords), coords=coords)  # type: ignore
 
+    def __repr__(self):
+        return f"<FilePattern {self.dims}>"
+
     @property
     def dims(self) -> Dict[str, int]:
         """Dictionary representing the dimensions of the FilePattern. Keys are
