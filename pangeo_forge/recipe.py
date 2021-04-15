@@ -395,7 +395,6 @@ class XarrayZarrRecipe(BaseRecipe):
             # Regardless of whether there is an existing dataset or we are creating a new one,
             # we need to expand the concat_dim to hold the entire expected size of the data
             input_sequence_lens = self.calculate_sequence_lens()
-            print(input_sequence_lens)
             n_sequence = sum(input_sequence_lens)
             self.expand_target_dim(self._concat_dim, n_sequence)
 
@@ -484,11 +483,11 @@ class XarrayZarrRecipe(BaseRecipe):
                 yield fp
         except (IOError, FileNotFoundError, UninitializedTargetError) as err:
             if self.cache_inputs:
-                raise err(  # type: ignore
+                raise Exception(
                     f"You are trying to open input {fname}, but the file is "
                     "not cached yet. First call `cache_input` or set "
                     "`cache_inputs=False`."
-                )
+                ) from err
             logger.info(f"No cache found. Opening input `{fname}` directly.")
             opener = _fsspec_safe_open(fname, mode="rb", **self.fsspec_open_kwargs)
             with _maybe_open_or_copy_to_local(opener, self.copy_input_to_local_file, fname) as fp:
@@ -645,3 +644,7 @@ class XarrayZarrRecipe(BaseRecipe):
         if not (all_lens == sequence_lens).all():
             raise ValueError(f"Inconsistent sequence lengths found: f{all_lens}")
         return sequence_lens.squeeze().tolist()
+
+    def inputs_for_chunk(self, chunk_key: ChunkKey) -> Tuple[InputKey]:
+        """Convenience function for users to introspect recipe."""
+        return self._chunks_inputs[chunk_key]
