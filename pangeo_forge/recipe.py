@@ -498,7 +498,6 @@ class XarrayZarrRecipe(BaseRecipe):
         fname = self.file_pattern[input_key]
         logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
         with self.input_opener(fname) as f:
-            logger.info(f"f is {f}")
             ds = xr.open_dataset(f, **self.xarray_open_kwargs)
             # Explicitly load into memory;
             # if we don't do this, we get a ValueError: seek of closed file.
