@@ -192,20 +192,18 @@ InputKey = Tuple[int]
 class XarrayZarrRecipe(BaseRecipe):
     """This class represents a dataset composed of many individual NetCDF files.
     This class uses Xarray to read and write data and writes its output to Zarr.
-    The files are assumed to be arranged in a sequence along dimension ``concat_dim``
-    (commonly "time".)
+    The organization of the source files is described by the ``file_pattern``.
+    Currently this recipe supports at most one ``MergeDim`` and one ``ConcatDim``
+    in the File Pattern.
 
-    This class should not be used on its own but rather via one of its sub-classes.
-
-    :param concat_dim: The dimension name along which the inputs will be concatenated.
-    :param inputs_per_chunk: The number of inputs to use in each chunk.
-    :param nitems_per_input: The length of each input along the ``concat_dim`` dimension.
-      If ``None``, each input will be scanned and its metadata cached in order to
-      determine the size of the target dataset.
+    :param file_pattern: An object which describes the organization of the input files.
+    :param inputs_per_chunk: The number of inputs to use in each chunk along the concat dim.
+       Must be an integer >= 1.
+    :param target_chunks: Desired chunk structure for the targret dataset.
     :param target: A location in which to put the dataset. Can also be assigned at run time.
     :param input_cache: A location in which to cache temporary data.
     :param metadata_cache: A location in which to cache metadata for inputs and chunks.
-      Required if ``nitems_per_input=None``.
+      Required if ``nitems_per_file=None`` on concat dim in file pattern.
     :param cache_inputs: Whether to allow opening inputs directly which have not
       yet been cached. This could lead to very unstanble behavior if the inputs
       live behind a slow network connection.
@@ -224,11 +222,11 @@ class XarrayZarrRecipe(BaseRecipe):
       `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
     :param process_chunk: Function to call on each concatenated chunk, with signature
       `(ds: xr.Dataset) -> ds: xr.Dataset`.
-    :param target_chunks: Desired chunk structure for the targret dataset.
     """
 
     file_pattern: FilePattern
     inputs_per_chunk: Optional[int] = 1
+    target_chunks: Dict[str, int] = field(default_factory=dict)
     target: AbstractTarget = field(default_factory=UninitializedTarget)
     input_cache: AbstractTarget = field(default_factory=UninitializedTarget)
     metadata_cache: AbstractTarget = field(default_factory=UninitializedTarget)
@@ -241,7 +239,6 @@ class XarrayZarrRecipe(BaseRecipe):
     fsspec_open_kwargs: dict = field(default_factory=dict)
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
-    target_chunks: Dict[str, int] = field(default_factory=dict)
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: Optional[str] = None
