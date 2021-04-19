@@ -11,7 +11,7 @@ import pytest
 import xarray as xr
 from dask.distributed import Client, LocalCluster
 
-from pangeo_forge import recipe
+from pangeo_forge import recipes
 from pangeo_forge.executors import (
     DaskPipelineExecutor,
     PrefectPipelineExecutor,
@@ -175,7 +175,7 @@ def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp
     paths, items_per_file = netcdf_local_paths
     file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
     kwargs = dict(inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,)
-    return recipe.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
+    return recipes.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture
@@ -194,7 +194,7 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
         MergeDim("variable", ["foo", "bar"]),
     )
     kwargs = dict(inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,)
-    return recipe.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
+    return recipes.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture(scope="session")
