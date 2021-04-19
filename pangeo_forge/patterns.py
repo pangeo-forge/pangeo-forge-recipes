@@ -134,6 +134,11 @@ class FilePattern:
         for val in product(*[range(n) for n in self.shape]):
             yield val
 
+    def items(self):
+        """Iterate over key, filename pairs."""
+        for key in self:
+            yield key, self[key]
+
 
 def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None):
     """Convenience function for creating a FilePattern from a list of files."""

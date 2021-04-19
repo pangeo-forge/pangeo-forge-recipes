@@ -33,6 +33,7 @@ def test_pattern_from_file_sequence():
     assert list(fp) == expected_keys
     for key in expected_keys:
         assert fp[key] == file_sequence[key[0]]
+    assert list(fp.items()) == list(zip(expected_keys, file_sequence))
 
 
 def test_file_pattern_concat_merge():
@@ -51,5 +52,9 @@ def test_file_pattern_concat_merge():
     assert fp.concat_sequence_lens == {"time": None}
     expected_keys = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
     assert list(fp) == expected_keys
+    fnames = []
     for key in expected_keys:
-        assert fp[key] == format_function(variable=merge.keys[key[0]], time=concat.keys[key[1]])
+        fname = format_function(variable=merge.keys[key[0]], time=concat.keys[key[1]])
+        assert fp[key] == fname
+        fnames.append(fname)
+    assert list(fp.items()) == list(zip(expected_keys, fnames))
