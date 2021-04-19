@@ -35,11 +35,12 @@ For more information, see {doc}`bakeries`.
 :maxdepth: 2
 :caption: Contents
 
+file_patterns
+storage
 recipes
-tutorials/index
 execution
+tutorials/index
 bakeries
 contribute
-api
 
 ```

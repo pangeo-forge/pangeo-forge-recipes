@@ -80,3 +80,20 @@ executor = PrefectPipelineExecutor()
 plan = executor.pipelines_to_plan(pipeline)
 executor.execute_plan(plan)  # actually runs the recipe
 ```
+
+## Executors
+
+```{eval-rst}
+.. autoclass:: pangeo_forge.executors.PythonPipelineExecutor
+    :members:
+```
+
+```{eval-rst}
+.. autoclass:: pangeo_forge.executors.DaskPipelineExecutor
+    :members:
+```
+
+```{eval-rst}
+.. autoclass:: pangeo_forge.executors.PrefectPipelineExecutor
+    :members:
+```

@@ -23,7 +23,8 @@ exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 master_doc = "index"
 
 # we always have to manually run the notebooks because they are slow / expensive
-jupyter_execute_notebooks = "off"
+jupyter_execute_notebooks = "auto"
+execution_excludepatterns = ["tutorials/*"]
 
 # -- Options for HTML output -------------------------------------------------
 
