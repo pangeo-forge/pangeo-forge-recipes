@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import tempfile
+import warnings
 from abc import ABC, abstractmethod
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
@@ -389,13 +390,19 @@ class XarrayZarrRecipe(BaseRecipe):
                                 ds[v].load()
 
                         target_mapper = self.target.get_mapper()
-                        logger.debug(f"Storing dataset:\n {ds}")
-                        ds.to_zarr(target_mapper, mode="a", compute=False, safe_chunks=False)
+                        logger.info(f"Storing dataset in {self.target.root_path}")
+                        logger.debug(f"{ds}")
+                        with warnings.catch_warnings():
+                            warnings.simplefilter(
+                                "ignore"
+                            )  # suppress the warning that comes with safe_chunks
+                            ds.to_zarr(target_mapper, mode="a", compute=False, safe_chunks=False)
 
             # Regardless of whether there is an existing dataset or we are creating a new one,
             # we need to expand the concat_dim to hold the entire expected size of the data
             input_sequence_lens = self.calculate_sequence_lens()
             n_sequence = sum(input_sequence_lens)
+            logger.info(f"Expanding target concat dim '{self._concat_dim}' to size {n_sequence}")
             self.expand_target_dim(self._concat_dim, n_sequence)
 
             if self._cache_metadata:
@@ -403,6 +410,7 @@ class XarrayZarrRecipe(BaseRecipe):
                 recipe_meta = {"input_sequence_lens": input_sequence_lens}
                 meta_mapper = self.metadata_cache.get_mapper()
                 # we are saving a dictionary with one key (input_sequence_lens)
+                logger.info("Caching global metadata")
                 meta_mapper[_GLOBAL_METADATA_KEY] = json.dumps(recipe_meta).encode("utf-8")
 
         return _prepare_target
@@ -526,7 +534,7 @@ class XarrayZarrRecipe(BaseRecipe):
 
     @contextmanager
     def open_chunk(self, chunk_key: ChunkKey):
-        logger.info(f"Concatenating inputs for chunk '{chunk_key}'")
+        logger.info(f"Opening inputs for chunk {chunk_key}")
         inputs = self._chunks_inputs[chunk_key]
 
         # need to open an unknown number of contexts at the same time
@@ -534,6 +542,7 @@ class XarrayZarrRecipe(BaseRecipe):
             dsets = [stack.enter_context(self.open_input(i)) for i in inputs]
             # explicitly chunking prevents eager evaluation during concat
             dsets = [ds.chunk() for ds in dsets]
+            logger.info(f"Combining inputs for chunk '{chunk_key}'")
             if len(dsets) > 1:
                 # During concat, attributes and encoding are taken from the first dataset
                 # https://github.com/pydata/xarray/issues/1614
