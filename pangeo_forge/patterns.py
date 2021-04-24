@@ -4,7 +4,7 @@ Filename / URL patterns.
 
 from dataclasses import dataclass, field
 from itertools import product
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -12,7 +12,7 @@ import xarray as xr
 
 @dataclass
 class ConcatDim:
-    """Represents a concatenation operation.
+    """Represents a concatenation operation across a dimension of a FilePattern.
 
     :param name: The name of the dimension we are concatenating over. For
       files with labeled dimensions, this should match the dimension name
@@ -32,7 +32,7 @@ class ConcatDim:
 
 @dataclass
 class MergeDim:
-    """Represents a merge operation.
+    """Represents a merge operation across a dimension of a FilePattern.
 
     :param name: The name of the dimension we are are merging over. The actual
        value is not used by most recipes. The most common value is
@@ -125,11 +125,11 @@ class FilePattern:
             for dim_name, nitems in self.nitems_per_input.items()
         }
 
-    def __getitem__(self, indexer):
+    def __getitem__(self, indexer) -> str:
         """Get a filename path for a particular key. """
         return self._da[indexer].values.item()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Index]:
         """Iterate over all keys in the pattern. """
         for val in product(*[range(n) for n in self.shape]):
             yield val
