@@ -112,9 +112,8 @@ class XarrayZarrRecipe(BaseRecipe):
     :param input_cache: A location in which to cache temporary data.
     :param metadata_cache: A location in which to cache metadata for inputs and chunks.
       Required if ``nitems_per_file=None`` on concat dim in file pattern.
-    :param cache_inputs: Whether to allow opening inputs directly which have not
-      yet been cached. This could lead to very unstanble behavior if the inputs
-      live behind a slow network connection.
+    :param cache_inputs: If ``True``, inputs are copied to ``input_cache`` before
+      opening. If ``False``, try to open inputs directly from their source location.
     :param copy_input_to_local_file: Whether to copy the inputs to a temporary
       local file. In this case, a path (rather than file object) is passed to
       ``xr.open_dataset``. This is required for engines that can't open
