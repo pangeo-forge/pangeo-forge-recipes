@@ -83,6 +83,12 @@ def _fsspec_safe_open(fname, **kwargs):
             yield fp2
 
 
+def _get_url_size(fname):
+    with fsspec.open(fname, mode="rb") as of:
+        size = of.size
+    return size
+
+
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
@@ -153,10 +159,6 @@ class XarrayZarrRecipe(BaseRecipe):
 
     _concat_dim_chunks: Optional[int] = None
     """The desired chunking along the sequence dimension."""
-
-    # Don't need, use filepath directly
-    # _inputs_files: Dict[InputKey, str] = field(default_factory=dict, repr=False, init=False)
-    """Mapping of input keys to filenames. Should be 1:1."""
 
     # In general there may be a many-to-many relationship between input keys and chunk keys
     _inputs_chunks: Dict[InputKey, Tuple[ChunkKey]] = field(
@@ -322,9 +324,17 @@ class XarrayZarrRecipe(BaseRecipe):
     @property
     def cache_input(self) -> Callable:
         def cache_func(input_key: InputKey) -> None:
+            logger.info(f"Caching input {input_key}")
             fname = self.file_pattern[input_key]
-            logger.info(f"Caching input {input_key}: {fname}")
-            # TODO: check and see if the file already exists in the cache
+
+            # check and see if the file already exists in the cache
+            if self.input_cache.exists(fname):
+                cached_size = self.input_cache.size(fname)
+                remote_size = _get_url_size(fname)
+                if cached_size == remote_size:
+                    logger.info(f"Input {input_key} file {fname} is already cached")
+                    return
+
             input_opener = _fsspec_safe_open(fname, mode="rb", **self.fsspec_open_kwargs)
             target_opener = self.input_cache.open(fname, mode="wb")
             _copy_btw_filesystems(input_opener, target_opener)
