@@ -6,7 +6,7 @@ dependencies:
   - aiohttp
   - black
   - boto3
-  - cfgrib
+  - cfgrib<0.9.9.0
   - codecov
   - dask
 #  - distributed

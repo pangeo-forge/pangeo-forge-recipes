@@ -1,44 +1,60 @@
-import pytest
-
-from pangeo_forge.patterns import ExplicitURLSequence, URLPattern, VariableSequencePattern
+from pangeo_forge.patterns import ConcatDim, FilePattern, MergeDim, pattern_from_file_sequence
 
 
-def test_url_pattern():
-    pattern = URLPattern("{foo}:{bar}", {"foo": [1, 2], "bar": ["a", "b", "c"]})
-    assert list(pattern) == [
-        ((1, "a"), "1:a"),
-        ((1, "b"), "1:b"),
-        ((1, "c"), "1:c"),
-        ((2, "a"), "2:a"),
-        ((2, "b"), "2:b"),
-        ((2, "c"), "2:c"),
-    ]
+def test_file_pattern_concat():
+    concat = ConcatDim(name="time", keys=list(range(3)))
+
+    def format_function(time):
+        return f"T_{time}"
+
+    fp = FilePattern(format_function, concat)
+    assert fp.dims == {"time": 3}
+    assert fp.shape == (3,)
+    assert fp.merge_dims == []
+    assert fp.concat_dims == ["time"]
+    assert fp.nitems_per_input == {"time": None}
+    assert fp.concat_sequence_lens == {"time": None}
+    expected_keys = [(0,), (1,), (2,)]
+    assert list(fp) == expected_keys
+    for key in expected_keys:
+        assert fp[key] == format_function(key[0])
 
 
-def test_variable_sequence_pattern():
-    pattern = VariableSequencePattern(
-        "{variable}:{time}", {"variable": ["temp", "salt"], "time": [1, 2, 3]}
-    )
-    assert list(pattern) == [
-        (("temp", 1), "temp:1"),
-        (("temp", 2), "temp:2"),
-        (("temp", 3), "temp:3"),
-        (("salt", 1), "salt:1"),
-        (("salt", 2), "salt:2"),
-        (("salt", 3), "salt:3"),
-    ]
-    assert pattern._sequence_key == "time"
-
-    with pytest.raises(ValueError, match=r".*`variable`.*"):
-        _ = VariableSequencePattern("{foo}:{bar}", {"foo": ["temp", "salt"], "time": [1, 2, 3]})
-
-    with pytest.raises(ValueError, match=r".*two keys.*"):
-        _ = VariableSequencePattern(
-            "{variable}:{time}:{foo}",
-            {"variable": ["temp", "salt"], "time": [1, 2, 3], "foo": ["a"]},
-        )
+def test_pattern_from_file_sequence():
+    file_sequence = ["T_0", "T_1", "T_2"]
+    fp = pattern_from_file_sequence(file_sequence, "time")
+    assert fp.dims == {"time": 3}
+    assert fp.shape == (3,)
+    assert fp.merge_dims == []
+    assert fp.concat_dims == ["time"]
+    assert fp.nitems_per_input == {"time": None}
+    assert fp.concat_sequence_lens == {"time": None}
+    expected_keys = [(0,), (1,), (2,)]
+    assert list(fp) == expected_keys
+    for key in expected_keys:
+        assert fp[key] == file_sequence[key[0]]
+    assert list(fp.items()) == list(zip(expected_keys, file_sequence))
 
 
-def test_explicit_url_sequence():
-    seq = ExplicitURLSequence(["a", "b", "c"])
-    assert list(seq) == [((0,), "a"), ((1,), "b"), ((2,), "c")]
+def test_file_pattern_concat_merge():
+    concat = ConcatDim(name="time", keys=list(range(3)))
+    merge = MergeDim(name="variable", keys=["foo", "bar"])
+
+    def format_function(time, variable):
+        return f"T_{time}_V_{variable}"
+
+    fp = FilePattern(format_function, merge, concat)
+    assert fp.dims == {"variable": 2, "time": 3}
+    assert fp.shape == (2, 3,)
+    assert fp.merge_dims == ["variable"]
+    assert fp.concat_dims == ["time"]
+    assert fp.nitems_per_input == {"time": None}
+    assert fp.concat_sequence_lens == {"time": None}
+    expected_keys = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
+    assert list(fp) == expected_keys
+    fnames = []
+    for key in expected_keys:
+        fname = format_function(variable=merge.keys[key[0]], time=concat.keys[key[1]])
+        assert fp[key] == fname
+        fnames.append(fname)
+    assert list(fp.items()) == list(zip(expected_keys, fnames))
