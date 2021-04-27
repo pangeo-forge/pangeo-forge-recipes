@@ -61,6 +61,7 @@ def test_cache(tmp_cache):
     with tmp_cache.open("foo", mode="w") as f:
         f.write("bar")
     assert tmp_cache.exists("foo")
+    assert tmp_cache.size("foo") == 3
     with tmp_cache.open("foo", mode="r") as f:
         assert f.read() == "bar"
     tmp_cache.rm("foo")
