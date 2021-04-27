@@ -30,6 +30,11 @@ class AbstractTarget(ABC):
         """Open file with a context manager."""
         pass
 
+    @abstractmethod
+    def size(self, path: str) -> int:
+        """Get file size"""
+        pass
+
 
 def _hash_path(path: str) -> str:
     return str(hash(path))
@@ -60,6 +65,9 @@ class FSSpecTarget(AbstractTarget):
     def rm(self, path: str) -> None:
         """Remove file from the cache."""
         self.fs.rm(self._full_path(path))
+
+    def size(self, path: str) -> int:
+        return self.fs.size(self._full_path(path))
 
     @contextmanager
     def open(self, path: str, **kwargs) -> Iterator[None]:
@@ -114,6 +122,9 @@ class UninitializedTarget(AbstractTarget):
         raise UninitializedTargetError
 
     def open(self, path: str, **kwargs):  # don't know how to type hint this
+        raise UninitializedTargetError
+
+    def size(self, path: str, **kwargs):
         raise UninitializedTargetError
 
 
