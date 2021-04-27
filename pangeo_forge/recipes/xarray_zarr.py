@@ -26,7 +26,7 @@ from ..utils import (
     fix_scalar_attr_encoding,
     lock_for_conflicts,
 )
-from .base import BaseRecipe
+from .base import BaseRecipe, closure
 
 # use this filename to store global recipe metadata in the metadata_cache
 # it will be written once (by prepare_target) and read many times (by store_chunk)
@@ -244,157 +244,143 @@ class XarrayZarrRecipe(BaseRecipe):
         else:
             self._concat_dim_chunks = self._nitems_per_input * self.inputs_per_chunk
 
-    @property
-    def prepare_target(self) -> Callable:
-        def _prepare_target():
+    @property  # type: ignore
+    @closure
+    def prepare_target(self) -> None:
+        try:
+            ds = self.open_target()
+            logger.info("Found an existing dataset in target")
+            logger.debug(f"{ds}")
 
-            try:
-                ds = self.open_target()
-                logger.info("Found an existing dataset in target")
-                logger.debug(f"{ds}")
+            if self.target_chunks:
+                # TODO: check that target_chunks id compatibile with the
+                # existing chunks
+                pass
 
-                if self.target_chunks:
-                    # TODO: check that target_chunks id compatibile with the
-                    # existing chunks
-                    pass
+        except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
+            logger.info("Creating a new dataset in target")
 
-            except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
-                logger.info("Creating a new dataset in target")
+            # need to rewrite this as an append loop
+            for chunk_key in self._init_chunks:
+                with self.open_chunk(chunk_key) as ds:
+                    # ds is already chunked
 
-                # need to rewrite this as an append loop
-                for chunk_key in self._init_chunks:
-                    with self.open_chunk(chunk_key) as ds:
-                        # ds is already chunked
-
-                        # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
-                        for v in ds.variables:
-                            if self.target_chunks:
-                                this_var = ds[v]
-                                chunks = {
-                                    this_var.get_axis_num(dim): chunk
-                                    for dim, chunk in self.target_chunks.items()
-                                    if dim in this_var.dims
-                                }
-
-                                chunks = tuple(
-                                    chunks.get(n, s) for n, s in enumerate(this_var.shape)
-                                )
-                                encoding_chunks = chunks
-                            else:
-                                encoding_chunks = ds[v].shape
-                            logger.debug(
-                                f"Setting variable {v} encoding chunks to {encoding_chunks}"
+                    # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
+                    for v in ds.variables:
+                        if self.target_chunks:
+                            this_var = ds[v]
+                            chunks = {
+                                this_var.get_axis_num(dim): chunk
+                                for dim, chunk in self.target_chunks.items()
+                                if dim in this_var.dims
+                            }
+                            encoding_chunks = tuple(
+                                chunks.get(n, s) for n, s in enumerate(this_var.shape)
                             )
-                            ds[v].encoding["chunks"] = encoding_chunks
+                        else:
+                            encoding_chunks = ds[v].shape
+                        logger.debug(f"Setting variable {v} encoding chunks to {encoding_chunks}")
+                        ds[v].encoding["chunks"] = encoding_chunks
 
-                        # load all variables that don't have the sequence dim in them
-                        # these are usually coordinates.
-                        # Variables that are loaded will be written even with compute=False
-                        # TODO: make this behavior customizable
-                        for v in ds.variables:
-                            if self._concat_dim not in ds[v].dims:
-                                ds[v].load()
+                    # load all variables that don't have the sequence dim in them
+                    # these are usually coordinates.
+                    # Variables that are loaded will be written even with compute=False
+                    # TODO: make this behavior customizable
+                    for v in ds.variables:
+                        if self._concat_dim not in ds[v].dims:
+                            ds[v].load()
 
-                        target_mapper = self.target.get_mapper()
-                        logger.info(f"Storing dataset in {self.target.root_path}")
-                        logger.debug(f"{ds}")
-                        with warnings.catch_warnings():
-                            warnings.simplefilter(
-                                "ignore"
-                            )  # suppress the warning that comes with safe_chunks
-                            ds.to_zarr(target_mapper, mode="a", compute=False, safe_chunks=False)
+                    target_mapper = self.target.get_mapper()
+                    logger.info(f"Storing dataset in {self.target.root_path}")  # type: ignore
+                    logger.debug(f"{ds}")
+                    with warnings.catch_warnings():
+                        warnings.simplefilter(
+                            "ignore"
+                        )  # suppress the warning that comes with safe_chunks
+                        ds.to_zarr(target_mapper, mode="a", compute=False, safe_chunks=False)
 
-            # Regardless of whether there is an existing dataset or we are creating a new one,
-            # we need to expand the concat_dim to hold the entire expected size of the data
-            input_sequence_lens = self.calculate_sequence_lens()
-            n_sequence = sum(input_sequence_lens)
-            logger.info(f"Expanding target concat dim '{self._concat_dim}' to size {n_sequence}")
-            self.expand_target_dim(self._concat_dim, n_sequence)
+        # Regardless of whether there is an existing dataset or we are creating a new one,
+        # we need to expand the concat_dim to hold the entire expected size of the data
+        input_sequence_lens = self.calculate_sequence_lens()
+        n_sequence = sum(input_sequence_lens)
+        logger.info(f"Expanding target concat dim '{self._concat_dim}' to size {n_sequence}")
+        self.expand_target_dim(self._concat_dim, n_sequence)
 
-            if self._cache_metadata:
-                # if nitems_per_input is not constant, we need to cache this info
-                recipe_meta = {"input_sequence_lens": input_sequence_lens}
-                meta_mapper = self.metadata_cache.get_mapper()
-                # we are saving a dictionary with one key (input_sequence_lens)
-                logger.info("Caching global metadata")
-                meta_mapper[_GLOBAL_METADATA_KEY] = json.dumps(recipe_meta).encode("utf-8")
+        if self._cache_metadata:
+            # if nitems_per_input is not constant, we need to cache this info
+            recipe_meta = {"input_sequence_lens": input_sequence_lens}
+            meta_mapper = self.metadata_cache.get_mapper()
+            # we are saving a dictionary with one key (input_sequence_lens)
+            logger.info("Caching global metadata")
+            meta_mapper[_GLOBAL_METADATA_KEY] = json.dumps(recipe_meta).encode("utf-8")
 
-        return _prepare_target
+    # TODO: figure out how to make mypy happy with this convoluted structure
+    @property  # type: ignore
+    @closure
+    def cache_input(self, input_key: InputKey) -> None:  # type: ignore
+        logger.info(f"Caching input {input_key}")
+        fname = self.file_pattern[input_key]
 
-    @property
-    def cache_input(self) -> Callable:
-        def cache_func(input_key: InputKey) -> None:
-            logger.info(f"Caching input {input_key}")
-            fname = self.file_pattern[input_key]
+        # check and see if the file already exists in the cache
+        if self.input_cache.exists(fname):
+            cached_size = self.input_cache.size(fname)
+            remote_size = _get_url_size(fname)
+            if cached_size == remote_size:
+                logger.info(f"Input {input_key} file {fname} is already cached")
+                return
 
-            # check and see if the file already exists in the cache
-            if self.input_cache.exists(fname):
-                cached_size = self.input_cache.size(fname)
-                remote_size = _get_url_size(fname)
-                if cached_size == remote_size:
-                    logger.info(f"Input {input_key} file {fname} is already cached")
-                    return
+        input_opener = _fsspec_safe_open(fname, mode="rb", **self.fsspec_open_kwargs)
+        target_opener = self.input_cache.open(fname, mode="wb")
+        _copy_btw_filesystems(input_opener, target_opener)
+        # TODO: make it so we can cache metadata WITHOUT copying the file
+        if self._cache_metadata:
+            self.cache_input_metadata(input_key)
 
-            input_opener = _fsspec_safe_open(fname, mode="rb", **self.fsspec_open_kwargs)
-            target_opener = self.input_cache.open(fname, mode="wb")
-            _copy_btw_filesystems(input_opener, target_opener)
-            # TODO: make it so we can cache metadata WITHOUT copying the file
-            if self._cache_metadata:
-                self.cache_input_metadata(input_key)
+    @property  # type: ignore
+    @closure
+    def store_chunk(self, chunk_key: ChunkKey) -> None:  # type: ignore
+        with self.open_chunk(chunk_key) as ds_chunk:
+            # writing a region means that all the variables MUST have concat_dim
+            to_drop = [v for v in ds_chunk.variables if self._concat_dim not in ds_chunk[v].dims]
+            ds_chunk = ds_chunk.drop_vars(to_drop)
 
-        return cache_func
+            target_mapper = self.target.get_mapper()
+            write_region, conflicts = self.region_and_conflicts_for_chunk(chunk_key)
 
-    @property
-    def store_chunk(self) -> Callable:
-        def _store_chunk(chunk_key: ChunkKey):
-            with self.open_chunk(chunk_key) as ds_chunk:
-                # writing a region means that all the variables MUST have concat_dim
-                to_drop = [
-                    v for v in ds_chunk.variables if self._concat_dim not in ds_chunk[v].dims
-                ]
-                ds_chunk = ds_chunk.drop_vars(to_drop)
+            zgroup = zarr.open_group(target_mapper)
+            for vname, var_coded in ds_chunk.variables.items():
+                zarr_array = zgroup[vname]
+                # get encoding for variable from zarr attributes
+                # could this backfire some way?
+                var_coded.encoding.update(zarr_array.attrs)
+                # just delete all attributes from the var;
+                # they are not used anyway, and there can be conflicts
+                # related to xarray.coding.variables.safe_setitem
+                var_coded.attrs = {}
+                with dask.config.set(
+                    scheduler="single-threaded"
+                ):  # make sure we don't use a scheduler
+                    var = xr.backends.zarr.encode_zarr_variable(var_coded)
+                    data = np.asarray(
+                        var.data
+                    )  # TODO: can we buffer large data rather than loading it all?
+                zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
+                lock_keys = [f"{vname}-{c}" for c in conflicts]
+                logger.debug(f"Acquiring locks {lock_keys}")
+                with lock_for_conflicts(lock_keys):
+                    logger.info(
+                        f"Storing variable {vname} chunk {chunk_key} "
+                        f"to Zarr region {zarr_region}"
+                    )
+                    zarr_array[zarr_region] = data
 
-                target_mapper = self.target.get_mapper()
-                write_region, conflicts = self.region_and_conflicts_for_chunk(chunk_key)
-
-                zgroup = zarr.open_group(target_mapper)
-                for vname, var_coded in ds_chunk.variables.items():
-                    zarr_array = zgroup[vname]
-                    # get encoding for variable from zarr attributes
-                    # could this backfire some way?
-                    var_coded.encoding.update(zarr_array.attrs)
-                    # just delete all attributes from the var;
-                    # they are not used anyway, and there can be conflicts
-                    # related to xarray.coding.variables.safe_setitem
-                    var_coded.attrs = {}
-                    with dask.config.set(
-                        scheduler="single-threaded"
-                    ):  # make sure we don't use a scheduler
-                        var = xr.backends.zarr.encode_zarr_variable(var_coded)
-                        data = np.asarray(
-                            var.data
-                        )  # TODO: can we buffer large data rather than loading it all?
-                    zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
-                    lock_keys = [f"{vname}-{c}" for c in conflicts]
-                    logger.debug(f"Acquiring locks {lock_keys}")
-                    with lock_for_conflicts(lock_keys):
-                        logger.info(
-                            f"Storing variable {vname} chunk {chunk_key} "
-                            f"to Zarr region {zarr_region}"
-                        )
-                        zarr_array[zarr_region] = data
-
-        return _store_chunk
-
-    @property
-    def finalize_target(self) -> Callable:
-        def _finalize_target():
-            if self.consolidate_zarr:
-                logger.info("Consolidating Zarr metadata")
-                target_mapper = self.target.get_mapper()
-                zarr.consolidate_metadata(target_mapper)
-
-        return _finalize_target
+    @property  # type: ignore
+    @closure
+    def finalize_target(self) -> None:
+        if self.consolidate_zarr:
+            logger.info("Consolidating Zarr metadata")
+            target_mapper = self.target.get_mapper()
+            zarr.consolidate_metadata(target_mapper)
 
     @contextmanager
     def input_opener(self, fname: str):
