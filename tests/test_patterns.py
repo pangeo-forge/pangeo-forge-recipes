@@ -1,9 +1,6 @@
-from pangeo_forge_recipes.patterns import (
-    ConcatDim,
-    FilePattern,
-    MergeDim,
-    pattern_from_file_sequence,
-)
+import pytest
+
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim, pattern_from_file_sequence
 
 
 def test_file_pattern_concat():
@@ -41,7 +38,8 @@ def test_pattern_from_file_sequence():
     assert list(fp.items()) == list(zip(expected_keys, file_sequence))
 
 
-def test_file_pattern_concat_merge():
+@pytest.mark.parametrize("pickle", [False, True])
+def test_file_pattern_concat_merge(pickle):
     concat = ConcatDim(name="time", keys=list(range(3)))
     merge = MergeDim(name="variable", keys=["foo", "bar"])
 
@@ -49,6 +47,13 @@ def test_file_pattern_concat_merge():
         return f"T_{time}_V_{variable}"
 
     fp = FilePattern(format_function, merge, concat)
+
+    if pickle:
+        # regular pickle doesn't work here because it can't pickle format_funciton
+        from cloudpickle import dumps, loads
+
+        fp = loads(dumps(fp))
+
     assert fp.dims == {"variable": 2, "time": 3}
     assert fp.shape == (2, 3,)
     assert fp.merge_dims == ["variable"]
