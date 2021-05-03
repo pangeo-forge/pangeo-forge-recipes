@@ -242,9 +242,6 @@ _executors = {
 
 @pytest.fixture(params=["manual", "python", "dask", "prefect", "prefect-dask"])
 def execute_recipe(request, dask_cluster):
-    if request.param == "prefect-dask":
-        # TODO: turn this off and fix this case!
-        pytest.skip("Prefect with dask LocalCluster hangs inexplicably.")
 
     if request.param == "manual":
 

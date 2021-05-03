@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from functools import partial
 from typing import Callable, Hashable, Iterable
 
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
@@ -93,3 +94,20 @@ class BaseRecipe(ABC):
         # just intercept the __post_init__ calls so they
         # aren't relayed to `object`
         pass
+
+
+def closure(func: Callable) -> Callable:
+    """Wrap a method to eliminate the self keyword from its signature."""
+
+    # tried using @functools.wraps, but could not get it to work right
+    def wrapped(*args, **kwargs):
+        self = args[0]
+        if len(args) > 1:
+            args = args[1:]
+        else:
+            args = ()
+        new_func = partial(func, self, *args, **kwargs)
+        new_func.__name__ = getattr(func, "__name__", None)
+        return new_func
+
+    return wrapped
