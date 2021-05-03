@@ -49,7 +49,7 @@ def test_file_pattern_concat_merge(pickle):
     fp = FilePattern(format_function, merge, concat)
 
     if pickle:
-        # regular pickle doesn't work here because it can't pickle format_funciton
+        # regular pickle doesn't work here because it can't pickle format_function
         from cloudpickle import dumps, loads
 
         fp = loads(dumps(fp))
