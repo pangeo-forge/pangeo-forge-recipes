@@ -24,7 +24,7 @@ CLASSIFIERS = [
 ]
 
 setup(
-    name="pangeo-forge",
+    name="pangeo-forge-recipes",
     description="Pipeline tools for building and publishing analysis ready datasets",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -32,7 +32,7 @@ setup(
     maintainer="Joe Hamman",
     maintainer_email="jhamman@ucar.edu",
     classifiers=CLASSIFIERS,
-    url="https://github.com/pangeo-forge/pangeo-forge",
+    url="https://github.com/pangeo-forge-recipes/pangeo-forge-recipes",
     packages=find_packages(),
     package_dir={"pangeo_forge": "pangeo_forge"},
     include_package_data=True,
@@ -40,5 +40,5 @@ setup(
     license="Apache",
     zip_safe=False,
     keywords=["pangeo", "data"],
-    entry_points=dict(console_scripts=["pangeo-forge = pangeo_forge.cli:main"]),
+    entry_points=dict(console_scripts=["pangeo-forge-recipes = pangeo_forge_recipes.cli:main"]),
 )

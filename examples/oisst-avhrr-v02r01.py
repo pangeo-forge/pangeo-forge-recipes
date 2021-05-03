@@ -5,7 +5,7 @@ import pandas as pd
 import zarr
 from prefect import Flow, task
 
-from pangeo_forge.utils import chunked_iterable
+from pangeo_forge_recipes.utils import chunked_iterable
 
 
 def src_url_from_key(key):

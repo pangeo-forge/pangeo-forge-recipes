@@ -1,4 +1,4 @@
-from pangeo_forge.pipeline import AbstractPipeline, XarrayPrefectPipelineMixin
+from pangeo_forge_recipes.pipeline import AbstractPipeline, XarrayPrefectPipelineMixin
 
 
 class Pipeline(AbstractPipeline, XarrayPrefectPipelineMixin):
