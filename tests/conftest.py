@@ -11,14 +11,14 @@ import pytest
 import xarray as xr
 from dask.distributed import Client, LocalCluster
 
-from pangeo_forge import recipes
-from pangeo_forge.executors import (
+from pangeo_forge_recipes import recipes
+from pangeo_forge_recipes.executors import (
     DaskPipelineExecutor,
     PrefectPipelineExecutor,
     PythonPipelineExecutor,
 )
-from pangeo_forge.patterns import ConcatDim, FilePattern, MergeDim, pattern_from_file_sequence
-from pangeo_forge.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim, pattern_from_file_sequence
+from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
 
 
 def pytest_addoption(parser):
@@ -216,7 +216,7 @@ def dask_cluster(request):
     def redirect_logs():
         import logging
 
-        logger = logging.getLogger("pangeo_forge")
+        logger = logging.getLogger("pangeo_forge_recipes")
         handler = logging.StreamHandler()
         handler.setLevel(level)
         logger.setLevel(level)

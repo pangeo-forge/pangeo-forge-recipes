@@ -1,6 +1,6 @@
 from pkg_resources import DistributionNotFound, get_distribution
 
-# from pangeo_forge.pipelines import AbstractPipeline
+# from pangeo_forge_recipes.pipelines import AbstractPipeline
 
 try:
     __version__ = get_distribution(__name__).version

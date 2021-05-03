@@ -5,13 +5,13 @@ The primary way people contribute to Pangeo Forge is by writing / maintaining re
 
 ```{warning}
 The Recipe API is still in flux and may change. Make sure the version of the documentation
-you are reading matches your installed version of pangeo_forge.
+you are reading matches your installed version of pangeo_forge_recipes.
 ```
 
 ## The Recipe Object
 
 A Recipe is a Python object which encapsulates a workflow for transforming data.
-A Recipe knows how to take a {class}`file pattern <pangeo_forge.patterns.FilePattern>`,
+A Recipe knows how to take a {class}`file pattern <pangeo_forge_recipes.patterns.FilePattern>`,
 which descibes a collection of source files ("inputs"),
 and turn it into a single analysis-ready, cloud-optimized dataset.
 Creating a recipe does not actually cause any data to be read or written; the
@@ -30,7 +30,7 @@ Right now, there is only one recipe class implemented:
 
 ### XarrayZarr Recipe
 
-The {class}`pangeo_forge.recipes.XarrayZarrRecipe` recipe class uses
+The {class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe` recipe class uses
 [Xarray](http://xarray.pydata.org/) to read the input files and
 [Zarr](https://zarr.readthedocs.io/) as the target dataset format.
 The inputs can be in any [file format Xarray can read](http://xarray.pydata.org/en/latest/user-guide/io.html),
@@ -51,7 +51,7 @@ tutorials for this recipe class. These are, in order of increasing complexity
 Below we give a very basic overview of how recipes are used.
 
 First you must define a {doc}`file pattern <file_patterns>`.
-Once you have a {class}`file pattern <pangeo_forge.patterns.FilePattern>` object,
+Once you have a {class}`file pattern <pangeo_forge_recipes.patterns.FilePattern>` object,
 initializing an `XarrayZarrRecipe` can be as simple as this.
 
 ```{code-block} python
@@ -59,10 +59,10 @@ recipe = XarrayZarrRecipe(file_pattern)
 ```
 
 There are many other options we could pass, all covered in the API documentation
-{class}`below <pangeo_forge.recipes.XarrayZarrRecipe>`.
+{class}`below <pangeo_forge_recipes.recipes.XarrayZarrRecipe>`.
 
 All recipes need {doc}`storage <storage>` for the target dataset.
-If you have already defined a {class}`pangeo_forge.storage.FSSpecTarget` object,
+If you have already defined a {class}`pangeo_forge_recipes.storage.FSSpecTarget` object,
 then you can either assign it when you initialize the recipe or later, e.g.
 
 ```{code-block} python
@@ -83,5 +83,5 @@ The API documentation below explains all of the possible options for `XarrayZarr
 Many of these options are explored further in the {doc}`tutorials/index`.
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.recipes.XarrayZarrRecipe
+.. autoclass:: pangeo_forge_recipes.recipes.XarrayZarrRecipe
 ```

@@ -46,7 +46,7 @@ We refer to the unique identifiers for each dimension (`temperature`, `humidity`
 as the **keys** for our file pattern.
 At this point, we don't really care what is _inside_ these files
 We are just interested in the logical organization of the files themselves;
-this is what a {class}`pangeo_forge.patterns.FilePattern` is meant to describe.
+this is what a {class}`pangeo_forge_recipes.patterns.FilePattern` is meant to describe.
 
 ### Create a `FilePattern`
 
@@ -64,11 +64,11 @@ make_full_path("humidity", 3)
 
 We now need to define the "combine dimensions" of the file pattern.
 Comine dimensions are one of two types:
-- {class}`pangeo_forge.patterns.ConcatDim`: The files should be combined by
+- {class}`pangeo_forge_recipes.patterns.ConcatDim`: The files should be combined by
   concatenating _the same variables_ sequentially along an axis.
   This is conceptually similar to Xarray's [concat](http://xarray.pydata.org/en/stable/combining.html#concatenate)
   operation.
-- {class}`pangeo_forge.patterns.MergeDim`: The files be combined by merging
+- {class}`pangeo_forge_recipes.patterns.MergeDim`: The files be combined by merging
   _multiple distinct variables_ into a single dataset. This is conceptually
   similar to Xarray's [merge](http://xarray.pydata.org/en/stable/combining.html#merge)
   operation.
@@ -77,14 +77,14 @@ File patterns permit us to combine multiple combine dims into a single pattern.
 For the present example, we have one ``MergeDim``:
 
 ```{code-cell} ipython3
-from pangeo_forge.patterns import MergeDim
+from pangeo_forge_recipes.patterns import MergeDim
 variable_merge_dim = MergeDim("variable", ["temperature", "humidity"])
 ```
 
 ...and one ``ConcatDim``:
 
 ```{code-cell} ipython3
-from pangeo_forge.patterns import ConcatDim
+from pangeo_forge_recipes.patterns import ConcatDim
 time_concat_dim = ConcatDim("time", list(range(1, 11)))
 ```
 
@@ -92,7 +92,7 @@ We are now ready to create our file pattern. We do this by bringing together
 the function which generates the file names with the merge dimensions.
 
 ```{code-cell} ipython3
-from pangeo_forge.patterns import FilePattern
+from pangeo_forge_recipes.patterns import FilePattern
 pattern = FilePattern(make_full_path, variable_merge_dim, time_concat_dim)
 pattern
 ```
@@ -109,7 +109,7 @@ You can use whatever names you want,but they must be consistent throughout your 
 In theory, we could use any number of combine dimensions.
 However, in practice, recipe implementations may have limits on the number of
 and type of combine dimensions they support.
-{class}`pangeo_forge.recipes.XarrayZarrRecipe` requires at least one
+{class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe` requires at least one
 ``ConcatDim`` and allows at most one ``MergeDim``.
 
 ### Inspect a `FilePattern`
@@ -174,19 +174,19 @@ concatenated, and we don't need to provide any hints about these.
 ## File Patterns API
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.patterns.FilePattern
+.. autoclass:: pangeo_forge_recipes.patterns.FilePattern
     :members:
     :special-members: __getitem__, __iter__
 ```
 
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.patterns.ConcatDim
+.. autoclass:: pangeo_forge_recipes.patterns.ConcatDim
     :members:
 ```
 
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.patterns.MergeDim
+.. autoclass:: pangeo_forge_recipes.patterns.MergeDim
     :members:
 ```

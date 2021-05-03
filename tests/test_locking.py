@@ -12,7 +12,7 @@ import pytest
 import zarr
 from dask.distributed import Client
 
-from pangeo_forge.utils import chunk_bounds_and_conflicts, lock_for_conflicts
+from pangeo_forge_recipes.utils import chunk_bounds_and_conflicts, lock_for_conflicts
 
 
 @pytest.mark.parametrize("n_tasks, conflicts", [(2, (0,)), (2, (1, 2)), (4, (0,))])
@@ -22,7 +22,7 @@ def test_locks(n_tasks, conflicts, tmp_target, dask_cluster):
 
     @dask.delayed
     def do_stuff(n):
-        logger = logging.getLogger("pangeo_forge")
+        logger = logging.getLogger("pangeo_forge_recipes")
         handler = logging.StreamHandler(stream=sys.stdout)
         handler.setLevel(logging.DEBUG)
         logger.addHandler(handler)

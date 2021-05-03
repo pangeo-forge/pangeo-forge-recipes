@@ -2,8 +2,8 @@ import fsspec
 import pytest
 import xarray as xr
 
-from pangeo_forge.storage import UninitializedTargetError
-from pangeo_forge.utils import fix_scalar_attr_encoding
+from pangeo_forge_recipes.storage import UninitializedTargetError
+from pangeo_forge_recipes.utils import fix_scalar_attr_encoding
 
 
 def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):

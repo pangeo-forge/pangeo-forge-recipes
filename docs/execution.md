@@ -66,10 +66,10 @@ To support distributed parallel execution, Pangeo Forge borrows the
 [Executors framework from Rechunker](https://rechunker.readthedocs.io/en/latest/executors.html).
 
 There are currently three executors implemented.
-- {class}`pangeo_forge.executors.PythonPipelineExecutor`: a reference executor
+- {class}`pangeo_forge_recipes.executors.PythonPipelineExecutor`: a reference executor
   using simple python
-- {class}`pangeo_forge.executors.DaskPipelineExecutor`: distributed executor using Dask
-- {class}`pangeo_forge.executors.PrefectPipelineExecutor`: distributed executor using Prefect
+- {class}`pangeo_forge_recipes.executors.DaskPipelineExecutor`: distributed executor using Dask
+- {class}`pangeo_forge_recipes.executors.PrefectPipelineExecutor`: distributed executor using Prefect
 
 To use an executor, the recipe must first be transformed into a `Pipeline` object.
 The full process looks like this:
@@ -84,16 +84,16 @@ executor.execute_plan(plan)  # actually runs the recipe
 ## Executors
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.executors.PythonPipelineExecutor
+.. autoclass:: pangeo_forge_recipes.executors.PythonPipelineExecutor
     :members:
 ```
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.executors.DaskPipelineExecutor
+.. autoclass:: pangeo_forge_recipes.executors.DaskPipelineExecutor
     :members:
 ```
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.executors.PrefectPipelineExecutor
+.. autoclass:: pangeo_forge_recipes.executors.PrefectPipelineExecutor
     :members:
 ```
