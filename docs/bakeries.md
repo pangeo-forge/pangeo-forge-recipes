@@ -8,9 +8,9 @@ Cloud based execution is provided by Bakeries.
 
 There are currently two types of Bakeries implemented:
 
-- <https://github.com/pangeo-forge-recipes/pangeo-forge-recipes-aws-bakery> -
+- <https://github.com/pangeo-forge/pangeo-forge-aws-bakery> -
   Bakery for Amazon Web Services cloud
-- <https://github.com/pangeo-forge-recipes/pangeo-forge-recipes-azure-bakery> -
+- <https://github.com/pangeo-forge/pangeo-forge-azure-bakery> -
   Bakery for Microsoft Azure cloud
 
 If you are interested in deploying your own bakery, please consult those repos

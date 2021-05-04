@@ -31,14 +31,14 @@ execution_excludepatterns = ["tutorials/*"]
 # https://sphinx-book-theme.readthedocs.io/en/latest/configure.html
 html_theme = "sphinx_book_theme"
 html_theme_options = {
-    "repository_url": "https://github.com/pangeo-forge-recipes/pangeo-forge-recipes",
+    "repository_url": "https://github.com/pangeo-forge/pangeo-forge-recipes",
     "repository_branch": "master",
     "path_to_docs": "docs",
     "use_repository_button": True,
     "use_issues_button": True,
     "use_edit_page_button": True,
 }
-html_logo = "_static/pangeo-forge-recipes-logo-blue.png"
+html_logo = "_static/pangeo-forge-logo-blue.png"
 html_static_path = ["_static"]
 myst_heading_anchors = 2
 html_css_files = [

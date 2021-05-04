@@ -1,4 +1,4 @@
-name: pangeo-forge
+name: pangeo-forge-recipes
 channels:
   - conda-forge
 dependencies:

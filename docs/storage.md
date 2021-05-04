@@ -16,7 +16,7 @@ For example, creating a storage target for AWS S3 might look like this:
 ```{code-block} python
 import s3fs
 fs = s3fs.S3FileSystem(key="MY_AWS_KEY", secret="MY_AWS_SECRET")
-target_path = "pangeo-forge-recipes-bucket/my-dataset-v1.zarr"
+target_path = "pangeo-forge-bucket/my-dataset-v1.zarr"
 target = FSSpecTarget(fs=fs, root_path=target_path)
 ```
 
