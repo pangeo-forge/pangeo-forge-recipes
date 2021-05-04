@@ -18,9 +18,9 @@ from pangeo_forge_recipes.executors import (
     PythonPipelineExecutor,
 )
 from pangeo_forge_recipes.patterns import (
-    ConcatDim, 
-    FilePattern, 
-    MergeDim, 
+    ConcatDim,
+    FilePattern,
+    MergeDim,
     pattern_from_file_sequence,
 )
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
