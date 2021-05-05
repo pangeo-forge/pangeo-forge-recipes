@@ -2,7 +2,7 @@ sphinx
 pydata-sphinx-theme>=0.4.2
 sphinx_book_theme
 myst-parser
-myst-nb
+myst-nb==0.12.3
 sphinx-copybutton
 sphinx-autodoc-typehints
 fsspec
