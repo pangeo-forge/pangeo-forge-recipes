@@ -31,7 +31,7 @@ execution_excludepatterns = ["tutorials/*"]
 # https://sphinx-book-theme.readthedocs.io/en/latest/configure.html
 html_theme = "sphinx_book_theme"
 html_theme_options = {
-    "repository_url": "https://github.com/pangeo-forge/pangeo-forge",
+    "repository_url": "https://github.com/pangeo-forge/pangeo-forge-recipes",
     "repository_branch": "master",
     "path_to_docs": "docs",
     "use_repository_button": True,

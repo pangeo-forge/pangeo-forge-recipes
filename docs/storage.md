@@ -2,7 +2,7 @@
 
 Recipes need a place to store data.
 The location where the final dataset produced by the recipe is stored is called the
-``Target``. Pangeo forge has a special class for this: {class}`pangeo_forge.storage.FSSpecTarget`
+``Target``. Pangeo forge has a special class for this: {class}`pangeo_forge_recipes.storage.FSSpecTarget`
 
 Creating a Target requires two arguments:
 - The ``fs`` argument is an [fsspec](https://filesystem-spec.readthedocs.io/en/latest/)
@@ -20,22 +20,22 @@ target_path = "pangeo-forge-bucket/my-dataset-v1.zarr"
 target = FSSpecTarget(fs=fs, root_path=target_path)
 ```
 
-Temporary data is can be cached via a {class}`pangeo_forge.storage.CacheFSSpecTarget` object.
-Some recipes require separate caching of metadata, which is provided by a third {class}`pangeo_forge.storage.FSSpecTarget`.
+Temporary data is can be cached via a {class}`pangeo_forge_recipes.storage.CacheFSSpecTarget` object.
+Some recipes require separate caching of metadata, which is provided by a third {class}`pangeo_forge_recipes.storage.FSSpecTarget`.
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.storage.FSSpecTarget
+.. autoclass:: pangeo_forge_recipes.storage.FSSpecTarget
     :members:
 ```
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.storage.FlatFSSpecTarget
+.. autoclass:: pangeo_forge_recipes.storage.FlatFSSpecTarget
     :members:
     :show-inheritance:
 ```
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge.storage.CacheFSSpecTarget
+.. autoclass:: pangeo_forge_recipes.storage.CacheFSSpecTarget
     :members:
     :show-inheritance:
 ```

@@ -4,5 +4,5 @@ USER ${NB_USER}
 ENV JUPYTERHUB_USER=pangeoforge
 ENV TZ=UTC
 RUN python -m pip install prefect[kubernetes]==0.13.0 pygithub
-COPY . /pangeo-forge
-RUN python -m pip install --no-deps /pangeo-forge
+COPY . /pangeo-forge-recipes
+RUN python -m pip install --no-deps /pangeo-forge-recipes
