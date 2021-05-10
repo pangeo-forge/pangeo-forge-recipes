@@ -6,6 +6,7 @@
 
 Many feature enhancements.
 Non-backwards compatible changes to core API.
+Package renamed from `pangeo_forge` to `pangeo_forge_recipes`.
 
 ## v0.2.0 - 2021-04-26
 
