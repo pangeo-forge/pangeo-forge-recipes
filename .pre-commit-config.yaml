@@ -40,6 +40,6 @@ repos:
         args: ["--profile", "black"]
 
 -   repo: https://github.com/myint/rstcheck
-    rev: master
+    rev: 3f92957478422df87bd730abde66f089cc1ee19b
     hooks:
     -   id: rstcheck
