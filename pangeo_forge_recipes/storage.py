@@ -1,7 +1,7 @@
+import hashlib
 import os
 import re
 import unicodedata
-import zlib
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -89,7 +89,7 @@ class FlatFSSpecTarget(FSSpecTarget):
 
     def _full_path(self, path: str) -> str:
         # this is just in case _slugify(path) is non-unique
-        prefix = hex(zlib.adler32(str(path).encode("utf8")))[2:10]
+        prefix = hashlib.md5(path.encode()).hexdigest()
         slug = _slugify(path)
         new_path = "-".join([prefix, slug])
         return os.path.join(self.root_path, new_path)
