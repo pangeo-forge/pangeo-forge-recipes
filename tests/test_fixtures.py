@@ -1,8 +1,6 @@
 import fsspec
-import pytest
 import xarray as xr
 
-from pangeo_forge_recipes.storage import UninitializedTargetError
 from pangeo_forge_recipes.utils import fix_scalar_attr_encoding
 
 
@@ -28,41 +26,3 @@ def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
     ds = xr.open_mfdataset(open_files, combine="nested", concat_dim="time").load()
     ds = fix_scalar_attr_encoding(ds)
     assert ds.identical(daily_xarray_dataset)
-
-
-def test_target(tmp_target):
-    mapper = tmp_target.get_mapper()
-    mapper["foo"] = b"bar"
-    with open(tmp_target.root_path + "/foo") as f:
-        res = f.read()
-    assert res == "bar"
-    with pytest.raises(FileNotFoundError):
-        tmp_target.rm("baz")
-    with pytest.raises(FileNotFoundError):
-        with tmp_target.open("baz"):
-            pass
-
-
-def test_uninitialized_target(uninitialized_target):
-    target = uninitialized_target
-    with pytest.raises(UninitializedTargetError):
-        target.get_mapper()
-    with pytest.raises(UninitializedTargetError):
-        target.exists("foo")
-    with pytest.raises(UninitializedTargetError):
-        target.rm("foo")
-    with pytest.raises(UninitializedTargetError):
-        with target.open("foo"):
-            pass
-
-
-def test_cache(tmp_cache):
-    assert not tmp_cache.exists("foo")
-    with tmp_cache.open("foo", mode="w") as f:
-        f.write("bar")
-    assert tmp_cache.exists("foo")
-    assert tmp_cache.size("foo") == 3
-    with tmp_cache.open("foo", mode="r") as f:
-        assert f.read() == "bar"
-    tmp_cache.rm("foo")
-    assert not tmp_cache.exists("foo")
