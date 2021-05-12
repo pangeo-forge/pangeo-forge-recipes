@@ -1,6 +1,5 @@
 sphinx
-pydata-sphinx-theme>=0.4.2
-sphinx_book_theme
+pangeo-sphinx-book-theme>=0.1.1
 myst-parser
 myst-nb>=0.12.3
 sphinx-copybutton
