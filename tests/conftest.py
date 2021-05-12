@@ -191,16 +191,23 @@ def uninitialized_target():
 
 
 @pytest.fixture
-def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
+def netCDFtoZarr_sequential_recipe(
+    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache, tmp_metadata_target
+):
     paths, items_per_file = netcdf_local_paths
     file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
-    kwargs = dict(inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,)
+    kwargs = dict(
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
     return recipes.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture
 def netCDFtoZarr_sequential_multi_variable_recipe(
-    daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache
+    daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache, tmp_metadata_target
 ):
     paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
     time_index = list(range(len(paths) // 2))
@@ -213,7 +220,12 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
         ConcatDim("time", time_index, items_per_file),
         MergeDim("variable", ["foo", "bar"]),
     )
-    kwargs = dict(inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,)
+    kwargs = dict(
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
     return recipes.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 

@@ -19,9 +19,8 @@ def test_fixture_local_files_by_variable(daily_xarray_dataset, netcdf_local_path
     assert ds.identical(daily_xarray_dataset)
 
 
-def test_fixture_http_files(daily_xarray_dataset, netcdf_http_server):
-    url, paths, items_per_file = netcdf_http_server()
-    urls = ["/".join([url, str(path)]) for path in paths]
+def test_fixture_http_files(daily_xarray_dataset, netcdf_http_paths):
+    urls, items_per_file = netcdf_http_paths
     open_files = [fsspec.open(url).open() for url in urls]
     ds = xr.open_mfdataset(open_files, combine="nested", concat_dim="time").load()
     ds = fix_scalar_attr_encoding(ds)
