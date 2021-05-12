@@ -1,7 +1,7 @@
-# pangeo-forge
+# pangeo-forge-recipes
 
-![CI](https://github.com/pangeo-forge/pangeo-forge/workflows/CI/badge.svg)
-![Codecov](https://img.shields.io/codecov/c/github/pangeo-forge/pangeo-forge)
+![CI](https://github.com/pangeo-forge/pangeo-forge-recipes/workflows/CI/badge.svg)
+![Codecov](https://img.shields.io/codecov/c/github/pangeo-forge/pangeo-forge-recipes)
 [![Documentation Status](https://readthedocs.org/projects/pangeo-forge/badge/?version=latest)](https://pangeo-forge.readthedocs.io/en/latest/?badge=latest)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -27,4 +27,4 @@ Discussions on pangeo-forge are generally hosted biweekly on Mondays at 7pm UTC 
 
 ## License
 
-This project is licensed under the [Apache License, Version 2.0](https://github.com/pangeo-forge/pangeo-forge/blob/master/LICENSE).
+This project is licensed under the [Apache License, Version 2.0](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/LICENSE).

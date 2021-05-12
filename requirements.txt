@@ -1,8 +1,0 @@
-setuptools
-click
-dask
-distributed
-rechunker==0.4.2
-xarray@git+https://github.com/pydata/xarray
-zarr >= 2.6.0
-fsspec[http]

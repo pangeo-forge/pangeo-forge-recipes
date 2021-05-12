@@ -1,6 +1,6 @@
 import pytest
 
-from pangeo_forge.utils import chunk_bounds_and_conflicts, chunked_iterable
+from pangeo_forge_recipes.utils import chunk_bounds_and_conflicts, chunked_iterable
 
 
 @pytest.mark.parametrize(

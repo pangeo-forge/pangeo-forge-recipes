@@ -1,6 +1,11 @@
 import pytest
 
-from pangeo_forge.patterns import ConcatDim, FilePattern, MergeDim, pattern_from_file_sequence
+from pangeo_forge_recipes.patterns import (
+    ConcatDim,
+    FilePattern,
+    MergeDim,
+    pattern_from_file_sequence,
+)
 
 
 def test_file_pattern_concat():

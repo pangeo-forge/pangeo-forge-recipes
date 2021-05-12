@@ -1,4 +1,4 @@
-name: pangeo-forge
+name: pangeo-forge-recipes
 channels:
   - conda-forge
 dependencies:
@@ -10,7 +10,7 @@ dependencies:
   - codecov
   - dask
   - distributed
-#  - fsspec
+  - fsspec>=2021.04.0
   - h5netcdf
   - h5py
   - hdf5
@@ -27,13 +27,11 @@ dependencies:
   - pytest-lazy-fixture
   - rasterio
   - requests
+  - rechunker>=0.4.2
   - scipy
   - setuptools
   - toolz
-#  - xarray>=0.16.2
+  - xarray>=0.18.0
   - zarr>=2.6.0
   - pip:
-    - git+https://github.com/rabernat/xarray.git@zarr-chunk-fixes
-    - git+https://github.com/pangeo-data/rechunker.git@master
-    - git+https://github.com/intake/filesystem_spec.git@master
     - pytest-timeout
