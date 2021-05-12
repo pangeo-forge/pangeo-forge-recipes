@@ -1,7 +1,7 @@
 import pytest
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.storage import UninitializedTargetError, file_opener
+from pangeo_forge_recipes.storage import file_opener
 
 
 def test_target(tmp_target):
@@ -14,18 +14,6 @@ def test_target(tmp_target):
         tmp_target.rm("baz")
     with pytest.raises(FileNotFoundError):
         with tmp_target.open("baz"):
-            pass
-
-
-def test_uninitialized_target(uninitialized_target):
-    target = uninitialized_target
-    assert not target.exists("foo")
-    with pytest.raises(UninitializedTargetError):
-        target.get_mapper()
-    with pytest.raises(UninitializedTargetError):
-        target.rm("foo")
-    with pytest.raises(UninitializedTargetError):
-        with target.open("foo"):
             pass
 
 

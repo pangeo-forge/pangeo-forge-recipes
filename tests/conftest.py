@@ -23,12 +23,7 @@ from pangeo_forge_recipes.patterns import (
     MergeDim,
     pattern_from_file_sequence,
 )
-from pangeo_forge_recipes.storage import (
-    CacheFSSpecTarget,
-    FSSpecTarget,
-    MetadataTarget,
-    UninitializedTarget,
-)
+from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
 
 
 def pytest_addoption(parser):
@@ -183,11 +178,6 @@ def tmp_metadata_target(tmpdir_factory):
     fs = fsspec.get_filesystem_class("file")()
     cache = MetadataTarget(fs, path)
     return cache
-
-
-@pytest.fixture()
-def uninitialized_target():
-    return UninitializedTarget()
 
 
 @pytest.fixture

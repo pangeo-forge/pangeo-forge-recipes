@@ -209,32 +209,3 @@ def _slugify(value: str) -> str:
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     value = re.sub(r"[^.\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
-
-
-class UninitializedTarget(AbstractTarget):
-    def get_mapper(self):
-        raise UninitializedTargetError
-
-    def exists(self, path: str) -> bool:
-        return False
-
-    def rm(self, path: str) -> None:
-        raise UninitializedTargetError
-
-    def open(self, path: str, **kwargs):  # don't know how to type hint this
-        raise UninitializedTargetError
-
-    def size(self, path: str, **kwargs):
-        raise UninitializedTargetError
-
-
-class TargetError(Exception):
-    """Base class for exceptions in this module."""
-
-    pass
-
-
-class UninitializedTargetError(TargetError):
-    """Operation on an uninitialized Target."""
-
-    pass

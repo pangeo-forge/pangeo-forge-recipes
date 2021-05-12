@@ -202,7 +202,7 @@ class XarrayZarrRecipe(BaseRecipe):
     @closure
     def prepare_target(self) -> None:
         if self.target is None:
-            raise ValueError("target has not been set.")
+            raise ValueError("target is not set.")
         try:
             ds = self.open_target()
             logger.info("Found an existing dataset in target")
@@ -264,7 +264,7 @@ class XarrayZarrRecipe(BaseRecipe):
 
         if self._cache_metadata:
             if self.metadata_cache is None:
-                raise ValueError("metadata_cache has not been set")
+                raise ValueError("metadata_cache is not set")
             # if nitems_per_input is not constant, we need to cache this info
             recipe_meta = {"input_sequence_lens": input_sequence_lens}
             self.metadata_cache[_GLOBAL_METADATA_KEY] = recipe_meta
@@ -275,7 +275,7 @@ class XarrayZarrRecipe(BaseRecipe):
     def cache_input(self, input_key: InputKey) -> None:  # type: ignore
         if self.cache_inputs:
             if self.input_cache is None:
-                raise ValueError("input_cache has not been set.")
+                raise ValueError("input_cache is not set.")
             logger.info(f"Caching input '{input_key}'")
             fname = self.file_pattern[input_key]
             self.input_cache.cache_file(fname, **self.fsspec_open_kwargs)
