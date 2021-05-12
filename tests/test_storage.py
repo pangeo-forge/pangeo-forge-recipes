@@ -49,6 +49,11 @@ def test_file_opener(netcdf_local_paths, tmp_cache, copy_to_local, use_cache, ca
     cache = tmp_cache if use_cache else None
     if cache_first:
         cache.cache_file(path)
+        assert cache.exists(path)
+        details = cache.fs.ls(cache.root_path, detail=True)
+        cache.cache_file(path)
+        # check that nothing happened
+        assert cache.fs.ls(cache.root_path, detail=True) == details
     opener = file_opener(path, cache, copy_to_local=copy_to_local)
     if use_cache and not cache_first:
         with pytest.raises(FileNotFoundError):
