@@ -43,17 +43,12 @@ def _chunk_metadata_fname(chunk_key) -> str:
     return "chunk-meta-" + _encode_key(chunk_key) + ".json"
 
 
+ChunkKey = Tuple[int]
+InputKey = Tuple[int]
+
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
-# The main awkward thing here is that, because we are using multiple inheritance
-# with dataclasses, _ALL_ fields must have default values. This makes it impossible
-# to have "required" keyword arguments--everything needs some default.
-# That's whay we end up with `UninitializedTarget` and `_variable_sequence_pattern_default_factory`
-
-
-ChunkKey = Tuple[int]
-InputKey = Tuple[int]
 
 
 @dataclass
