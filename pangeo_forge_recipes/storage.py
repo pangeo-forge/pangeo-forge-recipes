@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import os
 import re
@@ -7,7 +8,7 @@ import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Iterator, Optional, Sequence, Union
 
 import fsspec
 
@@ -145,6 +146,22 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Coping remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
+
+
+class MetadataTarget(FSSpecTarget):
+    """Target for storing metadata dictionaries as json."""
+
+    def __setitem__(self, key: str, value: dict) -> None:
+        mapper = self.get_mapper()
+        mapper[key] = json.dumps(value).encode("utf-8")
+
+    def __getitem__(self, key: str) -> dict:
+        return json.loads(self.get_mapper()[key])
+
+    def getitems(self, keys: Sequence[str]) -> dict:
+        mapper = self.get_mapper()
+        all_meta_raw = mapper.getitems(keys)
+        return {k: json.loads(raw_bytes) for k, raw_bytes in all_meta_raw.items()}
 
 
 @contextmanager

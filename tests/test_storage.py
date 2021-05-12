@@ -1,4 +1,5 @@
 import pytest
+from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.storage import UninitializedTargetError, file_opener
 
@@ -40,10 +41,20 @@ def test_cache(tmp_cache):
     assert not tmp_cache.exists("foo")
 
 
+def test_metadata_target(tmp_metadata_target):
+    data = {"foo": 1, "bar": "baz"}
+    tmp_metadata_target["key1"] = data
+    assert tmp_metadata_target["key1"] == data
+    assert tmp_metadata_target.getitems(["key1"]) == {"key1": data}
+
+
+@pytest.mark.parametrize(
+    "file_paths", [lazy_fixture("netcdf_local_paths"), lazy_fixture("netcdf_http_paths")]
+)
 @pytest.mark.parametrize("copy_to_local", [False, True])
 @pytest.mark.parametrize("use_cache, cache_first", [(False, False), (True, False), (True, True)])
-def test_file_opener(netcdf_local_paths, tmp_cache, copy_to_local, use_cache, cache_first):
-    all_paths, _ = netcdf_local_paths
+def test_file_opener(file_paths, tmp_cache, copy_to_local, use_cache, cache_first):
+    all_paths, _ = file_paths
     path = str(all_paths[0])
 
     cache = tmp_cache if use_cache else None
