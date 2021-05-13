@@ -23,7 +23,7 @@ from pangeo_forge_recipes.patterns import (
     MergeDim,
     pattern_from_file_sequence,
 )
-from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, UninitializedTarget
+from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
 
 
 def pytest_addoption(parser):
@@ -120,39 +120,41 @@ def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request
 
 # TODO: refactor to allow netcdf_local_paths_by_variable to be passed without
 # duplicating the whole test.
-@pytest.fixture()
-def netcdf_http_server(netcdf_local_paths, request):
+@pytest.fixture(scope="session")
+def netcdf_http_paths(netcdf_local_paths, request):
     paths, items_per_file = netcdf_local_paths
 
-    def make_netcdf_http_server(username="", password=""):
-        first_path = paths[0]
-        # assume that all files are in the same directory
-        basedir = first_path.dirpath()
-        fnames = [path.basename for path in paths]
+    username = ""
+    password = ""
 
-        this_dir = os.path.dirname(os.path.abspath(__file__))
-        port = get_open_port()
-        command_list = [
-            "python",
-            os.path.join(this_dir, "http_auth_server.py"),
-            port,
-            "127.0.0.1",
-            username,
-            password,
-        ]
-        if username:
-            command_list += [username, password]
-        p = subprocess.Popen(command_list, cwd=basedir)
-        url = f"http://127.0.0.1:{port}"
-        time.sleep(1)  # let the server start up
+    first_path = paths[0]
+    # assume that all files are in the same directory
+    basedir = first_path.dirpath()
+    fnames = [path.basename for path in paths]
 
-        def teardown():
-            p.kill()
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    port = get_open_port()
+    command_list = [
+        "python",
+        os.path.join(this_dir, "http_auth_server.py"),
+        port,
+        "127.0.0.1",
+        username,
+        password,
+    ]
+    if username:
+        command_list += [username, password]
+    p = subprocess.Popen(command_list, cwd=basedir)
+    url = f"http://127.0.0.1:{port}"
+    time.sleep(2)  # let the server start up
 
-        request.addfinalizer(teardown)
-        return url, fnames, items_per_file
+    def teardown():
+        p.kill()
 
-    return make_netcdf_http_server
+    request.addfinalizer(teardown)
+
+    all_urls = ["/".join([url, str(fname)]) for fname in fnames]
+    return all_urls, items_per_file
 
 
 @pytest.fixture()
@@ -171,21 +173,31 @@ def tmp_cache(tmpdir_factory):
 
 
 @pytest.fixture()
-def uninitialized_target():
-    return UninitializedTarget()
+def tmp_metadata_target(tmpdir_factory):
+    path = str(tmpdir_factory.mktemp("cache"))
+    fs = fsspec.get_filesystem_class("file")()
+    cache = MetadataTarget(fs, path)
+    return cache
 
 
 @pytest.fixture
-def netCDFtoZarr_sequential_recipe(daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache):
+def netCDFtoZarr_sequential_recipe(
+    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache, tmp_metadata_target
+):
     paths, items_per_file = netcdf_local_paths
     file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
-    kwargs = dict(inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,)
+    kwargs = dict(
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
     return recipes.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture
 def netCDFtoZarr_sequential_multi_variable_recipe(
-    daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache
+    daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache, tmp_metadata_target
 ):
     paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
     time_index = list(range(len(paths) // 2))
@@ -198,7 +210,12 @@ def netCDFtoZarr_sequential_multi_variable_recipe(
         ConcatDim("time", time_index, items_per_file),
         MergeDim("variable", ["foo", "bar"]),
     )
-    kwargs = dict(inputs_per_chunk=1, target=tmp_target, input_cache=tmp_cache,)
+    kwargs = dict(
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
     return recipes.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 

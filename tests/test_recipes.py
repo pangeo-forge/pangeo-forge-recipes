@@ -115,7 +115,6 @@ def test_chunks(
         for cdim in file_pattern.combine_dims:
             if hasattr(cdim, "nitems_per_file"):
                 cdim.nitems_per_file = None
-        kwargs["metadata_cache"] = kwargs["input_cache"]
 
     with chunk_expectation as excinfo:
         rec = RecipeClass(file_pattern, **kwargs)
