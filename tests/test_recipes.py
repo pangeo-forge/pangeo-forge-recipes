@@ -23,6 +23,21 @@ def test_recipe(recipe_fixture, execute_recipe):
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
+@pytest.mark.parametrize("recipe_fixture", all_recipes)
+@pytest.mark.parametrize("nkeep", [1, 2])
+def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
+    """The basic recipe test. Use this as a template for other tests."""
+
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
+    rec = RecipeClass(file_pattern, **kwargs)
+    rec_pruned = rec.copy_pruned(nkeep=nkeep)
+    assert len(list(rec.iter_inputs())) > len(list(rec_pruned.iter_inputs()))
+    execute_recipe(rec_pruned)
+    ds_pruned = xr.open_zarr(target.get_mapper()).load()
+    nitems_per_input = list(file_pattern.nitems_per_input.values())[0]
+    assert ds_pruned.dims["time"] == nkeep * nitems_per_input
+
+
 @pytest.mark.parametrize("cache_inputs", [True, False])
 @pytest.mark.parametrize("copy_input_to_local_file", [True, False])
 def test_recipe_caching_copying(
