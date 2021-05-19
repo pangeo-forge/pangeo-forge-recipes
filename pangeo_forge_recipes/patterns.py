@@ -47,6 +47,7 @@ class MergeDim:
 
 
 Index = Tuple[int, ...]
+CombineDim = Union[MergeDim, ConcatDim]
 
 
 class FilePattern:
@@ -77,7 +78,7 @@ class FilePattern:
         coords = {cdim.name: (cdim.name, cdim.keys) for cdim in combine_dims}
         return xr.DataArray(fnames_np, dims=list(coords), coords=coords)  # type: ignore
 
-    def __init__(self, format_function: Callable, *combine_dims: Union[MergeDim, ConcatDim]):
+    def __init__(self, format_function: Callable, *combine_dims: CombineDim):
         self.__setstate__((format_function, combine_dims))
 
     def __getstate__(self):
@@ -157,3 +158,29 @@ def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None):
         return file_list[kwargs[concat_dim]]
 
     return FilePattern(format_function, concat)
+
+
+def prune_pattern(fp: FilePattern, nkeep: int = 2) -> FilePattern:
+    """
+    Create a smaller pattern from a full pattern.
+    Keeps all MergeDims but only the first `nkeep` items from each ConcatDim
+
+    :param fp: The original pattern.
+    :param nkeep: The number of items to keep from each ConcatDim sequence.
+    """
+
+    new_combine_dims = []  # type: List[CombineDim]
+    for cdim in fp.combine_dims:
+        if isinstance(cdim, MergeDim):
+            new_combine_dims.append(cdim)
+        elif isinstance(cdim, ConcatDim):
+            new_keys = cdim.keys[:nkeep]
+            # this feels like a fragile way to copy a DataClass but it works for now
+            new_cdim = ConcatDim(
+                name=cdim.name, keys=new_keys, nitems_per_file=cdim.nitems_per_file
+            )
+            new_combine_dims.append(new_cdim)
+        else:  # pragma: no cover
+            assert "Should never happen"
+
+    return FilePattern(fp.format_function, *new_combine_dims)
