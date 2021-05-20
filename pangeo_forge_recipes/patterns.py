@@ -2,7 +2,7 @@
 Filename / URL patterns.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import product
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
@@ -175,10 +175,7 @@ def prune_pattern(fp: FilePattern, nkeep: int = 2) -> FilePattern:
             new_combine_dims.append(cdim)
         elif isinstance(cdim, ConcatDim):
             new_keys = cdim.keys[:nkeep]
-            # this feels like a fragile way to copy a DataClass but it works for now
-            new_cdim = ConcatDim(
-                name=cdim.name, keys=new_keys, nitems_per_file=cdim.nitems_per_file
-            )
+            new_cdim = replace(cdim, keys=new_keys)
             new_combine_dims.append(new_cdim)
         else:  # pragma: no cover
             assert "Should never happen"
