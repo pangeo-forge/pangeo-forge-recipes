@@ -37,10 +37,13 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
             while True:
-                data = source.read(BLOCK_SIZE)
-                if not data:
-                    break
-                target.write(data)
+                try:
+                    data = source.read(BLOCK_SIZE)
+                    if not data:
+                        break
+                    target.write(data)
+                except ValueError:
+                    raise BlockSizeError()
 
 
 class AbstractTarget(ABC):
@@ -209,3 +212,15 @@ def _slugify(value: str) -> str:
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     value = re.sub(r"[^.\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
+
+class StorageError(Exception):
+    """Base class for exceptions in this module."""
+
+    pass
+
+
+class BlockSizeError(StorageError):
+    """Error for source file servers that require {"block_size": 0}"""
+
+    def __str__(self):
+        return "Try re-instantiating your recipe with fsspec_open_kwargs = {\"block_size\": 0}"
