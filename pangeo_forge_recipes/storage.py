@@ -223,4 +223,4 @@ class BlockSizeError(StorageError):
     """Error for source file servers that require {"block_size": 0}"""
 
     def __str__(self):
-        return "Try re-instantiating your recipe with fsspec_open_kwargs = {\"block_size\": 0}"
+        return 'Try re-instantiating your recipe with fsspec_open_kwargs = {"block_size": 0}'
