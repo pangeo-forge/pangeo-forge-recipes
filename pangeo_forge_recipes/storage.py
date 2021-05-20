@@ -213,6 +213,7 @@ def _slugify(value: str) -> str:
     value = re.sub(r"[^.\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
 
+
 class StorageError(Exception):
     """Base class for exceptions in this module."""
 
