@@ -42,8 +42,8 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                     if not data:
                         break
                     target.write(data)
-                except ValueError:
-                    raise BlockSizeError()
+                except ValueError as e:
+                    raise BlockSizeError() from e
 
 
 class AbstractTarget(ABC):
