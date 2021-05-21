@@ -73,7 +73,7 @@ class FilePattern:
             kwargs = dict(zip(dim_names, keys))
             fnames.append(format_function(**kwargs))
         shape = [len(cdim.keys) for cdim in combine_dims]
-        fnames_np = np.array(fnames)
+        fnames_np = np.array(fnames, dtype=object)
         fnames_np.shape = tuple(shape)
         # This way of defining coords is incompatible with xarray type annotations.
         # I don't understand why.
