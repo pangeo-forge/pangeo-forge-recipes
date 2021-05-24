@@ -5,7 +5,7 @@ A Pangeo Forge Recipe
 import logging
 import warnings
 from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import product
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -14,7 +14,7 @@ import numpy as np
 import xarray as xr
 import zarr
 
-from ..patterns import FilePattern
+from ..patterns import FilePattern, prune_pattern
 from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
 from ..utils import (
     chunk_bounds_and_conflicts,
@@ -180,6 +180,17 @@ class XarrayZarrRecipe(BaseRecipe):
             raise ValueError("_inputs_chunks and _chunks_inputs don't use the same input keys.")
         if not all_chunk_keys == set([c for val in self._inputs_chunks.values() for c in val]):
             raise ValueError("_inputs_chunks and _chunks_inputs don't use the same chunk keys.")
+
+    def copy_pruned(self, nkeep: int = 2) -> BaseRecipe:
+        """Make a copy of this recipe with a pruned file pattern.
+
+        :param nkeep: The number of items to keep from each ConcatDim sequence.
+        """
+
+        new_pattern = prune_pattern(self.file_pattern, nkeep=nkeep)
+        return replace(self, file_pattern=new_pattern)
+
+    # below here are methods that are part of recipe execution
 
     def _set_target_chunks(self):
         target_concat_dim_chunks = self.target_chunks.get(self._concat_dim)

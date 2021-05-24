@@ -5,6 +5,7 @@ from pangeo_forge_recipes.patterns import (
     FilePattern,
     MergeDim,
     pattern_from_file_sequence,
+    prune_pattern,
 )
 
 
@@ -73,3 +74,17 @@ def test_file_pattern_concat_merge(pickle):
         assert fp[key] == fname
         fnames.append(fname)
     assert list(fp.items()) == list(zip(expected_keys, fnames))
+
+
+@pytest.mark.parametrize("nkeep", [1, 2])
+def test_prune(nkeep):
+    concat = ConcatDim(name="time", keys=list(range(3)))
+    merge = MergeDim(name="variable", keys=["foo", "bar"])
+
+    def format_function(time, variable):
+        return f"T_{time}_V_{variable}"
+
+    fp = FilePattern(format_function, merge, concat)
+    fp_pruned = prune_pattern(fp, nkeep=nkeep)
+    assert fp_pruned.dims == {"variable": 2, "time": nkeep}
+    assert len(list(fp_pruned.items())) == 2 * nkeep
