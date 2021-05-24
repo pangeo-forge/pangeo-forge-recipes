@@ -62,11 +62,8 @@ class FilePattern:
       product of the keys is used to generate the full list of file paths.
     """
 
-    def __init__(self, format_function: Callable, *combine_dims: Union[MergeDim, ConcatDim]):
-
-        self.format_function = format_function
-        self.combine_dims = combine_dims
-
+    @staticmethod
+    def _make_da(format_function, combine_dims) -> xr.DataArray:
         dim_names = [cdim.name for cdim in combine_dims]
         fnames = []
         for keys in product(*[cdim.keys for cdim in combine_dims]):
@@ -78,7 +75,17 @@ class FilePattern:
         # This way of defining coords is incompatible with xarray type annotations.
         # I don't understand why.
         coords = {cdim.name: (cdim.name, cdim.keys) for cdim in combine_dims}
-        self._da = xr.DataArray(fnames_np, dims=list(coords), coords=coords)  # type: ignore
+        return xr.DataArray(fnames_np, dims=list(coords), coords=coords)  # type: ignore
+
+    def __init__(self, format_function: Callable, *combine_dims: Union[MergeDim, ConcatDim]):
+        self.__setstate__((format_function, combine_dims))
+
+    def __getstate__(self):
+        return self.format_function, self.combine_dims
+
+    def __setstate__(self, state):
+        self.format_function, self.combine_dims = state
+        self._da = self._make_da(self.format_function, self.combine_dims)
 
     def __repr__(self):
         return f"<FilePattern {self.dims}>"
