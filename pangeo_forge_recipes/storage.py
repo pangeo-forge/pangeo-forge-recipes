@@ -29,8 +29,9 @@ def _fsspec_safe_open(fname: str, **kwargs) -> Iterator[OpenFileType]:
     # workaround for inconsistent behavior of fsspec.open
     # https://github.com/intake/filesystem_spec/issues/579
     with fsspec.open(fname, **kwargs) as fp:
-        with fp as fp2:
-            yield fp2
+        yield fp
+        # with fp as fp2:
+        #    yield fp2
 
 
 def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
@@ -198,7 +199,8 @@ def file_opener(
         ntf.close()  # cleans up the temporary file
     else:
         with opener as fp:
-            yield fp
+            with fp as fp2:  # type: ignore
+                yield fp2
 
 
 def _slugify(value: str) -> str:
