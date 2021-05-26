@@ -1,4 +1,6 @@
 import pytest
+from dask import delayed
+from dask.distributed import Client
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.storage import file_opener
@@ -41,28 +43,41 @@ def test_metadata_target(tmp_metadata_target):
 )
 @pytest.mark.parametrize("copy_to_local", [False, True])
 @pytest.mark.parametrize("use_cache, cache_first", [(False, False), (True, False), (True, True)])
-def test_file_opener(file_paths, tmp_cache, copy_to_local, use_cache, cache_first):
+@pytest.mark.parametrize("use_dask", [True, False])
+def test_file_opener(
+    file_paths, tmp_cache, copy_to_local, use_cache, cache_first, dask_cluster, use_dask
+):
     all_paths, _ = file_paths
     path = str(all_paths[0])
-
     cache = tmp_cache if use_cache else None
-    if cache_first:
-        cache.cache_file(path)
-        assert cache.exists(path)
-        details = cache.fs.ls(cache.root_path, detail=True)
-        cache.cache_file(path)
-        # check that nothing happened
-        assert cache.fs.ls(cache.root_path, detail=True) == details
-    opener = file_opener(path, cache, copy_to_local=copy_to_local)
-    if use_cache and not cache_first:
-        with pytest.raises(FileNotFoundError):
+
+    def do_actual_test():
+        if cache_first:
+            cache.cache_file(path)
+            assert cache.exists(path)
+            details = cache.fs.ls(cache.root_path, detail=True)
+            cache.cache_file(path)
+            # check that nothing happened
+            assert cache.fs.ls(cache.root_path, detail=True) == details
+
+        opener = file_opener(path, cache, copy_to_local=copy_to_local)
+        if use_cache and not cache_first:
+            with pytest.raises(FileNotFoundError):
+                with opener as fp:
+                    pass
+        else:
             with opener as fp:
-                pass
+                if copy_to_local:
+                    assert isinstance(fp, str)
+                    with open(fp, mode="rb") as fp2:
+                        _ = fp2.read()
+                else:
+                    _ = fp.read()
+
+    if use_dask:
+        client = Client(dask_cluster)
+        to_actual_test_delayed = delayed(do_actual_test)()
+        to_actual_test_delayed.compute()
+        client.close()
     else:
-        with opener as fp:
-            if copy_to_local:
-                assert isinstance(fp, str)
-                with open(fp, mode="rb") as fp2:
-                    _ = fp2.read()
-            else:
-                _ = fp.read()
+        do_actual_test()
