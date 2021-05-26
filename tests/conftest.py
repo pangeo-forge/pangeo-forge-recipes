@@ -26,6 +26,8 @@ from pangeo_forge_recipes.patterns import (
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
 
 
+# to use this feature, e.g.
+# $ pytest --redirect-dask-worker-logs-to-stdout=DEBUG
 def pytest_addoption(parser):
     parser.addoption(
         "--redirect-dask-worker-logs-to-stdout", action="store", default="NOTSET",
