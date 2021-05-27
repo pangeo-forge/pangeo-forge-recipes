@@ -240,11 +240,12 @@ def dask_cluster(request):
     def redirect_logs():
         import logging
 
-        logger = logging.getLogger("pangeo_forge_recipes")
-        handler = logging.StreamHandler()
-        handler.setLevel(level)
-        logger.setLevel(level)
-        logger.addHandler(handler)
+        for log in ["pangeo_forge_recipes", "fsspec"]:
+            logger = logging.getLogger(log)
+            handler = logging.StreamHandler()
+            handler.setLevel(level)
+            logger.setLevel(level)
+            logger.addHandler(handler)
 
     client.run(set_blosc_threads)
     client.run(redirect_logs)
