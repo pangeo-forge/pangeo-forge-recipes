@@ -242,7 +242,9 @@ def dask_cluster(request):
 
         for log in ["pangeo_forge_recipes", "fsspec"]:
             logger = logging.getLogger(log)
+            formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
             handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
             handler.setLevel(level)
             logger.setLevel(level)
             logger.addHandler(handler)

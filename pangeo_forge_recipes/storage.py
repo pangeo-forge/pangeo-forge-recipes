@@ -106,7 +106,10 @@ class FSSpecTarget(AbstractTarget):
     @contextmanager
     def open(self, path: str, **kwargs) -> Iterator[None]:
         """Open file with a context manager."""
-        with self.fs.open(self._full_path(path), **kwargs) as f:
+        full_path = self._full_path(path)
+        logger.debug(f"entering fs.open context manager for {full_path}")
+        with self.fs.open(full_path, **kwargs) as f:
+            logger.debug(f"entered fs.open context manager for {full_path}")
             yield f
 
     def __post_init__(self):
