@@ -39,7 +39,8 @@ def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
 
 
 @pytest.mark.parametrize("cache_inputs", [True, False])
-@pytest.mark.parametrize("copy_input_to_local_file", [True, False])
+# do things work if we always copy to local file first?
+@pytest.mark.parametrize("copy_input_to_local_file", [True])
 def test_recipe_caching_copying(
     netCDFtoZarr_sequential_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
 ):
