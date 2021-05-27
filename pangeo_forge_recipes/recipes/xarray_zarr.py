@@ -345,19 +345,20 @@ class XarrayZarrRecipe(BaseRecipe):
         logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
         cache = self.input_cache if self.cache_inputs else None
         with file_opener(fname, cache=cache, copy_to_local=self.copy_input_to_local_file) as f:
-            logger.debug("about to call xr.open_dataset")
-            ds = xr.open_dataset(f, **self.xarray_open_kwargs)
-            logger.debug("successfully opened dataset")
-            ds = fix_scalar_attr_encoding(ds)
+            with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
+                logger.debug("about to call xr.open_dataset")
+                ds = xr.open_dataset(f, **self.xarray_open_kwargs)
+                logger.debug("successfully opened dataset")
+                ds = fix_scalar_attr_encoding(ds)
 
-            if self.delete_input_encoding:
-                for var in ds.variables:
-                    ds[var].encoding = {}
+                if self.delete_input_encoding:
+                    for var in ds.variables:
+                        ds[var].encoding = {}
 
-            if self.process_input is not None:
-                ds = self.process_input(ds, str(fname))
+                if self.process_input is not None:
+                    ds = self.process_input(ds, str(fname))
 
-            logger.debug(f"{ds}")
+                logger.debug(f"{ds}")
             yield ds
 
     def cache_input_metadata(self, input_key: InputKey):
@@ -382,16 +383,23 @@ class XarrayZarrRecipe(BaseRecipe):
             if len(dsets) > 1:
                 # During concat, attributes and encoding are taken from the first dataset
                 # https://github.com/pydata/xarray/issues/1614
-                ds = xr.concat(dsets, self._concat_dim, **self.xarray_concat_kwargs)
+                with dask.config.set(
+                    scheduler="single-threaded"
+                ):  # make sure we don't use a scheduler
+                    ds = xr.concat(dsets, self._concat_dim, **self.xarray_concat_kwargs)
             elif len(dsets) == 1:
                 ds = dsets[0]
             else:  # pragma: no cover
                 assert False, "Should never happen"
 
             if self.process_chunk is not None:
-                ds = self.process_chunk(ds)
+                with dask.config.set(
+                    scheduler="single-threaded"
+                ):  # make sure we don't use a scheduler
+                    ds = self.process_chunk(ds)
 
-            logger.debug(f"{ds}")
+            with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
+                logger.debug(f"{ds}")
 
             # TODO: maybe do some chunking here?
             yield ds
