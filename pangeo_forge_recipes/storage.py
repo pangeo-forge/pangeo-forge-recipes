@@ -32,6 +32,7 @@ def _fsspec_safe_open(fname: str, **kwargs) -> Iterator[OpenFileType]:
     with fs.open(path, mode="rb") as fp:
         logger.debug("_fsspec_safe_open yielding fs")
         yield fp
+        logger.debug("_fsspec_safe_open yielded fs")
     # workaround for inconsistent behavior of fsspec.open
     # https://github.com/intake/filesystem_spec/issues/579
     # with fsspec.open(fname, **kwargs) as fp:
@@ -115,8 +116,9 @@ class FSSpecTarget(AbstractTarget):
         full_path = self._full_path(path)
         logger.debug(f"entering fs.open context manager for {full_path}")
         with self.fs.open(full_path, **kwargs) as f:
-            logger.debug(f"entered fs.open context manager for {full_path}")
+            logger.debug("FSSpecTarget.open yielding f")
             yield f
+            logger.debug("FSSpecTarget.open yielded f")
 
     def __post_init__(self):
         if not self.fs.isdir(self.root_path):
