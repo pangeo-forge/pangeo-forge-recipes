@@ -1,4 +1,5 @@
 import pytest
+import xarray as xr
 from dask import delayed
 from dask.distributed import Client
 from pytest_lazyfixture import lazy_fixture
@@ -44,8 +45,9 @@ def test_metadata_target(tmp_metadata_target):
 @pytest.mark.parametrize("copy_to_local", [False, True])
 @pytest.mark.parametrize("use_cache, cache_first", [(False, False), (True, False), (True, True)])
 @pytest.mark.parametrize("use_dask", [True, False])
+@pytest.mark.parametrize("use_xarray", [True, False])
 def test_file_opener(
-    file_paths, tmp_cache, copy_to_local, use_cache, cache_first, dask_cluster, use_dask
+    file_paths, tmp_cache, copy_to_local, use_cache, cache_first, dask_cluster, use_dask, use_xarray
 ):
     all_paths, _ = file_paths
     path = str(all_paths[0])
@@ -70,9 +72,17 @@ def test_file_opener(
                 if copy_to_local:
                     assert isinstance(fp, str)
                     with open(fp, mode="rb") as fp2:
-                        _ = fp2.read()
+                        if use_xarray:
+                            ds = xr.open_dataset(fp2)
+                            ds.load()
+                        else:
+                            _ = fp2.read()
                 else:
-                    _ = fp.read()
+                    if use_xarray:
+                        ds = xr.open_dataset(fp)
+                        ds.load()
+                    else:
+                        _ = fp.read()
 
     if use_dask:
         client = Client(dask_cluster)
