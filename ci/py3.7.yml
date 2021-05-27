@@ -10,7 +10,7 @@ dependencies:
   - codecov
   - dask
   - distributed
-  # - fsspec>=2021.04.0
+  - fsspec>=2021.04.0
   - h5netcdf
   - h5py
   - hdf5
@@ -35,4 +35,3 @@ dependencies:
   - zarr>=2.6.0
   - pip:
     - pytest-timeout
-    - git+https://github.com/martindurant/filesystem_spec.git@log_and_cache
