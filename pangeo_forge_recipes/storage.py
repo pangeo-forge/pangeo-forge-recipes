@@ -189,7 +189,7 @@ def file_opener(
         logger.info(f"Opening '{fname}' from cache")
         opener = cache.open(fname, mode="rb")
     else:
-        logger.info(f"Opening  '{fname}' directly.")
+        logger.info(f"Opening '{fname}' directly.")
         opener = _fsspec_safe_open(fname, mode="rb", **open_kwargs)
     if copy_to_local:
         _, suffix = os.path.splitext(fname)
@@ -201,9 +201,13 @@ def file_opener(
         yield tmp_name
         ntf.close()  # cleans up the temporary file
     else:
+        logger.debug("file_opener entering opener")
         with opener as fp:
+            logger.debug("file_opener entering fp")
             with fp as fp2:  # type: ignore
+                logger.debug("file_opener yielding fp")
                 yield fp2
+                logger.debug("file_opener yielded fp")
 
 
 def _slugify(value: str) -> str:
