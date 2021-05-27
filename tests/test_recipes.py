@@ -39,12 +39,17 @@ def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
 
 
 @pytest.mark.parametrize("cache_inputs", [True, False])
-# do things work if we always copy to local file first?
-@pytest.mark.parametrize("copy_input_to_local_file", [True])
+@pytest.mark.parametrize("copy_input_to_local_file", [True, False])
 def test_recipe_caching_copying(
     netCDFtoZarr_sequential_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
 ):
     """The basic recipe test. Use this as a template for other tests."""
+
+    if not copy_input_to_local_file:
+        pytest.skip(
+            "Opening xarray datasets without this option causes hanging. "
+            "See https://github.com/pangeo-forge/pangeo-forge-recipes/pull/146."
+        )
 
     RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
     if not cache_inputs:

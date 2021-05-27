@@ -30,9 +30,9 @@ def _fsspec_safe_open(fname: str, **kwargs) -> Iterator[OpenFileType]:
     path = paths[0]
     logger.debug(f"_fsspec_safe_open opening {path} with fs {fs}")
     with fs.open(path, mode="rb") as fp:
-        logger.debug("_fsspec_safe_open yielding fs")
+        logger.debug(f"_fsspec_safe_open yielding {fp}")
         yield fp
-        logger.debug("_fsspec_safe_open yielded fs")
+        logger.debug("_fsspec_safe_open yielded")
     # workaround for inconsistent behavior of fsspec.open
     # https://github.com/intake/filesystem_spec/issues/579
     # with fsspec.open(fname, **kwargs) as fp:
@@ -45,9 +45,11 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
             while True:
+                logger.debug("_copy_btw_filesystems reading data")
                 data = source.read(BLOCK_SIZE)
                 if not data:
                     break
+                logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
                 target.write(data)
 
 
@@ -116,9 +118,9 @@ class FSSpecTarget(AbstractTarget):
         full_path = self._full_path(path)
         logger.debug(f"entering fs.open context manager for {full_path}")
         with self.fs.open(full_path, **kwargs) as f:
-            logger.debug("FSSpecTarget.open yielding f")
+            logger.debug(f"FSSpecTarget.open yielding {f}")
             yield f
-            logger.debug("FSSpecTarget.open yielded f")
+            logger.debug("FSSpecTarget.open yielded")
 
     def __post_init__(self):
         if not self.fs.isdir(self.root_path):
@@ -209,13 +211,13 @@ def file_opener(
         yield tmp_name
         ntf.close()  # cleans up the temporary file
     else:
-        logger.debug("file_opener entering opener")
+        logger.debug(f"file_opener entering first context for {opener}")
         with opener as fp:
-            logger.debug("file_opener entering fp")
+            logger.debug(f"file_opener entering second context for {fp}")
             with fp as fp2:  # type: ignore
-                logger.debug("file_opener yielding fp")
+                logger.debug(f"file_opener yielding {fp2}")
                 yield fp2
-                logger.debug("file_opener yielded fp")
+                logger.debug("file_opener yielded")
 
 
 def _slugify(value: str) -> str:
