@@ -26,12 +26,18 @@ def _get_url_size(fname):
 
 @contextmanager
 def _fsspec_safe_open(fname: str, **kwargs) -> Iterator[OpenFileType]:
+    fs, _, paths = fsspec.get_fs_token_paths(fname, mode="rb")
+    path = paths[0]
+    logger.debug(f"_fsspec_safe_open opening {path} with fs {fs}")
+    with fs.open(path, mode="rb") as fp:
+        logger.debug("_fsspec_safe_open yielding fs")
+        yield fp
     # workaround for inconsistent behavior of fsspec.open
     # https://github.com/intake/filesystem_spec/issues/579
-    with fsspec.open(fname, **kwargs) as fp:
-        yield fp
-        # with fp as fp2:
-        #    yield fp2
+    # with fsspec.open(fname, **kwargs) as fp:
+    #    yield fp
+    # with fp as fp2:
+    #    yield fp2
 
 
 def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
