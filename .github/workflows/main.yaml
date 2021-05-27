@@ -53,7 +53,7 @@ jobs:
       - name: Run Tests
         shell: bash -l {0}
         run: |
-          py.test tests/test_storage -x -v --redirect-dask-worker-logs-to-stdout=DEBUG
+          py.test tests/test_storage.py -x -v --redirect-dask-worker-logs-to-stdout=DEBUG
           py.test tests -k caching_copying -x -v --redirect-dask-worker-logs-to-stdout=DEBUG \
             --cov=pangeo_forge_recipes --cov-config .coveragerc --cov-report term-missing
           coverage xml
