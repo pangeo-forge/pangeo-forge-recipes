@@ -49,6 +49,13 @@ def test_metadata_target(tmp_metadata_target):
 def test_file_opener(
     file_paths, tmp_cache, copy_to_local, use_cache, cache_first, dask_cluster, use_dask, use_xarray
 ):
+
+    if use_dask and not copy_to_local:
+        pytest.skip(
+            "Opening files without copy_to_local causes hanging with dask. "
+            "See https://github.com/pangeo-forge/pangeo-forge-recipes/pull/146."
+        )
+
     all_paths, _ = file_paths
     path = str(all_paths[0])
     cache = tmp_cache if use_cache else None
