@@ -93,7 +93,7 @@ class XarrayZarrRecipe(BaseRecipe):
     input_cache: Optional[CacheFSSpecTarget] = None
     metadata_cache: Optional[MetadataTarget] = None
     cache_inputs: bool = True
-    copy_input_to_local_file: bool = False
+    copy_input_to_local_file: bool = True
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_kwargs: dict = field(default_factory=dict)
@@ -124,6 +124,12 @@ class XarrayZarrRecipe(BaseRecipe):
     """List of chunks needed to initialize the recipe."""
 
     def __post_init__(self):
+        if not self.copy_input_to_local_file:
+            warnings.warn(
+                "Running recipes with `copy_input_to_local_file=False` may cause hanging. "
+                "Use caution when executing this recipe with Dask. "
+                "See https://github.com/pangeo-forge/pangeo-forge-recipes/pull/146."
+            )
         self._validate_file_pattern()
         # from here on we know there is at most one merge dim and one concat dim
         self._concat_dim = self.file_pattern.concat_dims[0]
@@ -345,17 +351,20 @@ class XarrayZarrRecipe(BaseRecipe):
         logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
         cache = self.input_cache if self.cache_inputs else None
         with file_opener(fname, cache=cache, copy_to_local=self.copy_input_to_local_file) as f:
-            ds = xr.open_dataset(f, **self.xarray_open_kwargs)
-            ds = fix_scalar_attr_encoding(ds)
+            with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
+                logger.debug(f"about to call xr.open_dataset on {f}")
+                ds = xr.open_dataset(f, **self.xarray_open_kwargs)
+                logger.debug("successfully opened dataset")
+                ds = fix_scalar_attr_encoding(ds)
 
-            if self.delete_input_encoding:
-                for var in ds.variables:
-                    ds[var].encoding = {}
+                if self.delete_input_encoding:
+                    for var in ds.variables:
+                        ds[var].encoding = {}
 
-            if self.process_input is not None:
-                ds = self.process_input(ds, str(fname))
+                if self.process_input is not None:
+                    ds = self.process_input(ds, str(fname))
 
-            logger.debug(f"{ds}")
+                logger.debug(f"{ds}")
             yield ds
 
     def cache_input_metadata(self, input_key: InputKey):
@@ -380,16 +389,23 @@ class XarrayZarrRecipe(BaseRecipe):
             if len(dsets) > 1:
                 # During concat, attributes and encoding are taken from the first dataset
                 # https://github.com/pydata/xarray/issues/1614
-                ds = xr.concat(dsets, self._concat_dim, **self.xarray_concat_kwargs)
+                with dask.config.set(
+                    scheduler="single-threaded"
+                ):  # make sure we don't use a scheduler
+                    ds = xr.concat(dsets, self._concat_dim, **self.xarray_concat_kwargs)
             elif len(dsets) == 1:
                 ds = dsets[0]
             else:  # pragma: no cover
                 assert False, "Should never happen"
 
             if self.process_chunk is not None:
-                ds = self.process_chunk(ds)
+                with dask.config.set(
+                    scheduler="single-threaded"
+                ):  # make sure we don't use a scheduler
+                    ds = self.process_chunk(ds)
 
-            logger.debug(f"{ds}")
+            with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
+                logger.debug(f"{ds}")
 
             # TODO: maybe do some chunking here?
             yield ds
