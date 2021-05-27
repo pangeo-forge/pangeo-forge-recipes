@@ -10,6 +10,9 @@ on:
     paths-ignore:
     - 'docs/**'
 
+env:
+  PYTEST_ADDOPTS: "--color=yes"
+
 jobs:
   test:
     name: ${{ matrix.python-version }}-build
@@ -53,7 +56,7 @@ jobs:
       - name: Run Tests
         shell: bash -l {0}
         run: |
-          py.test tests -x -v --redirect-dask-worker-logs-to-stdout=DEBUG \
+          py.test tests -v --redirect-dask-worker-logs-to-stdout=DEBUG \
             --cov=pangeo_forge_recipes --cov-config .coveragerc --cov-report term-missing
           coverage xml
       - name: Codecov
