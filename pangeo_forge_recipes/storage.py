@@ -26,7 +26,9 @@ def _get_url_size(fname, **open_kwargs):
 
 @contextmanager
 def _fsspec_safe_open(fname: str, **kwargs) -> Iterator[OpenFileType]:
-    fs, _, paths = fsspec.get_fs_token_paths(fname, mode="rb", **kwargs)
+    fs, _, paths = fsspec.get_fs_token_paths(
+        fname, mode="rb", **{k: v for k, v in kwargs.items() if k != "mode"}
+    )
     path = paths[0]
     logger.debug(f"_fsspec_safe_open opening {path} with fs {fs}")
     with fs.open(path, mode="rb") as fp:
