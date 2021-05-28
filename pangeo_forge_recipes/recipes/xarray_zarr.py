@@ -355,7 +355,7 @@ class XarrayZarrRecipe(BaseRecipe):
                 logger.debug(f"about to call xr.open_dataset on {f}")
                 kw = self.xarray_open_kwargs.copy()
                 if "engine" not in kw:
-                    kw['engine'] = "h5netcdf"
+                    kw["engine"] = "h5netcdf"
                 ds = xr.open_dataset(f, **kw)
                 logger.debug("successfully opened dataset")
                 ds = fix_scalar_attr_encoding(ds)

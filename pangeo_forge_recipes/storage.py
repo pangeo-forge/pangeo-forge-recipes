@@ -1,5 +1,4 @@
 import hashlib
-import io
 import json
 import logging
 import os
@@ -35,7 +34,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                     break
                 logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
                 target.write(data)
-    logger.debug(f"_copy_btw_filesystems done")
+    logger.debug("_copy_btw_filesystems done")
 
 
 class AbstractTarget(ABC):
