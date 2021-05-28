@@ -42,10 +42,10 @@ def test_metadata_target(tmp_metadata_target):
 @pytest.mark.parametrize(
     "file_paths", [lazy_fixture("netcdf_local_paths"), lazy_fixture("netcdf_http_paths")]
 )
-@pytest.mark.parametrize("copy_to_local", [False])
+@pytest.mark.parametrize("copy_to_local", [False, True])
 @pytest.mark.parametrize("use_cache, cache_first", [(False, False), (True, False), (True, True)])
-@pytest.mark.parametrize("use_dask", [False])
-@pytest.mark.parametrize("use_xarray", [True])
+@pytest.mark.parametrize("use_dask", [True, False])
+@pytest.mark.parametrize("use_xarray", [True, False])
 def test_file_opener(
     file_paths, tmp_cache, copy_to_local, use_cache, cache_first, dask_cluster, use_dask, use_xarray
 ):
