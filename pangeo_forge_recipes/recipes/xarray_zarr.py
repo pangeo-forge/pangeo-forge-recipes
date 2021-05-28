@@ -353,7 +353,10 @@ class XarrayZarrRecipe(BaseRecipe):
         with file_opener(fname, cache=cache, copy_to_local=self.copy_input_to_local_file) as f:
             with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
                 logger.debug(f"about to call xr.open_dataset on {f}")
-                ds = xr.open_dataset(f, **self.xarray_open_kwargs)
+                kw = self.xarray_open_kwargs.copy()
+                if "engine" not in kw:
+                    kw['engine'] = "h5netcdf"
+                ds = xr.open_dataset(f, **kw)
                 logger.debug("successfully opened dataset")
                 ds = fix_scalar_attr_encoding(ds)
 

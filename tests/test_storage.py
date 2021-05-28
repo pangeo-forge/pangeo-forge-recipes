@@ -42,20 +42,13 @@ def test_metadata_target(tmp_metadata_target):
 @pytest.mark.parametrize(
     "file_paths", [lazy_fixture("netcdf_local_paths"), lazy_fixture("netcdf_http_paths")]
 )
-@pytest.mark.parametrize("copy_to_local", [False, True])
+@pytest.mark.parametrize("copy_to_local", [False])
 @pytest.mark.parametrize("use_cache, cache_first", [(False, False), (True, False), (True, True)])
-@pytest.mark.parametrize("use_dask", [True, False])
-@pytest.mark.parametrize("use_xarray", [True, False])
+@pytest.mark.parametrize("use_dask", [False])
+@pytest.mark.parametrize("use_xarray", [True])
 def test_file_opener(
     file_paths, tmp_cache, copy_to_local, use_cache, cache_first, dask_cluster, use_dask, use_xarray
 ):
-
-    if use_dask and not copy_to_local:
-        pytest.skip(
-            "Opening files without copy_to_local causes hanging with dask. "
-            "See https://github.com/pangeo-forge/pangeo-forge-recipes/pull/146."
-        )
-
     all_paths, _ = file_paths
     path = str(all_paths[0])
     cache = tmp_cache if use_cache else None
@@ -80,21 +73,21 @@ def test_file_opener(
                     assert isinstance(fp, str)
                     with open(fp, mode="rb") as fp2:
                         if use_xarray:
-                            ds = xr.open_dataset(fp2)
+                            ds = xr.open_dataset(fp2, engine="h5netcdf")
                             ds.load()
                         else:
                             _ = fp2.read()
                 else:
                     if use_xarray:
-                        ds = xr.open_dataset(fp)
+                        ds = xr.open_dataset(fp, engine="h5netcdf")
                         ds.load()
                     else:
                         _ = fp.read()
 
     if use_dask:
-        client = Client(dask_cluster)
-        to_actual_test_delayed = delayed(do_actual_test)()
-        to_actual_test_delayed.compute()
-        client.close()
+        with Client(dask_cluster) as client:
+            to_actual_test_delayed = delayed(do_actual_test)()
+            to_actual_test_delayed.compute()
+            client.close()
     else:
         do_actual_test()
