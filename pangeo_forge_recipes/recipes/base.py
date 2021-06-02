@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
-from functools import partial
+from functools import partial, reduce
 from typing import Callable, Hashable, Iterable
 
+from dask import delayed
+from dask.graph_manipulation import bind, checkpoint
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
 # How to manually execute a recipe: ###
@@ -33,9 +35,8 @@ class BaseRecipe(ABC):
     """Base recipe class from which all other Recipes inherit.
     """
 
-    @property
     @abstractmethod
-    def prepare_target(self) -> Callable[[], None]:
+    def prepare_target(self) -> None:
         """Prepare the recipe for execution by initializing the target.
         Attribute that returns a callable function.
         """
@@ -46,9 +47,8 @@ class BaseRecipe(ABC):
         """Iterate over all inputs."""
         pass
 
-    @property
     @abstractmethod
-    def cache_input(self) -> Callable[[Hashable], None]:
+    def cache_input(self) -> None:
         """Copy an input from its source location to the cache.
         Attribute that returns a callable function.
         """
@@ -59,17 +59,15 @@ class BaseRecipe(ABC):
         """Iterate over all target chunks."""
         pass
 
-    @property
     @abstractmethod
-    def store_chunk(self) -> Callable[[Hashable], None]:
+    def store_chunk(self) -> None:
         """Store a chunk of data in the target.
         Attribute that returns a callable function.
         """
         pass
 
-    @property
     @abstractmethod
-    def finalize_target(self) -> Callable[[], None]:
+    def finalize_target(self) -> None:
         """Final step to finish the recipe after data has been written.
         Attribute that returns a callable function.
         """
@@ -94,6 +92,26 @@ class BaseRecipe(ABC):
         # just intercept the __post_init__ calls so they
         # aren't relayed to `object`
         pass
+
+    def to_dask(self):
+        cls_ = self.__class__
+
+        def self_task():
+            return self
+
+        self_ = delayed(self_task)()
+
+        layers = [
+            [delayed(cls_.cache_input)(self_, input_key) for input_key in self.iter_inputs()],
+            [delayed(cls_.prepare_target)(self_)],
+            [delayed(cls_.store_chunk)(self_, chunk_key) for chunk_key in self.iter_chunks()],
+            [delayed(cls_.finalize_target)(self_)],
+        ]
+
+        def combine(children, parents):
+            return checkpoint(bind(children, parents, assume_layers=False))
+
+        return reduce(combine, layers[::-1])
 
 
 def closure(func: Callable) -> Callable:

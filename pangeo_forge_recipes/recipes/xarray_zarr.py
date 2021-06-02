@@ -22,7 +22,7 @@ from ..utils import (
     fix_scalar_attr_encoding,
     lock_for_conflicts,
 )
-from .base import BaseRecipe, closure
+from .base import BaseRecipe
 
 # use this filename to store global recipe metadata in the metadata_cache
 # it will be written once (by prepare_target) and read many times (by store_chunk)
@@ -210,8 +210,6 @@ class XarrayZarrRecipe(BaseRecipe):
         else:
             self._concat_dim_chunks = self._nitems_per_input * self.inputs_per_chunk
 
-    @property  # type: ignore
-    @closure
     def prepare_target(self) -> None:
         if self.target is None:
             raise ValueError("target is not set.")
@@ -281,9 +279,6 @@ class XarrayZarrRecipe(BaseRecipe):
             recipe_meta = {"input_sequence_lens": input_sequence_lens}
             self.metadata_cache[_GLOBAL_METADATA_KEY] = recipe_meta
 
-    # TODO: figure out how to make mypy happy with this convoluted structure
-    @property  # type: ignore
-    @closure
     def cache_input(self, input_key: InputKey) -> None:  # type: ignore
         if self.cache_inputs:
             if self.input_cache is None:
@@ -295,8 +290,6 @@ class XarrayZarrRecipe(BaseRecipe):
         if self._cache_metadata:
             self.cache_input_metadata(input_key)
 
-    @property  # type: ignore
-    @closure
     def store_chunk(self, chunk_key: ChunkKey) -> None:  # type: ignore
         if self.target is None:
             raise ValueError("target has not been set.")
@@ -335,8 +328,6 @@ class XarrayZarrRecipe(BaseRecipe):
                     )
                     zarr_array[zarr_region] = data
 
-    @property  # type: ignore
-    @closure
     def finalize_target(self) -> None:
         if self.target is None:
             raise ValueError("target has not been set.")
