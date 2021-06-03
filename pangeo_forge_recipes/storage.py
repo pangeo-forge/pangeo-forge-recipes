@@ -24,25 +24,6 @@ def _get_url_size(fname, **open_kwargs):
     return size
 
 
-@contextmanager
-def _fsspec_safe_open(fname: str, **kwargs) -> Iterator[OpenFileType]:
-    fs, _, paths = fsspec.get_fs_token_paths(
-        fname, mode="rb", storage_options={k: v for k, v in kwargs.items() if k != "mode"}
-    )
-    path = paths[0]
-    logger.debug(f"_fsspec_safe_open opening {path} with fs {fs}")
-    with fs.open(path, mode="rb") as fp:
-        logger.debug(f"_fsspec_safe_open yielding {fp}")
-        yield fp
-        logger.debug("_fsspec_safe_open yielded")
-    # workaround for inconsistent behavior of fsspec.open
-    # https://github.com/intake/filesystem_spec/issues/579
-    # with fsspec.open(fname, **kwargs) as fp:
-    #    yield fp
-    # with fp as fp2:
-    #    yield fp2
-
-
 def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
@@ -53,6 +34,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                     break
                 logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
                 target.write(data)
+    logger.debug("_copy_btw_filesystems done")
 
 
 class AbstractTarget(ABC):
@@ -130,7 +112,7 @@ class FSSpecTarget(AbstractTarget):
 
 
 class FlatFSSpecTarget(FSSpecTarget):
-    """A target that sanitizes all the path names so that everthing is stored
+    """A target that sanitizes all the path names so that everything is stored
     in a single directory.
 
     Designed to be used as a cache for inputs.
@@ -158,7 +140,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
                 logger.info(f"File '{fname}' is already cached")
                 return
 
-        input_opener = _fsspec_safe_open(fname, mode="rb", **open_kwargs)
+        input_opener = fsspec.open(fname, mode="rb", **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Coping remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
@@ -202,7 +184,7 @@ def file_opener(
         opener = cache.open(fname, mode="rb")
     else:
         logger.info(f"Opening '{fname}' directly.")
-        opener = _fsspec_safe_open(fname, mode="rb", **open_kwargs)
+        opener = fsspec.open(fname, mode="rb", **open_kwargs)
     if copy_to_local:
         _, suffix = os.path.splitext(fname)
         ntf = tempfile.NamedTemporaryFile(suffix=suffix)
@@ -216,10 +198,9 @@ def file_opener(
         logger.debug(f"file_opener entering first context for {opener}")
         with opener as fp:
             logger.debug(f"file_opener entering second context for {fp}")
-            with fp as fp2:  # type: ignore
-                logger.debug(f"file_opener yielding {fp2}")
-                yield fp2
-                logger.debug("file_opener yielded")
+            yield fp
+            logger.debug("file_opener yielded")
+    logger.debug("opener done")
 
 
 def _slugify(value: str) -> str:
