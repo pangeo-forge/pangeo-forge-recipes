@@ -38,7 +38,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                     target.write(data)
                 except BlockSizeError as e:
                     raise FSSpecOpenKwargsError(
-                        'Server does not permit random access to this file via Range requests. '
+                        "Server does not permit random access to this file via Range requests. "
                         'Try re-instantiating recipe with fsspec_open_kwargs = {"block_size": 0}'
                     ) from e
     logger.debug("_copy_btw_filesystems done")
