@@ -29,18 +29,18 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
             while True:
+                logger.debug("_copy_btw_filesystems reading data")
                 try:
-                    logger.debug("_copy_btw_filesystems reading data")
                     data = source.read(BLOCK_SIZE)
-                    if not data:
-                        break
-                    logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
-                    target.write(data)
                 except BlockSizeError as e:
                     raise ValueError(
                         "Server does not permit random access to this file via Range requests. "
                         'Try re-instantiating recipe with `fsspec_open_kwargs={"block_size": 0}`'
                     ) from e
+                if not data:
+                    break
+                logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
+                target.write(data)
     logger.debug("_copy_btw_filesystems done")
 
 
