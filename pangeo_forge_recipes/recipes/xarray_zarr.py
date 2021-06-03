@@ -93,7 +93,7 @@ class XarrayZarrRecipe(BaseRecipe):
     input_cache: Optional[CacheFSSpecTarget] = None
     metadata_cache: Optional[MetadataTarget] = None
     cache_inputs: bool = True
-    copy_input_to_local_file: bool = True
+    copy_input_to_local_file: bool = False
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_kwargs: dict = field(default_factory=dict)
