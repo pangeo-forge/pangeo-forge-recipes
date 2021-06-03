@@ -218,9 +218,3 @@ def _slugify(value: str) -> str:
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     value = re.sub(r"[^.\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
-
-
-class FSSpecOpenKwargsError(BlockSizeError):
-    """Wrapper for fsspec's BlockSizeError"""
-
-    pass
