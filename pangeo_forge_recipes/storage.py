@@ -37,7 +37,8 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                     logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
                     target.write(data)
                 except BlockSizeError as e:
-                    raise BlockSizeError(
+                    raise FSSpecOpenKwargsError(
+                        'Server does not permit random access to this file via Range requests. '
                         'Try re-instantiating recipe with fsspec_open_kwargs = {"block_size": 0}'
                     ) from e
     logger.debug("_copy_btw_filesystems done")
@@ -217,3 +218,9 @@ def _slugify(value: str) -> str:
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     value = re.sub(r"[^.\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
+
+
+class FSSpecOpenKwargsError(BlockSizeError):
+    """Wrapper for fsspec's BlockSizeError"""
+
+    pass
