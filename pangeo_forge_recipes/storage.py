@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Sequence, Union
 
 import fsspec
+from fsspec.implementations.http import BlockSizeError
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +36,10 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                         break
                     logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
                     target.write(data)
-                except BlockSizeError:
-                    logger.error(
+                except BlockSizeError as e:
+                    raise BlockSizeError(
                         'Try re-instantiating recipe with fsspec_open_kwargs = {"block_size": 0}'
-                    )
+                    ) from e
     logger.debug("_copy_btw_filesystems done")
 
 
