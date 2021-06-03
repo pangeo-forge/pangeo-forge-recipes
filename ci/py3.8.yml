@@ -33,5 +33,7 @@ dependencies:
   - toolz
   - xarray>=0.18.0
   - zarr>=2.6.0
+  - pytest-repeat
+  - pip
   - pip:
     - pytest-timeout

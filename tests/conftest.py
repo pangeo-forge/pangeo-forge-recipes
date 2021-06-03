@@ -26,6 +26,8 @@ from pangeo_forge_recipes.patterns import (
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
 
 
+# to use this feature, e.g.
+# $ pytest --redirect-dask-worker-logs-to-stdout=DEBUG
 def pytest_addoption(parser):
     parser.addoption(
         "--redirect-dask-worker-logs-to-stdout", action="store", default="NOTSET",
@@ -238,11 +240,14 @@ def dask_cluster(request):
     def redirect_logs():
         import logging
 
-        logger = logging.getLogger("pangeo_forge_recipes")
-        handler = logging.StreamHandler()
-        handler.setLevel(level)
-        logger.setLevel(level)
-        logger.addHandler(handler)
+        for log in ["pangeo_forge_recipes", "fsspec"]:
+            logger = logging.getLogger(log)
+            formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            handler.setLevel(level)
+            logger.setLevel(level)
+            logger.addHandler(handler)
 
     client.run(set_blosc_threads)
     client.run(redirect_logs)
