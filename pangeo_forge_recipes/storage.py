@@ -37,7 +37,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                     target.write(data)
                 except BlockSizeError:
                     logger.error(
-                        "Try re-instantiating recipe with fsspec_open_kwargs = {\"block_size\": 0}"
+                        'Try re-instantiating recipe with fsspec_open_kwargs = {"block_size": 0}'
                     )
     logger.debug("_copy_btw_filesystems done")
 
