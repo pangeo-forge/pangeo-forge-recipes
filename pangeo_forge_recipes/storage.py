@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 OpenFileType = Any
 
 
-def _get_url_size(fname):
-    with fsspec.open(fname, mode="rb") as of:
+def _get_url_size(fname, **open_kwargs):
+    with fsspec.open(fname, mode="rb", **open_kwargs) as of:
         size = of.size
     return size
 
@@ -134,7 +134,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
         logger.info(f"Caching file '{fname}'")
         if self.exists(fname):
             cached_size = self.size(fname)
-            remote_size = _get_url_size(fname)
+            remote_size = _get_url_size(fname, **open_kwargs)
             if cached_size == remote_size:
                 # TODO: add checksumming here
                 logger.info(f"File '{fname}' is already cached")
