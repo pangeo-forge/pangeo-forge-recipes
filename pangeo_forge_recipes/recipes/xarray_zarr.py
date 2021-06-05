@@ -124,12 +124,6 @@ class XarrayZarrRecipe(BaseRecipe):
     """List of chunks needed to initialize the recipe."""
 
     def __post_init__(self):
-        if not self.copy_input_to_local_file:
-            warnings.warn(
-                "Running recipes with `copy_input_to_local_file=False` may cause hanging. "
-                "Use caution when executing this recipe with Dask. "
-                "See https://github.com/pangeo-forge/pangeo-forge-recipes/pull/146."
-            )
         self._validate_file_pattern()
         # from here on we know there is at most one merge dim and one concat dim
         self._concat_dim = self.file_pattern.concat_dims[0]
