@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 from functools import partial, reduce
 from typing import Callable, Hashable, Iterable
 
-from dask import delayed
-from dask.graph_manipulation import bind, checkpoint
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
 # How to manually execute a recipe: ###
@@ -94,6 +92,9 @@ class BaseRecipe(ABC):
         pass
 
     def to_dask(self):
+        from dask import delayed
+        from dask.graph_manipulation import bind, checkpoint
+
         cls_ = self.__class__
 
         def self_task():
@@ -112,6 +113,46 @@ class BaseRecipe(ABC):
             return checkpoint(bind(children, parents, assume_layers=False))
 
         return reduce(combine, layers[::-1])
+
+    def to_prefect(self):
+        from prefect import Flow, task, unmapped
+
+        cls_ = self.__class__
+
+        @task
+        def recipe():
+            return self
+
+        @task
+        def cache_input(recipe_obj, input_key):
+            cls_.cache_input(recipe_obj, input_key)
+
+        @task
+        def prepare_target(recipe_obj):
+            cls_.prepare_target(recipe_obj)
+
+        @task
+        def store_chunk(recipe_obj, chunk_key):
+            cls_.store_chunk(recipe_obj, chunk_key)
+
+        @task
+        def finalize_target(recipe_obj):
+            cls_.finalize_target(recipe_obj)
+
+        with Flow("pangeo-forge-recipe") as flow:
+            recipe_ = recipe()
+            cache_task = cache_input.map(
+                recipe_obj=unmapped(recipe_), input_key=list(self.iter_inputs())
+            )
+            prepare_task = prepare_target(recipe_obj=recipe_, upstream_tasks=[cache_task])
+            store_task = store_chunk.map(
+                recipe_obj=unmapped(recipe_),
+                chunk_key=list(self.iter_chunks()),
+                upstream_tasks=[unmapped(prepare_task)],
+            )
+            _ = finalize_target(recipe_obj=recipe_, upstream_tasks=[store_task])
+
+        return flow
 
 
 def closure(func: Callable) -> Callable:

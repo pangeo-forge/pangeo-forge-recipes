@@ -267,7 +267,18 @@ _executors = {
 }
 
 
-@pytest.fixture(params=["manual", "python", "dask", "prefect", "prefect-dask", "dask-new"])
+@pytest.fixture(
+    params=[
+        "manual",
+        "python",
+        "dask",
+        "prefect",
+        "prefect-dask",
+        "dask-new",
+        "prefect-new",
+        "prefect-dask-new",
+    ]
+)
 def execute_recipe(request, dask_cluster):
 
     if request.param == "manual":
@@ -289,7 +300,19 @@ def execute_recipe(request, dask_cluster):
                 delayed = rec.to_dask()
                 with Client(dask_cluster):
                     delayed.compute()
+            elif request.param == "prefect-new":
+                flow = rec.to_prefect()
+                state = flow.run()
+                if state.is_failed():
+                    raise ValueError("flow run failed")
+            elif request.param == "prefect-dask-new":
+                from prefect.executors import DaskExecutor
 
+                prefect_executor = DaskExecutor(address=dask_cluster.scheduler_address)
+                flow = rec.to_prefect()
+                state = flow.run(executor=prefect_executor)
+                if state.is_failed():
+                    raise ValueError("flow run failed")
             else:
                 pytest.xfail("These tests are now broken")
                 ExecutorClass = _executors[request.param]
