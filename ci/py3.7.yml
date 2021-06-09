@@ -10,7 +10,7 @@ dependencies:
   - codecov
   - dask
   - distributed
-  - fsspec>=2021.04.0
+  - fsspec>=2021.6.0
   - h5netcdf
   - h5py
   - hdf5
