@@ -303,4 +303,5 @@ def execute_recipe(request, dask_cluster):
                 client.close()
                 del client
 
+    execute.param = request.param
     return execute

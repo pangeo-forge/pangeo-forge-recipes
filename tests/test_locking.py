@@ -77,3 +77,12 @@ def test_locked_array_writing(shape, zarr_chunks, write_chunks, tmp_target, dask
 
     this_client.close()
     del this_client
+
+
+def test_lock_timeout(dask_cluster):
+    with Client(dask_cluster, set_as_default=True):
+        with lock_for_conflicts(["key"]):
+            with Client(dask_cluster, set_as_default=True):
+                with pytest.raises(ValueError, match="Failed to acquire"):
+                    with lock_for_conflicts(["key"], timeout=1):
+                        pass
