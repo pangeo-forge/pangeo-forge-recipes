@@ -84,6 +84,7 @@ class XarrayZarrRecipe(BaseRecipe):
       `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
     :param process_chunk: Function to call on each concatenated chunk, with signature
       `(ds: xr.Dataset) -> ds: xr.Dataset`.
+    :param lock_timeout: The default timeout for acquiring a chunk lock.
     """
 
     file_pattern: FilePattern
@@ -101,6 +102,7 @@ class XarrayZarrRecipe(BaseRecipe):
     fsspec_open_kwargs: dict = field(default_factory=dict)
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
+    lock_timeout: Optional[int] = None
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: Optional[str] = None
@@ -322,7 +324,7 @@ class XarrayZarrRecipe(BaseRecipe):
                 zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
                 lock_keys = [f"{vname}-{c}" for c in conflicts]
                 logger.debug(f"Acquiring locks {lock_keys}")
-                with lock_for_conflicts(lock_keys):
+                with lock_for_conflicts(lock_keys, timeout=self.lock_timeout):
                     logger.info(
                         f"Storing variable {vname} chunk {chunk_key} "
                         f"to Zarr region {zarr_region}"

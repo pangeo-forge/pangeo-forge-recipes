@@ -1,4 +1,5 @@
 from contextlib import nullcontext as does_not_raise
+from unittest.mock import patch
 
 import pytest
 import xarray as xr
@@ -154,3 +155,18 @@ def test_chunks(
     ds_actual.load()
     print(ds_actual)
     xr.testing.assert_identical(ds_actual, ds_expected)
+
+
+def test_lock_timeout(netCDFtoZarr_sequential_recipe, execute_recipe):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+    recipe = RecipeClass(file_pattern=file_pattern, lock_timeout=1, **kwargs)
+
+    with patch("pangeo_forge_recipes.recipes.xarray_zarr.lock_for_conflicts") as p:
+        execute_recipe(recipe)
+
+    # We can only check that the mock object is called with the right parameters if
+    # the function is called in the same processes as our mock object. We can't
+    # observe anything that happens when the function is executed in subprocess, i.e.
+    # if we're using a Dask executor.
+    if execute_recipe.param in {"manual", "python", "prefect"}:
+        assert p.call_args[1]["timeout"] == 1
