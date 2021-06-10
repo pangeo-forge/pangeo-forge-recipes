@@ -7,8 +7,6 @@ import xarray as xr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
-from tests.conftest import execute_recipe
-
 all_recipes = [
     lazy_fixture("netCDFtoZarr_sequential_recipe"),
     lazy_fixture("netCDFtoZarr_sequential_multi_variable_recipe"),
