@@ -1,10 +1,13 @@
 from contextlib import nullcontext as does_not_raise
+from unittest.mock import patch
 
 import pytest
 import xarray as xr
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
+
+from tests.conftest import execute_recipe
 
 all_recipes = [
     lazy_fixture("netCDFtoZarr_sequential_recipe"),
@@ -154,3 +157,15 @@ def test_chunks(
     ds_actual.load()
     print(ds_actual)
     xr.testing.assert_identical(ds_actual, ds_expected)
+
+
+def test_lock_timeout(netCDFtoZarr_sequential_recipe, execute_recipe):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+    recipe = RecipeClass(file_pattern=file_pattern, lock_timeout=1, **kwargs)
+
+    with patch("pangeo_forge_recipes.recipes.xarray_zarr.lock_for_conflicts") as p:
+        execute_recipe(recipe)
+
+    #
+    if p.call_count:
+        assert p.call_args[1]["timeout"] == 1
