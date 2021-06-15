@@ -2,6 +2,7 @@
 A Pangeo Forge Recipe
 """
 
+import functools
 import logging
 import warnings
 from contextlib import ExitStack, contextmanager
@@ -13,6 +14,7 @@ import dask
 import numpy as np
 import xarray as xr
 import zarr
+from dask.delayed import Delayed
 
 from ..patterns import FilePattern, prune_pattern
 from ..storage import AbstractTarget, CacheFSSpecTarget, FSSpecTarget, MetadataTarget, file_opener
@@ -785,3 +787,74 @@ class XarrayZarrRecipe(BaseRecipe):
     def inputs_for_chunk(self, chunk_key: ChunkKey) -> Tuple[InputKey]:
         """Convenience function for users to introspect recipe."""
         return self._chunks_inputs[chunk_key]
+
+    def to_dask(self):
+        # --------------------- Cache Input -----------------------
+        cache_input, kwargs = self._cache_input
+        cache_input_ = functools.partial(cache_input, **kwargs)
+
+        dsk = {}
+
+        for i, input_key in enumerate(self.iter_inputs()):
+            dsk[("cache_input", i)] = (cache_input_, input_key)
+        dsk["checkpoint-0"] = (lambda *args: None, list(dsk))
+
+        # --------------------- Prepare Target --------------------
+        prepare_target, kwargs = self._prepare_target
+        prepare_target2 = lambda checkpoint, **kwargs_: prepare_target(**kwargs_)
+        prepare_target_ = functools.partial(prepare_target2, **kwargs)
+
+        # TODO: these should use a token
+        dsk["prepare_target"] = (prepare_target_, "checkpoint-0")
+
+        # --------------------- Store Chunk -----------------------
+        store_chunk, kwargs = self._store_chunk
+        store_chunk2 = lambda _, input_key, **kwargs_: store_chunk(input_key, **kwargs_)
+        store_chunk_ = functools.partial(store_chunk2)
+
+        keys = []
+        for i, input_key in enumerate(self.iter_inputs()):
+            k = ("store_chunk", i)
+            dsk[k] = (store_chunk_, input_key, "prepare_target")
+            keys.append(k)
+
+        dsk["checkpoint-1"] = (lambda *args: None, keys)
+
+        finalize_target, kwargs = self._finalize_target
+        finalize_target2 = lambda checkpoint, **kwargs_: finalize_target(**kwargs_)
+        finalize_target_ = functools.partial(finalize_target2, **kwargs)
+        token = dask.base.tokenize(self)
+        key = f"finalize_target-{token}"
+        dsk[key] = (finalize_target_, "checkpoint-1")
+
+        return Delayed(key, dsk)
+
+    def to_prefect(self):
+        """Compile the recipe to a Prefect.Flow object."""
+        from prefect import Flow, task, unmapped
+
+        cache_input, kwargs = self._cache_input
+        cache_input_ = functools.partial(cache_input, **kwargs)
+        cache_input_task = task(cache_input_, name="cache_input")
+
+        prepare_target, kwargs = self._prepare_target
+        prepare_target_ = functools.partial(prepare_target, **kwargs)
+        prepare_target_task = task(prepare_target_, name="prepare_target")
+
+        store_chunk, kwargs = self._store_chunk
+        store_chunk_ = functools.partial(store_chunk, **kwargs)
+        store_chunk_task = task(store_chunk_, name="store_chunk")
+
+        finalize_target, kwargs = self._finalize_target
+        finalize_target_ = functools.partial(finalize_target, **kwargs)
+        finalize_target_task = task(finalize_target_, name="finalize_target")
+
+        with Flow("pangeo-forge-recipe") as flow:
+            cache_task = cache_input_task.map(input_key=list(self.iter_inputs()))
+            prepare_task = prepare_target_task(upstream_tasks=[cache_task])
+            store_task = store_chunk_task.map(
+                chunk_key=list(self.iter_chunks()), upstream_tasks=[unmapped(prepare_task)],
+            )
+            _ = finalize_target_task(upstream_tasks=[store_task])
+
+        return flow
