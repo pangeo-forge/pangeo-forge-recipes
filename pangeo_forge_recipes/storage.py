@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Sequence, Union
 
 import fsspec
+from fsspec.implementations.http import BlockSizeError
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +19,8 @@ logger = logging.getLogger(__name__)
 OpenFileType = Any
 
 
-def _get_url_size(fname):
-    with fsspec.open(fname, mode="rb") as of:
+def _get_url_size(fname, **open_kwargs):
+    with fsspec.open(fname, mode="rb", **open_kwargs) as of:
         size = of.size
     return size
 
@@ -29,7 +30,13 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
         with output_opener as target:
             while True:
                 logger.debug("_copy_btw_filesystems reading data")
-                data = source.read(BLOCK_SIZE)
+                try:
+                    data = source.read(BLOCK_SIZE)
+                except BlockSizeError as e:
+                    raise ValueError(
+                        "Server does not permit random access to this file via Range requests. "
+                        'Try re-instantiating recipe with `fsspec_open_kwargs={"block_size": 0}`'
+                    ) from e
                 if not data:
                     break
                 logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
@@ -134,7 +141,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
         logger.info(f"Caching file '{fname}'")
         if self.exists(fname):
             cached_size = self.size(fname)
-            remote_size = _get_url_size(fname)
+            remote_size = _get_url_size(fname, **open_kwargs)
             if cached_size == remote_size:
                 # TODO: add checksumming here
                 logger.info(f"File '{fname}' is already cached")

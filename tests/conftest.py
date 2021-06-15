@@ -335,4 +335,5 @@ def execute_recipe(request, dask_cluster):
                 else:
                     ex.execute_plan(plan)
 
+    execute.param = request.param
     return execute

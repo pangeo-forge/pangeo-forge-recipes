@@ -84,7 +84,13 @@ def chunk_bounds_and_conflicts(
 @contextmanager
 # TODO: use a recipe-specific base_name to handle multiple recipes potentially
 # running at the same time
-def lock_for_conflicts(conflicts, base_name="pangeo-forge"):
+def lock_for_conflicts(conflicts, base_name="pangeo-forge", timeout=None):
+    """
+    Parameters
+    ----------
+    timeout : int, optional
+        The time to wait *for each lock*.
+    """
 
     try:
         global_client = get_client()
@@ -98,7 +104,10 @@ def lock_for_conflicts(conflicts, base_name="pangeo-forge"):
         locks = [Lock(f"{base_name}-{c}", global_client) for c in conflicts]
         for lock in locks:
             logger.debug(f"Acquiring lock {lock.name}...")
-            lock.acquire()
+            acquired = lock.acquire(timeout=timeout)
+            if not acquired:
+                logger.warning("Failed to acquire lock %s before timeout %s", lock.name, timeout)
+                raise ValueError(f"Failed to acquire lock {lock.name} before timeout {timeout}")
             logger.debug(f"Acquired lock {lock.name}")
     else:
         logger.debug(f"Asked to lock {conflicts} but no Dask client found.")

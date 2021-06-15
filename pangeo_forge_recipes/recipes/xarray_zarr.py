@@ -62,7 +62,10 @@ class XarrayZarrRecipe(BaseRecipe):
     :param file_pattern: An object which describes the organization of the input files.
     :param inputs_per_chunk: The number of inputs to use in each chunk along the concat dim.
        Must be an integer >= 1.
-    :param target_chunks: Desired chunk structure for the targret dataset.
+    :param target_chunks: Desired chunk structure for the targret dataset. This is a dictionary
+       mapping dimension names to chunk size. When using a :class:`patterns.FilePattern` with
+       a :class:`patterns.ConcatDim` that specifies ``n_items_per_file``, then you don't need
+       to include the concat dim in ``target_chunks``.
     :param target: A location in which to put the dataset. Can also be assigned at run time.
     :param input_cache: A location in which to cache temporary data.
     :param metadata_cache: A location in which to cache metadata for inputs and chunks.
@@ -84,6 +87,7 @@ class XarrayZarrRecipe(BaseRecipe):
       `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
     :param process_chunk: Function to call on each concatenated chunk, with signature
       `(ds: xr.Dataset) -> ds: xr.Dataset`.
+    :param lock_timeout: The default timeout for acquiring a chunk lock.
     """
 
     file_pattern: FilePattern
@@ -93,7 +97,7 @@ class XarrayZarrRecipe(BaseRecipe):
     input_cache: Optional[CacheFSSpecTarget] = None
     metadata_cache: Optional[MetadataTarget] = None
     cache_inputs: bool = True
-    copy_input_to_local_file: bool = True
+    copy_input_to_local_file: bool = False
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_kwargs: dict = field(default_factory=dict)
@@ -101,6 +105,7 @@ class XarrayZarrRecipe(BaseRecipe):
     fsspec_open_kwargs: dict = field(default_factory=dict)
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
+    lock_timeout: Optional[int] = None
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: Optional[str] = None
@@ -124,12 +129,6 @@ class XarrayZarrRecipe(BaseRecipe):
     """List of chunks needed to initialize the recipe."""
 
     def __post_init__(self):
-        if not self.copy_input_to_local_file:
-            warnings.warn(
-                "Running recipes with `copy_input_to_local_file=False` may cause hanging. "
-                "Use caution when executing this recipe with Dask. "
-                "See https://github.com/pangeo-forge/pangeo-forge-recipes/pull/146."
-            )
         self._validate_file_pattern()
         # from here on we know there is at most one merge dim and one concat dim
         self._concat_dim = self.file_pattern.concat_dims[0]
@@ -321,7 +320,7 @@ class XarrayZarrRecipe(BaseRecipe):
                 zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
                 lock_keys = [f"{vname}-{c}" for c in conflicts]
                 logger.debug(f"Acquiring locks {lock_keys}")
-                with lock_for_conflicts(lock_keys):
+                with lock_for_conflicts(lock_keys, timeout=self.lock_timeout):
                     logger.info(
                         f"Storing variable {vname} chunk {chunk_key} "
                         f"to Zarr region {zarr_region}"
