@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from functools import partial, reduce
 from typing import Callable, Hashable, Iterable
@@ -75,6 +76,12 @@ class BaseRecipe(ABC):
         """Translate recipe to pipeline for execution.
         """
 
+        warnings.warn(
+            "This function will be removed from future versions. "
+            "Use `to_dask` or `to_prefect` instead.",
+            DeprecationWarning,
+        )
+
         pipeline = []  # type: MultiStagePipeline
         if getattr(self, "cache_inputs", False):  # TODO: formalize this contract
             pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
@@ -92,6 +99,8 @@ class BaseRecipe(ABC):
         pass
 
     def to_dask(self):
+        """Compile the recipe to a Dask.Delayed object."""
+
         from dask import delayed
         from dask.graph_manipulation import bind, checkpoint
 
@@ -115,6 +124,8 @@ class BaseRecipe(ABC):
         return reduce(combine, layers[::-1])
 
     def to_prefect(self):
+        """Compile the recipe to a Prefect.Flow object."""
+
         from prefect import Flow, task, unmapped
 
         cls_ = self.__class__
@@ -153,6 +164,22 @@ class BaseRecipe(ABC):
             _ = finalize_target(recipe_obj=recipe_, upstream_tasks=[store_task])
 
         return flow
+
+    def to_function(self):
+        """Compile the recipe to a single python function."""
+
+        cls_ = self.__class__
+
+        tasks = [partial(cls_.cache_input, self, input_key) for input_key in self.iter_inputs()]
+        tasks += [partial(cls_.prepare_target, self)]
+        tasks += [partial(cls_.store_chunk, self, chunk_key) for chunk_key in self.iter_chunks()]
+        tasks += [partial(cls_.finalize_target, self)]
+
+        def _execute_all(tasks):
+            for task in tasks:
+                task()
+
+        return partial(_execute_all, tasks)
 
 
 def closure(func: Callable) -> Callable:

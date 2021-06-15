@@ -274,6 +274,7 @@ _executors = {
         "dask",
         "prefect",
         "prefect-dask",
+        "python-new",
         "dask-new",
         "prefect-new",
         "prefect-dask-new",
@@ -296,7 +297,10 @@ def execute_recipe(request, dask_cluster):
 
         def execute(rec):
 
-            if request.param == "dask-new":
+            if request.param == "python-new":
+                func = rec.to_function()
+                func()
+            elif request.param == "dask-new":
                 delayed = rec.to_dask()
                 with Client(dask_cluster):
                     delayed.compute()
@@ -314,7 +318,7 @@ def execute_recipe(request, dask_cluster):
                 if state.is_failed():
                     raise ValueError("flow run failed")
             else:
-                pytest.xfail("These tests are now broken")
+                # pytest.xfail("These tests are now broken")
                 ExecutorClass = _executors[request.param]
                 ex = ExecutorClass()
                 pipeline = rec.to_pipelines()
