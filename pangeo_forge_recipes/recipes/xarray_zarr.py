@@ -670,7 +670,6 @@ class XarrayZarrRecipe(BaseRecipe):
     @property
     def _prepare_target(self):
         func = prepare_target
-        args = ()
         kwargs = dict(
             target=self.target,
             target_chunks=self.target_chunks,
@@ -691,35 +690,40 @@ class XarrayZarrRecipe(BaseRecipe):
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
         )
-        return func, args, kwargs
+        return func, kwargs
 
     @property  # type: ignore
     @closure
     def prepare_target(self) -> None:
-        func, args, kwargs = self._prepare_target
-        return func(*args, **kwargs)
+        func, kwargs = self._prepare_target
+        return func(**kwargs)
 
-    @property  # type: ignore
-    @closure
-    def cache_input(self, input_key: InputKey) -> None:  # type: ignore
-        cache_input(
-            input_key,
-            cache_inputs=self.cache_inputs,
-            input_cache=self.input_cache,
-            file_pattern=self.file_pattern,
-            fsspec_open_kwargs=self.fsspec_open_kwargs,
-            cache_metadata=self._cache_metadata,
-            copy_input_to_local_file=self.copy_input_to_local_file,
-            xarray_open_kwargs=self.xarray_open_kwargs,
-            delete_input_encoding=self.delete_input_encoding,
-            process_input=self.process_input,
-            metadata_cache=self.metadata_cache,
+    @property
+    def _cache_input(self):
+        return (
+            cache_input,
+            dict(
+                cache_inputs=self.cache_inputs,
+                input_cache=self.input_cache,
+                file_pattern=self.file_pattern,
+                fsspec_open_kwargs=self.fsspec_open_kwargs,
+                cache_metadata=self._cache_metadata,
+                copy_input_to_local_file=self.copy_input_to_local_file,
+                xarray_open_kwargs=self.xarray_open_kwargs,
+                delete_input_encoding=self.delete_input_encoding,
+                process_input=self.process_input,
+                metadata_cache=self.metadata_cache,
+            ),
         )
 
     @property  # type: ignore
     @closure
-    def store_chunk(self, chunk_key: ChunkKey) -> None:  # type: ignore
-        # TODO(TOM): Restore the cache lookup
+    def cache_input(self, input_key: InputKey) -> None:  # type: ignore
+        func, kwargs = self._cache_input
+        return func(input_key, **kwargs)
+
+    @property
+    def _store_chunk(self):
         input_sequence_lens = calculate_sequence_lens(
             self._nitems_per_input,
             self.file_pattern,
@@ -727,33 +731,48 @@ class XarrayZarrRecipe(BaseRecipe):
             self._inputs_chunks,
             metadata_cache=self.metadata_cache,
         )
-        assert isinstance(self.target, FSSpecTarget)  # TODO(mypy): check optional
-        store_chunk(
-            chunk_key=chunk_key,
-            target=self.target,
-            concat_dim=self._concat_dim,
-            chunks_inputs=self._chunks_inputs,
-            nitems_per_input=self._nitems_per_input,
-            file_pattern=self.file_pattern,
-            input_sequence_lens=input_sequence_lens,
-            concat_dim_chunks=self._concat_dim_chunks,
-            lock_timeout=self.lock_timeout,
-            xarray_concat_kwargs=self.xarray_concat_kwargs,
-            xarray_open_kwargs=self.xarray_open_kwargs,
-            process_chunk=self.process_chunk,
-            target_chunks=self.target_chunks,
-            input_cache=self.input_cache,
-            cache_inputs=self.cache_inputs,
-            copy_input_to_local_file=self.copy_input_to_local_file,
-            delete_input_encoding=self.delete_input_encoding,
-            process_input=self.process_input,
+
+        return (
+            store_chunk,
+            dict(
+                target=self.target,
+                concat_dim=self._concat_dim,
+                chunks_inputs=self._chunks_inputs,
+                nitems_per_input=self._nitems_per_input,
+                file_pattern=self.file_pattern,
+                input_sequence_lens=input_sequence_lens,
+                concat_dim_chunks=self._concat_dim_chunks,
+                lock_timeout=self.lock_timeout,
+                xarray_concat_kwargs=self.xarray_concat_kwargs,
+                xarray_open_kwargs=self.xarray_open_kwargs,
+                process_chunk=self.process_chunk,
+                target_chunks=self.target_chunks,
+                input_cache=self.input_cache,
+                cache_inputs=self.cache_inputs,
+                copy_input_to_local_file=self.copy_input_to_local_file,
+                delete_input_encoding=self.delete_input_encoding,
+                process_input=self.process_input,
+            ),
         )
 
     @property  # type: ignore
     @closure
+    def store_chunk(self, chunk_key: ChunkKey) -> None:  # type: ignore
+        # TODO(TOM): Restore the cache lookup
+        assert isinstance(self.target, FSSpecTarget)  # TODO(mypy): check optional
+        func, kwargs = self._store_chunk
+        func(chunk_key, **kwargs)
+
+    @property
+    def _finalize_target(self):
+        return finalize_target, dict(target=self.target, consolidate_zarr=self.consolidate_zarr)
+
+    @property  # type: ignore
+    @closure
     def finalize_target(self) -> None:
-        assert isinstance(self.finalize_target, FSSpecTarget)  # TODO(mypy): check optional
-        return finalize_target(self.target, self.consolidate_zarr)
+        func, kwargs = self._finalize_target
+        # assert isinstance(self.finalize_target, FSSpecTarget)  # TODO(mypy): check optional
+        return func(**kwargs)
 
     def iter_inputs(self):
         for input in self._inputs_chunks:
