@@ -48,10 +48,6 @@ def _chunk_metadata_fname(chunk_key) -> str:
 ChunkKey = Tuple[int]
 InputKey = Tuple[int]
 
-# Notes about dataclasses:
-# - https://www.python.org/dev/peps/pep-0557/#inheritance
-# - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
-
 
 def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: int) -> None:
     target_mapper = target.get_mapper()
@@ -526,6 +522,11 @@ def finalize_target(target: FSSpecTarget, consolidate_zarr: bool) -> None:
         zarr.consolidate_metadata(target_mapper)
 
 
+# Notes about dataclasses:
+# - https://www.python.org/dev/peps/pep-0557/#inheritance
+# - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
+
+
 @dataclass
 class XarrayZarrRecipe(BaseRecipe):
     """This class represents a dataset composed of many individual NetCDF files.
@@ -680,6 +681,16 @@ class XarrayZarrRecipe(BaseRecipe):
             self._concat_dim_chunks = target_concat_dim_chunks
         else:
             self._concat_dim_chunks = self._nitems_per_input * self.inputs_per_chunk
+
+    # Each stage of the recipe follows the same pattern:
+    # 1. A top-level function, e.g. `prepare_target`, that does the actual work.
+    # 2. A private property, e.g. `._prepare_target`, that builds a partially applied function,
+    #    accepting just the arguments needed (e.g. a chunk_key).
+    # 3. A public property, e.g. `.prepare_target`, that calls the partially applied function
+    #    with the provided arguments (e.g. a chunk_key)
+    # This ensures that the actual function objects shipped to and executed on
+    # workers do not contain any references to the `recipe` object itself, which is complicated
+    # to serialize.
 
     @property
     def _prepare_target(self):
