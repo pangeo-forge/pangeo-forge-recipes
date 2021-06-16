@@ -798,11 +798,16 @@ class XarrayZarrRecipe(BaseRecipe):
         return self._chunks_inputs[chunk_key]
 
     def to_dask(self):
+        """Convert the Recipe to a dask.delayed.Delayed object."""
+        # This manually builds a Dask task graph with each stage of the recipe.
+        # We use a few "checkpoints" to ensure that downstream tasks depend
+        # on upstream tasks being done before starting.
+
+        # TODO: HighlevelGraph layers for each of these mapped inputs.
         # Cache Input --------------------------------------------------------
         dsk = {}
         token = dask.base.tokenize(self)
 
-        # TODO: HighlevelGraph layers for each of these mapped inputs.
         for i, input_key in enumerate(self.iter_inputs()):
             dsk[(f"cache_input-{token}", i)] = (self._cache_input, input_key)
         dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
