@@ -787,7 +787,7 @@ class XarrayZarrRecipe(BaseRecipe):
         return self._chunks_inputs[chunk_key]
 
     def to_dask(self):
-        # --------------------- Cache Input -----------------------
+        # Cache Input --------------------------------------------------------
         dsk = {}
         token = dask.base.tokenize(self)
 
@@ -796,14 +796,15 @@ class XarrayZarrRecipe(BaseRecipe):
             dsk[(f"cache_input-{token}", i)] = (self._cache_input, input_key)
         dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
 
-        # --------------------- Prepare Target --------------------
-        prepare_target2 = lambda checkpoint: self._prepare_target()
+        # Prepare Target -----------------------------------------------------
+        def prepare_target2(checkpoint):
+            return self._prepare_target()
 
-        # TODO: these should use a token
         dsk[f"prepare_target-{token}"] = (prepare_target2, f"checkpoint_0-{token}")
 
-        # --------------------- Store Chunk -----------------------
-        store_chunk2 = lambda checkpoint, input_key: self._store_chunk(input_key)
+        # Store Chunk --------------------------------------------------------
+        def store_chunk2(checkpoint, input_key):
+            return self._store_chunk(input_key)
 
         keys = []
         for i, chunk_key in enumerate(self.iter_chunks()):
@@ -813,7 +814,10 @@ class XarrayZarrRecipe(BaseRecipe):
 
         dsk[f"checkpoint_1-{token}"] = (lambda *args: None, keys)
 
-        finalize_target2 = lambda checkpoint, **kwargs_: self._finalize_target()
+        # Finalize Target ----------------------------------------------------
+        def finalize_target2(checkpoint):
+            return self._finalize_target()
+
         key = f"finalize_target-{token}"
         dsk[key] = (finalize_target2, f"checkpoint_1-{token}")
 
