@@ -17,7 +17,7 @@ import zarr
 from dask.delayed import Delayed
 
 from ..patterns import FilePattern, prune_pattern
-from ..storage import AbstractTarget, CacheFSSpecTarget, FSSpecTarget, MetadataTarget, file_opener
+from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
 from ..utils import (
     chunk_bounds_and_conflicts,
     chunked_iterable,
@@ -49,7 +49,7 @@ ChunkKey = Tuple[int]
 InputKey = Tuple[int]
 
 
-def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: int) -> None:
+def expand_target_dim(target: CacheFSSpecTarget, concat_dim: Optional[str], dimsize: int) -> None:
     target_mapper = target.get_mapper()
     zgroup = zarr.open_group(target_mapper)
     ds = open_target(target)
@@ -70,7 +70,7 @@ def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: 
         zgroup[concat_dim][:] = 0
 
 
-def open_target(target: FSSpecTarget) -> xr.Dataset:
+def open_target(target: CacheFSSpecTarget) -> xr.Dataset:
     return xr.open_zarr(target.get_mapper())
 
 
@@ -325,7 +325,7 @@ def calculate_sequence_lens(
 
 
 def prepare_target(
-    target: FSSpecTarget,
+    target: CacheFSSpecTarget,
     target_chunks: Dict[str, int],
     init_chunks: List[ChunkKey],
     concat_dim: Optional[str],
@@ -428,7 +428,7 @@ def prepare_target(
 
 def store_chunk(
     chunk_key: ChunkKey,
-    target: FSSpecTarget,
+    target: CacheFSSpecTarget,
     concat_dim: Optional[str],
     chunks_inputs: Dict[ChunkKey, Tuple[InputKey]],
     nitems_per_input: Optional[int],
@@ -513,7 +513,7 @@ def store_chunk(
                 zarr_array[zarr_region] = data
 
 
-def finalize_target(target: FSSpecTarget, consolidate_zarr: bool) -> None:
+def finalize_target(target: CacheFSSpecTarget, consolidate_zarr: bool) -> None:
     if target is None:
         raise ValueError("target has not been set.")
     if consolidate_zarr:
@@ -770,7 +770,7 @@ class XarrayZarrRecipe(BaseRecipe):
     @closure
     def store_chunk(self, chunk_key: ChunkKey) -> None:  # type: ignore
         # TODO(TOM): Restore the cache lookup
-        assert isinstance(self.target, FSSpecTarget)  # TODO(mypy): check optional
+        assert isinstance(self.target, CacheFSSpecTarget)  # TODO(mypy): check optional
         return self._store_chunk(chunk_key)
 
     @property
@@ -782,7 +782,7 @@ class XarrayZarrRecipe(BaseRecipe):
     @property  # type: ignore
     @closure
     def finalize_target(self) -> None:
-        # assert isinstance(self.finalize_target, FSSpecTarget)  # TODO(mypy): check optional
+        # assert isinstance(self.finalize_target, CacheFSSpecTarget)  # TODO(mypy): check optional
         return self._finalize_target()
 
     def iter_inputs(self):
