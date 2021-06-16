@@ -110,6 +110,7 @@ def cache_input_metadata(
         process_input=process_input,
     ) as ds:
         input_metadata = ds.to_dict(data=False)
+        # TODO(METADATA): set
         metadata_cache[_input_metadata_fname(input_key)] = input_metadata
 
 
@@ -294,6 +295,7 @@ def get_input_meta(metadata_cache: Optional[MetadataTarget], *input_keys: InputK
     # getitems should be async; much faster than serial calls
     if metadata_cache is None:
         raise ValueError("metadata_cache is not set.")
+    # TODO(METADATA): get
     return metadata_cache.getitems([_input_metadata_fname(k) for k in input_keys])
 
 
@@ -435,7 +437,6 @@ def store_chunk(
     chunks_inputs: Dict[ChunkKey, Tuple[InputKey]],
     nitems_per_input: Optional[int],
     file_pattern: FilePattern,
-    input_sequence_lens,
     concat_dim_chunks: Optional[int],
     lock_timeout: Optional[int],
     xarray_concat_kwargs: dict,
@@ -447,9 +448,20 @@ def store_chunk(
     xarray_open_kwargs: dict,
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
+    inputs_chunks: Dict[InputKey, Tuple[ChunkKey]],
+    metadata_cache: Optional[MetadataTarget],
 ) -> None:
     if target is None:
         raise ValueError("target has not been set.")
+
+    input_sequence_lens = calculate_sequence_lens(
+        nitems_per_input=nitems_per_input,
+        file_pattern=file_pattern,
+        concat_dim=concat_dim,
+        inputs_chunks=inputs_chunks,
+        metadata_cache=metadata_cache,
+    )
+
     with open_chunk(
         chunk_key=chunk_key,
         chunks_inputs=chunks_inputs,
@@ -671,8 +683,8 @@ class XarrayZarrRecipe(BaseRecipe):
 
     @property
     def _prepare_target(self):
-        func = prepare_target
-        kwargs = dict(
+        return functools.partial(
+            prepare_target,
             target=self.target,
             target_chunks=self.target_chunks,
             init_chunks=self._init_chunks,
@@ -692,69 +704,55 @@ class XarrayZarrRecipe(BaseRecipe):
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
         )
-        return func, kwargs
 
     @property  # type: ignore
     @closure
     def prepare_target(self) -> None:
-        func, kwargs = self._prepare_target
-        return func(**kwargs)
+        return self._prepare_target()
 
     @property
     def _cache_input(self):
-        return (
+        return functools.partial(
             cache_input,
-            dict(
-                cache_inputs=self.cache_inputs,
-                input_cache=self.input_cache,
-                file_pattern=self.file_pattern,
-                fsspec_open_kwargs=self.fsspec_open_kwargs,
-                cache_metadata=self._cache_metadata,
-                copy_input_to_local_file=self.copy_input_to_local_file,
-                xarray_open_kwargs=self.xarray_open_kwargs,
-                delete_input_encoding=self.delete_input_encoding,
-                process_input=self.process_input,
-                metadata_cache=self.metadata_cache,
-            ),
+            cache_inputs=self.cache_inputs,
+            input_cache=self.input_cache,
+            file_pattern=self.file_pattern,
+            fsspec_open_kwargs=self.fsspec_open_kwargs,
+            cache_metadata=self._cache_metadata,
+            copy_input_to_local_file=self.copy_input_to_local_file,
+            xarray_open_kwargs=self.xarray_open_kwargs,
+            delete_input_encoding=self.delete_input_encoding,
+            process_input=self.process_input,
+            metadata_cache=self.metadata_cache,
         )
 
     @property  # type: ignore
     @closure
     def cache_input(self, input_key: InputKey) -> None:  # type: ignore
-        func, kwargs = self._cache_input
-        return func(input_key, **kwargs)
+        return self._cache_input(input_key)
 
     @property
     def _store_chunk(self):
-        input_sequence_lens = calculate_sequence_lens(
-            self._nitems_per_input,
-            self.file_pattern,
-            self._concat_dim,
-            self._inputs_chunks,
-            metadata_cache=self.metadata_cache,
-        )
-
-        return (
+        return functools.partial(
             store_chunk,
-            dict(
-                target=self.target,
-                concat_dim=self._concat_dim,
-                chunks_inputs=self._chunks_inputs,
-                nitems_per_input=self._nitems_per_input,
-                file_pattern=self.file_pattern,
-                input_sequence_lens=input_sequence_lens,
-                concat_dim_chunks=self._concat_dim_chunks,
-                lock_timeout=self.lock_timeout,
-                xarray_concat_kwargs=self.xarray_concat_kwargs,
-                xarray_open_kwargs=self.xarray_open_kwargs,
-                process_chunk=self.process_chunk,
-                target_chunks=self.target_chunks,
-                input_cache=self.input_cache,
-                cache_inputs=self.cache_inputs,
-                copy_input_to_local_file=self.copy_input_to_local_file,
-                delete_input_encoding=self.delete_input_encoding,
-                process_input=self.process_input,
-            ),
+            target=self.target,
+            concat_dim=self._concat_dim,
+            chunks_inputs=self._chunks_inputs,
+            nitems_per_input=self._nitems_per_input,
+            file_pattern=self.file_pattern,
+            concat_dim_chunks=self._concat_dim_chunks,
+            lock_timeout=self.lock_timeout,
+            xarray_concat_kwargs=self.xarray_concat_kwargs,
+            xarray_open_kwargs=self.xarray_open_kwargs,
+            process_chunk=self.process_chunk,
+            target_chunks=self.target_chunks,
+            input_cache=self.input_cache,
+            cache_inputs=self.cache_inputs,
+            copy_input_to_local_file=self.copy_input_to_local_file,
+            delete_input_encoding=self.delete_input_encoding,
+            process_input=self.process_input,
+            inputs_chunks=self._inputs_chunks,
+            metadata_cache=self.metadata_cache,
         )
 
     @property  # type: ignore
@@ -762,19 +760,19 @@ class XarrayZarrRecipe(BaseRecipe):
     def store_chunk(self, chunk_key: ChunkKey) -> None:  # type: ignore
         # TODO(TOM): Restore the cache lookup
         assert isinstance(self.target, FSSpecTarget)  # TODO(mypy): check optional
-        func, kwargs = self._store_chunk
-        func(chunk_key, **kwargs)
+        return self._store_chunk(chunk_key)
 
     @property
     def _finalize_target(self):
-        return finalize_target, dict(target=self.target, consolidate_zarr=self.consolidate_zarr)
+        return functools.partial(
+            finalize_target, target=self.target, consolidate_zarr=self.consolidate_zarr
+        )
 
     @property  # type: ignore
     @closure
     def finalize_target(self) -> None:
-        func, kwargs = self._finalize_target
         # assert isinstance(self.finalize_target, FSSpecTarget)  # TODO(mypy): check optional
-        return func(**kwargs)
+        return self._finalize_target()
 
     def iter_inputs(self):
         for input in self._inputs_chunks:
@@ -790,42 +788,33 @@ class XarrayZarrRecipe(BaseRecipe):
 
     def to_dask(self):
         # --------------------- Cache Input -----------------------
-        cache_input, kwargs = self._cache_input
-        cache_input_ = functools.partial(cache_input, **kwargs)
-
         dsk = {}
 
         for i, input_key in enumerate(self.iter_inputs()):
-            dsk[("cache_input", i)] = (cache_input_, input_key)
+            dsk[("cache_input", i)] = (self._cache_input, input_key)
         dsk["checkpoint-0"] = (lambda *args: None, list(dsk))
 
         # --------------------- Prepare Target --------------------
-        prepare_target, kwargs = self._prepare_target
-        prepare_target2 = lambda checkpoint, **kwargs_: prepare_target(**kwargs_)
-        prepare_target_ = functools.partial(prepare_target2, **kwargs)
+        prepare_target2 = lambda checkpoint: self._prepare_target()
 
         # TODO: these should use a token
-        dsk["prepare_target"] = (prepare_target_, "checkpoint-0")
+        dsk["prepare_target"] = (prepare_target2, "checkpoint-0")
 
         # --------------------- Store Chunk -----------------------
-        store_chunk, kwargs = self._store_chunk
-        store_chunk2 = lambda _, input_key, **kwargs_: store_chunk(input_key, **kwargs_)
-        store_chunk_ = functools.partial(store_chunk2)
+        store_chunk2 = lambda checkpoint, input_key: self._store_chunk(input_key)
 
         keys = []
-        for i, input_key in enumerate(self.iter_inputs()):
+        for i, chunk_key in enumerate(self.iter_chunks()):
             k = ("store_chunk", i)
-            dsk[k] = (store_chunk_, input_key, "prepare_target")
+            dsk[k] = (store_chunk2, "prepare_target", chunk_key)
             keys.append(k)
 
         dsk["checkpoint-1"] = (lambda *args: None, keys)
 
-        finalize_target, kwargs = self._finalize_target
-        finalize_target2 = lambda checkpoint, **kwargs_: finalize_target(**kwargs_)
-        finalize_target_ = functools.partial(finalize_target2, **kwargs)
+        finalize_target2 = lambda checkpoint, **kwargs_: self._finalize_target()
         token = dask.base.tokenize(self)
         key = f"finalize_target-{token}"
-        dsk[key] = (finalize_target_, "checkpoint-1")
+        dsk[key] = (finalize_target2, "checkpoint-1")
 
         return Delayed(key, dsk)
 
@@ -833,21 +822,10 @@ class XarrayZarrRecipe(BaseRecipe):
         """Compile the recipe to a Prefect.Flow object."""
         from prefect import Flow, task, unmapped
 
-        cache_input, kwargs = self._cache_input
-        cache_input_ = functools.partial(cache_input, **kwargs)
-        cache_input_task = task(cache_input_, name="cache_input")
-
-        prepare_target, kwargs = self._prepare_target
-        prepare_target_ = functools.partial(prepare_target, **kwargs)
-        prepare_target_task = task(prepare_target_, name="prepare_target")
-
-        store_chunk, kwargs = self._store_chunk
-        store_chunk_ = functools.partial(store_chunk, **kwargs)
-        store_chunk_task = task(store_chunk_, name="store_chunk")
-
-        finalize_target, kwargs = self._finalize_target
-        finalize_target_ = functools.partial(finalize_target, **kwargs)
-        finalize_target_task = task(finalize_target_, name="finalize_target")
+        cache_input_task = task(self._cache_input, name="cache_input")
+        prepare_target_task = task(self._prepare_target, name="prepare_target")
+        store_chunk_task = task(self._store_chunk, name="store_chunk")
+        finalize_target_task = task(self._finalize_target, name="finalize_target")
 
         with Flow("pangeo-forge-recipe") as flow:
             cache_task = cache_input_task.map(input_key=list(self.iter_inputs()))

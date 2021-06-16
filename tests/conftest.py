@@ -289,19 +289,24 @@ def execute_recipe(request, dask_cluster):
             pipeline = rec.to_pipelines()
             plan = ex.pipelines_to_plan(pipeline)
 
-            if request.param == "dask":
-                client = Client(dask_cluster)
+            if "prefect" in request.param:
+                flow = rec.to_prefect()
 
-            if request.param == "prefect-dask":
-                from prefect.executors import DaskExecutor
+                if request.param == "prefect-dask":
+                    from prefect.executors import DaskExecutor
 
-                prefect_executor = DaskExecutor(address=dask_cluster.scheduler_address)
-                plan.run(executor=prefect_executor)
+                    prefect_executor = DaskExecutor(address=dask_cluster.scheduler_address)
+                else:
+                    prefect_executor = None
+
+                flow.run(executor=prefect_executor)
+            elif request.param == "dask":
+                # import dask; dask.config.set(scheduler="single-threaded")
+                with Client(dask_cluster):
+                    plan = rec.to_dask()
+                    plan.compute()
             else:
                 ex.execute_plan(plan)
-            if request.param == "dask":
-                client.close()
-                del client
 
     execute.param = request.param
     return execute
