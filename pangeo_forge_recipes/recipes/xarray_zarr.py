@@ -770,7 +770,7 @@ class XarrayZarrRecipe(BaseRecipe):
     @closure
     def store_chunk(self, chunk_key: ChunkKey) -> None:  # type: ignore
         # TODO(TOM): Restore the cache lookup
-        assert isinstance(self.target, CacheFSSpecTarget)  # TODO(mypy): check optional
+        # assert isinstance(self.target, CacheFSSpecTarget)  # TODO(mypy): check optional
         return self._store_chunk(chunk_key)
 
     @property
