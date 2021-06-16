@@ -789,32 +789,33 @@ class XarrayZarrRecipe(BaseRecipe):
     def to_dask(self):
         # --------------------- Cache Input -----------------------
         dsk = {}
+        token = dask.base.tokenize(self)
 
+        # TODO: HighlevelGraph layers for each of these mapped inputs.
         for i, input_key in enumerate(self.iter_inputs()):
-            dsk[("cache_input", i)] = (self._cache_input, input_key)
-        dsk["checkpoint-0"] = (lambda *args: None, list(dsk))
+            dsk[(f"cache_input-{token}", i)] = (self._cache_input, input_key)
+        dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
 
         # --------------------- Prepare Target --------------------
         prepare_target2 = lambda checkpoint: self._prepare_target()
 
         # TODO: these should use a token
-        dsk["prepare_target"] = (prepare_target2, "checkpoint-0")
+        dsk[f"prepare_target-{token}"] = (prepare_target2, f"checkpoint_0-{token}")
 
         # --------------------- Store Chunk -----------------------
         store_chunk2 = lambda checkpoint, input_key: self._store_chunk(input_key)
 
         keys = []
         for i, chunk_key in enumerate(self.iter_chunks()):
-            k = ("store_chunk", i)
-            dsk[k] = (store_chunk2, "prepare_target", chunk_key)
+            k = (f"store_chunk-{token}", i)
+            dsk[k] = (store_chunk2, f"prepare_target-{token}", chunk_key)
             keys.append(k)
 
-        dsk["checkpoint-1"] = (lambda *args: None, keys)
+        dsk[f"checkpoint_1-{token}"] = (lambda *args: None, keys)
 
         finalize_target2 = lambda checkpoint, **kwargs_: self._finalize_target()
-        token = dask.base.tokenize(self)
         key = f"finalize_target-{token}"
-        dsk[key] = (finalize_target2, "checkpoint-1")
+        dsk[key] = (finalize_target2, f"checkpoint_1-{token}")
 
         return Delayed(key, dsk)
 
