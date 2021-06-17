@@ -115,23 +115,44 @@ class BaseRecipe(ABC):
         """
         Translate the recipe to a dask.Delayed object for parallel execution.
         """
+        # This manually builds a Dask task graph with each stage of the recipe.
+        # We use a few "checkpoints" to ensure that downstream tasks depend
+        # on upstream tasks being done before starting. We use a manual task
+        # graph rather than dask.delayed to avoid some expensive tokenization
+        # in dask.delayed
         import dask
+        from dask.delayed import Delayed
 
-        tasks = []
-        if getattr(self, "cache_inputs", False):
-            f = dask.delayed(self.cache_input)
-            for input_key in self.iter_inputs():
-                tasks.append(f(input_key))
+        # TODO: HighlevelGraph layers for each of these mapped inputs.
+        # Cache Input --------------------------------------------------------
+        dsk = {}
+        token = dask.base.tokenize(self)
 
-        b0 = dask.delayed(_barrier)(*tasks)
-        b1 = dask.delayed(_wait_and_call)(self.prepare_target, b0)
-        tasks = []
-        for chunk_key in self.iter_chunks():
-            tasks.append(dask.delayed(_wait_and_call)(self.store_chunk, b1, chunk_key))
+        if getattr(self, "cache_inputs", False):  # TODO: formalize cache_inputs
+            for i, input_key in enumerate(self.iter_inputs()):
+                dsk[(f"cache_input-{token}", i)] = (self.cache_input, input_key)
 
-        b2 = dask.delayed(_barrier)(*tasks)
-        b3 = dask.delayed(_wait_and_call)(self.finalize_target, b2)
-        return b3
+        # Prepare Target ------------------------------------------------------
+        dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
+        dsk[f"prepare_target-{token}"] = (
+            _prepare_target,
+            f"checkpoint_0-{token}",
+            self.prepare_target,
+        )
+
+        # Store Chunk --------------------------------------------------------
+        keys = []
+        for i, chunk_key in enumerate(self.iter_chunks()):
+            k = (f"store_chunk-{token}", i)
+            dsk[k] = (_store_chunk, f"prepare_target-{token}", self.store_chunk, chunk_key)
+            keys.append(k)
+
+        # Finalize Target -----------------------------------------------------
+        dsk[f"checkpoint_1-{token}"] = (lambda *args: None, keys)
+        key = f"finalize_target-{token}"
+        dsk[key] = (_finalize_target, f"checkpoint_1-{token}", self.finalize_target)
+
+        return Delayed(key, dsk)
 
     def to_prefect(self):
         """Compile the recipe to a Prefect.Flow object."""
@@ -189,9 +210,13 @@ def closure(func: Callable) -> Callable:
     return wrapped
 
 
-def _barrier(*args):
-    pass
+def _prepare_target(checkpoint, func):
+    return func()
 
 
-def _wait_and_call(func, b, *args):
-    return func(*args)
+def _store_chunk(checkpoint, func, input_key):
+    return func(input_key)
+
+
+def _finalize_target(checkpoint, func):
+    return func()

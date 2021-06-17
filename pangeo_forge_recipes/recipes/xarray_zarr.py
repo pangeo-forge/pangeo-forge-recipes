@@ -14,7 +14,6 @@ import dask
 import numpy as np
 import xarray as xr
 import zarr
-from dask.delayed import Delayed
 
 from ..patterns import FilePattern, prune_pattern
 from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
@@ -24,7 +23,7 @@ from ..utils import (
     fix_scalar_attr_encoding,
     lock_for_conflicts,
 )
-from .base import BaseRecipe, closure
+from .base import BaseRecipe
 
 # use this filename to store global recipe metadata in the metadata_cache
 # it will be written once (by prepare_target) and read many times (by store_chunk)
@@ -693,7 +692,7 @@ class XarrayZarrRecipe(BaseRecipe):
     # to serialize.
 
     @property
-    def _prepare_target(self):
+    def prepare_target(self):
         return functools.partial(
             prepare_target,
             target=self.target,
@@ -716,13 +715,8 @@ class XarrayZarrRecipe(BaseRecipe):
             metadata_cache=self.metadata_cache,
         )
 
-    @property  # type: ignore
-    @closure
-    def prepare_target(self) -> None:
-        return self._prepare_target()
-
     @property
-    def _cache_input(self):
+    def cache_input(self):
         return functools.partial(
             cache_input,
             cache_inputs=self.cache_inputs,
@@ -737,13 +731,8 @@ class XarrayZarrRecipe(BaseRecipe):
             metadata_cache=self.metadata_cache,
         )
 
-    @property  # type: ignore
-    @closure
-    def cache_input(self, input_key: InputKey) -> None:  # type: ignore
-        return self._cache_input(input_key)
-
     @property
-    def _store_chunk(self):
+    def store_chunk(self):
         return functools.partial(
             store_chunk,
             target=self.target,
@@ -766,24 +755,11 @@ class XarrayZarrRecipe(BaseRecipe):
             metadata_cache=self.metadata_cache,
         )
 
-    @property  # type: ignore
-    @closure
-    def store_chunk(self, chunk_key: ChunkKey) -> None:  # type: ignore
-        # TODO(TOM): Restore the cache lookup
-        # assert isinstance(self.target, CacheFSSpecTarget)  # TODO(mypy): check optional
-        return self._store_chunk(chunk_key)
-
     @property
-    def _finalize_target(self):
+    def finalize_target(self):
         return functools.partial(
             finalize_target, target=self.target, consolidate_zarr=self.consolidate_zarr
         )
-
-    @property  # type: ignore
-    @closure
-    def finalize_target(self) -> None:
-        # assert isinstance(self.finalize_target, CacheFSSpecTarget)  # TODO(mypy): check optional
-        return self._finalize_target()
 
     def iter_inputs(self):
         for input in self._inputs_chunks:
@@ -796,64 +772,3 @@ class XarrayZarrRecipe(BaseRecipe):
     def inputs_for_chunk(self, chunk_key: ChunkKey) -> Tuple[InputKey]:
         """Convenience function for users to introspect recipe."""
         return self._chunks_inputs[chunk_key]
-
-    def to_dask(self):
-        """Convert the Recipe to a dask.delayed.Delayed object."""
-        # This manually builds a Dask task graph with each stage of the recipe.
-        # We use a few "checkpoints" to ensure that downstream tasks depend
-        # on upstream tasks being done before starting.
-
-        # TODO: HighlevelGraph layers for each of these mapped inputs.
-        # Cache Input --------------------------------------------------------
-        dsk = {}
-        token = dask.base.tokenize(self)
-
-        for i, input_key in enumerate(self.iter_inputs()):
-            dsk[(f"cache_input-{token}", i)] = (self._cache_input, input_key)
-        dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
-
-        # Prepare Target -----------------------------------------------------
-        def prepare_target2(checkpoint):
-            return self._prepare_target()
-
-        dsk[f"prepare_target-{token}"] = (prepare_target2, f"checkpoint_0-{token}")
-
-        # Store Chunk --------------------------------------------------------
-        def store_chunk2(checkpoint, input_key):
-            return self._store_chunk(input_key)
-
-        keys = []
-        for i, chunk_key in enumerate(self.iter_chunks()):
-            k = (f"store_chunk-{token}", i)
-            dsk[k] = (store_chunk2, f"prepare_target-{token}", chunk_key)
-            keys.append(k)
-
-        dsk[f"checkpoint_1-{token}"] = (lambda *args: None, keys)
-
-        # Finalize Target ----------------------------------------------------
-        def finalize_target2(checkpoint):
-            return self._finalize_target()
-
-        key = f"finalize_target-{token}"
-        dsk[key] = (finalize_target2, f"checkpoint_1-{token}")
-
-        return Delayed(key, dsk)
-
-    def to_prefect(self):
-        """Compile the recipe to a Prefect.Flow object."""
-        from prefect import Flow, task, unmapped
-
-        cache_input_task = task(self._cache_input, name="cache_input")
-        prepare_target_task = task(self._prepare_target, name="prepare_target")
-        store_chunk_task = task(self._store_chunk, name="store_chunk")
-        finalize_target_task = task(self._finalize_target, name="finalize_target")
-
-        with Flow("pangeo-forge-recipe") as flow:
-            cache_task = cache_input_task.map(input_key=list(self.iter_inputs()))
-            prepare_task = prepare_target_task(upstream_tasks=[cache_task])
-            store_task = store_chunk_task.map(
-                chunk_key=list(self.iter_chunks()), upstream_tasks=[unmapped(prepare_task)],
-            )
-            _ = finalize_target_task(upstream_tasks=[store_task])
-
-        return flow
