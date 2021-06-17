@@ -95,4 +95,12 @@ cloud and HPC distributed schedulers.
 
 ### Prefect Flow
 
-TODO...
+You can convert your recipe to a [Prefect Flow](https://docs.prefect.io/core/concepts/flows.html) using
+the :meth:`BaseRecipe.to_prefect()` method. For example
+
+```{code-block} python
+flow = recipe.to_prefect()
+flow.run()
+```
+
+By default the flow is run using Prefect's [LocalExecutor](https://docs.prefect.io/orchestration/flow_config/executors.html#localexecutor). See [executors](https://docs.prefect.io/orchestration/flow_config/executors.html) for more.
