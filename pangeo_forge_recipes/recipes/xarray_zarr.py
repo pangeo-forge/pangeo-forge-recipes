@@ -8,7 +8,7 @@ import warnings
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from itertools import product
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, Hashable, List, Optional, Tuple
 
 import dask
 import numpy as np
@@ -342,7 +342,7 @@ def prepare_target(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
-) -> Optional[Dict[str, List[int]]]:
+) -> None:
     try:
         ds = open_target(target)
         logger.info("Found an existing dataset in target")
@@ -418,10 +418,10 @@ def prepare_target(
     expand_target_dim(target, concat_dim, n_sequence)
 
     # TODO(Tom): Handle state on the object
-    if cache_metadata:
-        # if nitems_per_input is not constant, we need to cache this info
-        recipe_meta = {"input_sequence_lens": input_sequence_lens}
-        return recipe_meta
+    # if cache_metadata:
+    #     # if nitems_per_input is not constant, we need to cache this info
+    #     recipe_meta = {"input_sequence_lens": input_sequence_lens}
+    #     return recipe_meta
     return None
 
 
@@ -683,16 +683,14 @@ class XarrayZarrRecipe(BaseRecipe):
 
     # Each stage of the recipe follows the same pattern:
     # 1. A top-level function, e.g. `prepare_target`, that does the actual work.
-    # 2. A private property, e.g. `._prepare_target`, that builds a partially applied function,
-    #    accepting just the arguments needed (e.g. a chunk_key).
-    # 3. A public property, e.g. `.prepare_target`, that calls the partially applied function
-    #    with the provided arguments (e.g. a chunk_key)
+    # 2. A public property, e.g. `.prepare_target`, that calls the partially applied function
+    #    with the provided arguments if any (e.g. a chunk_key)
     # This ensures that the actual function objects shipped to and executed on
     # workers do not contain any references to the `recipe` object itself, which is complicated
     # to serialize.
 
     @property
-    def prepare_target(self):
+    def prepare_target(self) -> Callable[[], None]:
         return functools.partial(
             prepare_target,
             target=self.target,
@@ -716,7 +714,7 @@ class XarrayZarrRecipe(BaseRecipe):
         )
 
     @property
-    def cache_input(self):
+    def cache_input(self) -> Callable[[Hashable], None]:
         return functools.partial(
             cache_input,
             cache_inputs=self.cache_inputs,
@@ -732,7 +730,7 @@ class XarrayZarrRecipe(BaseRecipe):
         )
 
     @property
-    def store_chunk(self):
+    def store_chunk(self) -> Callable[[Hashable], None]:
         return functools.partial(
             store_chunk,
             target=self.target,
@@ -756,7 +754,7 @@ class XarrayZarrRecipe(BaseRecipe):
         )
 
     @property
-    def finalize_target(self):
+    def finalize_target(self) -> Callable[[], None]:
         return functools.partial(
             finalize_target, target=self.target, consolidate_zarr=self.consolidate_zarr
         )
