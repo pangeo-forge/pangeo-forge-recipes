@@ -101,7 +101,7 @@ class BaseRecipe(ABC):
 
         def pipeline():
             # TODO: formalize this contract
-            if getattr(self, "cache_inputs"):
+            if getattr(self, "cache_inputs", False):
                 for input_key in self.iter_inputs():
                     self.cache_input(input_key)
             self.prepare_target()
@@ -118,17 +118,16 @@ class BaseRecipe(ABC):
         import dask
 
         tasks = []
-        if getattr(self, "cache_inputs"):
-            f = dask.delayed(self.cache_inputs)
+        if getattr(self, "cache_inputs", False):
+            f = dask.delayed(self.cache_input)
             for input_key in self.iter_inputs():
-                tasks.append(f)(input_key)
+                tasks.append(f(input_key))
 
         b0 = dask.delayed(_barrier)(*tasks)
         b1 = dask.delayed(_wait_and_call)(self.prepare_target, b0)
         tasks = []
-        f = dask.delayed(_wait_and_call)
         for chunk_key in self.iter_chunks():
-            tasks.append(f(b1, chunk_key))
+            tasks.append(dask.delayed(_wait_and_call)(self.store_chunk, b1, chunk_key))
 
         b2 = dask.delayed(_barrier)(*tasks)
         b3 = dask.delayed(_wait_and_call)(self.finalize_target, b2)
@@ -138,7 +137,7 @@ class BaseRecipe(ABC):
         """Compile the recipe to a Prefect.Flow object."""
         from prefect import Flow, task, unmapped
 
-        has_cache_inputs = getattr(self, "cache_inputs")
+        has_cache_inputs = getattr(self, "cache_inputs", False)
         if has_cache_inputs:
             cache_input_task = task(self.cache_input, name="cache_input")
         prepare_target_task = task(self.prepare_target, name="prepare_target")
@@ -158,6 +157,13 @@ class BaseRecipe(ABC):
             _ = finalize_target_task(upstream_tasks=[store_task])
 
         return flow
+
+    def __iter__(self):
+        if hasattr(self, "cache_inputs"):
+            yield self.cache_input, self.iter_inputs()
+        yield self.prepare_target, []
+        yield self.store_chunk, self.iter_chunks()
+        yield self.finalize_target, []
 
     # https://stackoverflow.com/questions/59986413/achieving-multiple-inheritance-using-python-dataclasses
     def __post_init__(self):

@@ -7,6 +7,8 @@ import xarray as xr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
+from pangeo_forge_recipes.recipes.base import BaseRecipe
+
 all_recipes = [
     lazy_fixture("netCDFtoZarr_sequential_recipe"),
     lazy_fixture("netCDFtoZarr_sequential_multi_variable_recipe"),
@@ -177,3 +179,66 @@ def test_lock_timeout(netCDFtoZarr_sequential_recipe, execute_recipe):
     # if we're using a Dask executor.
     if execute_recipe.param in {"manual", "python", "prefect"}:
         assert p.call_args[1]["timeout"] == 1
+
+
+class MyRecipe(BaseRecipe):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cache = {}
+        self.target = None
+        self.finalized = False
+        self.cache_inputs = True
+
+    @property
+    def prepare_target(self):
+        def _():
+            self.target = {}
+
+        return _
+
+    @property
+    def cache_input(self):
+        def _(input_key):
+            self.cache[input_key] = input_key
+
+        return _
+
+    @property
+    def store_chunk(self):
+        def _(chunk_key):
+            self.target[chunk_key] = self.cache[chunk_key]
+
+        return _
+
+    @property
+    def finalize_target(self):
+        def _():
+            self.finalized = True
+
+        return _
+
+    def iter_inputs(self):
+        return iter(range(4))
+
+    def iter_chunks(self):
+        return iter(range(4))
+
+
+def test_base_recipe():
+    recipe = MyRecipe()
+    recipe.to_function()()
+    assert recipe.finalized
+    assert recipe.target == {i: i for i in range(4)}
+
+    import dask
+
+    dask.config.set(scheduler="single-threaded")
+    recipe = MyRecipe()
+    recipe.to_dask().compute()
+    assert recipe.finalized
+    assert recipe.target == {i: i for i in range(4)}
+
+    recipe = MyRecipe()
+    recipe.to_prefect().run()
+    assert recipe.finalized
+    assert recipe.target == {i: i for i in range(4)}
