@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 from functools import partial
 from typing import Callable, Hashable, Iterable
 
-from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
-
 # How to manually execute a recipe: ###
 #
 #   t = PangeoForgeTarget()
@@ -75,19 +73,70 @@ class BaseRecipe(ABC):
         """
         pass
 
-    def to_pipelines(self) -> ParallelPipelines:
-        """Translate recipe to pipeline for execution.
+    def to_function(self) -> Callable[[], None]:
+        """
+        Translate the recipe to a Python function for execution.
         """
 
-        pipeline = []  # type: MultiStagePipeline
-        if getattr(self, "cache_inputs", False):  # TODO: formalize this contract
-            pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
-        pipeline.append(Stage(self.prepare_target))
-        pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
-        pipeline.append(Stage(self.finalize_target))
-        pipelines = []  # type: ParallelPipelines
-        pipelines.append(pipeline)
-        return pipelines
+        def pipeline():
+            # TODO: formalize this contract
+            if getattr(self, "cache_inputs"):
+                for input_key in self.iter_inputs():
+                    self.cache_input(input_key)
+            self.prepare_target()
+            for chunk_key in self.iter_chunks():
+                self.store_chunk(chunk_key)
+            self.finalize_target()
+
+        return pipeline
+
+    def to_dask(self):
+        """
+        Translate the recipe to a dask.Delayed object for parallel execution.
+        """
+        import dask
+
+        tasks = []
+        if getattr(self, "cache_inputs"):
+            f = dask.delayed(self.cache_inputs)
+            for input_key in self.iter_inputs():
+                tasks.append(f)(input_key)
+
+        b0 = dask.delayed(_barrier)(*tasks)
+        b1 = dask.delayed(_wait_and_call)(self.prepare_target, b0)
+        tasks = []
+        f = dask.delayed(_wait_and_call)
+        for chunk_key in self.iter_chunks():
+            tasks.append(f(b1, chunk_key))
+
+        b2 = dask.delayed(_barrier)(*tasks)
+        b3 = dask.delayed(_wait_and_call)(self.finalize_target, b2)
+        return b3
+
+    def to_prefect(self):
+        """Compile the recipe to a Prefect.Flow object."""
+        from prefect import Flow, task, unmapped
+
+        has_cache_inputs = getattr(self, "cache_inputs")
+        if has_cache_inputs:
+            cache_input_task = task(self.cache_input, name="cache_input")
+        prepare_target_task = task(self.prepare_target, name="prepare_target")
+        store_chunk_task = task(self.store_chunk, name="store_chunk")
+        finalize_target_task = task(self.finalize_target, name="finalize_target")
+
+        with Flow("pangeo-forge-recipe") as flow:
+            if has_cache_inputs:
+                cache_task = cache_input_task.map(input_key=list(self.iter_inputs()))
+                upstream_tasks = [cache_task]
+            else:
+                upstream_tasks = []
+            prepare_task = prepare_target_task(upstream_tasks=upstream_tasks)
+            store_task = store_chunk_task.map(
+                chunk_key=list(self.iter_chunks()), upstream_tasks=[unmapped(prepare_task)],
+            )
+            _ = finalize_target_task(upstream_tasks=[store_task])
+
+        return flow
 
     # https://stackoverflow.com/questions/59986413/achieving-multiple-inheritance-using-python-dataclasses
     def __post_init__(self):
@@ -111,3 +160,11 @@ def closure(func: Callable) -> Callable:
         return new_func
 
     return wrapped
+
+
+def _barrier(*args):
+    pass
+
+
+def _wait_and_call(func, b, *args):
+    return func(*args)
