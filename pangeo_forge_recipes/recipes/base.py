@@ -1,6 +1,9 @@
+import warnings
 from abc import ABC, abstractmethod
 from functools import partial
 from typing import Callable, Hashable, Iterable
+
+from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
 # How to manually execute a recipe: ###
 #
@@ -72,6 +75,24 @@ class BaseRecipe(ABC):
         Attribute that returns a callable function.
         """
         pass
+
+    def to_pipelines(self) -> ParallelPipelines:
+        """Translate recipe to pipeline for execution.
+        """
+        warnings.warn(
+            "'to_pipelines' is deprecated. Use one of 'to_function', 'to_dask', or "
+            "'to_prefect' directly instead.",
+            FutureWarning,
+        )
+        pipeline = []  # type: MultiStagePipeline
+        if getattr(self, "cache_inputs", False):  # TODO: formalize this contract
+            pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
+        pipeline.append(Stage(self.prepare_target))
+        pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
+        pipeline.append(Stage(self.finalize_target))
+        pipelines = []  # type: ParallelPipelines
+        pipelines.append(pipeline)
+        return pipelines
 
     def to_function(self) -> Callable[[], None]:
         """
