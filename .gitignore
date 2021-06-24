@@ -132,3 +132,4 @@ _version.py
 
 # tutorials
 *.nc
+dask-worker-space
