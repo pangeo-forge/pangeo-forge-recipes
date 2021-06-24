@@ -32,6 +32,12 @@ def test_recipe(recipe_fixture, execute_recipe):
     ds_actual = xr.open_zarr(target.get_mapper()).load()
     xr.testing.assert_identical(ds_actual, ds_expected)
 
+    with rec.open_input(next(rec.iter_inputs())):
+        pass
+
+    with rec.open_chunk(next(rec.iter_chunks())):
+        pass
+
 
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
 @pytest.mark.parametrize("nkeep", [1, 2])

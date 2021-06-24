@@ -764,3 +764,38 @@ class XarrayZarrRecipe(BaseRecipe):
     def inputs_for_chunk(self, chunk_key: ChunkKey) -> Tuple[InputKey]:
         """Convenience function for users to introspect recipe."""
         return self._chunks_inputs[chunk_key]
+
+    # ------------------------------------------------------------------------
+    # Convenience methods
+    @contextmanager
+    def open_input(self, input_key):
+        with open_input(
+            input_key,
+            file_pattern=self.file_pattern,
+            input_cache=self.input_cache,
+            cache_inputs=self.cache_inputs,
+            copy_input_to_local_file=self.copy_input_to_local_file,
+            xarray_open_kwargs=self.xarray_open_kwargs,
+            delete_input_encoding=self.delete_input_encoding,
+            process_input=self.process_input,
+        ) as ds:
+            yield ds
+
+    @contextmanager
+    def open_chunk(self, chunk_key):
+        with open_chunk(
+            chunk_key,
+            chunks_inputs=self._chunks_inputs,
+            concat_dim=self._concat_dim,
+            xarray_concat_kwargs=self.xarray_concat_kwargs,
+            process_chunk=self.process_chunk,
+            target_chunks=self.target_chunks,
+            file_pattern=self.file_pattern,
+            input_cache=self.input_cache,
+            cache_inputs=self.cache_input,
+            copy_input_to_local_file=self.copy_input_to_local_file,
+            xarray_open_kwargs=self.xarray_open_kwargs,
+            delete_input_encoding=self.delete_input_encoding,
+            process_input=self.process_input,
+        ) as ds:
+            yield ds
