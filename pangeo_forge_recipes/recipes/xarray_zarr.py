@@ -40,10 +40,6 @@ def _input_metadata_fname(input_key):
     return "input-meta-" + _encode_key(input_key) + ".json"
 
 
-def _chunk_metadata_fname(chunk_key) -> str:
-    return "chunk-meta-" + _encode_key(chunk_key) + ".json"
-
-
 ChunkKey = Tuple[int]
 InputKey = Tuple[int]
 
@@ -90,7 +86,6 @@ def cache_input_metadata(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
 ):
-    # TODO(TOM): figure out where caching should happen
     if metadata_cache is None:
         raise ValueError("metadata_cache is not set.")
     logger.info(f"Caching metadata for input '{input_key}'")
@@ -105,7 +100,6 @@ def cache_input_metadata(
         process_input=process_input,
     ) as ds:
         input_metadata = ds.to_dict(data=False)
-        # TODO(METADATA): set
         metadata_cache[_input_metadata_fname(input_key)] = input_metadata
 
 
@@ -151,6 +145,7 @@ def region_and_conflicts_for_chunk(
     input_sequence_lens,
     concat_dim_chunks: Optional[int],
     concat_dim: Optional[str],
+    metadata_cache: Optional[MetadataTarget],
 ):
     # return a dict suitable to pass to xr.to_zarr(region=...)
     # specifies where in the overall array to put this chunk's data
@@ -160,10 +155,10 @@ def region_and_conflicts_for_chunk(
 
     if nitems_per_input:
         input_sequence_lens = (nitems_per_input,) * file_pattern.dims[concat_dim]  # type: ignore
-    # TODO(Tom): Handle metadata caching here
-    # else:
-    # global_metadata = metadata_cache[_GLOBAL_METADATA_KEY]
-    # input_sequence_lens = global_metadata["input_sequence_lens"]
+    else:
+        assert metadata_cache is not None  # for mypy
+        global_metadata = metadata_cache[_GLOBAL_METADATA_KEY]
+        input_sequence_lens = global_metadata["input_sequence_lens"]
 
     assert concat_dim_chunks is not None
 
@@ -290,7 +285,6 @@ def get_input_meta(metadata_cache: Optional[MetadataTarget], *input_keys: InputK
     # getitems should be async; much faster than serial calls
     if metadata_cache is None:
         raise ValueError("metadata_cache is not set.")
-    # TODO(METADATA): get
     return metadata_cache.getitems([_input_metadata_fname(k) for k in input_keys])
 
 
@@ -302,7 +296,7 @@ def calculate_sequence_lens(
     metadata_cache: Optional[MetadataTarget],
 ) -> List[int]:
     if nitems_per_input:
-        assert concat_dim is not None  # TODO(mypy)
+        assert concat_dim is not None
         return list((nitems_per_input,) * file_pattern.dims[concat_dim])
 
     # read per-input metadata; this is distinct from global metadata
@@ -313,7 +307,7 @@ def calculate_sequence_lens(
     all_lens = np.array([m["dims"][concat_dim] for m in input_meta.values()])
     all_lens.shape = list(file_pattern.dims.values())
     # check that all lens are the same along the concat dim
-    assert concat_dim is not None  # TODO(mypy)
+    assert concat_dim is not None
     concat_dim_axis = list(file_pattern.dims).index(concat_dim)
     selector = [slice(0, 1)] * len(file_pattern.dims)
     selector[concat_dim_axis] = slice(None)  # this should broadcast correctly agains all_lens
@@ -417,12 +411,11 @@ def prepare_target(
     logger.info(f"Expanding target concat dim '{concat_dim}' to size {n_sequence}")
     expand_target_dim(target, concat_dim, n_sequence)
 
-    # TODO(Tom): Handle state on the object
-    # if cache_metadata:
-    #     # if nitems_per_input is not constant, we need to cache this info
-    #     recipe_meta = {"input_sequence_lens": input_sequence_lens}
-    #     return recipe_meta
-    return None
+    if cache_metadata:
+        # if nitems_per_input is not constant, we need to cache this info
+        assert metadata_cache is not None  # for mypy
+        recipe_meta = {"input_sequence_lens": input_sequence_lens}
+        metadata_cache[_GLOBAL_METADATA_KEY] = recipe_meta
 
 
 def store_chunk(
@@ -485,6 +478,7 @@ def store_chunk(
             input_sequence_lens=input_sequence_lens,
             concat_dim_chunks=concat_dim_chunks,
             concat_dim=concat_dim,
+            metadata_cache=metadata_cache,
         )
 
         zgroup = zarr.open_group(target_mapper)
