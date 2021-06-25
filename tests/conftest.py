@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 from dask.distributed import Client, LocalCluster
+from prefect.executors import DaskExecutor
 
 from pangeo_forge_recipes import recipes
 from pangeo_forge_recipes.executors import (
@@ -269,7 +270,6 @@ _executors = {
 
 @pytest.fixture(params=["manual", "python", "dask", "prefect", "prefect-dask"])
 def execute_recipe(request, dask_cluster):
-
     if request.param == "manual":
 
         def execute(r):
@@ -281,27 +281,29 @@ def execute_recipe(request, dask_cluster):
                 r.store_chunk(chunk_key)
             r.finalize_target()
 
+    elif request.param == "python":
+
+        def execute(recipe):
+            return recipe.to_function()()
+
+    elif request.param == "dask":
+
+        def execute(recipe):
+            with Client(dask_cluster):
+                return recipe.to_dask().compute()
+
+    elif request.param == "prefect":
+
+        def execute(recipe):
+            return recipe.to_prefect().run()
+
     else:
-        ExecutorClass = _executors[request.param]
+        assert request.param == "prefect-dask"
 
-        def execute(rec):
-            ex = ExecutorClass()
-            pipeline = rec.to_pipelines()
-            plan = ex.pipelines_to_plan(pipeline)
-
-            if request.param == "dask":
-                client = Client(dask_cluster)
-
-            if request.param == "prefect-dask":
-                from prefect.executors import DaskExecutor
-
-                prefect_executor = DaskExecutor(address=dask_cluster.scheduler_address)
-                plan.run(executor=prefect_executor)
-            else:
-                ex.execute_plan(plan)
-            if request.param == "dask":
-                client.close()
-                del client
+        def execute(recipe):
+            flow = recipe.to_prefect()
+            executor = DaskExecutor(address=dask_cluster.scheduler_address)
+            flow.run(executor=executor)
 
     execute.param = request.param
     return execute

@@ -39,6 +39,7 @@ recipe.prepare_target()
 
 For example, for Zarr targets, this sets up the Zarr group with the necessary
 arrays and metadata.
+This is the most complex step, and the most likely place to get an error.
 
 ### Stage 3: Store Chunks
 
@@ -57,43 +58,49 @@ If there is any cleanup or consolidation to be done, it happens here.
 recipe.finalize_target()
 ```
 
-For example, consolidating Zarr metadta happens in the finalize step.
+For example, consolidating Zarr metadata happens in the finalize step.
 
-## Execution by Executors
+## Compiled Recipes
 
 Very large recipes cannot feasibly be executed this way.
-To support distributed parallel execution, Pangeo Forge borrows the
-[Executors framework from Rechunker](https://rechunker.readthedocs.io/en/latest/executors.html).
+Instead, recipes can be _compiled_ to executable objects.
+We currently support three types of compilation.
 
-There are currently three executors implemented.
-- {class}`pangeo_forge_recipes.executors.PythonPipelineExecutor`: a reference executor
-  using simple python
-- {class}`pangeo_forge_recipes.executors.DaskPipelineExecutor`: distributed executor using Dask
-- {class}`pangeo_forge_recipes.executors.PrefectPipelineExecutor`: distributed executor using Prefect
+### Python Function
 
-To use an executor, the recipe must first be transformed into a `Pipeline` object.
-The full process looks like this:
+To convert a recipe to a single python function, use the method `.to_function()`.
+For example
 
 ```{code-block} python
-pipeline = recipe.to_pipelines()
-executor = PrefectPipelineExecutor()
-plan = executor.pipelines_to_plan(pipeline)
-executor.execute_plan(plan)  # actually runs the recipe
+recipe_func = recipe.to_function()
+recipe_func()  # actually execute the recipe
 ```
 
-## Executors
+Note that the python function approach does not support parallel or distributed execution.
+It's mostly just a convenience utility.
 
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.executors.PythonPipelineExecutor
-    :members:
+
+### Dask Delayed
+
+You can convert your recipe to a [Dask Delayed](https://docs.dask.org/en/latest/delayed.html)
+object using the `.to_dask()` method. For example
+
+```{code-block} python
+delayed = recipe.to_dask()
+delayed.compute()
 ```
 
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.executors.DaskPipelineExecutor
-    :members:
+The `delayed` object can be executed by any of Dask's schedulers, including
+cloud and HPC distributed schedulers.
+
+### Prefect Flow
+
+You can convert your recipe to a [Prefect Flow](https://docs.prefect.io/core/concepts/flows.html) using
+the :meth:`BaseRecipe.to_prefect()` method. For example
+
+```{code-block} python
+flow = recipe.to_prefect()
+flow.run()
 ```
 
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.executors.PrefectPipelineExecutor
-    :members:
-```
+By default the flow is run using Prefect's [LocalExecutor](https://docs.prefect.io/orchestration/flow_config/executors.html#localexecutor). See [executors](https://docs.prefect.io/orchestration/flow_config/executors.html) for more.

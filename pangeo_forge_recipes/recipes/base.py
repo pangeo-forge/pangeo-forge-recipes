@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from functools import partial
 from typing import Callable, Hashable, Iterable
@@ -78,7 +79,11 @@ class BaseRecipe(ABC):
     def to_pipelines(self) -> ParallelPipelines:
         """Translate recipe to pipeline for execution.
         """
-
+        warnings.warn(
+            "'to_pipelines' is deprecated. Use one of 'to_function', 'to_dask', or "
+            "'to_prefect' directly instead.",
+            FutureWarning,
+        )
         pipeline = []  # type: MultiStagePipeline
         if getattr(self, "cache_inputs", False):  # TODO: formalize this contract
             pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
@@ -88,6 +93,98 @@ class BaseRecipe(ABC):
         pipelines = []  # type: ParallelPipelines
         pipelines.append(pipeline)
         return pipelines
+
+    def to_function(self) -> Callable[[], None]:
+        """
+        Translate the recipe to a Python function for execution.
+        """
+
+        def pipeline():
+            # TODO: formalize this contract
+            if getattr(self, "cache_inputs", False):
+                for input_key in self.iter_inputs():
+                    self.cache_input(input_key)
+            self.prepare_target()
+            for chunk_key in self.iter_chunks():
+                self.store_chunk(chunk_key)
+            self.finalize_target()
+
+        return pipeline
+
+    def to_dask(self):
+        """
+        Translate the recipe to a dask.Delayed object for parallel execution.
+        """
+        # This manually builds a Dask task graph with each stage of the recipe.
+        # We use a few "checkpoints" to ensure that downstream tasks depend
+        # on upstream tasks being done before starting. We use a manual task
+        # graph rather than dask.delayed to avoid some expensive tokenization
+        # in dask.delayed
+        import dask
+        from dask.delayed import Delayed
+
+        # TODO: HighlevelGraph layers for each of these mapped inputs.
+        # Cache Input --------------------------------------------------------
+        dsk = {}
+        token = dask.base.tokenize(self)
+
+        if getattr(self, "cache_inputs", False):  # TODO: formalize cache_inputs
+            for i, input_key in enumerate(self.iter_inputs()):
+                dsk[(f"cache_input-{token}", i)] = (self.cache_input, input_key)
+
+        # Prepare Target ------------------------------------------------------
+        dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
+        dsk[f"prepare_target-{token}"] = (
+            _prepare_target,
+            f"checkpoint_0-{token}",
+            self.prepare_target,
+        )
+
+        # Store Chunk --------------------------------------------------------
+        keys = []
+        for i, chunk_key in enumerate(self.iter_chunks()):
+            k = (f"store_chunk-{token}", i)
+            dsk[k] = (_store_chunk, f"prepare_target-{token}", self.store_chunk, chunk_key)
+            keys.append(k)
+
+        # Finalize Target -----------------------------------------------------
+        dsk[f"checkpoint_1-{token}"] = (lambda *args: None, keys)
+        key = f"finalize_target-{token}"
+        dsk[key] = (_finalize_target, f"checkpoint_1-{token}", self.finalize_target)
+
+        return Delayed(key, dsk)
+
+    def to_prefect(self):
+        """Compile the recipe to a Prefect.Flow object."""
+        from prefect import Flow, task, unmapped
+
+        has_cache_inputs = getattr(self, "cache_inputs", False)
+        if has_cache_inputs:
+            cache_input_task = task(self.cache_input, name="cache_input")
+        prepare_target_task = task(self.prepare_target, name="prepare_target")
+        store_chunk_task = task(self.store_chunk, name="store_chunk")
+        finalize_target_task = task(self.finalize_target, name="finalize_target")
+
+        with Flow("pangeo-forge-recipe") as flow:
+            if has_cache_inputs:
+                cache_task = cache_input_task.map(input_key=list(self.iter_inputs()))
+                upstream_tasks = [cache_task]
+            else:
+                upstream_tasks = []
+            prepare_task = prepare_target_task(upstream_tasks=upstream_tasks)
+            store_task = store_chunk_task.map(
+                chunk_key=list(self.iter_chunks()), upstream_tasks=[unmapped(prepare_task)],
+            )
+            _ = finalize_target_task(upstream_tasks=[store_task])
+
+        return flow
+
+    def __iter__(self):
+        if hasattr(self, "cache_inputs"):
+            yield self.cache_input, self.iter_inputs()
+        yield self.prepare_target, []
+        yield self.store_chunk, self.iter_chunks()
+        yield self.finalize_target, []
 
     # https://stackoverflow.com/questions/59986413/achieving-multiple-inheritance-using-python-dataclasses
     def __post_init__(self):
@@ -111,3 +208,15 @@ def closure(func: Callable) -> Callable:
         return new_func
 
     return wrapped
+
+
+def _prepare_target(checkpoint, func):
+    return func()
+
+
+def _store_chunk(checkpoint, func, input_key):
+    return func(input_key)
+
+
+def _finalize_target(checkpoint, func):
+    return func()
