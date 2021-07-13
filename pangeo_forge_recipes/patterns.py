@@ -13,7 +13,7 @@ class SubsetSpec:
     """A data structure that explains how to subset a file in one dimension.
     """
 
-    dim_name: str
+    dim: str
     this_segment: int
     total_segments: int
 
@@ -167,7 +167,7 @@ class FilePattern:
         }
         fname = self.format_function(**format_function_kwargs)
         subset_specs = [
-            SubsetSpec(dim_name=cdim.dim, this_segment=i, total_segments=cdim.subset_factor)
+            SubsetSpec(dim=cdim.dim, this_segment=i, total_segments=cdim.subset_factor)
             for cdim, i in zip(self.combine_dims, indexer)
             if isinstance(cdim, SubsetDim)
         ]

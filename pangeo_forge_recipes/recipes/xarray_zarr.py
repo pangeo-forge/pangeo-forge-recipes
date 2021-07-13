@@ -4,6 +4,7 @@ A Pangeo Forge Recipe
 
 import functools
 import logging
+import math
 import warnings
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
@@ -15,7 +16,7 @@ import numpy as np
 import xarray as xr
 import zarr
 
-from ..patterns import FilePattern, prune_pattern
+from ..patterns import FilePattern, SubsetSpec, prune_pattern
 from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
 from ..utils import (
     chunk_bounds_and_conflicts,
@@ -185,6 +186,19 @@ def region_and_conflicts_for_chunk(
     return {concat_dim: region_slice}, this_chunk_conflicts
 
 
+def _subset_dataset(ds: xr.Dataset, subset_spec: SubsetSpec):
+    dim = subset_spec.dim
+    dim_len = ds.dims[dim]
+    step = math.ceil(dim_len / subset_spec.total_segments)
+    start = step * subset_spec.this_segment
+    stop = min(step * (subset_spec.this_segment + 1), dim_len)
+    subset_slice = slice(start, stop)
+    subset_slice = slice(start, stop, step)
+    indexer = {dim: subset_slice}
+    logger.debug(f"Subseting dataset with indexer {indexer}")
+    return ds.isel(**indexer)
+
+
 @contextmanager
 def open_input(
     input_key: InputKey,
@@ -196,7 +210,8 @@ def open_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
 ) -> xr.Dataset:
-    fname = file_pattern[input_key].fname
+    open_spec = file_pattern[input_key]
+    fname = open_spec.fname
     # TODO: handle subsetting
     logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
     cache = input_cache if cache_inputs else None
@@ -208,6 +223,12 @@ def open_input(
                 kw["engine"] = "h5netcdf"
             ds = xr.open_dataset(f, **kw)
             logger.debug("successfully opened dataset")
+
+            for subset_spec in open_spec.subsets:
+                logger.info(f"Subseting dataset according to spec: {subset_spec}")
+                # hopefully this is always lazy
+                ds = _subset_dataset(ds, subset_spec)
+
             ds = fix_scalar_attr_encoding(ds)
 
             if delete_input_encoding:
