@@ -6,9 +6,6 @@ from dataclasses import dataclass, field, replace
 from itertools import product
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
-import numpy as np
-import xarray as xr
-
 
 @dataclass
 class ConcatDim:
@@ -63,30 +60,9 @@ class FilePattern:
       product of the keys is used to generate the full list of file paths.
     """
 
-    @staticmethod
-    def _make_da(format_function, combine_dims) -> xr.DataArray:
-        dim_names = [cdim.name for cdim in combine_dims]
-        fnames = []
-        for keys in product(*[cdim.keys for cdim in combine_dims]):
-            kwargs = dict(zip(dim_names, keys))
-            fnames.append(format_function(**kwargs))
-        shape = [len(cdim.keys) for cdim in combine_dims]
-        fnames_np = np.array(fnames)
-        fnames_np.shape = tuple(shape)
-        # This way of defining coords is incompatible with xarray type annotations.
-        # I don't understand why.
-        coords = {cdim.name: (cdim.name, cdim.keys) for cdim in combine_dims}
-        return xr.DataArray(fnames_np, dims=list(coords), coords=coords)  # type: ignore
-
     def __init__(self, format_function: Callable, *combine_dims: CombineDim):
-        self.__setstate__((format_function, combine_dims))
-
-    def __getstate__(self):
-        return self.format_function, self.combine_dims
-
-    def __setstate__(self, state):
-        self.format_function, self.combine_dims = state
-        self._da = self._make_da(self.format_function, self.combine_dims)
+        self.format_function = format_function
+        self.combine_dims = combine_dims
 
     def __repr__(self):
         return f"<FilePattern {self.dims}>"
@@ -100,7 +76,7 @@ class FilePattern:
     @property
     def shape(self) -> Tuple[int, ...]:
         """Shape of the filename matrix."""
-        return self._da.shape
+        return tuple([len(op.keys) for op in self.combine_dims])
 
     @property
     def merge_dims(self) -> List[str]:
@@ -135,7 +111,12 @@ class FilePattern:
 
     def __getitem__(self, indexer) -> str:
         """Get a filename path for a particular key. """
-        return self._da[indexer].values.item()
+        assert len(indexer) == len(self.combine_dims)
+        format_function_kwargs = {
+            cdim.name: cdim.keys[i] for cdim, i in zip(self.combine_dims, indexer)
+        }
+        fname = self.format_function(**format_function_kwargs)
+        return fname
 
     def __iter__(self) -> Iterator[Index]:
         """Iterate over all keys in the pattern. """
