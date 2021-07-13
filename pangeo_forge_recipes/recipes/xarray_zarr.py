@@ -557,6 +557,10 @@ class XarrayZarrRecipe(BaseRecipe):
     :param process_chunk: Function to call on each concatenated chunk, with signature
       `(ds: xr.Dataset) -> ds: xr.Dataset`.
     :param lock_timeout: The default timeout for acquiring a chunk lock.
+    :param subset_inputs: If set, break each input file up into multiple chunks
+      along dimension according to the specified mapping. For example,
+      ``{'time': 5}`` would split each input file into 5 chunks along the
+      time dimension. Multiple dimensions are allowed.
     """
 
     file_pattern: FilePattern
@@ -575,6 +579,7 @@ class XarrayZarrRecipe(BaseRecipe):
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
     lock_timeout: Optional[int] = None
+    subset_inputs: Dict[str, int] = field(default_factory=dict)
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: Optional[str] = None
