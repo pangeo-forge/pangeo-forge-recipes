@@ -122,7 +122,7 @@ def cache_input(
         if input_cache is None:
             raise ValueError("input_cache is not set.")
         logger.info(f"Caching input '{input_key}'")
-        fname, _ = file_pattern[input_key]
+        fname = file_pattern[input_key].fname
         input_cache.cache_file(fname, **fsspec_open_kwargs)
 
     if cache_metadata:
@@ -196,7 +196,7 @@ def open_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
 ) -> xr.Dataset:
-    fname, input_kwargs = file_pattern[input_key]
+    fname = file_pattern[input_key].fname
     # TODO: handle subsetting
     logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
     cache = input_cache if cache_inputs else None

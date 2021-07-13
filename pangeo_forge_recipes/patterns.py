@@ -9,6 +9,30 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tupl
 
 
 @dataclass
+class SubsetSpec:
+    """A data structure that explains how to subset a file in one dimension.
+    """
+
+    dim_name: str
+    this_segment: int
+    total_segments: int
+
+    def __post_init__(self):
+        assert self.total_segments > 0
+        assert self.this_segment >= 0
+        assert self.this_segment < self.total_segments
+
+
+@dataclass
+class OpenSpec:
+    """A data structure that explains how to open a file.
+    """
+
+    fname: str
+    subsets: List[SubsetSpec] = field(default_factory=list)
+
+
+@dataclass
 class ConcatDim:
     """Represents a concatenation operation across a dimension of a FilePattern.
 
@@ -68,21 +92,16 @@ class SubsetDim:
         return list(range(self.subset_factor))
 
 
-# the type which should be returned by format_function
-OpenSpec = Tuple[str, dict]
-
-
 class FilePattern:
     """Represents an n-dimensional matrix of individual files to be combined
     through a combination of merge and concat operations. Each operation generates
     a new dimension to the matrix.
 
     :param format_function: A function that takes one argument for each
-      combine_op and returns an open_spec (tuple of fname and open_kwargs)
+      non-subset combine_op and returns a filename.
       Each argument name should correspond to a ``name`` in the ``combine_dims``
       list.
-    :param combine_dims: A sequence of either concat or merge dimensions. The outer
-      product of the keys is used to generate the full list of file paths.
+    :param combine_dims: A sequence of concat, merge, or subset dimensions.
     """
 
     def __init__(self, format_function: Callable, *combine_dims: CombineDim):
@@ -142,19 +161,17 @@ class FilePattern:
         """Get a filename path for a particular key. """
         assert len(indexer) == len(self.combine_dims)
         format_function_kwargs = {
-            cdim.name: cdim.keys[i] for cdim, i in zip(self.combine_dims, indexer)
+            cdim.name: cdim.keys[i]
+            for cdim, i in zip(self.combine_dims, indexer)
+            if not isinstance(cdim, SubsetDim)
         }
-        try:
-            fname, open_kwargs = self.format_function(**format_function_kwargs)
-        except ValueError:  # too many values to unpack (expected 2)
-            # legacy path
-            fname = self.format_function(**format_function_kwargs)
-            warnings.warn(
-                "In the future, format_function must return a filename "
-                "AND a dict of open_kwargs (possibly empty)."
-            )
-            open_kwargs = {}
-        return fname, open_kwargs
+        fname = self.format_function(**format_function_kwargs)
+        subset_specs = [
+            SubsetSpec(dim_name=cdim.dim, this_segment=i, total_segments=cdim.subset_factor)
+            for cdim, i in zip(self.combine_dims, indexer)
+            if isinstance(cdim, SubsetDim)
+        ]
+        return OpenSpec(fname, subset_specs)
 
     def __iter__(self) -> Iterator[Index]:
         """Iterate over all keys in the pattern. """
