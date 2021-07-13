@@ -2,7 +2,7 @@
 Filename / URL patterns.
 """
 
-# import warnings
+import warnings
 from dataclasses import dataclass, field, replace
 from itertools import product
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
@@ -52,16 +52,16 @@ CombineDim = Union[MergeDim, ConcatDim]
 class SubsetDim:
     """Adds an layer of iteration to represent subsetting within each file.
 
-    :param name: The name of the dimension we are subsetting over.
+    :param dim: The name of the dimension we are subsetting over.
     :param subset_factor: How many pieces to divide each segment into.
     """
 
-    subset_dim: str  # should match the actual dimension name we are subsetting over
+    dim: str  # should match the actual dimension name we are subsetting over
     subset_factor: int
 
     @property
     def name(self):
-        return f"{self.subset_dim}_subset"
+        return f"{self.dim}_subset"
 
     @property
     def keys(self):
@@ -114,6 +114,10 @@ class FilePattern:
         return [op.name for op in self.combine_dims if isinstance(op, ConcatDim)]
 
     @property
+    def subset_dims(self) -> List[str]:
+        return [op.name for op in self.combine_dims if isinstance(op, SubsetDim)]
+
+    @property
     def nitems_per_input(self) -> Dict[str, Union[int, None]]:
         """Dictionary mapping concat dims to number of items per file."""
         nitems = {}  # type: Dict[str, Union[int, None]]
@@ -134,14 +138,23 @@ class FilePattern:
             for dim_name, nitems in self.nitems_per_input.items()
         }
 
-    def __getitem__(self, indexer) -> str:
+    def __getitem__(self, indexer) -> OpenSpec:
         """Get a filename path for a particular key. """
         assert len(indexer) == len(self.combine_dims)
         format_function_kwargs = {
             cdim.name: cdim.keys[i] for cdim, i in zip(self.combine_dims, indexer)
         }
-        fname = self.format_function(**format_function_kwargs)
-        return fname
+        try:
+            fname, open_kwargs = self.format_function(**format_function_kwargs)
+        except ValueError:  # too many values to unpack (expected 2)
+            # legacy path
+            fname = self.format_function(**format_function_kwargs)
+            warnings.warn(
+                "In the future, format_function must return a filename "
+                "AND a dict of open_kwargs (possibly empty)."
+            )
+            open_kwargs = {}
+        return fname, open_kwargs
 
     def __iter__(self) -> Iterator[Index]:
         """Iterate over all keys in the pattern. """
@@ -156,6 +169,11 @@ class FilePattern:
 
 def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None):
     """Convenience function for creating a FilePattern from a list of files."""
+    warnings.warn(
+        "This function will be removed in a future version. "
+        "Please define a FilePattern directly instead.",
+        DeprecationWarning,
+    )
 
     keys = list(range(len(file_list)))
     concat = ConcatDim(name=concat_dim, keys=keys, nitems_per_file=nitems_per_file)

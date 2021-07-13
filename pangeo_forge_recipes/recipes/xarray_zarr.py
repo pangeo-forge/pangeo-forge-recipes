@@ -116,11 +116,13 @@ def cache_input(
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
 ):
+    # since many input keys can now point at the same file, we need to refactor
+    # here to avoid redundant caching
     if cache_inputs:
         if input_cache is None:
             raise ValueError("input_cache is not set.")
         logger.info(f"Caching input '{input_key}'")
-        fname = file_pattern[input_key]
+        fname, _ = file_pattern[input_key]
         input_cache.cache_file(fname, **fsspec_open_kwargs)
 
     if cache_metadata:
@@ -194,7 +196,8 @@ def open_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
 ) -> xr.Dataset:
-    fname = file_pattern[input_key]
+    fname, input_kwargs = file_pattern[input_key]
+    # TODO: handle subsetting
     logger.info(f"Opening input with Xarray {input_key}: '{fname}'")
     cache = input_cache if cache_inputs else None
     with file_opener(fname, cache=cache, copy_to_local=copy_input_to_local_file) as f:
