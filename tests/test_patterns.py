@@ -111,3 +111,28 @@ def test_subset_single_file(subset_factor):
         subset_spec = open_spec.subsets[0]
         assert subset_spec.this_segment == key[0]
         assert subset_spec.total_segments == subset_factor
+
+
+@pytest.mark.parametrize("subset_factor", [1, 2])
+@pytest.mark.parametrize("sequence_len", [3])
+def test_concat_and_subset(subset_factor, sequence_len):
+    def format_function(time):
+        return f"T_{time}"
+
+    concat_dim = ConcatDim(name="time", keys=list(range(sequence_len)))
+    subset_dim = SubsetDim(dim="time", subset_factor=subset_factor)
+    fp = FilePattern(format_function, concat_dim, subset_dim)
+
+    assert fp.dims == {"time": sequence_len, "time_subset": subset_factor}
+    assert fp.shape == (sequence_len, subset_factor,)
+    assert fp.subset_dims == ["time_subset"]
+    assert fp.concat_dims == ["time"]
+    expected_keys = [(j, i) for j in range(sequence_len) for i in range(subset_factor)]
+    assert list(fp) == expected_keys
+    for key in fp:
+        open_spec = fp[key]
+        assert open_spec.fname == format_function(time=key[0])
+        assert len(open_spec.subsets) == 1
+        subset_spec = open_spec.subsets[0]
+        assert subset_spec.this_segment == key[1]
+        assert subset_spec.total_segments == subset_factor
