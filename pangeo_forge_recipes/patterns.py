@@ -3,8 +3,15 @@ Filename / URL patterns.
 """
 
 from dataclasses import dataclass, field, replace
+from enum import Enum
 from itertools import product
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+
+
+class CombineOp(Enum):
+    MERGE = 1
+    CONCAT = 2
+    SUBSET = 3
 
 
 @dataclass
@@ -25,6 +32,7 @@ class ConcatDim:
     name: str  # should match the actual dimension name
     keys: Sequence[Any] = field(repr=False)
     nitems_per_file: Optional[int] = None
+    operation: ClassVar[CombineOp] = CombineOp.CONCAT
 
 
 @dataclass
@@ -41,9 +49,17 @@ class MergeDim:
 
     name: str
     keys: Sequence[Any] = field(repr=False)
+    operation: ClassVar[CombineOp] = CombineOp.MERGE
 
 
-Index = Tuple[int, ...]
+@dataclass(frozen=True)
+class DimIndex:
+    name: str
+    index: int
+    operation: CombineOp
+
+
+FilePatternIndex = Tuple[DimIndex, ...]
 CombineDim = Union[MergeDim, ConcatDim]
 
 
@@ -81,12 +97,12 @@ class FilePattern:
     @property
     def merge_dims(self) -> List[str]:
         """List of dims that are merge operations"""
-        return [op.name for op in self.combine_dims if isinstance(op, MergeDim)]
+        return [op.name for op in self.combine_dims if op.operation == CombineOp.MERGE]
 
     @property
     def concat_dims(self) -> List[str]:
         """List of dims that are concat operations"""
-        return [op.name for op in self.combine_dims if isinstance(op, ConcatDim)]
+        return [op.name for op in self.combine_dims if op.operation == CombineOp.CONCAT]
 
     @property
     def nitems_per_input(self) -> Dict[str, Union[int, None]]:
@@ -109,19 +125,19 @@ class FilePattern:
             for dim_name, nitems in self.nitems_per_input.items()
         }
 
-    def __getitem__(self, indexer) -> str:
+    def __getitem__(self, indexer: FilePatternIndex) -> str:
         """Get a filename path for a particular key. """
         assert len(indexer) == len(self.combine_dims)
-        format_function_kwargs = {
-            cdim.name: cdim.keys[i] for cdim, i in zip(self.combine_dims, indexer)
-        }
+        format_function_kwargs = {idx.name: idx.index for idx in indexer}
         fname = self.format_function(**format_function_kwargs)
         return fname
 
-    def __iter__(self) -> Iterator[Index]:
+    def __iter__(self) -> Iterator[FilePatternIndex]:
         """Iterate over all keys in the pattern. """
         for val in product(*[range(n) for n in self.shape]):
-            yield val
+            yield tuple(
+                [DimIndex(op.name, v, op.operation) for op, v in zip(self.combine_dims, val)]
+            )
 
     def items(self):
         """Iterate over key, filename pairs."""

@@ -1,6 +1,7 @@
 import pytest
 
 from pangeo_forge_recipes.patterns import (
+    CombineOp,
     ConcatDim,
     FilePattern,
     MergeDim,
@@ -22,10 +23,9 @@ def test_file_pattern_concat():
     assert fp.concat_dims == ["time"]
     assert fp.nitems_per_input == {"time": None}
     assert fp.concat_sequence_lens == {"time": None}
-    expected_keys = [(0,), (1,), (2,)]
-    assert list(fp) == expected_keys
-    for key in expected_keys:
-        assert fp[key] == format_function(key[0])
+    assert len(list(fp)) == 3
+    for key, expected_value in zip(fp, ["T_0", "T_1", "T_2"]):
+        assert fp[key] == expected_value
 
 
 def test_pattern_from_file_sequence():
@@ -37,11 +37,8 @@ def test_pattern_from_file_sequence():
     assert fp.concat_dims == ["time"]
     assert fp.nitems_per_input == {"time": None}
     assert fp.concat_sequence_lens == {"time": None}
-    expected_keys = [(0,), (1,), (2,)]
-    assert list(fp) == expected_keys
-    for key in expected_keys:
-        assert fp[key] == file_sequence[key[0]]
-    assert list(fp.items()) == list(zip(expected_keys, file_sequence))
+    for key in fp:
+        assert fp[key] == file_sequence[key[0].index]
 
 
 @pytest.mark.parametrize("pickle", [False, True])
@@ -66,14 +63,15 @@ def test_file_pattern_concat_merge(pickle):
     assert fp.concat_dims == ["time"]
     assert fp.nitems_per_input == {"time": None}
     assert fp.concat_sequence_lens == {"time": None}
-    expected_keys = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
-    assert list(fp) == expected_keys
-    fnames = []
-    for key in expected_keys:
-        fname = format_function(variable=merge.keys[key[0]], time=concat.keys[key[1]])
+    assert len(list(fp)) == 6
+    for key in fp:
+        fname = format_function(**{k.name: k.index for k in key})
+        for k in key:
+            if k.name == "time":
+                assert k.operation == CombineOp.CONCAT
+            if k.name == "variable":
+                assert k.operation == CombineOp.MERGE
         assert fp[key] == fname
-        fnames.append(fname)
-    assert list(fp.items()) == list(zip(expected_keys, fnames))
 
 
 @pytest.mark.parametrize("nkeep", [1, 2])
