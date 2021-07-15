@@ -14,7 +14,7 @@ class CombineOp(Enum):
     SUBSET = 3
 
 
-@dataclass
+@dataclass(frozen=True)
 class ConcatDim:
     """Represents a concatenation operation across a dimension of a FilePattern.
 
@@ -35,7 +35,7 @@ class ConcatDim:
     operation: ClassVar[CombineOp] = CombineOp.CONCAT
 
 
-@dataclass
+@dataclass(frozen=True)
 class MergeDim:
     """Represents a merge operation across a dimension of a FilePattern.
 
@@ -56,7 +56,13 @@ class MergeDim:
 class DimIndex:
     name: str
     index: int
+    sequence_len: int
     operation: CombineOp
+
+    def __post_init__(self):
+        assert self.sequence_len > 0
+        assert self.index >= 0
+        assert self.index < self.sequence_len
 
 
 FilePatternIndex = Tuple[DimIndex, ...]
@@ -136,7 +142,8 @@ class FilePattern:
         """Iterate over all keys in the pattern. """
         for val in product(*[range(n) for n in self.shape]):
             yield tuple(
-                [DimIndex(op.name, v, op.operation) for op, v in zip(self.combine_dims, val)]
+                DimIndex(op.name, v, len(op.keys), op.operation)
+                for op, v in zip(self.combine_dims, val)
             )
 
     def items(self):

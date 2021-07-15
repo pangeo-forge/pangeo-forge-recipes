@@ -69,8 +69,10 @@ def test_file_pattern_concat_merge(pickle):
         for k in key:
             if k.name == "time":
                 assert k.operation == CombineOp.CONCAT
+                assert k.sequence_len == 3
             if k.name == "variable":
                 assert k.operation == CombineOp.MERGE
+                assert k.sequence_len == 2
         assert fp[key] == fname
 
 
