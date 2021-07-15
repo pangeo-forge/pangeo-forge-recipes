@@ -43,8 +43,10 @@ def test_pattern_from_file_sequence():
 
 @pytest.mark.parametrize("pickle", [False, True])
 def test_file_pattern_concat_merge(pickle):
-    concat = ConcatDim(name="time", keys=list(range(3)))
-    merge = MergeDim(name="variable", keys=["foo", "bar"])
+    times = list(range(3))
+    varnames = ["foo", "bar"]
+    concat = ConcatDim(name="time", keys=times)
+    merge = MergeDim(name="variable", keys=varnames)
 
     def format_function(time, variable):
         return f"T_{time}_V_{variable}"
@@ -65,7 +67,7 @@ def test_file_pattern_concat_merge(pickle):
     assert fp.concat_sequence_lens == {"time": None}
     assert len(list(fp)) == 6
     for key in fp:
-        fname = format_function(**{k.name: k.index for k in key})
+        expected_fname = format_function(time=times[key[1].index], variable=varnames[key[0].index])
         for k in key:
             if k.name == "time":
                 assert k.operation == CombineOp.CONCAT
@@ -73,7 +75,7 @@ def test_file_pattern_concat_merge(pickle):
             if k.name == "variable":
                 assert k.operation == CombineOp.MERGE
                 assert k.sequence_len == 2
-        assert fp[key] == fname
+        assert fp[key] == expected_fname
 
 
 @pytest.mark.parametrize("nkeep", [1, 2])

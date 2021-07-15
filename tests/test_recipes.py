@@ -1,4 +1,5 @@
 from contextlib import nullcontext as does_not_raise
+from dataclasses import replace
 from unittest.mock import patch
 
 import pytest
@@ -7,6 +8,7 @@ import xarray as xr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
+from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.recipes.base import BaseRecipe
 
 all_recipes = [
@@ -143,9 +145,13 @@ def test_chunks(
         kwargs["metadata_cache"] = None
     else:
         # modify file_pattern in place to remove nitems_per_file; a bit hacky
+        new_combine_dims = []
         for cdim in file_pattern.combine_dims:
             if hasattr(cdim, "nitems_per_file"):
-                cdim.nitems_per_file = None
+                new_combine_dims.append(replace(cdim, nitems_per_file=None))
+            else:
+                new_combine_dims.append(cdim)
+            file_pattern = FilePattern(file_pattern.format_function, *new_combine_dims)
 
     with chunk_expectation as excinfo:
         rec = RecipeClass(file_pattern, **kwargs)
