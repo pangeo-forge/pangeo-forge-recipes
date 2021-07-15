@@ -18,12 +18,7 @@ import zarr
 
 from ..patterns import CombineOp, DimIndex, FilePattern, FilePatternIndex, prune_pattern
 from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
-from ..utils import (
-    chunk_bounds_and_conflicts,
-    chunked_iterable,
-    fix_scalar_attr_encoding,
-    lock_for_conflicts,
-)
+from ..utils import chunk_bounds_and_conflicts, fix_scalar_attr_encoding, lock_for_conflicts
 from .base import BaseRecipe
 
 # use this filename to store global recipe metadata in the metadata_cache
@@ -64,16 +59,17 @@ def _input_metadata_fname(input_key):
 def inputs_for_chunk(
     chunk_key: ChunkKey, inputs_per_chunk: int, ninputs: int
 ) -> Sequence[InputKey]:
-    merge_dim = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.MERGE]
-    concat_dim = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.CONCAT]
-    subset_dims = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.SUBSET]
-    assert len(merge_dim) <= 1
-    if len(merge_dim) == 1:
-        merge_dim = merge_dim[0]
+    merge_dims = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.MERGE]
+    concat_dims = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.CONCAT]
+    # Ignore subset dims, we don't need them here
+    # subset_dims = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.SUBSET]
+    assert len(merge_dims) <= 1
+    if len(merge_dims) == 1:
+        merge_dim = merge_dims[0]  # type: Optional[DimIndex]
     else:
         merge_dim = None
-    assert len(concat_dim) == 1
-    concat_dim = concat_dim[0]
+    assert len(concat_dims) == 1
+    concat_dim = concat_dims[0]
 
     input_keys = []
 
@@ -265,11 +261,11 @@ def open_input(
         yield ds
 
 
-def subset_dataset(ds: xr.Dataset, subset_spec: DimIndex):
+def subset_dataset(ds: xr.Dataset, subset_spec: DimIndex) -> xr.Dataset:
     assert subset_spec.operation == CombineOp.SUBSET
     dim = subset_spec.name
     dim_len = ds.dims[dim]
-    step = math.ceil(dim_len / subset_spec.sequence_len)
+    step = ceil(dim_len / subset_spec.sequence_len)
     start = step * subset_spec.index
     stop = min(step * (subset_spec.index + 1), dim_len)
     subset_slice = slice(start, stop)
@@ -319,11 +315,13 @@ def open_chunk(
 
         # subset before chunking; hopefully lazy
         subset_dims = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.SUBSET]
+
         for subset_dim in subset_dims:
-            ds = subset_dataset(ds, subset_dim)
+            dsets = [subset_dataset(ds, subset_dim) for ds in dsets]
 
         # explicitly chunking prevents eager evaluation during concat
         dsets = [ds.chunk() for ds in dsets]
+
         logger.info(f"Combining inputs for chunk '{chunk_key}'")
         if len(dsets) > 1:
             # During concat, attributes and encoding are taken from the first dataset
@@ -629,7 +627,7 @@ class XarrayZarrRecipe(BaseRecipe):
     """
 
     file_pattern: FilePattern
-    inputs_per_chunk: Optional[int] = 1
+    inputs_per_chunk: int = 1
     target_chunks: Dict[str, int] = field(default_factory=dict)
     target: Optional[AbstractTarget] = None
     input_cache: Optional[CacheFSSpecTarget] = None
@@ -803,9 +801,11 @@ class XarrayZarrRecipe(BaseRecipe):
 
     def iter_chunks(self) -> Iterator[ChunkKey]:
         for input_key in self.iter_inputs():
-            concat_dim = [dim_idx for dim_idx in input_key if dim_idx.operation == CombineOp.CONCAT]
-            assert len(concat_dim) == 1
-            concat_dim = concat_dim[0]
+            concat_dims = [
+                dim_idx for dim_idx in input_key if dim_idx.operation == CombineOp.CONCAT
+            ]
+            assert len(concat_dims) == 1
+            concat_dim = concat_dims[0]
             input_concat_index = concat_dim.index
             if input_concat_index % self.inputs_per_chunk > 0:
                 continue  # don't emit a chunk
@@ -826,13 +826,13 @@ class XarrayZarrRecipe(BaseRecipe):
             for i in product(*subset_iterators):
                 subset_dims = [
                     DimIndex(*args, CombineOp.SUBSET)
-                    for args in zip(subset_inputs.keys(), i, subset_inputs.values())
+                    for args in zip(self.subset_inputs.keys(), i, self.subset_inputs.values())
                 ]
                 yield tuple(chunk_key_base) + tuple(subset_dims)
 
-    def inputs_for_chunk(self, chunk_key: ChunkKey) -> Tuple[InputKey]:
+    def inputs_for_chunk(self, chunk_key: ChunkKey) -> Sequence[InputKey]:
         """Convenience function for users to introspect recipe."""
-        ninputs = self.file_pattern.dims[file_pattern.concat_dims[0]]
+        ninputs = self.file_pattern.dims[self.file_pattern.concat_dims[0]]
         return inputs_for_chunk(chunk_key, self.inputs_per_chunk, ninputs)
 
     # ------------------------------------------------------------------------

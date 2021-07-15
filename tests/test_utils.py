@@ -1,20 +1,4 @@
-import pytest
-
-from pangeo_forge_recipes.utils import chunk_bounds_and_conflicts, chunked_iterable
-
-
-@pytest.mark.parametrize(
-    "iterable, size, expected",
-    [
-        ([1, 2, 3], 1, [(1,), (2,), (3,)]),
-        ([1, 2, 3], 2, [(1, 2), (3,)]),
-        ([1, 2, 3], 3, [(1, 2, 3,)],),
-        ([1, 2, 3], 4, [(1, 2, 3,)],),
-    ],
-)
-def test_chunked_iterable(iterable, size, expected):
-    actual = list(chunked_iterable(iterable, size))
-    assert actual == expected
+from pangeo_forge_recipes.utils import chunk_bounds_and_conflicts
 
 
 def test_chunk_conflicts():
