@@ -108,7 +108,7 @@ def lock_for_conflicts(conflicts, base_name="pangeo-forge", timeout=None):
                 logger.warning("Failed to acquire lock %s before timeout %s", lock.name, timeout)
                 raise ValueError(f"Failed to acquire lock {lock.name} before timeout {timeout}")
             logger.debug(f"Acquired lock {lock.name}")
-    else:
+    elif conflicts:
         logger.debug(f"Asked to lock {conflicts} but no Dask client found.")
     try:
         yield

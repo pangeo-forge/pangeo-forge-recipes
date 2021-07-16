@@ -251,7 +251,9 @@ def region_and_conflicts_for_chunk(
     this_chunk_conflicts = set()
     for idx in range(start_idx, stop_idx):
         conflict = all_chunk_conflicts[idx]
-        this_chunk_conflicts.add(conflict)
+        if conflict:
+            this_chunk_conflicts.add(conflict)
+            logger.debug(f"ADDING CHUNK CONFLICT {conflict}")
 
     return {concat_dim: region_slice}, this_chunk_conflicts
 

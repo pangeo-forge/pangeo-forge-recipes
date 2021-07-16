@@ -313,7 +313,9 @@ def execute_recipe(request, dask_cluster):
     elif request.param == "prefect":
 
         def execute(recipe):
-            return recipe.to_prefect().run()
+            state = recipe.to_prefect().run()
+            if state.is_failed():
+                raise ValueError(f"Prefect flow run failed with message {state.message}")
 
     else:
         assert request.param == "prefect-dask"
@@ -321,7 +323,9 @@ def execute_recipe(request, dask_cluster):
         def execute(recipe):
             flow = recipe.to_prefect()
             executor = DaskExecutor(address=dask_cluster.scheduler_address)
-            flow.run(executor=executor)
+            state = flow.run(executor=executor)
+            if state.is_failed():
+                raise ValueError(f"Prefect flow run failed with message {state.message}")
 
     execute.param = request.param
     return execute
