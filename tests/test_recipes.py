@@ -166,7 +166,10 @@ def test_chunks(
     ds_actual = xr.open_zarr(target.get_mapper(), consolidated=True)
     sequence_chunks = ds_actual.chunks["time"]
     nitems_per_input = list(file_pattern.nitems_per_input.values())[0]
-    seq_chunk_len = target_chunks.get("time", None) or (nitems_per_input * inputs_per_chunk)
+    subset_factor = kwargs.get("subset_inputs", {}).get("time", 1)
+    seq_chunk_len = target_chunks.get("time", None) or (
+        nitems_per_input * inputs_per_chunk // subset_factor
+    )
     # we expect all chunks but the last to have the expected size
     assert all([item == seq_chunk_len for item in sequence_chunks[:-1]])
     for other_dim, chunk_len in target_chunks.items():
