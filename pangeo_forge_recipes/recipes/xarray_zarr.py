@@ -33,28 +33,13 @@ _GLOBAL_METADATA_KEY = "pangeo-forge-recipe-metadata.json"
 
 logger = logging.getLogger(__name__)
 
-InputKey = FilePatternIndex
-
-# InputKey is a tuple that indexes the recipe's FilePattern.
-# e.g. file_pattern[input_key] returns a file name
-# For now, it has at most two elements, e.g. (3, 4) or may have just one e.g. (3, ).
-# One of these elements must be a ConcatDim and the other might be a MergeDim.
-
-ChunkKey = Tuple[DimIndex, ...]
-# ChunkKey is a tuple that indexes the chunks of the dataset.
-# The first one / two elements map to the first one / two elements the recipe's InputKey.
-# The MergeDim indexes have the same meaning.
-# For the ConcatDim, if nitems_per_input > 1, there is a one-to-many relationship
-# btw the chunk indexes and input indexes for that dimension.
-# If there is no subsetting, len(chunk_key) == len(input_key).
-# With subsetting, ChunkKey gets an extra index for each subset_dim, such tgat
-# len(chunk_key) == (len(input_key) + len(subset_inputs))
+# Some types that help us keep things organized
+InputKey = FilePatternIndex  # input keys are the same as the file pattern keys
+ChunkKey = Tuple[DimIndex, ...]  # actually the same as FilePatternIndex
 
 SubsetSpec = Dict[str, int]
 # SubsetSpec is a dictionary mapping dimension names to the number of subsets along that dimension
 # (e.g. {'time': 5, 'depth': 2})
-
-# now let's encode that twisted logic in functions! 😈
 
 
 def _input_metadata_fname(input_key):
@@ -253,7 +238,6 @@ def region_and_conflicts_for_chunk(
         conflict = all_chunk_conflicts[idx]
         if conflict:
             this_chunk_conflicts.add(conflict)
-            logger.debug(f"ADDING CHUNK CONFLICT {conflict}")
 
     return {concat_dim: region_slice}, this_chunk_conflicts
 
