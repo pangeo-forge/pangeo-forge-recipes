@@ -14,7 +14,7 @@ from pangeo_forge_recipes.recipes.base import BaseRecipe
 all_recipes = [
     lazy_fixture("netCDFtoZarr_sequential_recipe"),
     lazy_fixture("netCDFtoZarr_sequential_multi_variable_recipe"),
-    lazy_fixture("netCDFtoZarr_sequential_subset_recipe")
+    lazy_fixture("netCDFtoZarr_sequential_subset_recipe"),
 ]
 
 

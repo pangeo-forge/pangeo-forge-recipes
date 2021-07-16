@@ -18,7 +18,13 @@ import zarr
 
 from ..patterns import CombineOp, DimIndex, FilePattern, FilePatternIndex, prune_pattern
 from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
-from ..utils import chunk_bounds_and_conflicts, fix_scalar_attr_encoding, lock_for_conflicts, calc_subsets, str_
+from ..utils import (
+    calc_subsets,
+    chunk_bounds_and_conflicts,
+    fix_scalar_attr_encoding,
+    lock_for_conflicts,
+    str_,
+)
 from .base import BaseRecipe
 
 # use this filename to store global recipe metadata in the metadata_cache
@@ -118,17 +124,6 @@ def input_position(input_key):
             return dim_idx.index
 
 
-def chunk_position(chunk_key):
-    for dim_idx in input_key:
-        if dim_idx.operation == CombineOp.CONCAT:
-            concat_dim = dim_idx.name
-            concat_idx = dim_idx.index
-    for dim_idx in input_key:
-        if dim_idx.operation == CombineOp.SUBSET and dim_idx.name==concat_dim:
-            # assumes there is only one subset_dim along the concat axis
-            return dim_idx.sequence_len * concat_idx + dim_idx.index
-    return concat_idx
-
 def cache_input_metadata(
     input_key: InputKey,
     metadata_cache: Optional[MetadataTarget],
@@ -217,11 +212,18 @@ def region_and_conflicts_for_chunk(
 
     if subset_inputs and concat_dim in subset_inputs:
         # scenario I: there is a single input per chunk, possibly with subsetting
-        assert inputs_per_chunk == 1, "Doesn't make sense to have multiple inputs per chunk plus subsetting"
+        assert (
+            inputs_per_chunk == 1
+        ), "Doesn't make sense to have multiple inputs per chunk plus subsetting"
         subset_factor = subset_inputs[concat_dim]
-        input_sequence_lens = list(chain(*(calc_subsets(input_len, subset_factor) for input_len in input_sequence_lens)))
-        subset_idx = [dim_idx.index for dim_idx in chunk_key
-                      if dim_idx.operation==CombineOp.SUBSET and dim_idx.name==concat_dim][0]
+        input_sequence_lens = tuple(
+            chain(*(calc_subsets(input_len, subset_factor) for input_len in input_sequence_lens))
+        )
+        subset_idx = [
+            dim_idx.index
+            for dim_idx in chunk_key
+            if dim_idx.operation == CombineOp.SUBSET and dim_idx.name == concat_dim
+        ][0]
     else:
         subset_factor = 1
         subset_idx = 0  # unused
@@ -294,8 +296,8 @@ def subset_dataset(ds: xr.Dataset, subset_spec: DimIndex) -> xr.Dataset:
     dim = subset_spec.name
     dim_len = ds.dims[dim]
     subset_lens = calc_subsets(dim_len, subset_spec.sequence_len)
-    start = sum(subset_lens[:subset_spec.index])
-    stop = sum(subset_lens[:(subset_spec.index + 1)])
+    start = sum(subset_lens[: subset_spec.index])
+    stop = sum(subset_lens[: (subset_spec.index + 1)])
     subset_slice = slice(start, stop)
     indexer = {dim: subset_slice}
     logger.debug(f"Subseting dataset with indexer {indexer}")
@@ -566,7 +568,7 @@ def store_chunk(
             concat_dim_chunks=concat_dim_chunks,
             concat_dim=concat_dim,
             metadata_cache=metadata_cache,
-            subset_inputs=subset_inputs
+            subset_inputs=subset_inputs,
         )
 
         zgroup = zarr.open_group(target_mapper)
@@ -589,7 +591,8 @@ def store_chunk(
             logger.debug(f"Acquiring locks {lock_keys}")
             with lock_for_conflicts(lock_keys, timeout=lock_timeout):
                 logger.info(
-                    f"Storing variable {vname} chunk {str_(chunk_key)} " f"to Zarr region {zarr_region}"
+                    f"Storing variable {vname} chunk {str_(chunk_key)} "
+                    f"to Zarr region {zarr_region}"
                 )
                 zarr_array[zarr_region] = data
 
