@@ -52,7 +52,7 @@ def chunk_bounds_and_conflicts(
     Returns
     -------
     chunk_bounds : the boundaries of the regions to write (1 longer than chunks)
-    conflicts: a list of conflicts for each chunk, None for no conflicts
+    conflicts: a list of conflicts for each chunk
     """
     n_chunks = len(chunks)
 
@@ -117,3 +117,8 @@ def lock_for_conflicts(conflicts, base_name="pangeo-forge", timeout=None):
             for lock in locks:
                 lock.release()
                 logger.debug(f"Released lock {lock.name}")
+
+
+# workaround for rejected https://www.python.org/dev/peps/pep-3140/
+def str_(container):
+    return ','.join((str(item) for item in container))

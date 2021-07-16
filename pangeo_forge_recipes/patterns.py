@@ -59,6 +59,9 @@ class DimIndex:
     sequence_len: int
     operation: CombineOp
 
+    def __str__(self):
+        return f"{self.name}-{self.index}"
+
     def __post_init__(self):
         assert self.sequence_len > 0
         assert self.index >= 0
