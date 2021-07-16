@@ -1,4 +1,3 @@
-import itertools
 import logging
 from contextlib import contextmanager
 from typing import List, Sequence, Tuple
@@ -7,16 +6,6 @@ import numpy as np
 from dask.distributed import Lock, get_client
 
 logger = logging.getLogger(__name__)
-
-
-# https://alexwlchan.net/2018/12/iterating-in-fixed-size-chunks/
-def chunked_iterable(iterable, size):
-    it = iter(iterable)
-    while True:
-        chunk = tuple(itertools.islice(it, size))
-        if not chunk:
-            break
-        yield chunk
 
 
 # only needed because of
@@ -36,6 +25,16 @@ def fix_scalar_attr_encoding(ds):
         ds[v].attrs.update(_fixed_attrs(ds[v].attrs))
         ds[v].encoding.update(_fixed_attrs(ds[v].encoding))
     return ds
+
+
+def calc_subsets(sequence_len: int, n_segments: int) -> List[int]:
+    """Given a sequence length, return a list that divides it into n_segments
+    (possibly uneven) integer segments."""
+    if n_segments > sequence_len:
+        raise ValueError(f"Can't split len {sequence_len} into {n_segments} segments")
+    step = sequence_len // n_segments
+    remainder = sequence_len % n_segments
+    return (n_segments - 1) * [step] + [step + remainder]
 
 
 def chunk_bounds_and_conflicts(
