@@ -9,7 +9,7 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from itertools import chain, product
 from math import ceil
-from typing import Callable, Dict, Hashable, Iterator, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, Hashable, Iterator, List, Optional, Sequence, Set, Tuple
 
 import dask
 import numpy as np
@@ -177,10 +177,10 @@ def region_and_conflicts_for_chunk(
     nitems_per_input: Optional[int],
     file_pattern: FilePattern,
     concat_dim_chunks: Optional[int],
-    concat_dim: Optional[str],
+    concat_dim: str,
     metadata_cache: Optional[MetadataTarget],
     subset_inputs: Optional[SubsetSpec],
-):
+) -> Tuple[Dict[str, slice], Set[int]]:
     # return a dict suitable to pass to xr.to_zarr(region=...)
     # specifies where in the overall array to put this chunk's data
     # also return the conflicts with other chunks
@@ -237,7 +237,8 @@ def region_and_conflicts_for_chunk(
     for idx in range(start_idx, stop_idx):
         conflict = all_chunk_conflicts[idx]
         if conflict:
-            this_chunk_conflicts.add(conflict)
+            for conflict_index in conflict:
+                this_chunk_conflicts.add(conflict_index)
 
     return {concat_dim: region_slice}, this_chunk_conflicts
 
@@ -505,7 +506,7 @@ def prepare_target(
 def store_chunk(
     chunk_key: ChunkKey,
     target: CacheFSSpecTarget,
-    concat_dim: Optional[str],
+    concat_dim: str,
     nitems_per_input: Optional[int],
     file_pattern: FilePattern,
     inputs_per_chunk: int,
@@ -659,10 +660,10 @@ class XarrayZarrRecipe(BaseRecipe):
     subset_inputs: SubsetSpec = field(default_factory=dict)
 
     # internal attributes not meant to be seen or accessed by user
-    _concat_dim: Optional[str] = None
+    _concat_dim: str = field(default_factory=str, repr=False, init=False)
     """The concatenation dimension name."""
 
-    _concat_dim_chunks: Optional[int] = None
+    _concat_dim_chunks: Optional[int] = field(default=None, repr=False, init=False)
     """The desired chunking along the sequence dimension."""
 
     _init_chunks: List[ChunkKey] = field(default_factory=list, repr=False, init=False)
