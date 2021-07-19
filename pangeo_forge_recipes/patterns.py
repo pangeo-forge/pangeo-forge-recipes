@@ -69,12 +69,16 @@ class DimIndex:
 
 
 class Index(tuple):
-    def __new__(self, *args):
-        if not all((isinstance(a, DimIndex) for a in args)):
-            raise ValueError("All arguments must be DimIndex.")
-        args_set = set(args)
-        if len(set(args_set)) < len(args):
-            raise ValueError("Duplicate argument detected.")
+    """Index does not care about the order of the elements.
+    All elements have to be DimIndex."""
+
+    def __new__(self, args):
+        # This validation really slows things down because we call Index a lot!
+        # if not all((isinstance(a, DimIndex) for a in args)):
+        #     raise ValueError("All arguments must be DimIndex.")
+        # args_set = set(args)
+        # if len(set(args_set)) < len(tuple(args)):
+        #     raise ValueError("Duplicate argument detected.")
         return tuple.__new__(Index, args)
 
     def __str__(self):
@@ -82,6 +86,9 @@ class Index(tuple):
 
     def __eq__(self, other):
         return set(self) == set(other)
+
+    def __hash__(self):
+        return hash(frozenset(self))
 
 
 CombineDim = Union[MergeDim, ConcatDim]
@@ -170,12 +177,13 @@ class FilePattern:
     def __iter__(self) -> Iterator[FilePatternIndex]:
         """Iterate over all keys in the pattern. """
         for val in product(*[range(n) for n in self.shape]):
-            yield Index(
-                *(
+            index = Index(
+                (
                     DimIndex(op.name, v, len(op.keys), op.operation)
                     for op, v in zip(self.combine_dims, val)
                 )
             )
+            yield index
 
     def items(self):
         """Iterate over key, filename pairs."""
