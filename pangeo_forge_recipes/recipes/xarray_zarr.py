@@ -267,7 +267,7 @@ def open_input(
         if input_cache:
             raise ValueError("Can't cache opendap inputs")
         if copy_input_to_local_file:
-            raise ValueError("Can't coppy opendap inputs to local file")
+            raise ValueError("Can't copy opendap inputs to local file")
 
     cache = input_cache if cache_inputs else None
 
@@ -416,7 +416,7 @@ def calculate_sequence_lens(
     sequence_lens = all_lens[tuple(selector)]
     if not (all_lens == sequence_lens).all():
         raise ValueError(f"Inconsistent sequence lengths found: f{all_lens}")
-    return sequence_lens.squeeze().tolist()
+    return np.atleast_1d(sequence_lens.squeeze()).tolist()
 
 
 def prepare_target(
@@ -670,7 +670,7 @@ class XarrayZarrRecipe(BaseRecipe):
     target: Optional[AbstractTarget] = None
     input_cache: Optional[CacheFSSpecTarget] = None
     metadata_cache: Optional[MetadataTarget] = None
-    cache_inputs: bool = True
+    cache_inputs: Optional[bool] = None
     copy_input_to_local_file: bool = False
     consolidate_zarr: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
@@ -701,6 +701,23 @@ class XarrayZarrRecipe(BaseRecipe):
             [v is None for v in self.file_pattern.concat_sequence_lens.values()]
         )
         self._nitems_per_input = self.file_pattern.nitems_per_input[self._concat_dim]
+
+        if self.is_opendap:
+            if self.cache_inputs:
+                raise ValueError("Can't cache opendap inputs.")
+            else:
+                self.cache_inputs = False
+            if "engine" in self.xarray_open_kwargs:
+                if self.xarray_open_kwargs["engine"] != "netcdf4":
+                    raise ValueError(
+                        "Opendap inputs only work with `xarray_open_kwargs['engine'] == 'netcdf4'`"
+                    )
+            else:
+                new_kw = self.xarray_open_kwargs.copy()
+                new_kw["engine"] = "netcdf4"
+                self.xarray_open_kwargs = new_kw
+        elif self.cache_inputs is None:
+            self.cache_inputs = True  # old defult
 
         def filter_init_chunks(chunk_key):
             for dim_idx in chunk_key:
