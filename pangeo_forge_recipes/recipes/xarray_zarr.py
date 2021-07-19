@@ -303,7 +303,7 @@ def subset_dataset(ds: xr.Dataset, subset_spec: DimIndex) -> xr.Dataset:
     stop = sum(subset_lens[: (subset_spec.index + 1)])
     subset_slice = slice(start, stop)
     indexer = {dim: subset_slice}
-    logger.debug(f"Subseting dataset with indexer {indexer}")
+    logger.debug(f"Subsetting dataset with indexer {indexer}")
     return ds.isel(**indexer)
 
 
