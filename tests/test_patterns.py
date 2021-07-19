@@ -76,6 +76,8 @@ def test_file_pattern_concat_merge(pickle):
                 assert k.operation == CombineOp.MERGE
                 assert k.sequence_len == 2
         assert fp[key] == expected_fname
+        # make sure key order doesn't matter
+        assert fp[key[::-1]] == expected_fname
 
 
 @pytest.mark.parametrize("nkeep", [1, 2])

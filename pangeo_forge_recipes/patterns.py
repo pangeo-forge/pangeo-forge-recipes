@@ -137,9 +137,17 @@ class FilePattern:
     def __getitem__(self, indexer: FilePatternIndex) -> str:
         """Get a filename path for a particular key. """
         assert len(indexer) == len(self.combine_dims)
-        format_function_kwargs = {
-            idx.name: dim.keys[idx.index] for idx, dim in zip(indexer, self.combine_dims)
-        }
+        format_function_kwargs = {}
+        for idx in indexer:
+            dims = [
+                dim
+                for dim in self.combine_dims
+                if dim.name == idx.name and dim.operation == idx.operation
+            ]
+            if len(dims) != 1:
+                raise KeyError(r"Could not valid combine_dim for indexer {idx}")
+            dim = dims[0]
+            format_function_kwargs[dim.name] = dim.keys[idx.index]
         fname = self.format_function(**format_function_kwargs)
         return fname
 
