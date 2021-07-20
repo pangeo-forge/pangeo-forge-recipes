@@ -595,8 +595,8 @@ def store_chunk(
                 logger.debug(
                     f"Converting variable {vname} of {var.data.nbytes} bytes to `numpy.ndarray`"
                 )
-                if var.data.nbytes > 5*1e6:
-                    oversize_factor = round((var.data.nbytes/(5*1e6)/100), 2)
+                if var.data.nbytes > 500_000_000:
+                    oversize_factor = round((var.data.nbytes/(500_000_000)), 2)
                     logger.warning(
                         f"Variable {vname} of {var.data.nbytes} bytes is {oversize_factor} times"
                         " larger than recommended maximum variable array size of 500 MB. "
