@@ -85,8 +85,8 @@ class BaseRecipe(ABC):
             FutureWarning,
         )
         pipeline = []  # type: MultiStagePipeline
-        if getattr(self, "cache_inputs", False):  # TODO: formalize this contract
-            pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
+        # TODO: allow recipes to customize which stages to run
+        pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
         pipeline.append(Stage(self.prepare_target))
         pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
         pipeline.append(Stage(self.finalize_target))
@@ -100,10 +100,9 @@ class BaseRecipe(ABC):
         """
 
         def pipeline():
-            # TODO: formalize this contract
-            if getattr(self, "cache_inputs", False):
-                for input_key in self.iter_inputs():
-                    self.cache_input(input_key)
+            # TODO: allow recipes to customize which stages to run
+            for input_key in self.iter_inputs():
+                self.cache_input(input_key)
             self.prepare_target()
             for chunk_key in self.iter_chunks():
                 self.store_chunk(chunk_key)
@@ -128,9 +127,9 @@ class BaseRecipe(ABC):
         dsk = {}
         token = dask.base.tokenize(self)
 
-        if getattr(self, "cache_inputs", False):  # TODO: formalize cache_inputs
-            for i, input_key in enumerate(self.iter_inputs()):
-                dsk[(f"cache_input-{token}", i)] = (self.cache_input, input_key)
+        # TODO: allow recipes to customize which stages to run
+        for i, input_key in enumerate(self.iter_inputs()):
+            dsk[(f"cache_input-{token}", i)] = (self.cache_input, input_key)
 
         # Prepare Target ------------------------------------------------------
         dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
@@ -158,19 +157,15 @@ class BaseRecipe(ABC):
         """Compile the recipe to a Prefect.Flow object."""
         from prefect import Flow, task, unmapped
 
-        has_cache_inputs = getattr(self, "cache_inputs", False)
-        if has_cache_inputs:
-            cache_input_task = task(self.cache_input, name="cache_input")
+        # TODO: allow recipes to customize which stages to run
+        cache_input_task = task(self.cache_input, name="cache_input")
         prepare_target_task = task(self.prepare_target, name="prepare_target")
         store_chunk_task = task(self.store_chunk, name="store_chunk")
         finalize_target_task = task(self.finalize_target, name="finalize_target")
 
         with Flow("pangeo-forge-recipe") as flow:
-            if has_cache_inputs:
-                cache_task = cache_input_task.map(input_key=list(self.iter_inputs()))
-                upstream_tasks = [cache_task]
-            else:
-                upstream_tasks = []
+            cache_task = cache_input_task.map(input_key=list(self.iter_inputs()))
+            upstream_tasks = [cache_task]
             prepare_task = prepare_target_task(upstream_tasks=upstream_tasks)
             store_task = store_chunk_task.map(
                 chunk_key=list(self.iter_chunks()), upstream_tasks=[unmapped(prepare_task)],
@@ -180,8 +175,8 @@ class BaseRecipe(ABC):
         return flow
 
     def __iter__(self):
-        if hasattr(self, "cache_inputs"):
-            yield self.cache_input, self.iter_inputs()
+        # TODO: allow recipes to customize which stages to run
+        yield self.cache_input, self.iter_inputs()
         yield self.prepare_target, []
         yield self.store_chunk, self.iter_chunks()
         yield self.finalize_target, []
