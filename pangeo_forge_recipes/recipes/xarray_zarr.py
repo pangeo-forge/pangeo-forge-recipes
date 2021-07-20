@@ -8,7 +8,7 @@ import warnings
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from itertools import chain, product
-from math import ceil, floor
+from math import ceil
 from typing import Callable, Dict, Hashable, Iterator, List, Optional, Sequence, Set, Tuple
 
 import dask
@@ -599,9 +599,12 @@ def store_chunk(
                     oversize_factor = round((var.data.nbytes/(5*1e6)/100), 2)
                     logger.warning(
                         f"Variable {vname} of {var.data.nbytes} bytes is {oversize_factor} times"
-                        " larger than recommended maximum variable array size of 500 MB. To improve"
-                        " performance, consider using `XarrayZarrRecipe.subset_inputs`; e.g., "
-                        f'`subset_inputs = {{"time": {floor(oversize_factor)}}}`.'
+                        " larger than recommended maximum variable array size of 500 MB. "
+                        ' Consider re-instantiating recipe with `subset_inputs = {"time": '
+                        f'{ceil(oversize_factor)}}}`. If "time" not in ds["{vname}"].dims, or '
+                        f'`len(ds["time"])` < {ceil(oversize_factor)}, substitute "time" for any '
+                        f'name in ds["{vname}"].dims with length >= {ceil(oversize_factor)}. '
+                        "`subset_inputs` also supports subsetting along multiple dimensions."
                     )
                 data = np.asarray(
                     var.data
