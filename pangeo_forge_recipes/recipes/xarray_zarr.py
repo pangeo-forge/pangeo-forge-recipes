@@ -8,7 +8,7 @@ import warnings
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from itertools import chain, product
-from math import ceil
+from math import ceil, floor
 from typing import Callable, Dict, Hashable, Iterator, List, Optional, Sequence, Set, Tuple
 
 import dask
@@ -596,11 +596,12 @@ def store_chunk(
                     f"Converting variable {vname} of {var.data.nbytes} bytes to `numpy.ndarray`"
                 )
                 if var.data.nbytes > 5*1e6:
+                    oversize_factor = round((var.data.nbytes/(5*1e6)/100), 2)
                     logger.warning(
-                        f"Variable {vname} of {var.data.nbytes} bytes is "
-                        f"{round((var.data.nbytes/(5*1e6)/100), 2)} times larger than recommended"
-                        " maximum variable array size of 500 MB. To improve performance, consider"
-                        " subsetting input using `XarrayZarrRecipe.subset_inputs` kwarg."
+                        f"Variable {vname} of {var.data.nbytes} bytes is {oversize_factor} times"
+                        " larger than recommended maximum variable array size of 500 MB. To improve"
+                        " performance, consider using `XarrayZarrRecipe.subset_inputs`; e.g., "
+                        f'`subset_inputs = {{"time": {floor(oversize_factor)}}}`.'
                     )
                 data = np.asarray(
                     var.data
