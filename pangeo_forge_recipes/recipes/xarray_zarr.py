@@ -592,6 +592,11 @@ def store_chunk(
             var_coded.attrs = {}
             with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
                 var = xr.backends.zarr.encode_zarr_variable(var_coded)
+                logger.debug(
+                    f"Converting `xarray.Variable` of {var.data.nbytes} bytes to `numpy.ndarray`"
+                    "If execution crashes here, your input array may be too large for memory; "
+                    "consider using the `XarrayZarrRecipe.subset_inputs` kwarg to subset it."
+                )
                 data = np.asarray(
                     var.data
                 )  # TODO: can we buffer large data rather than loading it all?
