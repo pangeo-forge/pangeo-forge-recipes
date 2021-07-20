@@ -199,23 +199,23 @@ def open_input(
     cache = input_cache if cache_inputs else None
     with file_opener(fname, cache=cache, copy_to_local=copy_input_to_local_file) as f:
         with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
-            logger.debug(f"about to call xr.open_dataset on {f}")
             kw = xarray_open_kwargs.copy()
             if "engine" not in kw:
                 kw["engine"] = "h5netcdf"
-            ds = xr.open_dataset(f, **kw)
-            logger.debug("successfully opened dataset")
-            ds = fix_scalar_attr_encoding(ds)
+            logger.debug(f"about to enter xr.open_dataset context on {f}")
+            with xr.open_dataset(f, **kw) as ds:
+                logger.debug("successfully opened dataset")
+                ds = fix_scalar_attr_encoding(ds)
 
-            if delete_input_encoding:
-                for var in ds.variables:
-                    ds[var].encoding = {}
+                if delete_input_encoding:
+                    for var in ds.variables:
+                        ds[var].encoding = {}
 
-            if process_input is not None:
-                ds = process_input(ds, str(fname))
+                if process_input is not None:
+                    ds = process_input(ds, str(fname))
 
-            logger.debug(f"{ds}")
-        yield ds
+                logger.debug(f"{ds}")
+                yield ds
 
 
 @contextmanager
