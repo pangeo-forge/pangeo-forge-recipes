@@ -103,7 +103,7 @@ your file pattern. The keys of the file pattern are determined by the names of t
 Note that the function ``make_full_path`` has two arguments: ``variable``, and ``time``.
 These are precisely the same as the names of the combine dimension used in
 defining ``variable_merge_dim`` and ``time_concat_dim``.
-You can use whatever names you want,but they must be consistent throughout your file pattern.
+You can use whatever names you want, but they must be consistent throughout your file pattern.
 ```
 
 In theory, we could use any number of combine dimensions.
@@ -112,28 +112,6 @@ and type of combine dimensions they support.
 {class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe` requires at least one
 ``ConcatDim`` and allows at most one ``MergeDim``.
 
-### Inspect a `FilePattern`
-
-Normally at this point we would just move on and pass our FilePattern
-object to a {doc}`recipe <recipes>` constructor.
-But we can also inspect the FilePattern manually to understand how it works.
-
-Internally, the FilePattern maps the keys of the various combine dims to logical indices.
-We can see all of these keys by iterating over the patterns using the ``items()`` method:
-
-```{code-cell} ipython3
-for index, fname in pattern.items():
-    print(index, fname)
-```
-
-And we can get any of the filenames back out by using "getitem" syntax on the FilePattern
-
-```{code-cell} ipython3
-pattern[1, 4]
-```
-
-It isn't necessary to do any of these things to create a recipe; however digging into
-a FilePattern's internals may be helpful in debugging a complex recipe.
 
 ### Specifying `nitems_per_input` in a `ConcatDim`
 
@@ -171,6 +149,43 @@ In general files may have an arbitrary number of other dimensions that are not
 concatenated, and we don't need to provide any hints about these.
 ```
 
+
+### Inspect a `FilePattern`
+
+Normally at this point we would just move on and pass our FilePattern
+object to a {doc}`recipe <recipes>` constructor.
+But we can also inspect the FilePattern manually to understand how it works.
+It isn't necessary to do any of these things to create a recipe; however digging into
+a FilePattern's internals may be helpful in debugging a complex recipe.
+
+Internally, the FilePattern maps the keys of the various combine dims to logical indices.
+We can see all of these keys by iterating over the patterns using the ``items()`` method:
+
+```{code-cell} ipython3
+for index, fname in pattern.items():
+    print(index, fname)
+```
+
+The index is its own special type of object used internally by recipes, a {class}`pangeo_forge_recipes.patterns.Index`,
+(which is basically a tuple of one or more {class}`pangeo_forge_recipes.patterns.DimIndex` objects).
+The index has a compact string representation, used for logging:
+```{code-cell} ipython3
+str(index)
+```
+and a more verbose `repr`:
+```{code-cell} ipython3
+repr(index)
+```
+
+Users generally will not need to create indexes manually,
+but we can get any of the filenames back out by using "getitem" syntax on the FilePattern,
+together with the index
+
+```{code-cell} ipython3
+pattern[index]
+```
+
+
 ## File Patterns API
 
 ```{eval-rst}
@@ -179,6 +194,7 @@ concatenated, and we don't need to provide any hints about these.
     :special-members: __getitem__, __iter__
 ```
 
+### Combine Dimensions
 
 ```{eval-rst}
 .. autoclass:: pangeo_forge_recipes.patterns.ConcatDim
@@ -188,5 +204,22 @@ concatenated, and we don't need to provide any hints about these.
 
 ```{eval-rst}
 .. autoclass:: pangeo_forge_recipes.patterns.MergeDim
+    :members:
+```
+
+### Indexing
+
+```{eval-rst}
+.. autoclass:: pangeo_forge_recipes.patterns.Index
+    :members:
+```
+
+```{eval-rst}
+.. autoclass:: pangeo_forge_recipes.patterns.DimIndex
+    :members:
+```
+
+```{eval-rst}
+.. autoclass:: pangeo_forge_recipes.patterns.CombineOp
     :members:
 ```
