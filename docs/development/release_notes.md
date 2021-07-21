@@ -1,9 +1,16 @@
 # Release Notes
 
+## 0.5.0 - unreleased
+
+- Added `subset_inputs` option to `XarrayZarrRecipe`. {issue}`93`, {pull}`166`
+- Fixed file opening to eliminate HDF errors related to closed files. {issue}`170`, {pull}`171`
+- Changed default behavior of executors so that the `chache_input` loop is always
+  run, regardless of the value of `cache_inputs`. {pull}`168`
+
 ## v0.4.0 - 2021-06-25
 
 - Fixed issue with recipe serialilzation causing high memory usage of Dask schedulers and workers when
-  executing recipes with Prefect or Dask (https://github.com/pangeo-forge/pangeo-forge-recipes/pull/160)[#160].
+  executing recipes with Prefect or Dask {pull}`160`.
 - Added new methods `.to_dask()`, `to_prefect()`, and `.to_function()` for converting a recipe
   to one of the Dask, Prefect, or Python execution plans. The previous method, `recpie.to_pipelines()`
   is now deprecated.
