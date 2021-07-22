@@ -28,8 +28,9 @@ def _get_url_size(fname, **open_kwargs):
 def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
+            count = summed_bytes = 0
             while True:
-                logger.debug("_copy_btw_filesystems reading data")
+                logger.debug("_copy_btw_filesystems reading") if source.block_size != 0 else None
                 try:
                     data = source.read(BLOCK_SIZE)
                 except BlockSizeError as e:
@@ -39,7 +40,18 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                     ) from e
                 if not data:
                     break
-                logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
+                # strided logging pattern for streaming transfers to avoid excessive logs
+                if source.block_size == 0:
+                    summed_bytes += len(data)
+                    if summed_bytes // BLOCK_SIZE >= count:
+                        logger.debug(
+                            f"_copy_btw_filesystems copying block {count} of ~{BLOCK_SIZE} bytes"
+                        )
+                        count += 1
+                    else:
+                        pass
+                else:
+                    logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
                 target.write(data)
     logger.debug("_copy_btw_filesystems done")
 
