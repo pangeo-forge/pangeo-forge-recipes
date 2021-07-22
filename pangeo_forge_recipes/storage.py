@@ -47,9 +47,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000, **
                 if streaming:
                     summed_bytes += len(data)
                     if summed_bytes // BLOCK_SIZE >= count:
-                        logger.debug(
-                            f"_copy_btw_filesystems copying block {count} of ~{BLOCK_SIZE} bytes"
-                        )
+                        logger.debug(f"copying block {count} of ~{BLOCK_SIZE} bytes")
                         count += 1
                 else:
                     logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
