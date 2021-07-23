@@ -5,10 +5,25 @@ Filename / URL patterns.
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from itertools import product
-from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 
 class CombineOp(Enum):
+    """Used to uniquely identify different combine operations across Pangeo Forge Recipes.
+    """
+
     MERGE = 1
     CONCAT = 2
     SUBSET = 3
@@ -54,6 +69,14 @@ class MergeDim:
 
 @dataclass(frozen=True)
 class DimIndex:
+    """Object used to index a single dimension of a FilePattern or Recipe Chunks.
+
+    :param name: The name of the dimension.
+    :param index: The position of the item within the sequence.
+    :param sequence_len: The total length of the sequence.
+    :param operation: What type of Combine Operation does this dimension represent.
+    """
+
     name: str
     index: int
     sequence_len: int
@@ -69,10 +92,10 @@ class DimIndex:
 
 
 class Index(tuple):
-    """Index does not care about the order of the elements.
-    All elements have to be DimIndex."""
+    """A tuple of ``DimIndex`` objects.
+    The order of the indexes doesn't matter for comparision."""
 
-    def __new__(self, args):
+    def __new__(self, args: Iterable[DimIndex]):
         # This validation really slows things down because we call Index a lot!
         # if not all((isinstance(a, DimIndex) for a in args)):
         #     raise ValueError("All arguments must be DimIndex.")
@@ -85,7 +108,7 @@ class Index(tuple):
         return ",".join(str(dim) for dim in self)
 
     def __eq__(self, other):
-        return set(self) == set(other)
+        return (set(self) == set(other)) and (len(self) == len(other))
 
     def __hash__(self):
         return hash(frozenset(self))

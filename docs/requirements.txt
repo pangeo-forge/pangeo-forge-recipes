@@ -6,5 +6,5 @@ sphinx-copybutton
 sphinx-autodoc-typehints
 fsspec
 prefect
-git+https://github.com/pangeo-data/rechunker.git
+rechunker>=0.4.2
 -e .
