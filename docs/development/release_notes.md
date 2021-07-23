@@ -4,7 +4,7 @@
 
 - Added `subset_inputs` option to `XarrayZarrRecipe`. {issue}`93`, {pull}`166`
 - Fixed file opening to eliminate HDF errors related to closed files. {issue}`170`, {pull}`171`
-- Changed default behavior of executors so that the `chache_input` loop is always
+- Changed default behavior of executors so that the `cache_input` loop is always
   run, regardless of the value of `cache_inputs`. {pull}`168`
 
 ## v0.4.0 - 2021-06-25
