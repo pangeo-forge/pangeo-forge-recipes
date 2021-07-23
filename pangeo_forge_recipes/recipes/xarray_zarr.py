@@ -600,7 +600,7 @@ def store_chunk(
                     logger.warning(
                         f"Variable {vname} of {var.data.nbytes} bytes is {oversize_factor} times"
                         " larger than recommended maximum variable array size of 500 MB. "
-                        ' Consider re-instantiating recipe with `subset_inputs = {"time": '
+                        ' Consider re-instantiating recipe with `subset_inputs = {"{concat_dim}": '
                         f'{ceil(oversize_factor)}}}`. If "time" not in ds["{vname}"].dims, or '
                         f'`len(ds["time"])` < {ceil(oversize_factor)}, substitute "time" for any '
                         f'name in ds["{vname}"].dims with length >= {ceil(oversize_factor)}. '
