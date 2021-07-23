@@ -2,6 +2,7 @@
 A Pangeo Forge Recipe
 """
 
+import os
 import functools
 import logging
 import warnings
@@ -29,6 +30,9 @@ from .base import BaseRecipe
 # use this filename to store global recipe metadata in the metadata_cache
 # it will be written once (by prepare_target) and read many times (by store_chunk)
 _GLOBAL_METADATA_KEY = "pangeo-forge-recipe-metadata.json"
+MAX_MEMORY = (
+    int(os.getenv("PANGEO_FORGE_MAX_MEMORY"))
+    if os.getenv("PANGEO_FORGE_MAX_MEMORY") else 500_000_000)
 
 logger = logging.getLogger(__name__)
 
@@ -592,6 +596,21 @@ def store_chunk(
             var_coded.attrs = {}
             with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
                 var = xr.backends.zarr.encode_zarr_variable(var_coded)
+                logger.debug(
+                    f"Converting variable {vname} of {var.data.nbytes} bytes to `numpy.ndarray`"
+                )
+                if var.data.nbytes > MAX_MEMORY:
+                    factor = round((var.data.nbytes/(MAX_MEMORY)), 2)
+                    logger.warning(
+                        f"Variable {vname} of {var.data.nbytes} bytes is {factor} times larger "
+                        f"than specified maximum variable array size of {MAX_MEMORY} bytes. "
+                        f'Consider re-instantiating recipe with `subset_inputs = {{"{concat_dim}": '
+                        f'{ceil(factor)}}}`. If `len(ds["{concat_dim}"])` < {ceil(factor)}, '
+                        f'substitute "{concat_dim}" for any name in ds["{vname}"].dims with length '
+                        f">= {ceil(factor)} or consider subsetting along multiple dimensions."
+                        " Setting PANGEO_FORGE_MAX_MEMORY env variable changes the variable array"
+                        " size which will trigger this warning."
+                    )
                 data = np.asarray(
                     var.data
                 )  # TODO: can we buffer large data rather than loading it all?
