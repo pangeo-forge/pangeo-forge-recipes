@@ -2,9 +2,9 @@
 A Pangeo Forge Recipe
 """
 
-import os
 import functools
 import logging
+import os
 import warnings
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
@@ -32,7 +32,9 @@ from .base import BaseRecipe
 _GLOBAL_METADATA_KEY = "pangeo-forge-recipe-metadata.json"
 MAX_MEMORY = (
     int(os.getenv("PANGEO_FORGE_MAX_MEMORY"))
-    if os.getenv("PANGEO_FORGE_MAX_MEMORY") else 500_000_000)
+    if os.getenv("PANGEO_FORGE_MAX_MEMORY")
+    else 500_000_000
+)
 
 logger = logging.getLogger(__name__)
 
@@ -600,7 +602,7 @@ def store_chunk(
                     f"Converting variable {vname} of {var.data.nbytes} bytes to `numpy.ndarray`"
                 )
                 if var.data.nbytes > MAX_MEMORY:
-                    factor = round((var.data.nbytes/(MAX_MEMORY)), 2)
+                    factor = round((var.data.nbytes / MAX_MEMORY), 2)
                     logger.warning(
                         f"Variable {vname} of {var.data.nbytes} bytes is {factor} times larger "
                         f"than specified maximum variable array size of {MAX_MEMORY} bytes. "
