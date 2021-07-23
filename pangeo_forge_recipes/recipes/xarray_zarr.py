@@ -605,9 +605,9 @@ def store_chunk(
                         f"Variable {vname} of {var.data.nbytes} bytes is {factor} times larger "
                         f"than specified maximum variable array size of {MAX_MEMORY} bytes. "
                         f'Consider re-instantiating recipe with `subset_inputs = {{"{concat_dim}": '
-                        f'{ceil(factor)}}}`. If `len(ds["{concat_dim}"])` < {ceil(factor)}`, '
-                        f'substitute "{vname}" for any name in ds["{vname}"].dims with length >= '
-                        f"{ceil(factor)} or consider subsetting along multiple dimensions."
+                        f'{ceil(factor)}}}`. If `len(ds["{concat_dim}"])` < {ceil(factor)}, '
+                        f'substitute "{concat_dim}" for any name in ds["{vname}"].dims with length '
+                        f">= {ceil(factor)} or consider subsetting along multiple dimensions."
                         " Setting PANGEO_FORGE_MAX_MEMORY env variable changes the variable array"
                         " size which will trigger this warning."
                     )
