@@ -31,7 +31,7 @@ from .base import BaseRecipe
 # it will be written once (by prepare_target) and read many times (by store_chunk)
 _GLOBAL_METADATA_KEY = "pangeo-forge-recipe-metadata.json"
 MAX_MEMORY = (
-    int(os.getenv("PANGEO_FORGE_MAX_MEMORY"))
+    int(os.getenv("PANGEO_FORGE_MAX_MEMORY"))  # type: ignore
     if os.getenv("PANGEO_FORGE_MAX_MEMORY")
     else 500_000_000
 )
