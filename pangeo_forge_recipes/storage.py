@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
@@ -28,8 +29,10 @@ def _get_url_size(fname, **open_kwargs):
 def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
+            start = time.time()
+            interval = 5  # seconds
+            bytes_read = log_count = 0
             while True:
-                logger.debug("_copy_btw_filesystems reading data")
                 try:
                     data = source.read(BLOCK_SIZE)
                 except BlockSizeError as e:
@@ -39,8 +42,15 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                     ) from e
                 if not data:
                     break
-                logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
                 target.write(data)
+                bytes_read += len(data)
+                elapsed = time.time() - start
+                if elapsed // interval >= log_count:
+                    logger.debug(
+                        f"_copy_btw_filesystems total bytes copied: {bytes_read}\n"
+                        f"throughput over {round(elapsed/60, 2)} min: {bytes_read/elapsed} bytes/s"
+                    )
+                    log_count += 1
     logger.debug("_copy_btw_filesystems done")
 
 
