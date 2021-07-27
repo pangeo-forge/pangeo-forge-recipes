@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Hashable, Iterable, List, Union
 
 import fsspec
+import yaml
 from fsspec_reference_maker.combine import MultiZarrToZarr
 from fsspec_reference_maker.hdf import SingleHdf5ToZarr
 
@@ -27,6 +28,13 @@ class ReferenceHDFRecipe(BaseRecipe):
      for each dimension
 
     See fsspec-reference-maker and fsspec's ReferenceFileSystem
+    To use this class, you must have fsspec-reference-maker, ujson,
+    xarray, fsspec, zarr, h5py and ujson in your recipe's requirements.
+
+    This class will also produce an Intake catalog stub in YAML
+    format, with the same name as the output json + ".yaml". You
+    can use intake (and intake-xarray) to load the dataset, and this
+    is the recommended way to distribute access.
 
     SingleHdf5ToZarr parameters:
 
@@ -40,18 +48,21 @@ class ReferenceHDFRecipe(BaseRecipe):
     :param inline_threshold: blocks with fewer bytes than this will be
         inlined into the output reference file
 
-    MultiZarrToZarr parameters:
+    MultiZarrToZarr parameters (if accessing more than one HDF):
+
+    :param xarray_open_kwargs: kwargs passed to xarray.open_dataset
+    :param xarray_concat_args: kwargs passed to xarray.concat
+
+    Output parameters:
 
     :param output_url: where the final reference file is written.
     :param output_storage_options: dict of kwargs for creating fsspec
         instance when writing final output
-    :param xarray_open_kwargs: kwargs passed to xarray.open_dataset
-    :param xarray_concat_args: kwargs passed to xarray.concat
     """
 
     netcdf_url: Union[str, List[str]]
     output_url: str
-    _work_dir: str
+    _work_dir: str = ""
     """temporary store for JSONs"""
     netcdf_storage_options: dict = field(default_factory=dict)
     inline_threshold: int = 500
@@ -112,19 +123,45 @@ def _one_chunk(of, work_dir):
 def _finalize(
     work_dir, out_url, out_so, remote_protocol, remote_options, xr_open_kwargs, xr_concat_kwargs
 ):
-    files = os.listdir(work_dir)
-    mzz = MultiZarrToZarr(
-        files,
-        remote_protocol=remote_protocol,
-        remote_options=remote_options,
-        xarray_open_kwargs=xr_open_kwargs,
-        xarray_concat_args=xr_concat_kwargs,
-    )
-    fn = os.path.join(work_dir, "combined.json")
-    # mzz does not support directly writing to remote yet
-    mzz.translate(fn)
-    fs = fsspec.core.url_to_fs(out_url, **out_so)
+    files = [os.path.join(work_dir, f) for f in os.listdir(work_dir)]
+    if len(files) == 1:
+        fn = files[0]
+    else:
+        mzz = MultiZarrToZarr(
+            files,
+            remote_protocol=remote_protocol,
+            remote_options=remote_options,
+            xarray_open_kwargs=xr_open_kwargs,
+            xarray_concat_args=xr_concat_kwargs,
+        )
+        fn = os.path.join(work_dir, "combined.json")
+        # mzz does not support directly writing to remote yet
+        mzz.translate(fn)
+    fs, _ = fsspec.core.url_to_fs(out_url, **out_so)
+    protocol = fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0]
     fs.put(fn, out_url)
+    fn2 = out_url + ".yaml"
+    spec = {
+        "sources": {
+            "data": {
+                "driver": "intake_xarray.xzarr.ZarrSource",
+                "description": "",  # could derive from data attrs or recipe
+                "args": {
+                    "urlpath": "reference://",
+                    "storage_options": {
+                        "fo": out_url,
+                        "target_protocol": protocol,
+                        "target_options": out_so,
+                        "remote_protocol": remote_protocol,
+                        "remote_options": remote_options,
+                    },
+                    #  chunks:  # can optimize access here
+                },
+            }
+        }
+    }
+    with fs.open(fn2, "w") as f:
+        yaml.dump(spec, f, default_flow_style=False)
 
 
 def _unstrip_protocol(name, fs):

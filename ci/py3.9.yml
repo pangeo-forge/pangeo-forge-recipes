@@ -14,6 +14,7 @@ dependencies:
   - h5netcdf
   - h5py
   - hdf5
+  - intake
   - lxml    # Optional dep of pydap
   - netcdf4
   - numpy
@@ -36,3 +37,4 @@ dependencies:
   - zarr>=2.6.0
   - pip:
     - pytest-timeout
+    - git+https://github.com/lsterzinger/fsspec-reference-maker-tutoria
