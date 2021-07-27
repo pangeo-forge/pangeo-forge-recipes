@@ -1,4 +1,5 @@
 from contextlib import nullcontext as does_not_raise
+from dataclasses import replace
 from unittest.mock import patch
 
 import pytest
@@ -7,9 +8,16 @@ import xarray as xr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
+from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.recipes.base import BaseRecipe
 
 all_recipes = [
+    lazy_fixture("netCDFtoZarr_sequential_recipe"),
+    lazy_fixture("netCDFtoZarr_sequential_multi_variable_recipe"),
+    lazy_fixture("netCDFtoZarr_sequential_subset_recipe"),
+]
+
+recipes_no_subset = [
     lazy_fixture("netCDFtoZarr_sequential_recipe"),
     lazy_fixture("netCDFtoZarr_sequential_multi_variable_recipe"),
 ]
@@ -108,9 +116,9 @@ def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
-@pytest.mark.parametrize("inputs_per_chunk", [1, 2])
+@pytest.mark.parametrize("inputs_per_chunk,subset_inputs", [(1, {}), (1, {"time": 2}), (2, {})])
 @pytest.mark.parametrize(
-    "target_chunks,specify_nitems_per_input,chunk_expectation",
+    "target_chunks,specify_nitems_per_input,error_expectation",
     [
         ({}, True, does_not_raise()),
         ({"lon": 12}, True, does_not_raise()),
@@ -124,42 +132,67 @@ def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
         ({"lon": 12}, False, pytest.raises(ValueError)),
     ],
 )
-@pytest.mark.parametrize("recipe_fixture", all_recipes)
+@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
 def test_chunks(
     recipe_fixture,
     execute_recipe,
     inputs_per_chunk,
     target_chunks,
-    chunk_expectation,
+    error_expectation,
+    subset_inputs,
     specify_nitems_per_input,
 ):
     """Check that chunking of datasets works as expected."""
 
     RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
 
+    for cdim in file_pattern.combine_dims:
+        if hasattr(cdim, "nitems_per_file"):
+            nitems_per_file = cdim.nitems_per_file
+
     kwargs["target_chunks"] = target_chunks
     kwargs["inputs_per_chunk"] = inputs_per_chunk
+    kwargs["subset_inputs"] = subset_inputs
     if specify_nitems_per_input:
         kwargs["metadata_cache"] = None
     else:
         # modify file_pattern in place to remove nitems_per_file; a bit hacky
+        new_combine_dims = []
         for cdim in file_pattern.combine_dims:
             if hasattr(cdim, "nitems_per_file"):
-                cdim.nitems_per_file = None
+                new_combine_dims.append(replace(cdim, nitems_per_file=None))
+            else:
+                new_combine_dims.append(cdim)
+            file_pattern = FilePattern(file_pattern.format_function, *new_combine_dims)
 
-    with chunk_expectation as excinfo:
+    with error_expectation as excinfo:
         rec = RecipeClass(file_pattern, **kwargs)
     if excinfo:
         # don't continue if we got an exception
         return
 
-    execute_recipe(rec)
+    # we should get a runtime error if we try to subset by a factor of 2
+    # when the file is only 1 item long
+    subset_factor = kwargs.get("subset_inputs", {}).get("time", 1)
+    if nitems_per_file == 1 and subset_factor > 1:
+        subset_error_expectation = pytest.raises(ValueError)
+    else:
+        subset_error_expectation = does_not_raise()
+    with subset_error_expectation as excinfo:
+        # error is raised at execution stage because we don't generally know a priori how
+        # many items in each file
+        execute_recipe(rec)
+    if excinfo:
+        # don't continue if we got an exception
+        return
 
     # chunk validation
     ds_actual = xr.open_zarr(target.get_mapper(), consolidated=True)
     sequence_chunks = ds_actual.chunks["time"]
     nitems_per_input = list(file_pattern.nitems_per_input.values())[0]
-    seq_chunk_len = target_chunks.get("time", None) or (nitems_per_input * inputs_per_chunk)
+    seq_chunk_len = target_chunks.get("time", None) or (
+        nitems_per_input * inputs_per_chunk // subset_factor
+    )
     # we expect all chunks but the last to have the expected size
     assert all([item == seq_chunk_len for item in sequence_chunks[:-1]])
     for other_dim, chunk_len in target_chunks.items():

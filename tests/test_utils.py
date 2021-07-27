@@ -1,20 +1,6 @@
 import pytest
 
-from pangeo_forge_recipes.utils import chunk_bounds_and_conflicts, chunked_iterable
-
-
-@pytest.mark.parametrize(
-    "iterable, size, expected",
-    [
-        ([1, 2, 3], 1, [(1,), (2,), (3,)]),
-        ([1, 2, 3], 2, [(1, 2), (3,)]),
-        ([1, 2, 3], 3, [(1, 2, 3,)],),
-        ([1, 2, 3], 4, [(1, 2, 3,)],),
-    ],
-)
-def test_chunked_iterable(iterable, size, expected):
-    actual = list(chunked_iterable(iterable, size))
-    assert actual == expected
+from pangeo_forge_recipes.utils import calc_subsets, chunk_bounds_and_conflicts
 
 
 def test_chunk_conflicts():
@@ -26,3 +12,10 @@ def test_chunk_conflicts():
         [(), (1,), (1,), ()],
     )
     assert chunk_bounds_and_conflicts([9, 12, 5], zchunks) == ([0, 9, 21, 26], [(0,), (0, 2), (2,)])
+
+
+def test_calc_subsets():
+    with pytest.raises(ValueError):
+        _ = calc_subsets(4, 5)
+    assert calc_subsets(5, 5) == [1, 1, 1, 1, 1]
+    assert calc_subsets(6, 5) == [1, 1, 1, 1, 2]

@@ -3,14 +3,33 @@ Filename / URL patterns.
 """
 
 from dataclasses import dataclass, field, replace
+from enum import Enum
 from itertools import product
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
-import numpy as np
-import xarray as xr
+
+class CombineOp(Enum):
+    """Used to uniquely identify different combine operations across Pangeo Forge Recipes.
+    """
+
+    MERGE = 1
+    CONCAT = 2
+    SUBSET = 3
 
 
-@dataclass
+@dataclass(frozen=True)
 class ConcatDim:
     """Represents a concatenation operation across a dimension of a FilePattern.
 
@@ -28,9 +47,10 @@ class ConcatDim:
     name: str  # should match the actual dimension name
     keys: Sequence[Any] = field(repr=False)
     nitems_per_file: Optional[int] = None
+    operation: ClassVar[CombineOp] = CombineOp.CONCAT
 
 
-@dataclass
+@dataclass(frozen=True)
 class MergeDim:
     """Represents a merge operation across a dimension of a FilePattern.
 
@@ -44,10 +64,58 @@ class MergeDim:
 
     name: str
     keys: Sequence[Any] = field(repr=False)
+    operation: ClassVar[CombineOp] = CombineOp.MERGE
 
 
-Index = Tuple[int, ...]
+@dataclass(frozen=True)
+class DimIndex:
+    """Object used to index a single dimension of a FilePattern or Recipe Chunks.
+
+    :param name: The name of the dimension.
+    :param index: The position of the item within the sequence.
+    :param sequence_len: The total length of the sequence.
+    :param operation: What type of Combine Operation does this dimension represent.
+    """
+
+    name: str
+    index: int
+    sequence_len: int
+    operation: CombineOp
+
+    def __str__(self):
+        return f"{self.name}-{self.index}"
+
+    def __post_init__(self):
+        assert self.sequence_len > 0
+        assert self.index >= 0
+        assert self.index < self.sequence_len
+
+
+class Index(tuple):
+    """A tuple of ``DimIndex`` objects.
+    The order of the indexes doesn't matter for comparision."""
+
+    def __new__(self, args: Iterable[DimIndex]):
+        # This validation really slows things down because we call Index a lot!
+        # if not all((isinstance(a, DimIndex) for a in args)):
+        #     raise ValueError("All arguments must be DimIndex.")
+        # args_set = set(args)
+        # if len(set(args_set)) < len(tuple(args)):
+        #     raise ValueError("Duplicate argument detected.")
+        return tuple.__new__(Index, args)
+
+    def __str__(self):
+        return ",".join(str(dim) for dim in self)
+
+    def __eq__(self, other):
+        return (set(self) == set(other)) and (len(self) == len(other))
+
+    def __hash__(self):
+        return hash(frozenset(self))
+
+
 CombineDim = Union[MergeDim, ConcatDim]
+FilePatternIndex = Index
 
 
 class FilePattern:
@@ -63,30 +131,9 @@ class FilePattern:
       product of the keys is used to generate the full list of file paths.
     """
 
-    @staticmethod
-    def _make_da(format_function, combine_dims) -> xr.DataArray:
-        dim_names = [cdim.name for cdim in combine_dims]
-        fnames = []
-        for keys in product(*[cdim.keys for cdim in combine_dims]):
-            kwargs = dict(zip(dim_names, keys))
-            fnames.append(format_function(**kwargs))
-        shape = [len(cdim.keys) for cdim in combine_dims]
-        fnames_np = np.array(fnames)
-        fnames_np.shape = tuple(shape)
-        # This way of defining coords is incompatible with xarray type annotations.
-        # I don't understand why.
-        coords = {cdim.name: (cdim.name, cdim.keys) for cdim in combine_dims}
-        return xr.DataArray(fnames_np, dims=list(coords), coords=coords)  # type: ignore
-
     def __init__(self, format_function: Callable, *combine_dims: CombineDim):
-        self.__setstate__((format_function, combine_dims))
-
-    def __getstate__(self):
-        return self.format_function, self.combine_dims
-
-    def __setstate__(self, state):
-        self.format_function, self.combine_dims = state
-        self._da = self._make_da(self.format_function, self.combine_dims)
+        self.format_function = format_function
+        self.combine_dims = combine_dims
 
     def __repr__(self):
         return f"<FilePattern {self.dims}>"
@@ -100,17 +147,17 @@ class FilePattern:
     @property
     def shape(self) -> Tuple[int, ...]:
         """Shape of the filename matrix."""
-        return self._da.shape
+        return tuple([len(op.keys) for op in self.combine_dims])
 
     @property
     def merge_dims(self) -> List[str]:
         """List of dims that are merge operations"""
-        return [op.name for op in self.combine_dims if isinstance(op, MergeDim)]
+        return [op.name for op in self.combine_dims if op.operation == CombineOp.MERGE]
 
     @property
     def concat_dims(self) -> List[str]:
         """List of dims that are concat operations"""
-        return [op.name for op in self.combine_dims if isinstance(op, ConcatDim)]
+        return [op.name for op in self.combine_dims if op.operation == CombineOp.CONCAT]
 
     @property
     def nitems_per_input(self) -> Dict[str, Union[int, None]]:
@@ -133,14 +180,33 @@ class FilePattern:
             for dim_name, nitems in self.nitems_per_input.items()
         }
 
-    def __getitem__(self, indexer) -> str:
+    def __getitem__(self, indexer: FilePatternIndex) -> str:
         """Get a filename path for a particular key. """
-        return self._da[indexer].values.item()
+        assert len(indexer) == len(self.combine_dims)
+        format_function_kwargs = {}
+        for idx in indexer:
+            dims = [
+                dim
+                for dim in self.combine_dims
+                if dim.name == idx.name and dim.operation == idx.operation
+            ]
+            if len(dims) != 1:
+                raise KeyError(r"Could not valid combine_dim for indexer {idx}")
+            dim = dims[0]
+            format_function_kwargs[dim.name] = dim.keys[idx.index]
+        fname = self.format_function(**format_function_kwargs)
+        return fname
 
-    def __iter__(self) -> Iterator[Index]:
+    def __iter__(self) -> Iterator[FilePatternIndex]:
         """Iterate over all keys in the pattern. """
         for val in product(*[range(n) for n in self.shape]):
-            yield val
+            index = Index(
+                (
+                    DimIndex(op.name, v, len(op.keys), op.operation)
+                    for op, v in zip(self.combine_dims, val)
+                )
+            )
+            yield index
 
     def items(self):
         """Iterate over key, filename pairs."""

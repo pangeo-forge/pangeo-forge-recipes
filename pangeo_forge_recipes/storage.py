@@ -185,6 +185,7 @@ def file_opener(
     fname: str,
     cache: Optional[CacheFSSpecTarget] = None,
     copy_to_local: bool = False,
+    bypass_open: bool = False,
     **open_kwargs,
 ) -> Iterator[Union[OpenFileType, str]]:
     """
@@ -196,7 +197,17 @@ def file_opener(
         will be opened directly.
     :param copy_to_local: If True, always copy the file to a local temporary file
         before opening. In this case, function yields a path name rather than an open file.
+    :param bypass_open: If True, skip trying to open the file at all and just
+        return the filename back directly. (A fancy way of doing nothing!)
     """
+
+    if bypass_open:
+        if cache or copy_to_local:
+            raise ValueError("Can't bypass open with cache or copy_to_local.")
+        logger.debug(f"Bypassing open for '{fname}'")
+        yield fname
+        return
+
     if cache is not None:
         logger.info(f"Opening '{fname}' from cache")
         opener = cache.open(fname, mode="rb")
