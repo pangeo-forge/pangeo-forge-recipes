@@ -15,6 +15,7 @@ dependencies:
   - h5py
   - hdf5
   - intake
+  - intake-xarray
   - lxml    # Optional dep of pydap
   - netcdf4
   - numpy
