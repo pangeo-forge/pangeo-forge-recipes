@@ -199,6 +199,24 @@ def netCDFtoZarr_sequential_recipe(
 
 
 @pytest.fixture
+def netCDFtoZarr_sequential_subset_recipe(
+    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache, tmp_metadata_target
+):
+    paths, items_per_file = netcdf_local_paths
+    if items_per_file != 2:
+        pytest.skip("This recipe only makes sense with items_per_file == 2.")
+    file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
+    kwargs = dict(
+        subset_inputs={"time": 2},
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
+    return recipes.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
+
+
+@pytest.fixture
 def netCDFtoZarr_sequential_multi_variable_recipe(
     daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache, tmp_metadata_target
 ):
@@ -295,7 +313,9 @@ def execute_recipe(request, dask_cluster):
     elif request.param == "prefect":
 
         def execute(recipe):
-            return recipe.to_prefect().run()
+            state = recipe.to_prefect().run()
+            if state.is_failed():
+                raise ValueError(f"Prefect flow run failed with message {state.message}")
 
     else:
         assert request.param == "prefect-dask"
@@ -303,7 +323,9 @@ def execute_recipe(request, dask_cluster):
         def execute(recipe):
             flow = recipe.to_prefect()
             executor = DaskExecutor(address=dask_cluster.scheduler_address)
-            flow.run(executor=executor)
+            state = flow.run(executor=executor)
+            if state.is_failed():
+                raise ValueError(f"Prefect flow run failed with message {state.message}")
 
     execute.param = request.param
     return execute

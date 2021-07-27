@@ -9,4 +9,5 @@ netcdf_zarr_sequential
 cmip6-recipe
 multi_variable_recipe
 terraclimate
+opendap_subset_recipe
 ```
