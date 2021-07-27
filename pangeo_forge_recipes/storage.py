@@ -25,15 +25,11 @@ def _get_url_size(fname, **open_kwargs):
     return size
 
 
-def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000, **kwargs):
-    streaming = True if kwargs.pop("block_size", True) == 0 else False
-    if os.getenv("PANGEO_FORGE_BLOCK_SIZE"):
-        BLOCK_SIZE = int(os.getenv("PANGEO_FORGE_BLOCK_SIZE"))
+def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
-            count = summed_bytes = 0
             while True:
-                logger.debug("_copy_btw_filesystems reading data") if not streaming else None
+                logger.debug("_copy_btw_filesystems reading data")
                 try:
                     data = source.read(BLOCK_SIZE)
                 except BlockSizeError as e:
@@ -43,14 +39,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000, **
                     ) from e
                 if not data:
                     break
-                # strided logging pattern for streaming transfers to avoid excessive logs
-                if streaming:
-                    summed_bytes += len(data)
-                    if summed_bytes // BLOCK_SIZE >= count:
-                        logger.debug(f"copying block {count} of ~{BLOCK_SIZE} bytes")
-                        count += 1
-                else:
-                    logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
+                logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
                 target.write(data)
     logger.debug("_copy_btw_filesystems done")
 
@@ -161,7 +150,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
         input_opener = fsspec.open(fname, mode="rb", **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Coping remote file '{fname}' to cache")
-        _copy_btw_filesystems(input_opener, target_opener, **open_kwargs)
+        _copy_btw_filesystems(input_opener, target_opener)
 
 
 class MetadataTarget(FSSpecTarget):
