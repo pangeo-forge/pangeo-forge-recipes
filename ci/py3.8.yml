@@ -39,4 +39,4 @@ dependencies:
   - pip
   - pip:
     - pytest-timeout
-    - git+https://github.com/lsterzinger/fsspec-reference-maker-tutoria
+    - git+https://github.com/intake/fsspec-reference-maker
