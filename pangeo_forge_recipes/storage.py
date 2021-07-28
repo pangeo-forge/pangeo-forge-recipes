@@ -49,7 +49,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                 if elapsed // interval >= log_count:
                     logger.debug(f"_copy_btw_filesystems total bytes copied: {bytes_read}")
                     logger.debug(
-                        f"avg throughput over {round(elapsed/60, 2)} min: ~{throughput} bytes/sec"
+                        f"avg throughput over {elapsed/60:.2f)} min: {throughput/1_000_000:.2f} MB/sec"
                     )
                     log_count += 1
     logger.debug("_copy_btw_filesystems done")
