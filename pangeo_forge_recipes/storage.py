@@ -45,7 +45,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                 target.write(data)
                 bytes_read += len(data)
                 elapsed = time.time() - start
-                throughput = int(bytes_read / elapsed)
+                throughput = bytes_read / elapsed
                 if elapsed // interval >= log_count:
                     logger.debug(f"_copy_btw_filesystems total bytes copied: {bytes_read}")
                     logger.debug(
