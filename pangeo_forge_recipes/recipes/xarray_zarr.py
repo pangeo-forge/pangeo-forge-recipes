@@ -704,7 +704,7 @@ class XarrayZarrRecipe(BaseRecipe):
     lock_timeout: Optional[int] = None
     subset_inputs: SubsetSpec = field(default_factory=dict)
     is_opendap: bool = False
-    query_string_secrets: Optional[str] = None,
+    query_string_secrets: Optional[str] = None
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: str = field(default_factory=str, repr=False, init=False)
