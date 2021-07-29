@@ -156,6 +156,7 @@ def cache_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
+    query_string_secrets: Optional[str],
     is_opendap=bool,
 ) -> None:
     if cache_inputs:
@@ -165,7 +166,7 @@ def cache_input(
             raise ValueError("input_cache is not set.")
         logger.info(f"Caching input '{input_key!s}'")
         fname = file_pattern[input_key]
-        input_cache.cache_file(fname, **fsspec_open_kwargs)
+        input_cache.cache_file(fname, query_string_secrets, **fsspec_open_kwargs)
 
     if cache_metadata:
         return cache_input_metadata(
@@ -703,6 +704,7 @@ class XarrayZarrRecipe(BaseRecipe):
     lock_timeout: Optional[int] = None
     subset_inputs: SubsetSpec = field(default_factory=dict)
     is_opendap: bool = False
+    query_string_secrets: Optional[str] = None,
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: str = field(default_factory=str, repr=False, init=False)
@@ -846,6 +848,7 @@ class XarrayZarrRecipe(BaseRecipe):
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
             is_opendap=self.is_opendap,
+            query_string_secrets=self.query_string_secrets,
         )
 
     @property
