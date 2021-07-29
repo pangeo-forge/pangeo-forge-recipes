@@ -147,7 +147,7 @@ class FlatFSSpecTarget(FSSpecTarget):
 class CacheFSSpecTarget(FlatFSSpecTarget):
     """Alias for FlatFSSpecTarget"""
 
-    def cache_file(self, fname: str, **open_kwargs) -> None:
+    def cache_file(self, fname: str,  secrets: Optional[str] = None, **open_kwargs) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
         if self.exists(fname):
@@ -158,7 +158,8 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
                 logger.info(f"File '{fname}' is already cached")
                 return
 
-        input_opener = fsspec.open(fname, mode="rb", **open_kwargs)
+        input_fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
+        input_opener = fsspec.open(input_fname, mode="rb", **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Coping remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
@@ -240,3 +241,7 @@ def _slugify(value: str) -> str:
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     value = re.sub(r"[^.\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
+
+
+def _add_query_string_secrets(fname: str, secrets: str) -> str:
+    return fname + secrets
