@@ -100,12 +100,16 @@ class ReferenceHDFRecipe(BaseRecipe):
         """Final step to finish the recipe after data has been written.
         Attribute that returns a callable function.
         """
+        if isinstance(self.netcdf_url, str):
+            proto = fsspec.utils.get_protocol(self.netcdf_url)
+        else:
+            proto = fsspec.utils.get_protocol(self.netcdf_url[0])
         return functools.partial(
             _finalize,
             work_dir=self._work_dir,
             out_url=self.output_url,
             out_so=self.output_storage_options,
-            remote_protocol=fsspec.utils.get_protocol(self.netcdf_url),
+            remote_protocol=proto,
             remote_options=self.netcdf_storage_options,
             xr_open_kwargs=self.xarray_open_kwargs,
             xr_concat_kwargs=self.xarray_concat_args,
