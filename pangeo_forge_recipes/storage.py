@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
@@ -28,8 +29,10 @@ def _get_url_size(fname, **open_kwargs):
 def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
+            start = time.time()
+            interval = 5  # seconds
+            bytes_read = log_count = 0
             while True:
-                logger.debug("_copy_btw_filesystems reading data")
                 try:
                     data = source.read(BLOCK_SIZE)
                 except BlockSizeError as e:
@@ -39,8 +42,16 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                     ) from e
                 if not data:
                     break
-                logger.debug(f"_copy_btw_filesystems copying block of {len(data)} bytes")
                 target.write(data)
+                bytes_read += len(data)
+                elapsed = time.time() - start
+                throughput = bytes_read / elapsed
+                if elapsed // interval >= log_count:
+                    logger.debug(f"_copy_btw_filesystems total bytes copied: {bytes_read}")
+                    logger.debug(
+                        f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
+                    )
+                    log_count += 1
     logger.debug("_copy_btw_filesystems done")
 
 
@@ -174,6 +185,7 @@ def file_opener(
     fname: str,
     cache: Optional[CacheFSSpecTarget] = None,
     copy_to_local: bool = False,
+    bypass_open: bool = False,
     **open_kwargs,
 ) -> Iterator[Union[OpenFileType, str]]:
     """
@@ -185,7 +197,17 @@ def file_opener(
         will be opened directly.
     :param copy_to_local: If True, always copy the file to a local temporary file
         before opening. In this case, function yields a path name rather than an open file.
+    :param bypass_open: If True, skip trying to open the file at all and just
+        return the filename back directly. (A fancy way of doing nothing!)
     """
+
+    if bypass_open:
+        if cache or copy_to_local:
+            raise ValueError("Can't bypass open with cache or copy_to_local.")
+        logger.debug(f"Bypassing open for '{fname}'")
+        yield fname
+        return
+
     if cache is not None:
         logger.info(f"Opening '{fname}' from cache")
         opener = cache.open(fname, mode="rb")

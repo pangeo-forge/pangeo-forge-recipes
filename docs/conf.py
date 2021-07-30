@@ -9,10 +9,16 @@ author = "Pangeo Community"
 extensions = [
     "myst_nb",
     "sphinx.ext.autodoc",
+    "sphinx.ext.extlinks",
     # "numpydoc",
     "sphinx_autodoc_typehints",
     "sphinx_copybutton",
 ]
+
+extlinks = {
+    "issue": ("https://github.com/pangeo-forge/pange-forge-recipes/issues/%s", "GH issue "),
+    "pull": ("https://github.com/pangeo-forge/pange-forge-recipes/pull/%s", "GH PR "),
+}
 
 exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 master_doc = "index"
