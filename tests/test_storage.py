@@ -42,9 +42,10 @@ def test_metadata_target(tmp_metadata_target):
 @pytest.mark.parametrize(
     "file_paths",
     [
-        lazy_fixture("netcdf_local_paths"), lazy_fixture("netcdf_http_paths"),
+        lazy_fixture("netcdf_local_paths"),
+        lazy_fixture("netcdf_http_paths"),
         lazy_fixture("netcdf_http_paths_with_secrets"),
-    ]
+    ],
 )
 @pytest.mark.parametrize("copy_to_local", [False, True])
 @pytest.mark.parametrize("use_cache, cache_first", [(False, False), (True, False), (True, True)])
@@ -52,8 +53,16 @@ def test_metadata_target(tmp_metadata_target):
 @pytest.mark.parametrize("use_xarray", [True, False])
 @pytest.mark.parametrize("use_query_string_secrets", [True, False])
 def test_file_opener(
-    file_paths, tmp_cache, fake_secrets, copy_to_local, use_cache, cache_first, dask_cluster,
-    use_dask, use_xarray, use_query_string_secrets,
+    file_paths,
+    tmp_cache,
+    fake_secrets,
+    copy_to_local,
+    use_cache,
+    cache_first,
+    dask_cluster,
+    use_dask,
+    use_xarray,
+    use_query_string_secrets,
 ):
     all_paths, _ = file_paths
     path = str(all_paths[0])
