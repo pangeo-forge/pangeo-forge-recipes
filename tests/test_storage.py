@@ -40,25 +40,32 @@ def test_metadata_target(tmp_metadata_target):
 
 
 @pytest.mark.parametrize(
-    "file_paths", [lazy_fixture("netcdf_local_paths"), lazy_fixture("netcdf_http_paths")]
+    "file_paths",
+    [
+        lazy_fixture("netcdf_local_paths"), lazy_fixture("netcdf_http_paths"),
+        lazy_fixture("netcdf_http_paths_with_secrets"),
+    ]
 )
 @pytest.mark.parametrize("copy_to_local", [False, True])
 @pytest.mark.parametrize("use_cache, cache_first", [(False, False), (True, False), (True, True)])
 @pytest.mark.parametrize("use_dask", [True, False])
 @pytest.mark.parametrize("use_xarray", [True, False])
+@pytest.mark.parametrize("use_query_string_secrets", [True, False])
 def test_file_opener(
-    file_paths, tmp_cache, copy_to_local, use_cache, cache_first, dask_cluster, use_dask, use_xarray
+    file_paths, tmp_cache, fake_secrets, copy_to_local, use_cache, cache_first, dask_cluster,
+    use_dask, use_xarray, use_query_string_secrets,
 ):
     all_paths, _ = file_paths
     path = str(all_paths[0])
     cache = tmp_cache if use_cache else None
+    secrets = fake_secrets if use_query_string_secrets and file_paths[0][-1] == "?" else None
 
     def do_actual_test():
         if cache_first:
-            cache.cache_file(path)
+            cache.cache_file(path, secrets)
             assert cache.exists(path)
             details = cache.fs.ls(cache.root_path, detail=True)
-            cache.cache_file(path)
+            cache.cache_file(path, secrets)
             # check that nothing happened
             assert cache.fs.ls(cache.root_path, detail=True) == details
 
