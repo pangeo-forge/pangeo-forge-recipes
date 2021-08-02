@@ -158,8 +158,10 @@ def _finalize(
                         "target_options": out_so,
                         "remote_protocol": remote_protocol,
                         "remote_options": remote_options,
+                        "skip_instance_cache": True,
                     },
-                    #  chunks:  # can optimize access here
+                    "chunks": {},  # can optimize access here
+                    "consolidated": False,
                 },
             }
         }

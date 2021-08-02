@@ -37,7 +37,7 @@ def test_single(netcdf_local_paths, tmpdir, with_intake):
     else:
         fs = fsspec.filesystem("reference", fo=out, remote_protocol="file")
         m = fs.get_mapper("")
-        ds = xr.open_dataset(m, engine="zarr")
+        ds = xr.open_dataset(m, engine="zarr", chunks={}, consolidated=False)
     assert (ds.foo == expected.foo).all()
 
 
@@ -64,7 +64,11 @@ def test_multi(netcdf_local_paths, tmpdir, with_intake):
         ds = cat.data.read()
     else:
         m = fsspec.get_mapper(
-            "reference://", fo=out, target_protocol="file", remote_protocol="file",
+            "reference://",
+            fo=out,
+            target_protocol="file",
+            remote_protocol="file",
+            skip_instance_cache=True,
         )
-        ds = xr.open_dataset(m, engine="zarr")
+        ds = xr.open_dataset(m, engine="zarr", chunks={}, consolidated=False)
     assert (ds.foo == expected.foo).all()
