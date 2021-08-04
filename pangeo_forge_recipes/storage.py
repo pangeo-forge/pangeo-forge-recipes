@@ -6,11 +6,11 @@ import re
 import tempfile
 import time
 import unicodedata
-from urllib.parse import urlparse, urlunparse
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Sequence, Union
+from urllib.parse import urlparse, urlunparse
 
 import fsspec
 from fsspec.implementations.http import BlockSizeError
