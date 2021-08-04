@@ -140,13 +140,11 @@ def netcdf_http_paths(netcdf_local_paths, request):
     command_list = [
         "python",
         os.path.join(this_dir, "http_auth_server.py"),
-        port,
-        "127.0.0.1",
-        username,
-        password,
+        f"--port={port}",
+        "--address=127.0.0.1",
     ]
     if username:
-        command_list += [username, password]
+        command_list += [f"--username={username}", f"--password={password}"]
     p = subprocess.Popen(command_list, cwd=basedir)
     url = f"http://127.0.0.1:{port}"
     time.sleep(2)  # let the server start up
