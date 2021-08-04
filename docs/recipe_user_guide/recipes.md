@@ -19,8 +19,8 @@ recipe is just the _description_ of the transformation.
 To actually do the work, the recipe must be {doc}`executed <execution>`.
 Recipe authors (i.e. data users or data managers) can either execute their recipes
 on their own computers and infrastructure, in private, or contribute their recipe
-to the public Pangeo Forge {doc}`recipe_box`, where it can be executed in the cloud via
-{doc}`bakeries`.
+to the public Pangeo Forge {doc}`../cloud_automation_user_guide/recipe_box`, where it can be executed in the cloud via
+{doc}`../cloud_automation_user_guide/bakeries`.
 
 ## Recipe Classes
 
@@ -44,9 +44,9 @@ The target Zarr dataset will conform to the
 
 The best way to really understand how recipes work is to go through the relevant
 tutorials for this recipe class. These are, in order of increasing complexity
-- {doc}`tutorials/netcdf_zarr_sequential`
-- {doc}`tutorials/multi_variable_recipe`
-- {doc}`tutorials/terraclimate`
+- {doc}`../tutorials/netcdf_zarr_sequential`
+- {doc}`../tutorials/multi_variable_recipe`
+- {doc}`../tutorials/terraclimate`
 
 Below we give a very basic overview of how recipes are used.
 
@@ -80,7 +80,7 @@ Once your recipe is defined and has its targets assigned, you're ready to
 move on to {doc}`execution`.
 
 The API documentation below explains all of the possible options for `XarrayZarrRecipe`.
-Many of these options are explored further in the {doc}`tutorials/index`.
+Many of these options are explored further in the {doc}`../tutorials/index`.
 
 ```{eval-rst}
 .. autoclass:: pangeo_forge_recipes.recipes.XarrayZarrRecipe
