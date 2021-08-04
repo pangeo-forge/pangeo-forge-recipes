@@ -95,28 +95,33 @@ def _split_up_files_by_variable_and_day(ds, day_param):
 
 
 @pytest.fixture(scope="session", params=["D", "2D"])
-def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
+def items_per_file(request):
+    return request.param
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file):
     """Return a list of paths pointing to netcdf files."""
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     # copy needed to avoid polluting metadata across multiple tests
-    datasets, fnames = _split_up_files_by_day(daily_xarray_dataset.copy(), request.param)
+    datasets, fnames = _split_up_files_by_day(daily_xarray_dataset.copy(), items_per_file)
     full_paths = [tmp_path.join(fname) for fname in fnames]
     xr.save_mfdataset(datasets, [str(path) for path in full_paths])
-    items_per_file = {"D": 1, "2D": 2}[request.param]
+    items_per_file = {"D": 1, "2D": 2}[items_per_file]
     return full_paths, items_per_file
 
 
 # TODO: this is quite repetetive of the fixture above. Replace with parametrization.
-@pytest.fixture(scope="session", params=["D", "2D"])
-def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request):
+@pytest.fixture(scope="session")
+def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, items_per_file):
     """Return a list of paths pointing to netcdf files."""
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     datasets, fnames, fnames_by_variable = _split_up_files_by_variable_and_day(
-        daily_xarray_dataset.copy(), request.param
+        daily_xarray_dataset.copy(), items_per_file
     )
     full_paths = [tmp_path.join(fname) for fname in fnames]
     xr.save_mfdataset(datasets, [str(path) for path in full_paths])
-    items_per_file = {"D": 1, "2D": 2}[request.param]
+    items_per_file = {"D": 1, "2D": 2}[items_per_file]
     path_format = str(tmp_path) + "/{variable}_{time:03d}.nc"
     return full_paths, items_per_file, fnames_by_variable, path_format
 
