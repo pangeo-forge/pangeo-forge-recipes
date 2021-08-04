@@ -163,7 +163,11 @@ def netcdf_http_paths(netcdf_paths, request):
     request.addfinalizer(teardown)
 
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]
-    return all_urls, items_per_file, fnames_by_variable, path_format
+
+    if len(netcdf_paths) == 2:
+        return all_urls, items_per_file
+    else:
+        return all_urls, items_per_file, fnames_by_variable, path_format
 
 
 @pytest.fixture(scope="session")
