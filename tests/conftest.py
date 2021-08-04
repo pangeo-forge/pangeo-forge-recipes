@@ -161,9 +161,9 @@ def netcdf_http_paths(netcdf_local_paths, request):
 
 
 @pytest.fixture(scope="session")
-def netcdf_http_paths_with_secrets(netcdf_http_paths, fake_secrets):
+def netcdf_http_paths_with_secrets(netcdf_http_paths):
     all_urls, items_per_file = netcdf_http_paths
-    all_urls = [url + fake_secrets for url in all_urls]
+    all_urls = [url + "?a-pretend-api-token" for url in all_urls]
     return all_urls, items_per_file
 
 
@@ -180,11 +180,6 @@ def tmp_cache(tmpdir_factory):
     fs = fsspec.get_filesystem_class("file")()
     cache = CacheFSSpecTarget(fs, path)
     return cache
-
-
-@pytest.fixture(scope="session")
-def fake_secrets():
-    return "?a-pretend-api-token"
 
 
 @pytest.fixture()
