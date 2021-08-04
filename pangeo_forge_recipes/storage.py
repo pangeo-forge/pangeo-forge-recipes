@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 OpenFileType = Any
 
 
-def _get_url_size(fname, **open_kwargs):
-    with fsspec.open(fname, mode="rb", **open_kwargs) as of:
+def _get_url_size(fname, secrets, **open_kwargs):
+    with _get_opener(fname, secrets, mode="rb", **open_kwargs) as of:
         size = of.size
     return size
 
@@ -153,14 +153,13 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
         logger.info(f"Caching file '{fname}'")
         if self.exists(fname):
             cached_size = self.size(fname)
-            remote_size = _get_url_size(fname, **open_kwargs)
+            remote_size = _get_url_size(fname, secrets, **open_kwargs)
             if cached_size == remote_size:
                 # TODO: add checksumming here
                 logger.info(f"File '{fname}' is already cached")
                 return
 
-        input_fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
-        input_opener = fsspec.open(input_fname, mode="rb", **open_kwargs)
+        input_opener = _get_opener(fname, secrets, mode="rb", **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Coping remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
@@ -188,6 +187,7 @@ def file_opener(
     cache: Optional[CacheFSSpecTarget] = None,
     copy_to_local: bool = False,
     bypass_open: bool = False,
+    secrets: Optional[str] = None,
     **open_kwargs,
 ) -> Iterator[Union[OpenFileType, str]]:
     """
@@ -215,7 +215,7 @@ def file_opener(
         opener = cache.open(fname, mode="rb")
     else:
         logger.info(f"Opening '{fname}' directly.")
-        opener = fsspec.open(fname, mode="rb", **open_kwargs)
+        opener = _get_opener(fname, secrets, mode="rb", **open_kwargs)
     if copy_to_local:
         _, suffix = os.path.splitext(fname)
         ntf = tempfile.NamedTemporaryFile(suffix=suffix)
@@ -249,3 +249,8 @@ def _add_query_string_secrets(fname: str, secrets: str) -> str:
     query = secrets if len(parsed.query) == 0 else f"{parsed.query}&{secrets}"
     parsed = parsed._replace(query=query)
     return urlunparse(parsed)
+
+
+def _get_opener(fname: str, secrets: Optional[str], **open_kwargs):
+    fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
+    return fsspec.open(fname, mode="rb", **open_kwargs)
