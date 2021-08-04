@@ -22,7 +22,7 @@ OpenFileType = Any
 
 
 def _get_url_size(fname, secrets, **open_kwargs):
-    with _get_opener(fname, secrets, mode="rb", **open_kwargs) as of:
+    with _get_opener(fname, secrets, **open_kwargs) as of:
         size = of.size
     return size
 
@@ -159,7 +159,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
                 logger.info(f"File '{fname}' is already cached")
                 return
 
-        input_opener = _get_opener(fname, secrets, mode="rb", **open_kwargs)
+        input_opener = _get_opener(fname, secrets, **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Coping remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
@@ -215,7 +215,7 @@ def file_opener(
         opener = cache.open(fname, mode="rb")
     else:
         logger.info(f"Opening '{fname}' directly.")
-        opener = _get_opener(fname, secrets, mode="rb", **open_kwargs)
+        opener = _get_opener(fname, secrets, **open_kwargs)
     if copy_to_local:
         _, suffix = os.path.splitext(fname)
         ntf = tempfile.NamedTemporaryFile(suffix=suffix)
