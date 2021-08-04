@@ -6,6 +6,7 @@ import re
 import tempfile
 import time
 import unicodedata
+from urllib.parse import urlparse, urlunparse
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -244,4 +245,7 @@ def _slugify(value: str) -> str:
 
 
 def _add_query_string_secrets(fname: str, secrets: str) -> str:
-    return fname + secrets
+    parsed = urlparse(fname)
+    query = secrets if len(parsed.query) == 0 else f"{parsed.query}&{secrets}"
+    parsed = parsed._replace(query=query)
+    return urlunparse(parsed)
