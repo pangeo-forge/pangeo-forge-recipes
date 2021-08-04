@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Sequence, Union
-from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
 from fsspec.implementations.http import BlockSizeError

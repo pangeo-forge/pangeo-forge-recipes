@@ -15,7 +15,6 @@ def serve_forever(address, port, username, password):
     port = int(port)
 
     class Handler(http.server.SimpleHTTPRequestHandler):
-
         def do_GET(self):
             if username:
                 auth = self.headers.get("Authorization")
@@ -36,5 +35,5 @@ def serve_forever(address, port, username, password):
         httpd.serve_forever()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     serve_forever()
