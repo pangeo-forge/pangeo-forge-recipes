@@ -63,9 +63,16 @@ def test_file_opener(
     use_xarray,
 ):
     all_paths, _ = file_paths
-    path = str(all_paths[0])
+
+    if "?" not in str(all_paths[0]):
+        path = str(all_paths[0])
+    elif "&" not in str(all_paths[0]):
+        path = str(all_paths[0]).split("?")[0]
+    else:
+        path = str(all_paths[0]).split("&")[0]
+
     cache = tmp_cache if use_cache else None
-    secrets = "token=bar" if "?" in path else None
+    secrets = "token=bar" if "?" in str(all_paths[0]) else None
 
     def do_actual_test():
         if cache_first:
