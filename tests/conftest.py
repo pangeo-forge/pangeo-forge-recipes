@@ -128,10 +128,12 @@ def netcdf_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_spli
 
 
 # TODO: refactor to allow netcdf_local_paths_by_variable to be passed without
-# duplicating the whole test.
+# duplicating the whole test. --> COMPLETE?
 @pytest.fixture(scope="session")
-def netcdf_http_paths(netcdf_local_paths, request):
-    paths, items_per_file = netcdf_local_paths
+def netcdf_http_paths(netcdf_paths, request):
+    paths, items_per_file = netcdf_paths[:2]
+    if len(netcdf_paths) == 4:
+        fnames_by_variable, path_format = netcdf_paths[2:]
 
     username = ""
     password = ""
@@ -161,7 +163,7 @@ def netcdf_http_paths(netcdf_local_paths, request):
     request.addfinalizer(teardown)
 
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]
-    return all_urls, items_per_file
+    return all_urls, items_per_file, fnames_by_variable, path_format
 
 
 @pytest.fixture(scope="session")
