@@ -163,7 +163,7 @@ def netcdf_http_paths(netcdf_local_paths, request):
 @pytest.fixture(scope="session")
 def netcdf_http_paths_with_secrets(netcdf_http_paths):
     all_urls, items_per_file = netcdf_http_paths
-    all_urls = [url + "?a-pretend-api-token" for url in all_urls]
+    all_urls = [url + "?token=bar" for url in all_urls]
     return all_urls, items_per_file
 
 
