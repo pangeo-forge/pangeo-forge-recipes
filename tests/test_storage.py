@@ -45,6 +45,7 @@ def test_metadata_target(tmp_metadata_target):
         lazy_fixture("netcdf_local_paths"),
         lazy_fixture("netcdf_http_paths"),
         lazy_fixture("netcdf_http_paths_with_secrets"),
+        lazy_fixture("netcdf_http_paths_with_multiparam_secrets"),
     ],
 )
 @pytest.mark.parametrize("copy_to_local", [False, True])

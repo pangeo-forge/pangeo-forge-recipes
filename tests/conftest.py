@@ -167,6 +167,13 @@ def netcdf_http_paths_with_secrets(netcdf_http_paths):
     return all_urls, items_per_file
 
 
+@pytest.fixture(scope="session")
+def netcdf_http_paths_with_multiparam_secrets(netcdf_http_paths):
+    all_urls, items_per_file = netcdf_http_paths
+    all_urls = [url + "?filename=foo.nc&token=bar" for url in all_urls]
+    return all_urls, items_per_file
+
+
 @pytest.fixture()
 def tmp_target(tmpdir_factory):
     fs = fsspec.get_filesystem_class("file")()
