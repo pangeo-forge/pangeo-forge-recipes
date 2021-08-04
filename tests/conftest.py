@@ -112,16 +112,15 @@ def netcdf_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_spli
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     file_splitter_tuple = file_splitter(daily_xarray_dataset.copy(), items_per_file)
 
-    if len(file_splitter_tuple) == 2:
-        datasets, fnames = file_splitter_tuple
-    else:
-        datasets, fnames, fnames_by_variable = file_splitter_tuple
+    datasets, fnames = file_splitter_tuple[:2]
+    if len(file_splitter_tuple) == 3:
+        fnames_by_variable = file_splitter_tuple[2]
 
     full_paths = [tmp_path.join(fname) for fname in fnames]
     xr.save_mfdataset(datasets, [str(path) for path in full_paths])
     items_per_file = {"D": 1, "2D": 2}[items_per_file]
 
-    if not fnames_by_variable:
+    if len(file_splitter_tuple) == 2:
         return full_paths, items_per_file
     else:
         path_format = str(tmp_path) + "/{variable}_{time:03d}.nc"
