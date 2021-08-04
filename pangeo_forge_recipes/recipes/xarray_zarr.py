@@ -156,7 +156,7 @@ def cache_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
-    query_string_secrets: Optional[str],
+    query_string_secrets: Optional[dict],
     is_opendap=bool,
 ) -> None:
     if cache_inputs:
@@ -684,6 +684,8 @@ class XarrayZarrRecipe(BaseRecipe):
       time dimension. Multiple dimensions are allowed.
     :param is_opednap: If True, assume all input fnames represent opendap endpoints.
       Cannot be used with caching.
+    :param query_string_secrets: If provided, these key/value pairs are appended to
+      the query string of each ``file_pattern`` url at runtime.
     """
 
     file_pattern: FilePattern
@@ -704,7 +706,7 @@ class XarrayZarrRecipe(BaseRecipe):
     lock_timeout: Optional[int] = None
     subset_inputs: SubsetSpec = field(default_factory=dict)
     is_opendap: bool = False
-    query_string_secrets: Optional[str] = None
+    query_string_secrets: Optional[dict] = None
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: str = field(default_factory=str, repr=False, init=False)
