@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Sequence, Union
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 import fsspec
 from fsspec.implementations.http import BlockSizeError
@@ -148,7 +148,7 @@ class FlatFSSpecTarget(FSSpecTarget):
 class CacheFSSpecTarget(FlatFSSpecTarget):
     """Alias for FlatFSSpecTarget"""
 
-    def cache_file(self, fname: str, secrets: Optional[str], **open_kwargs) -> None:
+    def cache_file(self, fname: str, secrets: Optional[dict], **open_kwargs) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
         if self.exists(fname):
@@ -187,7 +187,7 @@ def file_opener(
     cache: Optional[CacheFSSpecTarget] = None,
     copy_to_local: bool = False,
     bypass_open: bool = False,
-    secrets: Optional[str] = None,
+    secrets: Optional[dict] = None,
     **open_kwargs,
 ) -> Iterator[Union[OpenFileType, str]]:
     """
@@ -244,13 +244,15 @@ def _slugify(value: str) -> str:
     return re.sub(r"[-\s]+", "-", value).strip("-_")
 
 
-def _add_query_string_secrets(fname: str, secrets: str) -> str:
+def _add_query_string_secrets(fname: str, secrets: dict) -> str:
     parsed = urlparse(fname)
-    query = secrets if len(parsed.query) == 0 else f"{parsed.query}&{secrets}"
-    parsed = parsed._replace(query=query)
+    query = parse_qs(parsed.query)
+    for k, v in secrets.items():
+        query.update({k: v})
+    parsed = parsed._replace(query=urlencode(query, doseq=True))
     return urlunparse(parsed)
 
 
-def _get_opener(fname: str, secrets: Optional[str], **open_kwargs):
+def _get_opener(fname: str, secrets: Optional[dict], **open_kwargs):
     fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
     return fsspec.open(fname, mode="rb", **open_kwargs)
