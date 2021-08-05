@@ -100,8 +100,7 @@ def items_per_file(request):
 
 
 @pytest.fixture(
-    scope="session",
-    params=[_split_up_files_by_day, _split_up_files_by_variable_and_day]
+    scope="session", params=[_split_up_files_by_day, _split_up_files_by_variable_and_day]
 )
 def file_splitter(request):
     return request.param

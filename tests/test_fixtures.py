@@ -20,8 +20,6 @@ def test_fixture_http_files(daily_xarray_dataset, netcdf_http_paths):
         fnames_by_variable, path_format = netcdf_http_paths[2:]
     open_files = [fsspec.open(url).open() for url in urls]
     combine = "nested" if len(netcdf_http_paths) == 2 else "by_coords"
-    ds = xr.open_mfdataset(
-        open_files, combine=combine, concat_dim="time", engine="h5netcdf"
-    ).load()
+    ds = xr.open_mfdataset(open_files, combine=combine, concat_dim="time", engine="h5netcdf").load()
     ds = fix_scalar_attr_encoding(ds)  # necessary?
     assert ds.identical(daily_xarray_dataset)
