@@ -9,6 +9,7 @@ import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
+from ftplib import Error as FTPError
 from typing import Any, Iterator, Optional, Sequence, Union
 
 import fsspec
@@ -46,32 +47,35 @@ def _timed_logging(copy_func):
     return wrapper
 
 
-def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
+def _copy_btw_filesystems(input_opener, output_opener, call_ftplib_directly, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
-            start = time.time()
-            interval = 5  # seconds
-            bytes_read = log_count = 0
-            while True:
-                try:
-                    data = source.read(BLOCK_SIZE)
-                except BlockSizeError as e:
-                    raise ValueError(
-                        "Server does not permit random access to this file via Range requests. "
-                        'Try re-instantiating recipe with `fsspec_open_kwargs={"block_size": 0}`'
-                    ) from e
-                if not data:
-                    break
-                target.write(data)
-                bytes_read += len(data)
-                elapsed = time.time() - start
-                throughput = bytes_read / elapsed
-                if elapsed // interval >= log_count:
-                    logger.debug(f"_copy_btw_filesystems total bytes copied: {bytes_read}")
-                    logger.debug(
-                        f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
-                    )
-                    log_count += 1
+            if call_ftplib_directly:
+                input_opener.fs.ftp.voidcmd('TYPE I')
+                with input_opener.fs.ftp.transfercmd("RETR %s" % source.path) as conn:
+                    @_timed_logging
+                    def copy():
+                        return conn.recv(BLOCK_SIZE)
+
+                    copy(target=target)
+                input_opener.fs.ftp.voidresp()
+            else:
+                @_timed_logging
+                def copy():
+                    try:
+                        return source.read(BLOCK_SIZE)
+                    except BlockSizeError as e:
+                        raise ValueError(
+                            "This HTTP server does not support range requests. Try "
+                            're-instantiating recipe with `fsspec_open_kwargs={"block_size": 0}`'
+                        ) from e
+                    except FTPError as e:
+                        raise ValueError(
+                            "This FTP server may not support `fsspec` range requests. "
+                            "Try re-instantiating recipe with `call_ftplib_directly=True`"
+                        ) from e
+
+                copy(target=target)
     logger.debug("_copy_btw_filesystems done")
 
 
