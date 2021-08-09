@@ -56,7 +56,7 @@ def _copy_btw_filesystems(input_opener, output_opener, call_ftplib_directly, BLO
                 assert isinstance(
                     source.fs, FTPFileSystem
                 ), "`call_ftplib_directly=True` but source file server not `FTPFileSystem`."
-                source.fs.ftp.voidcmd('TYPE I')
+                source.fs.ftp.voidcmd("TYPE I")
                 with source.fs.ftp.transfercmd("RETR %s" % source.path) as conn:
 
                     @_timed_logging
