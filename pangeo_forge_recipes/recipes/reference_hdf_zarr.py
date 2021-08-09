@@ -3,7 +3,7 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass, field
-from typing import Callable, Hashable, Iterable, List, Union
+from typing import Callable, Hashable, Iterable, List, Optional, Union
 
 import fsspec
 import yaml
@@ -14,6 +14,7 @@ from .base import BaseRecipe
 
 
 def no_op(*_, **__) -> None:
+    """A function that does nothing, regardless of inputs"""
     return None
 
 
@@ -58,8 +59,17 @@ class ReferenceHDFRecipe(BaseRecipe):
     :param output_url: where the final reference file is written.
     :param output_storage_options: dict of kwargs for creating fsspec
         instance when writing final output
+    :param template_count: the number of occurrences of a URL before it
+        gets made a template. ``None`` to disable templating
     """
 
+    # TODO: support chunked ("tree") aggregation: would entail processing each file
+    #  in one stage, running a set of merges in a second step and doing
+    #  a master merge in finalise. This would maybe map to iter_chunk,
+    #  store_chunk, finalize_target. The strategy was used for NWM's 370k files.
+
+    # TODO: as written, this rcipe is specific to HDF5 files. fsspec-reference-maker
+    #  also supports TIFF and grib2 (and more coming)
     netcdf_url: Union[str, List[str]]
     output_url: str
     _work_dir: str = ""
@@ -67,6 +77,7 @@ class ReferenceHDFRecipe(BaseRecipe):
     netcdf_storage_options: dict = field(default_factory=dict)
     inline_threshold: int = 500
     output_storage_options: dict = field(default_factory=dict)
+    template_count: Optional[int] = 20
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_args: dict = field(default_factory=dict)
 
@@ -113,6 +124,7 @@ class ReferenceHDFRecipe(BaseRecipe):
             remote_options=self.netcdf_storage_options,
             xr_open_kwargs=self.xarray_open_kwargs,
             xr_concat_kwargs=self.xarray_concat_args,
+            template_count=self.template_count,
         )
 
 
@@ -125,7 +137,14 @@ def _one_chunk(of, work_dir):
 
 
 def _finalize(
-    work_dir, out_url, out_so, remote_protocol, remote_options, xr_open_kwargs, xr_concat_kwargs
+    work_dir,
+    out_url,
+    out_so,
+    remote_protocol,
+    remote_options,
+    xr_open_kwargs,
+    xr_concat_kwargs,
+    template_count,
 ):
     files = [os.path.join(work_dir, f) for f in os.listdir(work_dir)]
     if len(files) == 1:
@@ -140,7 +159,7 @@ def _finalize(
         )
         fn = os.path.join(work_dir, "combined.json")
         # mzz does not support directly writing to remote yet
-        mzz.translate(fn)
+        mzz.translate(fn, template_count=template_count)
     fs, _ = fsspec.core.url_to_fs(out_url, **out_so)
     protocol = fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0]
     fs.put(fn, out_url)
