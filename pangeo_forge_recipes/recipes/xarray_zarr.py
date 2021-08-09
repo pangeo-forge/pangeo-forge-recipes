@@ -158,7 +158,7 @@ def cache_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
-    is_opendap=bool,
+    is_opendap: bool,
     call_ftplib_directly: bool,
 ) -> None:
     if cache_inputs:
