@@ -28,7 +28,7 @@ def _get_url_size(fname, **open_kwargs):
     return size
 
 
-def _timed_logging(copy_func):
+def _write(copy_func):
     def wrapper(target, bytes_read=0, log_count=0, interval=5):
         start_time = time.time()
         while True:
@@ -59,7 +59,7 @@ def _copy_btw_filesystems(input_opener, output_opener, call_ftplib_directly, BLO
                 source.fs.ftp.voidcmd("TYPE I")
                 with source.fs.ftp.transfercmd("RETR %s" % source.path) as conn:
 
-                    @_timed_logging
+                    @_write
                     def copy():
                         return conn.recv(BLOCK_SIZE)
 
@@ -67,7 +67,7 @@ def _copy_btw_filesystems(input_opener, output_opener, call_ftplib_directly, BLO
                 source.fs.ftp.voidresp()
             else:
 
-                @_timed_logging
+                @_write
                 def copy():
                     return source.read(BLOCK_SIZE)
 
