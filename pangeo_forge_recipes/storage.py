@@ -13,8 +13,8 @@ from ftplib import Error as FTPError
 from typing import Any, Iterator, Optional, Sequence, Union
 
 import fsspec
-from fsspec.implementations.http import BlockSizeError
 from fsspec.implementations.ftp import FTPFileSystem
+from fsspec.implementations.http import BlockSizeError
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def _get_url_size(fname, **open_kwargs):
 
 
 def _timed_logging(copy_func):
-    def wrapper(target, bytes_read=0, log_count=0, interval=5,):
+    def wrapper(target, bytes_read=0, log_count=0, interval=5):
         start_time = time.time()
         while True:
             data = copy_func()
@@ -45,6 +45,7 @@ def _timed_logging(copy_func):
                     f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
                 )
                 log_count += 1
+
     return wrapper
 
 
@@ -52,11 +53,12 @@ def _copy_btw_filesystems(input_opener, output_opener, call_ftplib_directly, BLO
     with input_opener as source:
         with output_opener as target:
             if call_ftplib_directly:
-                assert isinstance(source.fs, FTPFileSystem), (
-                    "`call_ftplib_directly=True` but source file server not `FTPFileSystem`."
-                )
+                assert isinstance(
+                    source.fs, FTPFileSystem
+                ), "`call_ftplib_directly=True` but source file server not `FTPFileSystem`."
                 source.fs.ftp.voidcmd('TYPE I')
                 with source.fs.ftp.transfercmd("RETR %s" % source.path) as conn:
+
                     @_timed_logging
                     def copy():
                         return conn.recv(BLOCK_SIZE)
@@ -64,6 +66,7 @@ def _copy_btw_filesystems(input_opener, output_opener, call_ftplib_directly, BLO
                     copy(target=target)
                 source.fs.ftp.voidresp()
             else:
+
                 @_timed_logging
                 def copy():
                     return source.read(BLOCK_SIZE)
