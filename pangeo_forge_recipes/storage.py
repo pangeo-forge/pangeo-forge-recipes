@@ -171,7 +171,7 @@ class FlatFSSpecTarget(FSSpecTarget):
 class CacheFSSpecTarget(FlatFSSpecTarget):
     """Alias for FlatFSSpecTarget"""
 
-    def cache_file(self, fname: str, **open_kwargs) -> None:
+    def cache_file(self, fname: str, call_ftplib_directly, **open_kwargs) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
         if self.exists(fname):
@@ -185,7 +185,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
         input_opener = fsspec.open(fname, mode="rb", **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Coping remote file '{fname}' to cache")
-        _copy_btw_filesystems(input_opener, target_opener)
+        _copy_btw_filesystems(input_opener, target_opener, call_ftplib_directly)
 
 
 class MetadataTarget(FSSpecTarget):
@@ -210,6 +210,7 @@ def file_opener(
     cache: Optional[CacheFSSpecTarget] = None,
     copy_to_local: bool = False,
     bypass_open: bool = False,
+    call_ftplib_directly: bool = False,
     **open_kwargs,
 ) -> Iterator[Union[OpenFileType, str]]:
     """
@@ -223,6 +224,9 @@ def file_opener(
         before opening. In this case, function yields a path name rather than an open file.
     :param bypass_open: If True, skip trying to open the file at all and just
         return the filename back directly. (A fancy way of doing nothing!)
+    :param call_ftplib_directly: If True, copy from an FTP server using low-level methods
+        from Python's ``ftplib`` directly. Only necessary for FTP servers that do not support
+        ``fsspec``'s range request methods.
     """
 
     if bypass_open:
@@ -244,7 +248,7 @@ def file_opener(
         tmp_name = ntf.name
         logger.info(f"Copying '{fname}' to local file '{tmp_name}'")
         target_opener = open(tmp_name, mode="wb")
-        _copy_btw_filesystems(opener, target_opener)
+        _copy_btw_filesystems(opener, target_opener, call_ftplib_directly)
         yield tmp_name
         ntf.close()  # cleans up the temporary file
     else:
