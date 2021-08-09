@@ -26,6 +26,26 @@ def _get_url_size(fname, **open_kwargs):
     return size
 
 
+def _timed_logging(copy_func):
+    def wrapper(target, bytes_read=0, log_count=0, interval=5,):
+        start_time = time.time()
+        while True:
+            data = copy_func()
+            target.write(data)
+            if not data:
+                break
+            bytes_read += len(data)
+            elapsed = time.time() - start_time
+            throughput = bytes_read / elapsed
+            if elapsed // interval >= log_count:
+                logger.debug(f"_copy_btw_filesystems total bytes copied: {bytes_read}")
+                logger.debug(
+                    f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
+                )
+                log_count += 1
+    return wrapper
+
+
 def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
