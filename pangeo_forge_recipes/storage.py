@@ -66,20 +66,20 @@ def _copy_btw_filesystems(input_opener, output_opener, call_ftplib_directly, BLO
             else:
                 @_timed_logging
                 def copy():
-                    try:
-                        return source.read(BLOCK_SIZE)
-                    except BlockSizeError as e:
-                        raise ValueError(
-                            "This HTTP server does not support range requests. Try "
-                            're-instantiating recipe with `fsspec_open_kwargs={"block_size": 0}`'
-                        ) from e
-                    except FTPError as e:
-                        raise ValueError(
-                            "This FTP server may not support `fsspec` range requests. "
-                            "Try re-instantiating recipe with `call_ftplib_directly=True`"
-                        ) from e
+                    return source.read(BLOCK_SIZE)
 
-                copy(target=target)
+                try:
+                    copy(target=target)
+                except BlockSizeError as e:
+                    raise ValueError(
+                        "This HTTP server does not support range requests. Try "
+                        're-instantiating recipe with `fsspec_open_kwargs={"block_size": 0}`'
+                    ) from e
+                except FTPError as e:
+                    raise ValueError(
+                        "This FTP server may not support `fsspec` range requests. "
+                        "Try re-instantiating recipe with `call_ftplib_directly=True`"
+                    ) from e
     logger.debug("_copy_btw_filesystems done")
 
 
