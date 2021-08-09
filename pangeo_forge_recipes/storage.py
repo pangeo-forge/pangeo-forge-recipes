@@ -14,6 +14,7 @@ from typing import Any, Iterator, Optional, Sequence, Union
 
 import fsspec
 from fsspec.implementations.http import BlockSizeError
+from fsspec.implementations.ftp import FTPFileSystem
 
 logger = logging.getLogger(__name__)
 
@@ -51,14 +52,14 @@ def _copy_btw_filesystems(input_opener, output_opener, call_ftplib_directly, BLO
     with input_opener as source:
         with output_opener as target:
             if call_ftplib_directly:
-                input_opener.fs.ftp.voidcmd('TYPE I')
-                with input_opener.fs.ftp.transfercmd("RETR %s" % source.path) as conn:
+                source.fs.ftp.voidcmd('TYPE I')
+                with source.fs.ftp.transfercmd("RETR %s" % source.path) as conn:
                     @_timed_logging
                     def copy():
                         return conn.recv(BLOCK_SIZE)
 
                     copy(target=target)
-                input_opener.fs.ftp.voidresp()
+                source.fs.ftp.voidresp()
             else:
                 @_timed_logging
                 def copy():
