@@ -52,13 +52,14 @@ def test_file_opener(
     all_paths, _ = file_paths
     path = str(all_paths[0])
     cache = tmp_cache if use_cache else None
+    call_ftplib_directly = False
 
     def do_actual_test():
         if cache_first:
-            cache.cache_file(path)
+            cache.cache_file(path, call_ftplib_directly)
             assert cache.exists(path)
             details = cache.fs.ls(cache.root_path, detail=True)
-            cache.cache_file(path)
+            cache.cache_file(path, call_ftplib_directly)
             # check that nothing happened
             assert cache.fs.ls(cache.root_path, detail=True) == details
 
