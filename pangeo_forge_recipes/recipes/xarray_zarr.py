@@ -168,7 +168,7 @@ def cache_input(
             raise ValueError("input_cache is not set.")
         logger.info(f"Caching input '{input_key!s}'")
         fname = file_pattern[input_key]
-        input_cache.cache_file(fname, **fsspec_open_kwargs)
+        input_cache.cache_file(fname, call_ftplib_directly, **fsspec_open_kwargs)
 
     if cache_metadata:
         return cache_input_metadata(
