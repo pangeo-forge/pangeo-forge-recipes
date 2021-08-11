@@ -164,7 +164,8 @@ def _finalize(
         out = mzz.translate(None, template_count=template_count)
     fs = out_target.fs
     protocol = fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0]
-    fs.pipe(out_url, json.dumps(out).encode("ascii"))
+    with out_target.open(out_url, mode="wt") as f:
+        f.write(json.dumps(out))
     fn2 = out_url + ".yaml"
     spec = {
         "sources": {
@@ -174,7 +175,7 @@ def _finalize(
                 "args": {
                     "urlpath": "reference://",
                     "storage_options": {
-                        "fo": out_url,
+                        "fo": out_target._full_path(out_url),
                         "target_protocol": protocol,
                         "target_options": out_so,
                         "remote_protocol": remote_protocol,
@@ -187,7 +188,7 @@ def _finalize(
             }
         }
     }
-    with fs.open(fn2, "w") as f:
+    with out_target.open(fn2, mode="wt") as f:
         yaml.dump(spec, f, default_flow_style=False)
 
 

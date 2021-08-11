@@ -1,4 +1,3 @@
-import os.path
 import tempfile
 
 import fsspec
@@ -35,14 +34,14 @@ def test_single(netcdf_local_paths, tmpdir, with_intake):
 
     recipe.to_dask().compute(scheduler="sync")
 
-    assert os.path.isfile(out)
-    assert os.path.isfile(out + ".yaml")
+    assert out_target.exists(out)
+    assert out_target.exists(out + ".yaml")
 
     if with_intake:
-        cat = intake.open_catalog(out + ".yaml")
+        cat = intake.open_catalog(out_target._full_path(out + ".yaml"))
         ds = cat.data.read()
     else:
-        fs = fsspec.filesystem("reference", fo=out, remote_protocol="file")
+        fs = fsspec.filesystem("reference", fo=out_target._full_path(out), remote_protocol="file")
         m = fs.get_mapper("")
         ds = xr.open_dataset(m, engine="zarr", chunks={}, consolidated=False)
     assert (ds.foo == expected.foo).all()
@@ -72,16 +71,16 @@ def test_multi(netcdf_local_paths, tmpdir, with_intake):
 
     recipe.to_dask().compute(scheduler="sync")
 
-    assert os.path.isfile(out)
-    assert os.path.isfile(out + ".yaml")
+    assert out_target.exists(out)
+    assert out_target.exists(out + ".yaml")
 
     if with_intake:
-        cat = intake.open_catalog(out + ".yaml")
+        cat = intake.open_catalog(out_target._full_path(out + ".yaml"))
         ds = cat.data.read()
     else:
         m = fsspec.get_mapper(
             "reference://",
-            fo=out,
+            fo=out_target._full_path(out),
             target_protocol="file",
             remote_protocol="file",
             skip_instance_cache=True,
