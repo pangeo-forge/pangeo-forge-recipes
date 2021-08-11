@@ -1,8 +1,11 @@
 import os.path
+import tempfile
 
 import fsspec
 import pytest
 import xarray as xr
+
+from pangeo_forge_recipes.storage import FSSpecTarget, MetadataTarget
 
 try:
     import intake
@@ -22,9 +25,13 @@ def test_single(netcdf_local_paths, tmpdir, with_intake):
     path = str(full_paths[0])
     expected = xr.open_dataset(path, engine="h5netcdf")
 
-    out = os.path.join(tmpdir, "out.json")
+    out = "out.json"
+    out_target = FSSpecTarget(fs=fsspec.filesystem("file"), root_path=str(tmpdir))
+    work_dir = MetadataTarget(fs=fsspec.filesystem("file"), root_path=tempfile.mkdtemp())
 
-    recipe = ReferenceHDFRecipe(netcdf_url=path, output_url=out)
+    recipe = ReferenceHDFRecipe(
+        netcdf_url=path, output_url=out, output_target=out_target, _work_dir=work_dir
+    )
 
     recipe.to_dask().compute(scheduler="sync")
 
@@ -49,10 +56,19 @@ def test_multi(netcdf_local_paths, tmpdir, with_intake):
     paths = [str(f) for f in full_paths]
     expected = xr.open_mfdataset(paths, engine="h5netcdf")
 
-    out = os.path.join(tmpdir, "out.json")
+    # repeated code could be fixture
+    out = "out.json"
+    out_target = FSSpecTarget(fs=fsspec.filesystem("file"), root_path=str(tmpdir))
+    work_dir = MetadataTarget(fs=fsspec.filesystem("file"), root_path=tempfile.mkdtemp())
 
     concat_kwargs = {"dim": "time"}
-    recipe = ReferenceHDFRecipe(netcdf_url=paths, output_url=out, xarray_concat_args=concat_kwargs)
+    recipe = ReferenceHDFRecipe(
+        netcdf_url=paths,
+        output_url=out,
+        output_target=out_target,
+        _work_dir=work_dir,
+        xarray_concat_args=concat_kwargs,
+    )
 
     recipe.to_dask().compute(scheduler="sync")
 

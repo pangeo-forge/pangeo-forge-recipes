@@ -1,7 +1,6 @@
 import functools
 import json
 import os
-import tempfile
 from dataclasses import dataclass, field
 from typing import Callable, Hashable, Iterable, List, Optional, Union
 
@@ -10,6 +9,7 @@ import yaml
 from fsspec_reference_maker.combine import MultiZarrToZarr
 from fsspec_reference_maker.hdf import SingleHdf5ToZarr
 
+from ..storage import FSSpecTarget, MetadataTarget
 from .base import BaseRecipe
 
 
@@ -72,8 +72,8 @@ class ReferenceHDFRecipe(BaseRecipe):
     #  also supports TIFF and grib2 (and more coming)
     netcdf_url: Union[str, List[str]]
     output_url: str
-    _work_dir: str = ""
-    """temporary store for JSONs"""
+    output_target: FSSpecTarget
+    _work_dir: MetadataTarget
     netcdf_storage_options: dict = field(default_factory=dict)
     inline_threshold: int = 500
     output_storage_options: dict = field(default_factory=dict)
@@ -93,7 +93,6 @@ class ReferenceHDFRecipe(BaseRecipe):
         """Prepare the recipe for execution by initializing the target.
         Attribute that returns a callable function.
         """
-        self._work_dir = tempfile.mkdtemp()
         return no_op
 
     def iter_chunks(self) -> Iterable[Hashable]:
@@ -119,6 +118,7 @@ class ReferenceHDFRecipe(BaseRecipe):
             _finalize,
             work_dir=self._work_dir,
             out_url=self.output_url,
+            out_target=self.output_target,
             out_so=self.output_storage_options,
             remote_protocol=proto,
             remote_options=self.netcdf_storage_options,
@@ -130,15 +130,15 @@ class ReferenceHDFRecipe(BaseRecipe):
 
 def _one_chunk(of, work_dir):
     with of as f:
-        fn = os.path.join(work_dir, os.path.basename(f.name + ".json"))
+        fn = os.path.basename(f.name + ".json")
         h5chunks = SingleHdf5ToZarr(f, _unstrip_protocol(f.name, f.fs), inline_threshold=300)
-        with open(fn, "w") as outf:
-            json.dump(h5chunks.translate(), outf)
+        work_dir[fn] = h5chunks.translate()
 
 
 def _finalize(
     work_dir,
     out_url,
+    out_target,
     out_so,
     remote_protocol,
     remote_options,
@@ -146,9 +146,11 @@ def _finalize(
     xr_concat_kwargs,
     template_count,
 ):
-    files = [os.path.join(work_dir, f) for f in os.listdir(work_dir)]
+    files = list(
+        work_dir.getitems(list(work_dir.get_mapper())).values()
+    )  # returns dicts from remote
     if len(files) == 1:
-        fn = files[0]
+        out = files[0]
     else:
         mzz = MultiZarrToZarr(
             files,
@@ -157,12 +159,12 @@ def _finalize(
             xarray_open_kwargs=xr_open_kwargs,
             xarray_concat_args=xr_concat_kwargs,
         )
-        fn = os.path.join(work_dir, "combined.json")
         # mzz does not support directly writing to remote yet
-        mzz.translate(fn, template_count=template_count)
-    fs, _ = fsspec.core.url_to_fs(out_url, **out_so)
+        # get dict version and push it
+        out = mzz.translate(None, template_count=template_count)
+    fs = out_target.fs
     protocol = fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0]
-    fs.put(fn, out_url)
+    fs.pipe(out_url, json.dumps(out).encode("ascii"))
     fn2 = out_url + ".yaml"
     spec = {
         "sources": {
