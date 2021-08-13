@@ -9,11 +9,9 @@ import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from ftplib import Error as FTPError
 from typing import Any, Iterator, Optional, Sequence, Union
 
 import fsspec
-from fsspec.implementations.ftp import FTPFileSystem
 from fsspec.implementations.http import BlockSizeError
 
 logger = logging.getLogger(__name__)
@@ -28,61 +26,32 @@ def _get_url_size(fname, **open_kwargs):
     return size
 
 
-def _write(copy_func):
-    def wrapper(target, bytes_read=0, log_count=0, interval=5):
-        start_time = time.time()
-        while True:
-            data = copy_func()
-            target.write(data)
-            if not data:
-                break
-            bytes_read += len(data)
-            elapsed = time.time() - start_time
-            throughput = bytes_read / elapsed
-            if elapsed // interval >= log_count:
-                logger.debug(f"_copy_btw_filesystems total bytes copied: {bytes_read}")
-                logger.debug(
-                    f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
-                )
-                log_count += 1
-
-    return wrapper
-
-
-def _copy_btw_filesystems(input_opener, output_opener, call_ftplib_directly, BLOCK_SIZE=10_000_000):
+def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
-            if call_ftplib_directly:
-                assert isinstance(
-                    source.fs, FTPFileSystem
-                ), "`call_ftplib_directly=True` but source file server not `FTPFileSystem`."
-                source.fs.ftp.voidcmd("TYPE I")
-                with source.fs.ftp.transfercmd("RETR %s" % source.path) as conn:
-
-                    @_write
-                    def copy():
-                        return conn.recv(BLOCK_SIZE)
-
-                    copy(target=target)
-                source.fs.ftp.voidresp()
-            else:
-
-                @_write
-                def copy():
-                    return source.read(BLOCK_SIZE)
-
+            start = time.time()
+            interval = 5  # seconds
+            bytes_read = log_count = 0
+            while True:
                 try:
-                    copy(target=target)
+                    data = source.read(BLOCK_SIZE)
                 except BlockSizeError as e:
                     raise ValueError(
-                        "This HTTP server does not support range requests. Try "
-                        're-instantiating recipe with `fsspec_open_kwargs={"block_size": 0}`'
+                        "Server does not permit random access to this file via Range requests. "
+                        'Try re-instantiating recipe with `fsspec_open_kwargs={"block_size": 0}`'
                     ) from e
-                except FTPError as e:
-                    raise ValueError(
-                        "This FTP server may not support `fsspec` range requests. "
-                        "Try re-instantiating recipe with `call_ftplib_directly=True`"
-                    ) from e
+                if not data:
+                    break
+                target.write(data)
+                bytes_read += len(data)
+                elapsed = time.time() - start
+                throughput = bytes_read / elapsed
+                if elapsed // interval >= log_count:
+                    logger.debug(f"_copy_btw_filesystems total bytes copied: {bytes_read}")
+                    logger.debug(
+                        f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
+                    )
+                    log_count += 1
     logger.debug("_copy_btw_filesystems done")
 
 
@@ -119,7 +88,6 @@ def _hash_path(path: str) -> str:
 @dataclass
 class FSSpecTarget(AbstractTarget):
     """Representation of a storage target for Pangeo Forge.
-
     :param fs: The filesystem object we are writing to.
     :param root_path: The path under which the target data will be stored.
     """
@@ -163,7 +131,6 @@ class FSSpecTarget(AbstractTarget):
 class FlatFSSpecTarget(FSSpecTarget):
     """A target that sanitizes all the path names so that everything is stored
     in a single directory.
-
     Designed to be used as a cache for inputs.
     """
 
@@ -178,7 +145,7 @@ class FlatFSSpecTarget(FSSpecTarget):
 class CacheFSSpecTarget(FlatFSSpecTarget):
     """Alias for FlatFSSpecTarget"""
 
-    def cache_file(self, fname: str, call_ftplib_directly, **open_kwargs) -> None:
+    def cache_file(self, fname: str, **open_kwargs) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
         if self.exists(fname):
@@ -192,7 +159,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
         input_opener = fsspec.open(fname, mode="rb", **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Coping remote file '{fname}' to cache")
-        _copy_btw_filesystems(input_opener, target_opener, call_ftplib_directly)
+        _copy_btw_filesystems(input_opener, target_opener)
 
 
 class MetadataTarget(FSSpecTarget):
@@ -217,12 +184,10 @@ def file_opener(
     cache: Optional[CacheFSSpecTarget] = None,
     copy_to_local: bool = False,
     bypass_open: bool = False,
-    call_ftplib_directly: bool = False,
     **open_kwargs,
 ) -> Iterator[Union[OpenFileType, str]]:
     """
     Context manager for opening files.
-
     :param fname: The filename / url to open. Fsspec will inspect the protocol
         (e.g. http, ftp) and determine the appropriate filesystem type to use.
     :param cache: A target where the file may have been cached. If none, the file
@@ -231,9 +196,6 @@ def file_opener(
         before opening. In this case, function yields a path name rather than an open file.
     :param bypass_open: If True, skip trying to open the file at all and just
         return the filename back directly. (A fancy way of doing nothing!)
-    :param call_ftplib_directly: If True, copy from an FTP server using low-level methods
-        from Python's ``ftplib`` directly. Only necessary for FTP servers that do not support
-        ``fsspec``'s range request methods.
     """
 
     if bypass_open:
@@ -255,7 +217,7 @@ def file_opener(
         tmp_name = ntf.name
         logger.info(f"Copying '{fname}' to local file '{tmp_name}'")
         target_opener = open(tmp_name, mode="wb")
-        _copy_btw_filesystems(opener, target_opener, call_ftplib_directly)
+        _copy_btw_filesystems(opener, target_opener)
         yield tmp_name
         ntf.close()  # cleans up the temporary file
     else:

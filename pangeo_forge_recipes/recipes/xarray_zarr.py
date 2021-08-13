@@ -125,7 +125,6 @@ def cache_input_metadata(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     is_opendap: bool,
-    call_ftplib_directly: bool,
 ) -> None:
     if metadata_cache is None:
         raise ValueError("metadata_cache is not set.")
@@ -140,7 +139,6 @@ def cache_input_metadata(
         delete_input_encoding=delete_input_encoding,
         process_input=process_input,
         is_opendap=is_opendap,
-        call_ftplib_directly=call_ftplib_directly,
     ) as ds:
         input_metadata = ds.to_dict(data=False)
         metadata_cache[_input_metadata_fname(input_key)] = input_metadata
@@ -158,8 +156,7 @@ def cache_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
-    is_opendap: bool,
-    call_ftplib_directly: bool,
+    is_opendap=bool,
 ) -> None:
     if cache_inputs:
         if is_opendap:
@@ -168,7 +165,7 @@ def cache_input(
             raise ValueError("input_cache is not set.")
         logger.info(f"Caching input '{input_key!s}'")
         fname = file_pattern[input_key]
-        input_cache.cache_file(fname, call_ftplib_directly, **fsspec_open_kwargs)
+        input_cache.cache_file(fname, **fsspec_open_kwargs)
 
     if cache_metadata:
         return cache_input_metadata(
@@ -182,7 +179,6 @@ def cache_input(
             process_input=process_input,
             metadata_cache=metadata_cache,
             is_opendap=is_opendap,
-            call_ftplib_directly=call_ftplib_directly,
         )
 
 
@@ -269,7 +265,6 @@ def open_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     is_opendap: bool,
-    call_ftplib_directly: bool,
 ) -> xr.Dataset:
     fname = file_pattern[input_key]
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
@@ -283,11 +278,7 @@ def open_input(
     cache = input_cache if cache_inputs else None
 
     with file_opener(
-        fname,
-        cache=cache,
-        copy_to_local=copy_input_to_local_file,
-        bypass_open=is_opendap,
-        call_ftplib_directly=call_ftplib_directly,
+        fname, cache=cache, copy_to_local=copy_input_to_local_file, bypass_open=is_opendap
     ) as f:
         with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
             kw = xarray_open_kwargs.copy()
@@ -338,7 +329,6 @@ def open_chunk(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     is_opendap: bool,
-    call_ftplib_directly: bool,
 ) -> xr.Dataset:
     logger.info(f"Opening inputs for chunk {chunk_key!s}")
     ninputs = file_pattern.dims[file_pattern.concat_dims[0]]
@@ -358,7 +348,6 @@ def open_chunk(
                     delete_input_encoding=delete_input_encoding,
                     process_input=process_input,
                     is_opendap=is_opendap,
-                    call_ftplib_directly=call_ftplib_directly,
                 )
             )
             for i in inputs
@@ -455,7 +444,6 @@ def prepare_target(
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
     is_opendap: bool,
-    call_ftplib_directly: bool,
 ) -> None:
     try:
         ds = open_target(target)
@@ -486,7 +474,6 @@ def prepare_target(
                 delete_input_encoding=delete_input_encoding,
                 process_input=process_input,
                 is_opendap=is_opendap,
-                call_ftplib_directly=call_ftplib_directly,
             ) as ds:
                 # ds is already chunked
 
@@ -563,7 +550,6 @@ def store_chunk(
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
     is_opendap: bool,
-    call_ftplib_directly: bool,
 ) -> None:
     if target is None:
         raise ValueError("target has not been set.")
@@ -583,7 +569,6 @@ def store_chunk(
         delete_input_encoding=delete_input_encoding,
         process_input=process_input,
         is_opendap=is_opendap,
-        call_ftplib_directly=call_ftplib_directly,
     ) as ds_chunk:
         # writing a region means that all the variables MUST have concat_dim
         to_drop = [v for v in ds_chunk.variables if concat_dim not in ds_chunk[v].dims]
@@ -662,7 +647,6 @@ class XarrayZarrRecipe(BaseRecipe):
     The organization of the source files is described by the ``file_pattern``.
     Currently this recipe supports at most one ``MergeDim`` and one ``ConcatDim``
     in the File Pattern.
-
     :param file_pattern: An object which describes the organization of the input files.
     :param inputs_per_chunk: The number of inputs to use in each chunk along the concat dim.
        Must be an integer >= 1.
@@ -698,9 +682,6 @@ class XarrayZarrRecipe(BaseRecipe):
       time dimension. Multiple dimensions are allowed.
     :param is_opednap: If True, assume all input fnames represent opendap endpoints.
       Cannot be used with caching.
-    :param call_ftplib_directly: If True, copy from an FTP server using low-level methods
-      from Python's ``ftplib`` directly. Only necessary for FTP servers that do not support
-      ``fsspec``'s range request methods.
     """
 
     file_pattern: FilePattern
@@ -721,7 +702,6 @@ class XarrayZarrRecipe(BaseRecipe):
     lock_timeout: Optional[int] = None
     subset_inputs: SubsetSpec = field(default_factory=dict)
     is_opendap: bool = False
-    call_ftplib_directly: bool = False
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: str = field(default_factory=str, repr=False, init=False)
@@ -797,7 +777,6 @@ class XarrayZarrRecipe(BaseRecipe):
 
     def copy_pruned(self, nkeep: int = 2) -> BaseRecipe:
         """Make a copy of this recipe with a pruned file pattern.
-
         :param nkeep: The number of items to keep from each ConcatDim sequence.
         """
 
@@ -848,7 +827,6 @@ class XarrayZarrRecipe(BaseRecipe):
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
             is_opendap=self.is_opendap,
-            call_ftplib_directly=self.call_ftplib_directly,
         )
 
     @property
@@ -866,7 +844,6 @@ class XarrayZarrRecipe(BaseRecipe):
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
             is_opendap=self.is_opendap,
-            call_ftplib_directly=self.call_ftplib_directly,
         )
 
     @property
@@ -892,7 +869,6 @@ class XarrayZarrRecipe(BaseRecipe):
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
             is_opendap=self.is_opendap,
-            call_ftplib_directly=self.call_ftplib_directly,
         )
 
     @property
@@ -956,7 +932,6 @@ class XarrayZarrRecipe(BaseRecipe):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             is_opendap=self.is_opendap,
-            call_ftplib_directly=self.call_ftplib_directly,
         ) as ds:
             yield ds
 
@@ -977,6 +952,5 @@ class XarrayZarrRecipe(BaseRecipe):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             is_opendap=self.is_opendap,
-            call_ftplib_directly=self.call_ftplib_directly,
         ) as ds:
             yield ds
