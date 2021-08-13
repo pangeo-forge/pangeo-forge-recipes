@@ -647,6 +647,7 @@ class XarrayZarrRecipe(BaseRecipe):
     The organization of the source files is described by the ``file_pattern``.
     Currently this recipe supports at most one ``MergeDim`` and one ``ConcatDim``
     in the File Pattern.
+
     :param file_pattern: An object which describes the organization of the input files.
     :param inputs_per_chunk: The number of inputs to use in each chunk along the concat dim.
        Must be an integer >= 1.
@@ -777,6 +778,7 @@ class XarrayZarrRecipe(BaseRecipe):
 
     def copy_pruned(self, nkeep: int = 2) -> BaseRecipe:
         """Make a copy of this recipe with a pruned file pattern.
+
         :param nkeep: The number of items to keep from each ConcatDim sequence.
         """
 

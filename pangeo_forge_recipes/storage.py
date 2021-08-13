@@ -88,6 +88,7 @@ def _hash_path(path: str) -> str:
 @dataclass
 class FSSpecTarget(AbstractTarget):
     """Representation of a storage target for Pangeo Forge.
+
     :param fs: The filesystem object we are writing to.
     :param root_path: The path under which the target data will be stored.
     """
@@ -131,6 +132,7 @@ class FSSpecTarget(AbstractTarget):
 class FlatFSSpecTarget(FSSpecTarget):
     """A target that sanitizes all the path names so that everything is stored
     in a single directory.
+
     Designed to be used as a cache for inputs.
     """
 
@@ -188,6 +190,7 @@ def file_opener(
 ) -> Iterator[Union[OpenFileType, str]]:
     """
     Context manager for opening files.
+
     :param fname: The filename / url to open. Fsspec will inspect the protocol
         (e.g. http, ftp) and determine the appropriate filesystem type to use.
     :param cache: A target where the file may have been cached. If none, the file
