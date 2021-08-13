@@ -158,10 +158,11 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
                 logger.info(f"File '{fname}' is already cached")
                 return
 
-        input_opener = fsspec.open(fname, mode="rb", **open_kwargs)
+        # input_opener = fsspec.open(fname, mode="rb", **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Coping remote file '{fname}' to cache")
-        _copy_btw_filesystems(input_opener, target_opener)
+        # _copy_btw_filesystems(input_opener, target_opener)
+        fsspec.cp(fname, target_opener, **open_kwargs)
 
 
 class MetadataTarget(FSSpecTarget):
