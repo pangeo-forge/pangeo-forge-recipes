@@ -11,7 +11,6 @@ dependencies:
   - dask
   - distributed
   # - fsspec>=2021.6.0
-  - git+https://github.com/cisaacstern/filesystem_spec@cp_file_x
   - h5netcdf
   - h5py
   - hdf5
@@ -36,3 +35,4 @@ dependencies:
   - zarr>=2.6.0
   - pip:
     - pytest-timeout
+    - git+https://github.com/cisaacstern/filesystem_spec@cp_file_x
