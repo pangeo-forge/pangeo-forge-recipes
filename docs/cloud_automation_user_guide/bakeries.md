@@ -1,6 +1,6 @@
 # Bakeries
 
-As described in {doc}`execution`, you can define and execute recipes on your
+As described in {doc}`../recipe_user_guide/execution`, you can define and execute recipes on your
 own computers using the executor of your choice.
 However, you can also contribute your recipe to the Pangeo Forge {doc}`recipe_box`.
 and have it executed automatically in the cloud.
