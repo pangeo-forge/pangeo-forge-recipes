@@ -32,6 +32,11 @@ class ChunkGrid:
 
     @classmethod
     def from_uniform_grid(cls, chunksize_and_dimsize: Dict[str, Tuple[int, int]]):
+        """Create a ChunkGrid with uniform chunk sizes (except possibly the last chunk).
+
+        :param chunksize_and_dimsize: Dictionary whose keys are dimension names and
+          whose values are a tuple of `chunk_size, total_dim_size`
+        """
         all_chunks = {}
         for name, (chunksize, dimsize) in chunksize_and_dimsize.items():
             assert dimsize > 0
