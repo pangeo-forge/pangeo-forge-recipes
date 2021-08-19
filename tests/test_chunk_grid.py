@@ -45,6 +45,20 @@ def test_chunk_axis():
         _ = ca.chunk_index_to_array_slice(3)
 
 
+def test_chunk_axis_subsets():
+    ca = ChunkAxis(chunks=(2, 4, 3))
+    cas = ca.subset(2)
+    assert cas.chunks == (1, 1, 2, 2, 1, 2)
+
+
+def test_chunk_axis_consolidate():
+    ca = ChunkAxis(chunks=(2, 4, 3, 4, 2))
+    cac = ca.consolidate(2)
+    assert cac.chunks == (6, 7, 2)
+    cad = ca.consolidate(3)
+    assert cad.chunks == (9, 6)
+
+
 def test_chunk_grid():
     cg = ChunkGrid({"x": (2, 4, 3), "time": (7, 8)})
     assert cg.dims == {"x", "time"}

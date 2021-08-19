@@ -2,9 +2,12 @@
 Abstract representation of ND chunked arrays
 """
 
+from itertools import chain, groupby
 from typing import Dict, FrozenSet, Tuple
 
 import numpy as np
+
+from .utils import calc_subsets
 
 # Most of this is probably already in Dask and Zarr!
 # However, it's useful to write up our own little model that does just what we need.
@@ -109,6 +112,24 @@ class ChunkAxis:
 
     def __len__(self):
         return self._chunk_bounds[-1].item()
+
+    def subset(self, factor):
+        """Return a copy with chunks decimated by a subset factor."""
+
+        new_chunks = tuple(chain(*(calc_subsets(c, factor) for c in self.chunks)))
+        return self.__class__(new_chunks)
+
+    def consolidate(self, factor):
+        """Return a copy with chunks consolidated by a subset factor."""
+
+        new_chunks = []
+
+        def grouper(val):
+            return val[0] // factor
+
+        for _, gobj in groupby(enumerate(self.chunks), grouper):
+            new_chunks.append(sum(f[1] for f in gobj))
+        return self.__class__(tuple(new_chunks))
 
     @property
     def nchunks(self):
