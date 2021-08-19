@@ -45,7 +45,7 @@ def test_chunk_axis():
         _ = ca.chunk_index_to_array_slice(3)
 
 
-def test_chunk_axis_subsets():
+def test_chunk_axis_subset():
     ca = ChunkAxis(chunks=(2, 4, 3))
     cas = ca.subset(2)
     assert cas.chunks == (1, 1, 2, 2, 1, 2)
@@ -89,3 +89,23 @@ def test_chunk_grid_from_uniform_grid():
     cg1 = ChunkGrid({"x": (2, 2), "y": (3, 3, 3, 1)})
     cg2 = ChunkGrid.from_uniform_grid({"x": (2, 4), "y": (3, 10)})
     assert cg1 == cg2
+
+
+def test_chunk_grid_consolidate_subset():
+    cg = ChunkGrid({"x": (2, 4, 3), "time": (7, 8)})
+
+    assert cg.consolidate({}) == cg
+    cgc1 = cg.consolidate({"x": 2})
+    assert cg.shape == cgc1.shape
+    assert cgc1.nchunks == {"x": 2, "time": 2}
+    cgc2 = cg.consolidate({"x": 2, "time": 2})
+    assert cg.shape == cgc2.shape
+    assert cgc2.nchunks == {"x": 2, "time": 1}
+
+    assert cg.subset({}) == cg
+    cgs1 = cg.subset({"x": 2})
+    assert cg.shape == cgs1.shape
+    assert cgs1.nchunks == {"x": 6, "time": 2}
+    cgs2 = cg.subset({"x": 2, "time": 2})
+    assert cg.shape == cgs2.shape
+    assert cgs2.nchunks == {"x": 6, "time": 4}

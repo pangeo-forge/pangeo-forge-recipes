@@ -12,8 +12,6 @@ from .utils import calc_subsets
 # Most of this is probably already in Dask and Zarr!
 # However, it's useful to write up our own little model that does just what we need.
 
-ChunkIndex = Tuple[int, ...]
-
 
 class ChunkGrid:
     """A ChunkGrid contains several named ChunkAxis.
@@ -66,6 +64,30 @@ class ChunkGrid:
     def ndim(self):
         return len(self._chunk_axes)
 
+    def consolidate(self, factors: Dict[str, int]):
+        """Return a new ChunkGrid with chunks consolidated by a given factor
+        along specifed dimensions."""
+
+        # doesn't seem like the kosher way to do this but /shrug
+        new = self.__class__({})
+        new._chunk_axes = {
+            name: ca.consolidate(factors[name]) if name in factors else ca
+            for name, ca in self._chunk_axes.items()
+        }
+        return new
+
+    def subset(self, factors: Dict[str, int]):
+        """Return a new ChunkGrid with chunks decimated by a given subset factor
+        along specifed dimensions."""
+
+        # doesn't seem like the kosher way to do this but /shrug
+        new = self.__class__({})
+        new._chunk_axes = {
+            name: ca.subset(factors[name]) if name in factors else ca
+            for name, ca in self._chunk_axes.items()
+        }
+        return new
+
     def chunk_index_to_array_slice(self, chunk_indexes: Dict[str, int]) -> Dict[str, slice]:
         """Convert a single index from chunk space to a slice in array space
         for each specified dimension."""
@@ -104,7 +126,7 @@ class ChunkAxis:
     """
 
     def __init__(self, chunks: Tuple[int, ...]):
-        self.chunks = chunks
+        self.chunks = tuple(chunks)  # want this immutable
         self._chunk_bounds = np.hstack([0, np.cumsum(self.chunks)])
 
     def __eq__(self, other):
