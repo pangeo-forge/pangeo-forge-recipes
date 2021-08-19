@@ -49,19 +49,45 @@ class ChunkGrid:
 
 @dataclass
 class ChunkAxis:
-    len: int
+    """A ChunkAxis has two index spaces.
+
+    Array index space is a regular python index of an array / list.
+    Chunk index space describes chunk positions.
+
+    A ChunkAxis helps translate between these two spaces.
+
+    """
+
     chunks: Tuple[int, ...]
 
     def __post_init__(self):
-        if sum(self.chunks) != self.len:  # pragma: no cover
-            raise ValueError("chunks are incompatible with shape")
-
         self._chunk_bounds = np.hstack([0, np.cumsum(self.chunks)])
 
-    def chunk_index_to_slice(self, index: int) -> slice:
-        return slice(self._chunk_bounds[index], self._chunk_bounds[index + 1])
+    def __len__(self):
+        return self._chunk_bounds[-1].item()
 
-    def slice_to_chunk_index(self, sl: slice) -> int:
-        assert sl.step is None
-        # TODO: actuall write this logic
-        return 0
+    @property
+    def nchunks(self):
+        return len(self.chunks)
+
+    def chunk_index_to_array_slice(self, chunk_index: int) -> slice:
+        return slice(self._chunk_bounds[chunk_index], self._chunk_bounds[chunk_index + 1])
+
+    def array_index_to_chunk_index(self, array_index: int) -> int:
+        if array_index < 0 or array_index >= len(self):
+            raise IndexError("Index out of range")
+        return self._chunk_bounds.searchsorted(array_index, side="right") - 1
+
+    def array_slice_to_chunk_slice(self, sl: slice) -> slice:
+        """Find all chunks that intersect with a given slice."""
+        if sl.step != 1 and sl.step is not None:
+            raise IndexError("Only works with step=1 or None")
+        if sl.start < 0:
+            raise IndexError("Slice start must be > 0")
+        if sl.stop <= sl.start:
+            raise IndexError("Stop must be greater than start")
+        if sl.stop > len(self):
+            raise IndexError(f"Stop must be <= than {len(self)}")
+        first = self._chunk_bounds.searchsorted(sl.start, side="right") - 1
+        last = self._chunk_bounds.searchsorted(sl.stop, side="left")
+        return slice(first, last)
