@@ -69,3 +69,9 @@ def test_chunk_grid():
         "x": slice(2, 6),
         "time": slice(7, 15),
     }
+
+
+def test_chunk_grid_from_uniform_grid():
+    cg1 = ChunkGrid({"x": (2, 2), "y": (3, 3, 3, 1)})
+    cg2 = ChunkGrid.from_uniform_grid({"x": (2, 4), "y": (3, 10)})
+    assert cg1 == cg2
