@@ -36,6 +36,14 @@ def test_chunk_axis():
     assert ca.array_slice_to_chunk_slice(slice(2, 5)) == slice(1, 2)
     assert ca.array_slice_to_chunk_slice(slice(6, 7)) == slice(2, 3)
 
+    with pytest.raises(IndexError):
+        _ = ca.chunk_index_to_array_slice(-1)
+    assert ca.chunk_index_to_array_slice(0) == slice(0, 2)
+    assert ca.chunk_index_to_array_slice(1) == slice(2, 6)
+    assert ca.chunk_index_to_array_slice(2) == slice(6, 9)
+    with pytest.raises(IndexError):
+        _ = ca.chunk_index_to_array_slice(3)
+
 
 def test_chunk_grid():
     cg = ChunkGrid({"x": (2, 4, 3), "time": (7, 8)})
@@ -43,3 +51,21 @@ def test_chunk_grid():
     assert cg.shape == {"x": 9, "time": 15}
     assert cg.nchunks == {"x": 3, "time": 2}
     assert cg.ndim == 2
+
+    assert cg.array_index_to_chunk_index({"x": 2}) == {"x": 1}
+    assert cg.array_index_to_chunk_index({"time": 10}) == {"time": 1}
+    assert cg.array_index_to_chunk_index({"x": 7, "time": 10}) == {"x": 2, "time": 1}
+
+    assert cg.array_slice_to_chunk_slice({"x": slice(0, 9)}) == {"x": slice(0, 3)}
+    assert cg.array_slice_to_chunk_slice({"time": slice(0, 15)}) == {"time": slice(0, 2)}
+    assert cg.array_slice_to_chunk_slice({"x": slice(0, 9), "time": slice(0, 15)}) == {
+        "x": slice(0, 3),
+        "time": slice(0, 2),
+    }
+
+    assert cg.chunk_index_to_array_slice({"x": 1}) == {"x": slice(2, 6)}
+    assert cg.chunk_index_to_array_slice({"time": 1}) == {"time": slice(7, 15)}
+    assert cg.chunk_index_to_array_slice({"x": 1, "time": 1}) == {
+        "x": slice(2, 6),
+        "time": slice(7, 15),
+    }

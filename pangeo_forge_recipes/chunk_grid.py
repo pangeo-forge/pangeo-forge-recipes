@@ -14,6 +14,10 @@ ChunkIndex = Tuple[int, ...]
 
 
 class ChunkGrid:
+    """A ChunkGrid contains several named ChunkAxis.
+    The order of the axes does not matter.
+    """
+
     def __init__(self, chunks):
         self._chunk_axes = {name: ChunkAxis(axis_chunks) for name, axis_chunks in chunks.items()}
 
@@ -33,13 +37,23 @@ class ChunkGrid:
     def ndim(self):
         return len(self._chunk_axes)
 
-    def chunk_index_to_slice(self, chunk_index: ChunkIndex) -> Tuple[slice, ...]:
-        return tuple(
-            [axis.chunk_index_to_slice(idx) for axis, idx in zip(self._chunk_axes, chunk_index)]
-        )
+    def chunk_index_to_array_slice(self, chunk_indexes: Dict[str, int]) -> Dict[str, slice]:
+        return {
+            name: self._chunk_axes[name].chunk_index_to_array_slice(chunk_index)
+            for name, chunk_index in chunk_indexes.items()
+        }
 
-    def slice_to_chunk_indexes(self, slices: Tuple[slice]) -> ChunkIndex:
-        return tuple([axis.slice_to_chunk_index(sl) for axis, sl in zip(self._chunk_axes, slices)])
+    def array_index_to_chunk_index(self, array_indexes: Dict[str, int]) -> Dict[str, int]:
+        return {
+            name: self._chunk_axes[name].array_index_to_chunk_index(array_index)
+            for name, array_index in array_indexes.items()
+        }
+
+    def array_slice_to_chunk_slice(self, array_slices: Dict[str, slice]) -> Dict[str, slice]:
+        return {
+            name: self._chunk_axes[name].array_slice_to_chunk_slice(array_slice)
+            for name, array_slice in array_slices.items()
+        }
 
 
 @dataclass
@@ -50,7 +64,6 @@ class ChunkAxis:
     Chunk index space describes chunk positions.
 
     A ChunkAxis helps translate between these two spaces.
-
     """
 
     chunks: Tuple[int, ...]
@@ -66,6 +79,8 @@ class ChunkAxis:
         return len(self.chunks)
 
     def chunk_index_to_array_slice(self, chunk_index: int) -> slice:
+        if chunk_index < 0 or chunk_index >= self.nchunks:
+            raise IndexError("chunk_index out of range")
         return slice(self._chunk_bounds[chunk_index], self._chunk_bounds[chunk_index + 1])
 
     def array_index_to_chunk_index(self, array_index: int) -> int:
