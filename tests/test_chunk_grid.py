@@ -1,6 +1,6 @@
 import pytest
 
-from pangeo_forge_recipes.chunk_grid import ChunkAxis
+from pangeo_forge_recipes.chunk_grid import ChunkAxis, ChunkGrid
 
 
 def test_chunk_axis():
@@ -35,3 +35,11 @@ def test_chunk_axis():
     assert ca.array_slice_to_chunk_slice(slice(2, 6)) == slice(1, 2)
     assert ca.array_slice_to_chunk_slice(slice(2, 5)) == slice(1, 2)
     assert ca.array_slice_to_chunk_slice(slice(6, 7)) == slice(2, 3)
+
+
+def test_chunk_grid():
+    cg = ChunkGrid({"x": (2, 4, 3), "time": (7, 8)})
+    assert cg.dims == {"x", "time"}
+    assert cg.shape == {"x": 9, "time": 15}
+    assert cg.nchunks == {"x": 3, "time": 2}
+    assert cg.ndim == 2

@@ -3,7 +3,7 @@ Abstract representation of ND chunked arrays
 """
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Dict, FrozenSet, Tuple
 
 import numpy as np
 
@@ -13,30 +13,25 @@ import numpy as np
 ChunkIndex = Tuple[int, ...]
 
 
-@dataclass
 class ChunkGrid:
-    shape: Tuple[int, ...]
+    def __init__(self, chunks):
+        self._chunk_axes = {name: ChunkAxis(axis_chunks) for name, axis_chunks in chunks.items()}
 
-    # we will always be dealing with named dims
-    dims: Tuple[str, ...]
+    @property
+    def dims(self) -> FrozenSet[str]:
+        return frozenset(self._chunk_axes)
 
-    # chunks are stored explicitly (don't assume uniform length)
-    chunks: Tuple[Tuple[int, ...], ...]
+    @property
+    def shape(self) -> Dict[str, int]:
+        return {name: len(ca) for name, ca in self._chunk_axes.items()}
+
+    @property
+    def nchunks(self) -> Dict[str, int]:
+        return {name: ca.nchunks for name, ca in self._chunk_axes.items()}
 
     @property
     def ndim(self):
-        return len(self.shape)
-
-    def __post_init__(self):
-        if len(self.dims) != self.ndim:  # pragma: no cover
-            raise ValueError("dims must have the same len as shape")
-        if len(self.chunks) != self.ndim:  # pragma: no cover
-            raise ValueError("chunks must have the same len as shape")
-
-        self._chunk_axes = [
-            ChunkAxis(dim_shape, dim_chunks)
-            for dim_shape, dim_chunks in zip(self.shape, self.chunks)
-        ]
+        return len(self._chunk_axes)
 
     def chunk_index_to_slice(self, chunk_index: ChunkIndex) -> Tuple[slice, ...]:
         return tuple(
