@@ -1,9 +1,10 @@
 """
 Abstract representation of ND chunked arrays
 """
+from __future__ import annotations
 
 from itertools import chain, groupby
-from typing import Dict, FrozenSet, Tuple
+from typing import Dict, FrozenSet, Set, Tuple
 
 import numpy as np
 
@@ -64,7 +65,7 @@ class ChunkGrid:
     def ndim(self):
         return len(self._chunk_axes)
 
-    def consolidate(self, factors: Dict[str, int]):
+    def consolidate(self, factors: Dict[str, int]) -> ChunkGrid:
         """Return a new ChunkGrid with chunks consolidated by a given factor
         along specifed dimensions."""
 
@@ -76,7 +77,7 @@ class ChunkGrid:
         }
         return new
 
-    def subset(self, factors: Dict[str, int]):
+    def subset(self, factors: Dict[str, int]) -> ChunkGrid:
         """Return a new ChunkGrid with chunks decimated by a given subset factor
         along specifed dimensions."""
 
@@ -135,13 +136,13 @@ class ChunkAxis:
     def __len__(self):
         return self._chunk_bounds[-1].item()
 
-    def subset(self, factor):
+    def subset(self, factor: int) -> ChunkAxis:
         """Return a copy with chunks decimated by a subset factor."""
 
         new_chunks = tuple(chain(*(calc_subsets(c, factor) for c in self.chunks)))
         return self.__class__(new_chunks)
 
-    def consolidate(self, factor):
+    def consolidate(self, factor: int) -> ChunkAxis:
         """Return a copy with chunks consolidated by a subset factor."""
 
         new_chunks = []
@@ -185,3 +186,22 @@ class ChunkAxis:
         first = self._chunk_bounds.searchsorted(sl.start, side="right") - 1
         last = self._chunk_bounds.searchsorted(sl.stop, side="left")
         return slice(first, last)
+
+    def chunk_conflicts(self, chunk_index: int, other: ChunkAxis) -> Set[int]:
+        """Figure out which _other_ chunk from this ChunkGrid might potentially
+        be in conflict with the specificied chunk index when writing to a
+        different ChunkAxis.
+        """
+
+        if len(other) != len(self):
+            raise ValueError("Can't compute conflict for ChunkAxes of different size.")
+
+        array_slice = self.chunk_index_to_array_slice(chunk_index)
+        other_chunk_indexes = other.array_slice_to_chunk_slice(array_slice)
+        first_chunk_array_slice = other.chunk_index_to_array_slice(other_chunk_indexes.start)
+        last_chunk_array_slice = other.chunk_index_to_array_slice(other_chunk_indexes.stop - 1)
+        overlapping_slice = slice(first_chunk_array_slice.start, last_chunk_array_slice.stop)
+        chunk_slice = self.array_slice_to_chunk_slice(overlapping_slice)
+        explicit_chunks = set(range(chunk_slice.start, chunk_slice.stop))
+        # now return just the other chunks
+        return explicit_chunks - {chunk_index}

@@ -109,3 +109,15 @@ def test_chunk_grid_consolidate_subset():
     cgs2 = cg.subset({"x": 2, "time": 2})
     assert cg.shape == cgs2.shape
     assert cgs2.nchunks == {"x": 6, "time": 4}
+
+
+def test_chunk_axis_conflicts():
+    ca1 = ChunkAxis(chunks=(2, 4, 3, 4, 2))  # len 15
+    ca2 = ChunkAxis(chunks=(5, 4, 6))
+
+    for n in range(ca1.nchunks):
+        assert ca1.chunk_conflicts(n, ca1) == set()
+    assert ca1.chunk_conflicts(0, ca2) == {1}
+    assert ca1.chunk_conflicts(1, ca2) == {0, 2}
+    assert ca2.chunk_conflicts(0, ca1) == {1}
+    assert ca2.chunk_conflicts(2, ca1) == set()
