@@ -124,3 +124,12 @@ def test_chunk_axis_conflicts():
 
     with pytest.raises(ValueError):
         _ = ca1.chunk_conflicts(0, ChunkAxis((14,)))
+
+
+def test_chunk_grid_conflicts():
+    cg1 = ChunkGrid({"x": (2, 4, 3, 4, 2), "y": (10, 10, 10)})
+    cg2 = ChunkGrid({"x": (5, 4, 6), "y": (11, 9, 10)})
+
+    assert cg1.chunk_conflicts({"x": 0}, cg2) == {"x": {1}}
+    assert cg1.chunk_conflicts({"x": 0, "y": 0}, cg2) == {"x": {1}, "y": {1}}
+    assert cg1.chunk_conflicts({"y": 2}, cg2) == {"y": set()}

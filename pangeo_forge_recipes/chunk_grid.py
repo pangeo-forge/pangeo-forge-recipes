@@ -114,6 +114,20 @@ class ChunkGrid:
             for name, array_slice in array_slices.items()
         }
 
+    def chunk_conflicts(self, chunk_index: Dict[str, int], other: ChunkGrid) -> Dict[str, Set[int]]:
+        """Figure out which _other_ chunks from this ChunkGrid might potentially
+        be in conflict with the specificied chunk index when writing to a
+        different ChunkGrid.
+
+        :param chunk_index: The index of the chunk we want to write
+        :param other: The other ChunkAxis
+        """
+
+        return {
+            name: self._chunk_axes[name].chunk_conflicts(idx, other._chunk_axes[name])
+            for name, idx in chunk_index.items()
+        }
+
 
 class ChunkAxis:
     """A ChunkAxis has two index spaces.
@@ -191,6 +205,9 @@ class ChunkAxis:
         """Figure out which _other_ chunks from this ChunkAxis might potentially
         be in conflict with the specificied chunk index when writing to a
         different ChunkAxis.
+
+        :param chunk_index: The index of the chunk we want to write
+        :param other: The other ChunkAxis
         """
 
         if len(other) != len(self):
