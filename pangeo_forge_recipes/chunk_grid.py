@@ -42,7 +42,9 @@ class ChunkGrid:
         all_chunks = {}
         for name, (chunksize, dimsize) in chunksize_and_dimsize.items():
             assert dimsize > 0
-            assert chunksize > 0 and chunksize <= dimsize
+            assert (
+                chunksize > 0 and chunksize <= dimsize
+            ), f"invalid chunksize {chunksize} and dimsize {dimsize}"
             chunks = (dimsize // chunksize) * (chunksize,)
             if dimsize % chunksize > 0:
                 chunks = chunks + (dimsize % chunksize,)
