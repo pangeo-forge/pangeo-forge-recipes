@@ -121,3 +121,6 @@ def test_chunk_axis_conflicts():
     assert ca1.chunk_conflicts(1, ca2) == {0, 2}
     assert ca2.chunk_conflicts(0, ca1) == {1}
     assert ca2.chunk_conflicts(2, ca1) == set()
+
+    with pytest.raises(ValueError):
+        _ = ca1.chunk_conflicts(0, ChunkAxis((14,)))
