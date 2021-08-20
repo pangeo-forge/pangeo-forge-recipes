@@ -89,21 +89,21 @@ class ChunkGrid:
         }
         return new
 
-    def chunk_index_to_array_slice(self, chunk_indexes: Dict[str, int]) -> Dict[str, slice]:
+    def chunk_index_to_array_slice(self, chunk_index: Dict[str, int]) -> Dict[str, slice]:
         """Convert a single index from chunk space to a slice in array space
         for each specified dimension."""
 
         return {
-            name: self._chunk_axes[name].chunk_index_to_array_slice(chunk_index)
-            for name, chunk_index in chunk_indexes.items()
+            name: self._chunk_axes[name].chunk_index_to_array_slice(idx)
+            for name, idx in chunk_index.items()
         }
 
-    def array_index_to_chunk_index(self, array_indexes: Dict[str, int]) -> Dict[str, int]:
+    def array_index_to_chunk_index(self, array_index: Dict[str, int]) -> Dict[str, int]:
         """Figure out which chunk a single array-space index comes from
         for each specified dimension."""
         return {
-            name: self._chunk_axes[name].array_index_to_chunk_index(array_index)
-            for name, array_index in array_indexes.items()
+            name: self._chunk_axes[name].array_index_to_chunk_index(idx)
+            for name, idx in array_index.items()
         }
 
     def array_slice_to_chunk_slice(self, array_slices: Dict[str, slice]) -> Dict[str, slice]:
@@ -188,7 +188,7 @@ class ChunkAxis:
         return slice(first, last)
 
     def chunk_conflicts(self, chunk_index: int, other: ChunkAxis) -> Set[int]:
-        """Figure out which _other_ chunk from this ChunkGrid might potentially
+        """Figure out which _other_ chunks from this ChunkAxis might potentially
         be in conflict with the specificied chunk index when writing to a
         different ChunkAxis.
         """
