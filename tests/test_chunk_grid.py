@@ -117,9 +117,14 @@ def test_chunk_axis_conflicts():
 
     for n in range(ca1.nchunks):
         assert ca1.chunk_conflicts(n, ca1) == set()
-    assert ca1.chunk_conflicts(0, ca2) == {1}
-    assert ca1.chunk_conflicts(1, ca2) == {0, 2}
+
+    assert ca1.chunk_conflicts(0, ca2) == {0}
+    assert ca1.chunk_conflicts(1, ca2) == {0, 1}
+    assert ca1.chunk_conflicts(2, ca2) == {1}
+    assert ca1.chunk_conflicts(3, ca2) == {2}
+    assert ca1.chunk_conflicts(4, ca2) == {2}
     assert ca2.chunk_conflicts(0, ca1) == {1}
+    assert ca2.chunk_conflicts(1, ca1) == {1}
     assert ca2.chunk_conflicts(2, ca1) == set()
 
     with pytest.raises(ValueError):
@@ -130,6 +135,6 @@ def test_chunk_grid_conflicts():
     cg1 = ChunkGrid({"x": (2, 4, 3, 4, 2), "y": (10, 10, 10)})
     cg2 = ChunkGrid({"x": (5, 4, 6), "y": (11, 9, 10)})
 
-    assert cg1.chunk_conflicts({"x": 0}, cg2) == {"x": {1}}
-    assert cg1.chunk_conflicts({"x": 0, "y": 0}, cg2) == {"x": {1}, "y": {1}}
+    assert cg1.chunk_conflicts({"x": 0}, cg2) == {"x": {0}}
+    assert cg1.chunk_conflicts({"x": 0, "y": 0}, cg2) == {"x": {0}, "y": {0}}
     assert cg1.chunk_conflicts({"y": 2}, cg2) == {"y": set()}

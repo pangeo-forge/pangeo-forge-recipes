@@ -117,9 +117,10 @@ class ChunkGrid:
         }
 
     def chunk_conflicts(self, chunk_index: Dict[str, int], other: ChunkGrid) -> Dict[str, Set[int]]:
-        """Figure out which _other_ chunks from this ChunkGrid might potentially
-        be in conflict with the specificied chunk index when writing to a
-        different ChunkGrid.
+        """Figure out which chunks from the other ChunkGrid might potentially
+        be written by other chunks from this array.
+        Returns a set of chunk indexes from the _other_ ChunkGrid that would
+        need to be locked for a safe write.
 
         :param chunk_index: The index of the chunk we want to write
         :param other: The other ChunkAxis
@@ -204,9 +205,13 @@ class ChunkAxis:
         return slice(first, last)
 
     def chunk_conflicts(self, chunk_index: int, other: ChunkAxis) -> Set[int]:
-        """Figure out which _other_ chunks from this ChunkAxis might potentially
-        be in conflict with the specificied chunk index when writing to a
-        different ChunkAxis.
+        """Figure out which chunks from the other ChunkAxis might potentially
+        be written by other chunks from this array.
+        Returns a set of chunk indexes from the _other_ ChunkAxis that would
+        need to be locked for a safe write.
+        If there are no potential conflicts, return an empty set.
+        There are at most two other-axis chunks with conflicts;
+        one each edge of this chunk.
 
         :param chunk_index: The index of the chunk we want to write
         :param other: The other ChunkAxis
@@ -215,12 +220,26 @@ class ChunkAxis:
         if len(other) != len(self):
             raise ValueError("Can't compute conflict for ChunkAxes of different size.")
 
+        other_chunk_conflicts = set()
+
         array_slice = self.chunk_index_to_array_slice(chunk_index)
+        # The chunks from the other axis that we need to touch:
         other_chunk_indexes = other.array_slice_to_chunk_slice(array_slice)
-        first_chunk_array_slice = other.chunk_index_to_array_slice(other_chunk_indexes.start)
-        last_chunk_array_slice = other.chunk_index_to_array_slice(other_chunk_indexes.stop - 1)
-        overlapping_slice = slice(first_chunk_array_slice.start, last_chunk_array_slice.stop)
-        chunk_slice = self.array_slice_to_chunk_slice(overlapping_slice)
-        explicit_chunks = set(range(chunk_slice.start, chunk_slice.stop))
-        # now return just the other chunks
-        return explicit_chunks - {chunk_index}
+        # Which other chunks from this array might also have to touch those chunks?
+        # To answer this, we need to know if those chunks overlap any of the
+        # other chunks from this array.
+        # Since the slice is contiguous, we only have to worry about the first and last chunks.
+
+        other_chunk_left = other_chunk_indexes.start
+        array_slice_left = other.chunk_index_to_array_slice(other_chunk_left)
+        chunk_slice_left = self.array_slice_to_chunk_slice(array_slice_left)
+        if chunk_slice_left.start < chunk_index:
+            other_chunk_conflicts.add(other_chunk_left)
+
+        other_chunk_right = other_chunk_indexes.stop - 1
+        array_slice_right = other.chunk_index_to_array_slice(other_chunk_right)
+        chunk_slice_right = self.array_slice_to_chunk_slice(array_slice_right)
+        if chunk_slice_right.stop > chunk_index + 1:
+            other_chunk_conflicts.add(other_chunk_right)
+
+        return other_chunk_conflicts
