@@ -115,6 +115,26 @@ def input_position(input_key: InputKey) -> int:
     return -1  # make mypy happy
 
 
+def chunk_position(chunk_key: ChunkKey) -> int:
+    """Return the position of the input within the input sequence."""
+    concat_idx = -1
+    for dim_idx in chunk_key:
+        # assumes there is one and only one concat dim
+        if dim_idx.operation == CombineOp.CONCAT:
+            concat_idx = dim_idx.index
+            concat_dim = dim_idx.name
+    if concat_idx == -1:
+        raise ValueError("Couldn't find concat_dim")
+    subset_idx = 0
+    subset_factor = 1
+    for dim_idx in chunk_key:
+        if dim_idx.operation == CombineOp.SUBSET:
+            if dim_idx.name == concat_dim:
+                subset_idx = dim_idx.index
+                subset_factor = dim_idx.sequence_len
+    return subset_factor * concat_idx + subset_idx
+
+
 def cache_input_metadata(
     input_key: InputKey,
     metadata_cache: Optional[MetadataTarget],
@@ -205,25 +225,22 @@ def region_and_conflicts_for_chunk(
         input_sequence_lens = global_metadata["input_sequence_lens"]
     total_len = sum(input_sequence_lens)
 
+    # for now this will just have one key since we only allow one concat_dim
+    # but it could expand to accomodate multiple concat dims
+    chunk_index = {concat_dim: chunk_position(chunk_key)}
+
     input_chunk_grid = ChunkGrid({concat_dim: input_sequence_lens})
     if subset_inputs and concat_dim in subset_inputs:
         assert (
             inputs_per_chunk == 1
         ), "Doesn't make sense to have multiple inputs per chunk plus subsetting"
-        chunk_grid = input_chunk_grid.consolidate(subset_inputs)
+        chunk_grid = input_chunk_grid.subset(subset_inputs)
     elif inputs_per_chunk > 1:
         chunk_grid = input_chunk_grid.consolidate({concat_dim: inputs_per_chunk})
     else:
         chunk_grid = input_chunk_grid
     assert chunk_grid.shape[concat_dim] == total_len
 
-    # for now this will just have one key since we only allow one concat_dim
-    # but it should expand easily to accomodate multiple concat dims
-    chunk_index = {
-        dim_idx.name: dim_idx.index
-        for dim_idx in chunk_key
-        if dim_idx.operation == CombineOp.CONCAT
-    }
     region = chunk_grid.chunk_index_to_array_slice(chunk_index)
 
     assert concat_dim_chunks is not None
