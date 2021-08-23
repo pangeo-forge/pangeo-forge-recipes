@@ -73,7 +73,7 @@ class ReferenceHDFRecipe(BaseRecipe):
     netcdf_url: Union[str, List[str]]
     output_url: str
     output_target: FSSpecTarget
-    _work_dir: MetadataTarget
+    metadata_cache: MetadataTarget
     netcdf_storage_options: dict = field(default_factory=dict)
     inline_threshold: int = 500
     output_storage_options: dict = field(default_factory=dict)
@@ -103,7 +103,7 @@ class ReferenceHDFRecipe(BaseRecipe):
     def store_chunk(self) -> Callable[[Hashable], None]:
         """Store a chunk of data in the target.
         """
-        return functools.partial(_one_chunk, work_dir=self._work_dir)
+        return functools.partial(_one_chunk, metadata_cache=self.metadata_cache)
 
     @property
     def finalize_target(self) -> Callable[[], None]:
@@ -116,7 +116,7 @@ class ReferenceHDFRecipe(BaseRecipe):
             proto = fsspec.utils.get_protocol(self.netcdf_url[0])
         return functools.partial(
             _finalize,
-            work_dir=self._work_dir,
+            metadata_cache=self.metadata_cache,
             out_url=self.output_url,
             out_target=self.output_target,
             out_so=self.output_storage_options,
@@ -128,15 +128,15 @@ class ReferenceHDFRecipe(BaseRecipe):
         )
 
 
-def _one_chunk(of, work_dir):
+def _one_chunk(of, metadata_cache):
     with of as f:
         fn = os.path.basename(f.name + ".json")
         h5chunks = SingleHdf5ToZarr(f, _unstrip_protocol(f.name, f.fs), inline_threshold=300)
-        work_dir[fn] = h5chunks.translate()
+        metadata_cache[fn] = h5chunks.translate()
 
 
 def _finalize(
-    work_dir,
+    metadata_cache,
     out_url,
     out_target,
     out_so,
@@ -147,7 +147,7 @@ def _finalize(
     template_count,
 ):
     files = list(
-        work_dir.getitems(list(work_dir.get_mapper())).values()
+        metadata_cache.getitems(list(metadata_cache.get_mapper())).values()
     )  # returns dicts from remote
     if len(files) == 1:
         out = files[0]
