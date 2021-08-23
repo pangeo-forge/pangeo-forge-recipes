@@ -2,15 +2,18 @@ import functools
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Callable, Hashable, Iterable, List, Optional, Union
+from typing import Callable, Dict, Hashable, Iterable, Optional
 
 import fsspec
 import yaml
 from fsspec_reference_maker.combine import MultiZarrToZarr
 from fsspec_reference_maker.hdf import SingleHdf5ToZarr
 
+from ..patterns import FilePattern, Index
 from ..storage import FSSpecTarget, MetadataTarget
 from .base import BaseRecipe
+
+ChunkKey = Index
 
 
 def no_op(*_, **__) -> None:
@@ -68,12 +71,13 @@ class ReferenceHDFRecipe(BaseRecipe):
     #  a master merge in finalise. This would maybe map to iter_chunk,
     #  store_chunk, finalize_target. The strategy was used for NWM's 370k files.
 
-    # TODO: as written, this rcipe is specific to HDF5 files. fsspec-reference-maker
+    # TODO: as written, this recipe is specific to HDF5 files. fsspec-reference-maker
     #  also supports TIFF and grib2 (and more coming)
-    netcdf_url: Union[str, List[str]]
-    output_url: str
-    output_target: FSSpecTarget
-    metadata_cache: MetadataTarget
+    file_pattern: FilePattern
+    output_json_fname: str = "reference.json"
+    output_intake_yaml_fname: str = "reference.yaml"
+    output_target: Optional[FSSpecTarget] = None
+    metadata_cache: Optional[MetadataTarget] = None
     netcdf_storage_options: dict = field(default_factory=dict)
     inline_threshold: int = 500
     output_storage_options: dict = field(default_factory=dict)
@@ -97,30 +101,34 @@ class ReferenceHDFRecipe(BaseRecipe):
 
     def iter_chunks(self) -> Iterable[Hashable]:
         """Iterate over all target chunks."""
-        return fsspec.open_files(self.netcdf_url, **self.netcdf_storage_options)
+        for input_key in self.file_pattern:
+            yield input_key
 
     @property
     def store_chunk(self) -> Callable[[Hashable], None]:
         """Store a chunk of data in the target.
         """
-        return functools.partial(_one_chunk, metadata_cache=self.metadata_cache)
+        return functools.partial(
+            _one_chunk,
+            file_pattern=self.file_pattern,
+            netcdf_storage_options=self.netcdf_storage_options,
+            metadata_cache=self.metadata_cache,
+        )
 
     @property
     def finalize_target(self) -> Callable[[], None]:
         """Final step to finish the recipe after data has been written.
         Attribute that returns a callable function.
         """
-        if isinstance(self.netcdf_url, str):
-            proto = fsspec.utils.get_protocol(self.netcdf_url)
-        else:
-            proto = fsspec.utils.get_protocol(self.netcdf_url[0])
+        proto = fsspec.utils.get_protocol(next(self.file_pattern.items())[1])
         return functools.partial(
             _finalize,
-            metadata_cache=self.metadata_cache,
-            out_url=self.output_url,
+            output_json_fname=self.output_json_fname,
+            output_intake_yaml_fname=self.output_intake_yaml_fname,
             out_target=self.output_target,
-            out_so=self.output_storage_options,
+            metadata_cache=self.metadata_cache,
             remote_protocol=proto,
+            output_storage_options=self.output_storage_options,
             remote_options=self.netcdf_storage_options,
             xr_open_kwargs=self.xarray_open_kwargs,
             xr_concat_kwargs=self.xarray_concat_args,
@@ -128,24 +136,32 @@ class ReferenceHDFRecipe(BaseRecipe):
         )
 
 
-def _one_chunk(of, metadata_cache):
-    with of as f:
+def _one_chunk(
+    chunk_key: ChunkKey,
+    file_pattern: FilePattern,
+    netcdf_storage_options: Dict,
+    metadata_cache: MetadataTarget,
+):
+    fname = file_pattern[chunk_key]
+    with fsspec.open(fname, **netcdf_storage_options) as f:
         fn = os.path.basename(f.name + ".json")
         h5chunks = SingleHdf5ToZarr(f, _unstrip_protocol(f.name, f.fs), inline_threshold=300)
         metadata_cache[fn] = h5chunks.translate()
 
 
 def _finalize(
-    metadata_cache,
-    out_url,
+    output_json_fname,
+    output_intake_yaml_fname,
     out_target,
-    out_so,
+    metadata_cache,
     remote_protocol,
+    output_storage_options,
     remote_options,
     xr_open_kwargs,
     xr_concat_kwargs,
     template_count,
 ):
+
     files = list(
         metadata_cache.getitems(list(metadata_cache.get_mapper())).values()
     )  # returns dicts from remote
@@ -164,9 +180,8 @@ def _finalize(
         out = mzz.translate(None, template_count=template_count)
     fs = out_target.fs
     protocol = fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0]
-    with out_target.open(out_url, mode="wt") as f:
+    with out_target.open(output_json_fname, mode="wt") as f:
         f.write(json.dumps(out))
-    fn2 = out_url + ".yaml"
     spec = {
         "sources": {
             "data": {
@@ -175,9 +190,9 @@ def _finalize(
                 "args": {
                     "urlpath": "reference://",
                     "storage_options": {
-                        "fo": out_target._full_path(out_url),
+                        "fo": out_target._full_path(output_json_fname),
                         "target_protocol": protocol,
-                        "target_options": out_so,
+                        "target_options": output_storage_options,
                         "remote_protocol": remote_protocol,
                         "remote_options": remote_options,
                         "skip_instance_cache": True,
@@ -188,7 +203,7 @@ def _finalize(
             }
         }
     }
-    with out_target.open(fn2, mode="wt") as f:
+    with out_target.open(output_intake_yaml_fname, mode="wt") as f:
         yaml.dump(spec, f, default_flow_style=False)
 
 
