@@ -26,10 +26,10 @@ def test_single(netcdf_local_paths, tmpdir, with_intake):
 
     out = "out.json"
     out_target = FSSpecTarget(fs=fsspec.filesystem("file"), root_path=str(tmpdir))
-    work_dir = MetadataTarget(fs=fsspec.filesystem("file"), root_path=tempfile.mkdtemp())
+    metadata_cache = MetadataTarget(fs=fsspec.filesystem("file"), root_path=tempfile.mkdtemp())
 
     recipe = ReferenceHDFRecipe(
-        netcdf_url=path, output_url=out, output_target=out_target, _work_dir=work_dir
+        netcdf_url=path, output_url=out, output_target=out_target, metadata_cache=metadata_cache
     )
 
     recipe.to_dask().compute(scheduler="sync")
@@ -58,14 +58,14 @@ def test_multi(netcdf_local_paths, tmpdir, with_intake):
     # repeated code could be fixture
     out = "out.json"
     out_target = FSSpecTarget(fs=fsspec.filesystem("file"), root_path=str(tmpdir))
-    work_dir = MetadataTarget(fs=fsspec.filesystem("file"), root_path=tempfile.mkdtemp())
+    metadata_cache = MetadataTarget(fs=fsspec.filesystem("file"), root_path=tempfile.mkdtemp())
 
     concat_kwargs = {"dim": "time"}
     recipe = ReferenceHDFRecipe(
         netcdf_url=paths,
         output_url=out,
         output_target=out_target,
-        _work_dir=work_dir,
+        metadata_cache=metadata_cache,
         xarray_concat_args=concat_kwargs,
     )
 
