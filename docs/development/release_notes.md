@@ -1,6 +1,9 @@
 # Release Notes
 
-## 0.5.0 - unreleased
+## v0.5.1 - Unreleased
+
+
+## v0.5.0 - 2021-07-11
 
 - Added `subset_inputs` option to `XarrayZarrRecipe`. {issue}`93`, {pull}`166`
 - Fixed file opening to eliminate HDF errors related to closed files. {issue}`170`, {pull}`171`
