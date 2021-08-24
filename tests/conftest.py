@@ -243,7 +243,23 @@ def netCDFtoZarr_sequential_subset_recipe(
     paths, items_per_file = netcdf_paths[:2]
     if items_per_file != 2:
         pytest.skip("This recipe only makes sense with items_per_file == 2.")
-    file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
+    if len(netcdf_paths) == 2:
+        file_pattern = pattern_from_file_sequence(
+            [str(path) for path in paths], "time", items_per_file
+        )
+    else:
+        _, path_format = netcdf_paths[2:]
+        time_index = list(range(len(paths) // 2))
+
+        def format_function(variable, time):
+            return path_format.format(variable=variable, time=time)
+
+        file_pattern = FilePattern(
+            format_function,
+            ConcatDim("time", time_index, items_per_file),
+            MergeDim("variable", ["foo", "bar"]),
+        )
+
     kwargs = dict(
         subset_inputs={"time": 2},
         inputs_per_chunk=1,
