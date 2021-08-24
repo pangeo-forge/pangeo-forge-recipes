@@ -28,42 +28,34 @@ class ReferenceHDFRecipe(BaseRecipe):
     into one ensemble output
 
     Currently supports concat or merge along a single dimension.
-    TODO: multiple could be made by calling MultiZarrToZarr once
-     for each dimension
 
     See fsspec-reference-maker and fsspec's ReferenceFileSystem
     To use this class, you must have fsspec-reference-maker, ujson,
     xarray, fsspec, zarr, h5py and ujson in your recipe's requirements.
 
-    This class will also produce an Intake catalog stub in YAML
-    format, with the same name as the output json + ".yaml". You
-    can use intake (and intake-xarray) to load the dataset, and this
-    is the recommended way to distribute access.
+    This class will also produce an Intake catalog stub in YAML format
+    You can use intake (and intake-xarray) to load the dataset
+    This is the recommended way to distribute access.
 
-    SingleHdf5ToZarr parameters:
-
-    :param netcdf_url: location of the original data files. Can be a
-        string (will be glob-expanded) or explicit list of paths or
-        list of glob-strings. May eventually support FilePatterns.
-        Should include protocol specifier, as usually formulated for
-        fsspec.
+    :param file_pattern: FilePattern describing the original data files.
+        Paths should include protocol specifier, e.g. `https://`
+    :param output_json_fname: The name of the json file in which to store the reference filesystem.
+    :param output_intake_yaml_fname: The name of the generated intake catalog file.
+    :param target: Final storage location in which to put the reference dataset files
+        (json and yaml).
+    :param metadata_cache: A location in which to cache metadata for files.
     :param netcdf_storage_options: dict of kwargs for creating fsspec
         instance to read original data files
     :param inline_threshold: blocks with fewer bytes than this will be
         inlined into the output reference file
-
-    MultiZarrToZarr parameters (if accessing more than one HDF):
-
-    :param xarray_open_kwargs: kwargs passed to xarray.open_dataset
-    :param xarray_concat_args: kwargs passed to xarray.concat
-
-    Output parameters:
-
-    :param output_url: where the final reference file is written.
     :param output_storage_options: dict of kwargs for creating fsspec
         instance when writing final output
     :param template_count: the number of occurrences of a URL before it
         gets made a template. ``None`` to disable templating
+    :param xarray_open_kwargs: kwargs passed to xarray.open_dataset.
+        Only used if `file_pattern` has more than one file.
+    :param xarray_concat_args: kwargs passed to xarray.concat
+        Only used if `file_pattern` has more than one file.
     """
 
     # TODO: support chunked ("tree") aggregation: would entail processing each file
@@ -76,7 +68,7 @@ class ReferenceHDFRecipe(BaseRecipe):
     file_pattern: FilePattern
     output_json_fname: str = "reference.json"
     output_intake_yaml_fname: str = "reference.yaml"
-    output_target: Optional[FSSpecTarget] = None
+    target: Optional[FSSpecTarget] = None
     metadata_cache: Optional[MetadataTarget] = None
     netcdf_storage_options: dict = field(default_factory=dict)
     inline_threshold: int = 500
@@ -84,6 +76,15 @@ class ReferenceHDFRecipe(BaseRecipe):
     template_count: Optional[int] = 20
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_args: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        self._validate_file_pattern()
+
+    def _validate_file_pattern(self):
+        if len(self.file_pattern.merge_dims) > 1:
+            raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
+        if len(self.file_pattern.concat_dims) > 1:
+            raise NotImplementedError("This Recipe class can't handle more than one concat dim.")
 
     def iter_inputs(self) -> Iterable[Hashable]:
         return ()
@@ -121,17 +122,24 @@ class ReferenceHDFRecipe(BaseRecipe):
         Attribute that returns a callable function.
         """
         proto = fsspec.utils.get_protocol(next(self.file_pattern.items())[1])
+        concat_args = self.xarray_concat_args.copy()
+        if "dim" in concat_args:
+            raise ValueError(
+                "Please do not set 'dim' in xarray_concat_args. "
+                "It is determined automatically from the File Pattern."
+            )
+        concat_args["dim"] = self.file_pattern.concat_dims[0]  # there should only be one
         return functools.partial(
             _finalize,
             output_json_fname=self.output_json_fname,
             output_intake_yaml_fname=self.output_intake_yaml_fname,
-            out_target=self.output_target,
+            out_target=self.target,
             metadata_cache=self.metadata_cache,
             remote_protocol=proto,
             output_storage_options=self.output_storage_options,
             remote_options=self.netcdf_storage_options,
             xr_open_kwargs=self.xarray_open_kwargs,
-            xr_concat_kwargs=self.xarray_concat_args,
+            xr_concat_kwargs=concat_args,
             template_count=self.template_count,
         )
 
@@ -144,8 +152,8 @@ def _one_chunk(
 ):
     fname = file_pattern[chunk_key]
     with fsspec.open(fname, **netcdf_storage_options) as f:
-        fn = os.path.basename(f.name + ".json")
-        h5chunks = SingleHdf5ToZarr(f, _unstrip_protocol(f.name, f.fs), inline_threshold=300)
+        fn = os.path.basename(fname + ".json")
+        h5chunks = SingleHdf5ToZarr(f, _unstrip_protocol(fname, f.fs), inline_threshold=300)
         metadata_cache[fn] = h5chunks.translate()
 
 

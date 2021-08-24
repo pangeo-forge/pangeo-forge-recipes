@@ -25,7 +25,7 @@ def test_single(netcdf_local_paths, tmpdir, with_intake):
     # make sure assigning storage later works
     out_target = FSSpecTarget(fs=fsspec.filesystem("file"), root_path=str(tmpdir))
     metadata_cache = MetadataTarget(fs=fsspec.filesystem("file"), root_path=tempfile.mkdtemp())
-    recipe.output_target = out_target
+    recipe.target = out_target
     recipe.metadata_cache = metadata_cache
 
     recipe.to_dask().compute(scheduler="sync")
@@ -52,13 +52,12 @@ def test_multi(netcdf_local_paths, tmpdir, with_intake):
     expected = xr.open_mfdataset(paths, engine="h5netcdf")
 
     file_pattern = pattern_from_file_sequence(paths, "time")
-    concat_kwargs = {"dim": "time"}
-    recipe = ReferenceHDFRecipe(file_pattern, xarray_concat_args=concat_kwargs)
+    recipe = ReferenceHDFRecipe(file_pattern)
 
     # make sure assigning storage later works
     out_target = FSSpecTarget(fs=fsspec.filesystem("file"), root_path=str(tmpdir))
     metadata_cache = MetadataTarget(fs=fsspec.filesystem("file"), root_path=tempfile.mkdtemp())
-    recipe.output_target = out_target
+    recipe.target = out_target
     recipe.metadata_cache = metadata_cache
 
     recipe.to_dask().compute(scheduler="sync")
