@@ -12,17 +12,17 @@ from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.recipes.base import BaseRecipe
 
 all_recipes = [
-    lazy_fixture("netCDFtoZarr_sequential_recipe"),
-    lazy_fixture("netCDFtoZarr_sequential_subset_recipe"),
+    lazy_fixture("netCDFtoZarr_recipe"),
+    lazy_fixture("netCDFtoZarr_subset_recipe"),
 ]
 
 recipes_no_subset = [
-    lazy_fixture("netCDFtoZarr_sequential_recipe"),
+    lazy_fixture("netCDFtoZarr_recipe"),
 ]
 
 
-def test_to_pipelines_warns(netCDFtoZarr_sequential_recipe):
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+def test_to_pipelines_warns(netCDFtoZarr_recipe):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
     rec = RecipeClass(file_pattern, **kwargs)
     with pytest.warns(FutureWarning):
         rec.to_pipelines()
@@ -63,11 +63,11 @@ def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
 @pytest.mark.parametrize("cache_inputs", [True, False])
 @pytest.mark.parametrize("copy_input_to_local_file", [True, False])
 def test_recipe_caching_copying(
-    netCDFtoZarr_sequential_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
+    netCDFtoZarr_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
 ):
     """The basic recipe test. Use this as a template for other tests."""
 
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
     if not cache_inputs:
         kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
     rec = RecipeClass(
@@ -203,8 +203,8 @@ def test_chunks(
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
-def test_lock_timeout(netCDFtoZarr_sequential_recipe, execute_recipe):
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+def test_lock_timeout(netCDFtoZarr_recipe, execute_recipe):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
     recipe = RecipeClass(file_pattern=file_pattern, lock_timeout=1, **kwargs)
 
     with patch("pangeo_forge_recipes.recipes.xarray_zarr.lock_for_conflicts") as p:

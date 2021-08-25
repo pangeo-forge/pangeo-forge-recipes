@@ -228,7 +228,7 @@ def tmp_metadata_target(tmpdir_factory):
 
 
 @pytest.fixture
-def netCDFtoZarr_sequential_recipe(
+def netCDFtoZarr_recipe(
     daily_xarray_dataset, netcdf_paths, tmp_target, tmp_cache, tmp_metadata_target
 ):
     file_pattern = _make_file_pattern(netcdf_paths)
@@ -243,7 +243,7 @@ def netCDFtoZarr_sequential_recipe(
 
 
 @pytest.fixture
-def netCDFtoZarr_sequential_subset_recipe(
+def netCDFtoZarr_subset_recipe(
     daily_xarray_dataset, netcdf_paths, tmp_target, tmp_cache, tmp_metadata_target
 ):
     items_per_file = netcdf_paths[1]
