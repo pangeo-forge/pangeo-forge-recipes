@@ -44,15 +44,12 @@ The target Zarr dataset will conform to the
 
 The best way to really understand how recipes work is to go through the relevant
 tutorials for this recipe class. These are, in order of increasing complexity
-- {doc}`../tutorials/netcdf_zarr_sequential`
-- {doc}`../tutorials/multi_variable_recipe`
-- {doc}`../tutorials/terraclimate`
 
-- {doc}`tutorials/xarray_zarr/netcdf_zarr_sequential`
-- {doc}`tutorials/xarray_zarr/cmip6-recipe`
-- {doc}`tutorials/xarray_zarr/multi_variable_recipe`
-- {doc}`tutorials/xarray_zarr/terraclimate`
-- {doc}`tutorials/xarray_zarr/opendap_subset_recipe`
+- {doc}`../tutorials/xarray_zarr/netcdf_zarr_sequential`
+- {doc}`../tutorials/xarray_zarr/cmip6-recipe`
+- {doc}`../tutorials/xarray_zarr/multi_variable_recipe`
+- {doc}`../tutorials/xarray_zarr/terraclimate`
+- {doc}`../tutorials/xarray_zarr/opendap_subset_recipe`
 
 Below we give a very basic overview of how this recipe is used.
 
@@ -103,7 +100,7 @@ For more background, see [this blog post](https://medium.com/pangeo/fake-it-unti
 
 There is currently one tutorial for this recipe:
 
-- - {doc}`tutorials/hdf_reference/reference_cmip6`
+- - {doc}`../tutorials/hdf_reference/reference_cmip6`
 
 #### API Documentation
 
