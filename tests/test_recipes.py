@@ -23,6 +23,11 @@ recipes_no_subset = [
 
 def test_to_pipelines_warns(netCDFtoZarr_recipe):
     RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
+
+    # `netCDFtoZarr_recipe` fixture is parametrized. We don't need to run this test more than once.
+    if len(file_pattern.merge_dims) != 0:
+        pytest.skip("It's redundant to run this test more than once.")
+
     rec = RecipeClass(file_pattern, **kwargs)
     with pytest.warns(FutureWarning):
         rec.to_pipelines()
@@ -66,8 +71,12 @@ def test_recipe_caching_copying(
     netCDFtoZarr_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
 ):
     """The basic recipe test. Use this as a template for other tests."""
-
     RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
+
+    # `netCDFtoZarr_recipe` fixture is parametrized. We don't need to run this test more than once.
+    if len(file_pattern.merge_dims) != 0:
+        pytest.skip("It's redundant to run this test more than once.")
+
     if not cache_inputs:
         kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
     rec = RecipeClass(
@@ -205,6 +214,11 @@ def test_chunks(
 
 def test_lock_timeout(netCDFtoZarr_recipe, execute_recipe):
     RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
+
+    # `netCDFtoZarr_recipe` fixture is parametrized. We don't need to run this test more than once.
+    if len(file_pattern.merge_dims) != 0:
+        pytest.skip("It's redundant to run this test more than once.")
+
     recipe = RecipeClass(file_pattern=file_pattern, lock_timeout=1, **kwargs)
 
     with patch("pangeo_forge_recipes.recipes.xarray_zarr.lock_for_conflicts") as p:
