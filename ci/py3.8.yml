@@ -12,13 +12,13 @@ dependencies:
   - distributed
   - fsspec>=2021.6.0
   - h5netcdf
-  - h5py>=3.3.0
+  - h5py
   - hdf5
   - intake
   - intake-xarray
   - lxml
   - netcdf4
-  - numcodecs>=0.9.0
+  - numcodecs
   - numpy
   - pandas
   - pip
