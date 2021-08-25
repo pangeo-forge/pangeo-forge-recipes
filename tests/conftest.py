@@ -95,14 +95,13 @@ def _split_up_files_by_variable_and_day(ds, day_param):
 
 
 def _make_file_pattern(netcdf_paths):
-    paths, items_per_file = netcdf_paths[:2]
+    paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
 
-    if len(netcdf_paths) == 2:
+    if not fnames_by_variable:
         file_pattern = pattern_from_file_sequence(
             [str(path) for path in paths], "time", items_per_file
         )
     else:
-        _, path_format = netcdf_paths[2:]
         time_index = list(range(len(paths) // 2))
 
         def format_function(variable, time):
@@ -135,25 +134,19 @@ def netcdf_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_spli
     file_splitter_tuple = file_splitter(daily_xarray_dataset.copy(), items_per_file)
 
     datasets, fnames = file_splitter_tuple[:2]
-    if len(file_splitter_tuple) == 3:
-        fnames_by_variable = file_splitter_tuple[2]
-
     full_paths = [tmp_path.join(fname) for fname in fnames]
     xr.save_mfdataset(datasets, [str(path) for path in full_paths])
     items_per_file = {"D": 1, "2D": 2}[items_per_file]
 
-    if len(file_splitter_tuple) == 2:
-        return full_paths, items_per_file
-    else:
-        path_format = str(tmp_path) + "/{variable}_{time:03d}.nc"
-        return full_paths, items_per_file, fnames_by_variable, path_format
+    fnames_by_variable = file_splitter_tuple[-1] if len(file_splitter_tuple) == 3 else None
+    path_format = str(tmp_path) + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
+
+    return full_paths, items_per_file, fnames_by_variable, path_format
 
 
 @pytest.fixture(scope="session")
 def netcdf_http_paths(netcdf_paths, request):
-    paths, items_per_file = netcdf_paths[:2]
-    if len(netcdf_paths) == 4:
-        fnames_by_variable, path_format = netcdf_paths[2:]
+    paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
 
     username = ""
     password = ""
@@ -184,10 +177,7 @@ def netcdf_http_paths(netcdf_paths, request):
 
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]
 
-    if len(netcdf_paths) == 2:
-        return all_urls, items_per_file
-    else:
-        return all_urls, items_per_file, fnames_by_variable, path_format
+    return all_urls, items_per_file, fnames_by_variable, path_format
 
 
 @pytest.fixture(scope="session")
