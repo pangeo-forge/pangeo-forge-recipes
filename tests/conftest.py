@@ -146,17 +146,11 @@ def netcdf_local_file_pattern(netcdf_paths):
     return make_file_pattern(netcdf_paths)
 
 
-@pytest.fixture(scope="session")
-def netcdf_http_paths(netcdf_paths, request):
-    paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
-
-    username = ""
-    password = ""
+def start_http_server(paths, request, username=None, password=None):
 
     first_path = paths[0]
     # assume that all files are in the same directory
     basedir = first_path.dirpath()
-    fnames = [path.basename for path in paths]
 
     this_dir = os.path.dirname(os.path.abspath(__file__))
     port = get_open_port()
@@ -177,6 +171,28 @@ def netcdf_http_paths(netcdf_paths, request):
 
     request.addfinalizer(teardown)
 
+    return url
+
+
+@pytest.fixture(scope="session")
+def netcdf_http_paths(netcdf_paths, request):
+    paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
+
+    url = start_http_server(paths, request)
+
+    fnames = [path.basename for path in paths]
+    all_urls = ["/".join([url, str(fname)]) for fname in fnames]
+
+    return all_urls, items_per_file, fnames_by_variable, path_format
+
+
+@pytest.fixture(scope="session")
+def netcdf_http_paths_basic_auth(netcdf_paths, request):
+    paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
+
+    url = start_http_server(paths, request, username="foo", password="bar")
+
+    fnames = [path.basename for path in paths]
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]
 
     return all_urls, items_per_file, fnames_by_variable, path_format
