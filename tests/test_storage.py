@@ -1,4 +1,6 @@
+import aiohttp
 import pytest
+import requests
 import xarray as xr
 from dask import delayed
 from dask.distributed import Client
@@ -40,7 +42,11 @@ def test_metadata_target(tmp_metadata_target):
 
 
 @pytest.mark.parametrize(
-    "file_paths", [lazy_fixture("netcdf_paths"), lazy_fixture("netcdf_http_paths")],
+    "file_paths", [
+        lazy_fixture("netcdf_paths"),
+        lazy_fixture("netcdf_http_paths"),
+        lazy_fixture("netcdf_http_paths_basic_auth"),
+    ],
 )
 @pytest.mark.parametrize("copy_to_local", [False, True])
 @pytest.mark.parametrize("use_cache, cache_first", [(False, False), (True, False), (True, True)])
@@ -55,6 +61,7 @@ def test_file_opener(
     dask_cluster,
     use_dask,
     use_xarray,
+    open_kwargs={},
 ):
     all_paths = file_paths[0]
 
@@ -68,16 +75,21 @@ def test_file_opener(
     cache = tmp_cache if use_cache else None
     secrets = {"token": "bar"} if "?" in str(all_paths[0]) else None
 
+    if str(all_paths[0]).split(":")[0] == "http":
+        r = requests.get(all_paths[0])
+        # only pass username and password to fsspec if the server requires it
+        open_kwargs = dict(auth=aiohttp.BasicAuth("foo", "bar")) if r.status_code == 401 else {}
+
     def do_actual_test():
         if cache_first:
-            cache.cache_file(path, secrets)
+            cache.cache_file(path, secrets, **open_kwargs)
             assert cache.exists(path)
             details = cache.fs.ls(cache.root_path, detail=True)
-            cache.cache_file(path, secrets)
+            cache.cache_file(path, secrets, **open_kwargs)
             # check that nothing happened
             assert cache.fs.ls(cache.root_path, detail=True) == details
 
-        opener = file_opener(path, cache, copy_to_local=copy_to_local)
+        opener = file_opener(path, cache, copy_to_local=copy_to_local, **open_kwargs)
         if use_cache and not cache_first:
             with pytest.raises(FileNotFoundError):
                 with opener as fp:
