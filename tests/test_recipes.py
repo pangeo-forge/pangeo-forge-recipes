@@ -10,6 +10,39 @@ from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.recipes.base import BaseRecipe
+from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
+
+
+@pytest.fixture
+def netCDFtoZarr_recipe(
+    daily_xarray_dataset, netcdf_local_file_pattern, tmp_target, tmp_cache, tmp_metadata_target
+):
+    kwargs = dict(
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
+    return XarrayZarrRecipe, netcdf_local_file_pattern, kwargs, daily_xarray_dataset, tmp_target
+
+
+@pytest.fixture
+def netCDFtoZarr_subset_recipe(
+    daily_xarray_dataset, netcdf_local_file_pattern, tmp_target, tmp_cache, tmp_metadata_target
+):
+    items_per_file = netcdf_local_file_pattern.nitems_per_input.get("time", None)
+    if items_per_file != 2:
+        pytest.skip("This recipe only makes sense with items_per_file == 2.")
+
+    kwargs = dict(
+        subset_inputs={"time": 2},
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
+    return XarrayZarrRecipe, netcdf_local_file_pattern, kwargs, daily_xarray_dataset, tmp_target
+
 
 all_recipes = [
     lazy_fixture("netCDFtoZarr_recipe"),
@@ -23,10 +56,6 @@ recipes_no_subset = [
 
 def test_to_pipelines_warns(netCDFtoZarr_recipe):
     RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
-
-    # `netCDFtoZarr_recipe` fixture is parametrized. We don't need to run this test more than once.
-    if len(file_pattern.merge_dims) != 0:
-        pytest.skip("It's redundant to run this test more than once.")
 
     rec = RecipeClass(file_pattern, **kwargs)
     with pytest.warns(FutureWarning):
@@ -53,7 +82,7 @@ def test_recipe(recipe_fixture, execute_recipe):
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
 @pytest.mark.parametrize("nkeep", [1, 2])
 def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
-    """The basic recipe test. Use this as a template for other tests."""
+    """Check that recipe.copy_pruned works as expected."""
 
     RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
     rec = RecipeClass(file_pattern, **kwargs)
@@ -70,12 +99,9 @@ def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
 def test_recipe_caching_copying(
     netCDFtoZarr_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
 ):
-    """The basic recipe test. Use this as a template for other tests."""
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
+    """Test that caching and copying to local file work."""
 
-    # `netCDFtoZarr_recipe` fixture is parametrized. We don't need to run this test more than once.
-    if len(file_pattern.merge_dims) != 0:
-        pytest.skip("It's redundant to run this test more than once.")
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
 
     if not cache_inputs:
         kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache

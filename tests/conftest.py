@@ -12,7 +12,6 @@ import xarray as xr
 from dask.distributed import Client, LocalCluster
 from prefect.executors import DaskExecutor
 
-from pangeo_forge_recipes import recipes
 from pangeo_forge_recipes.executors import (
     DaskPipelineExecutor,
     PrefectPipelineExecutor,
@@ -74,19 +73,19 @@ def daily_xarray_dataset():
     return ds
 
 
-def _split_up_files_by_day(ds, day_param):
+def split_up_files_by_day(ds, day_param):
     gb = ds.resample(time=day_param)
     _, datasets = zip(*gb)
     fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
     return datasets, fnames
 
 
-def _split_up_files_by_variable_and_day(ds, day_param):
+def split_up_files_by_variable_and_day(ds, day_param):
     all_dsets = []
     all_fnames = []
     fnames_by_variable = {}
     for varname in ds.data_vars:
-        var_dsets, fnames = _split_up_files_by_day(ds[[varname]], day_param)
+        var_dsets, fnames = split_up_files_by_day(ds[[varname]], day_param)
         fnames = [f"{varname}_{fname}" for fname in fnames]
         all_dsets += var_dsets
         all_fnames += fnames
@@ -94,7 +93,7 @@ def _split_up_files_by_variable_and_day(ds, day_param):
     return all_dsets, all_fnames, fnames_by_variable
 
 
-def _make_file_pattern(netcdf_paths):
+def make_file_pattern(netcdf_paths):
     paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
 
     if not fnames_by_variable:
@@ -121,9 +120,7 @@ def items_per_file(request):
     return request.param
 
 
-@pytest.fixture(
-    scope="session", params=[_split_up_files_by_day, _split_up_files_by_variable_and_day]
-)
+@pytest.fixture(scope="session", params=[split_up_files_by_day, split_up_files_by_variable_and_day])
 def file_splitter(request):
     return request.param
 
@@ -142,6 +139,11 @@ def netcdf_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_spli
     path_format = str(tmp_path) + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
 
     return full_paths, items_per_file, fnames_by_variable, path_format
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_pattern(netcdf_paths):
+    return make_file_pattern(netcdf_paths)
 
 
 @pytest.fixture(scope="session")
@@ -215,41 +217,6 @@ def tmp_metadata_target(tmpdir_factory):
     fs = fsspec.get_filesystem_class("file")()
     cache = MetadataTarget(fs, path)
     return cache
-
-
-@pytest.fixture
-def netCDFtoZarr_recipe(
-    daily_xarray_dataset, netcdf_paths, tmp_target, tmp_cache, tmp_metadata_target
-):
-    file_pattern = _make_file_pattern(netcdf_paths)
-
-    kwargs = dict(
-        inputs_per_chunk=1,
-        target=tmp_target,
-        input_cache=tmp_cache,
-        metadata_cache=tmp_metadata_target,
-    )
-    return recipes.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
-
-
-@pytest.fixture
-def netCDFtoZarr_subset_recipe(
-    daily_xarray_dataset, netcdf_paths, tmp_target, tmp_cache, tmp_metadata_target
-):
-    items_per_file = netcdf_paths[1]
-    if items_per_file != 2:
-        pytest.skip("This recipe only makes sense with items_per_file == 2.")
-
-    file_pattern = _make_file_pattern(netcdf_paths)
-
-    kwargs = dict(
-        subset_inputs={"time": 2},
-        inputs_per_chunk=1,
-        target=tmp_target,
-        input_cache=tmp_cache,
-        metadata_cache=tmp_metadata_target,
-    )
-    return recipes.XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture(scope="session")
