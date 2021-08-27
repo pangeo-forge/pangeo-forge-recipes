@@ -176,35 +176,17 @@ def start_http_server(paths, request, username=None, password=None, required_que
     return url
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(
+    scope="session",
+    params=[
+        {},
+        dict(username="foo", password="bar"),
+        dict(required_query_string="foo=foo&bar=bar")],
+)
 def netcdf_http_paths(netcdf_paths, request):
     paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
 
-    url = start_http_server(paths, request)
-
-    fnames = [path.basename for path in paths]
-    all_urls = ["/".join([url, str(fname)]) for fname in fnames]
-
-    return all_urls, items_per_file, fnames_by_variable, path_format
-
-
-@pytest.fixture(scope="session")
-def netcdf_http_paths_basic_auth(netcdf_paths, request):
-    paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
-
-    url = start_http_server(paths, request, username="foo", password="bar")
-
-    fnames = [path.basename for path in paths]
-    all_urls = ["/".join([url, str(fname)]) for fname in fnames]
-
-    return all_urls, items_per_file, fnames_by_variable, path_format
-
-
-@pytest.fixture(scope="session")
-def netcdf_http_paths_query_string(netcdf_paths, request):
-    paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
-
-    url = start_http_server(paths, request, required_query_string="foo=foo&bar=bar")
+    url = start_http_server(paths, request, **request.param)
 
     fnames = [path.basename for path in paths]
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]
