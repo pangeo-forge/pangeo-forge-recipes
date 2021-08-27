@@ -146,7 +146,7 @@ def netcdf_local_file_pattern(netcdf_paths):
     return make_file_pattern(netcdf_paths)
 
 
-def start_http_server(paths, request, username=None, password=None):
+def start_http_server(paths, request, username=None, password=None, required_query_string=None):
 
     first_path = paths[0]
     # assume that all files are in the same directory
@@ -162,6 +162,8 @@ def start_http_server(paths, request, username=None, password=None):
     ]
     if username:
         command_list += [f"--username={username}", f"--password={password}"]
+    if required_query_string:
+        command_list += [f"--required-query-string={required_query_string}"]
     p = subprocess.Popen(command_list, cwd=basedir)
     url = f"http://127.0.0.1:{port}"
     time.sleep(2)  # let the server start up
@@ -199,17 +201,15 @@ def netcdf_http_paths_basic_auth(netcdf_paths, request):
 
 
 @pytest.fixture(scope="session")
-def netcdf_http_paths_with_secrets(netcdf_http_paths):
-    all_urls, items_per_file = netcdf_http_paths
-    all_urls = [url + "?token=bar" for url in all_urls]
-    return all_urls, items_per_file
+def netcdf_http_paths_query_string(netcdf_paths, request):
+    paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
 
+    url = start_http_server(paths, request, required_query_string="foo=foo&bar=bar")
 
-@pytest.fixture(scope="session")
-def netcdf_http_paths_with_multiparam_secrets(netcdf_http_paths):
-    all_urls, items_per_file = netcdf_http_paths
-    all_urls = [url + "?filename=foo.nc&token=bar" for url in all_urls]
-    return all_urls, items_per_file
+    fnames = [path.basename for path in paths]
+    all_urls = ["/".join([url, str(fname)]) for fname in fnames]
+
+    return all_urls, items_per_file, fnames_by_variable, path_format
 
 
 @pytest.fixture()
