@@ -161,7 +161,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
 
         input_opener = _get_opener(fname, secrets, **open_kwargs)
         target_opener = self.open(fname, mode="wb")
-        logger.info(f"Coping remote file '{fname}' to cache")
+        logger.info(f"Copying remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
 
 
