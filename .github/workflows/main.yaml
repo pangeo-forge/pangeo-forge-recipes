@@ -2,13 +2,15 @@ name: Tests
 
 on:
   push:
-    branches: "*"
+    branches:
+      - "master"
     paths-ignore:
-    - 'docs/**'
+      - 'docs/**'
   pull_request:
-    branches: master
+    branches:
+      - "*"
     paths-ignore:
-    - 'docs/**'
+      - 'docs/**'
 
 env:
   PYTEST_ADDOPTS: "--color=yes"
