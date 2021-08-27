@@ -17,14 +17,10 @@ import numpy as np
 import xarray as xr
 import zarr
 
+from ..chunk_grid import ChunkGrid
 from ..patterns import CombineOp, DimIndex, FilePattern, Index, prune_pattern
 from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
-from ..utils import (
-    calc_subsets,
-    chunk_bounds_and_conflicts,
-    fix_scalar_attr_encoding,
-    lock_for_conflicts,
-)
+from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
 from .base import BaseRecipe
 
 # use this filename to store global recipe metadata in the metadata_cache
@@ -55,6 +51,9 @@ def _input_metadata_fname(input_key):
 def inputs_for_chunk(
     chunk_key: ChunkKey, inputs_per_chunk: int, ninputs: int
 ) -> Sequence[InputKey]:
+    """For a chunk key, figure out which inputs belong to it.
+    Returns at least one InputKey."""
+
     merge_dims = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.MERGE]
     concat_dims = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.CONCAT]
     # Ignore subset dims, we don't need them here
@@ -107,11 +106,33 @@ def open_target(target: CacheFSSpecTarget) -> xr.Dataset:
     return xr.open_zarr(target.get_mapper())
 
 
-def input_position(input_key):
+def input_position(input_key: InputKey) -> int:
+    """Return the position of the input within the input sequence."""
     for dim_idx in input_key:
         # assumes there is one and only one concat dim
         if dim_idx.operation == CombineOp.CONCAT:
             return dim_idx.index
+    return -1  # make mypy happy
+
+
+def chunk_position(chunk_key: ChunkKey) -> int:
+    """Return the position of the input within the input sequence."""
+    concat_idx = -1
+    for dim_idx in chunk_key:
+        # assumes there is one and only one concat dim
+        if dim_idx.operation == CombineOp.CONCAT:
+            concat_idx = dim_idx.index
+            concat_dim = dim_idx.name
+    if concat_idx == -1:
+        raise ValueError("Couldn't find concat_dim")
+    subset_idx = 0
+    subset_factor = 1
+    for dim_idx in chunk_key:
+        if dim_idx.operation == CombineOp.SUBSET:
+            if dim_idx.name == concat_dim:
+                subset_idx = dim_idx.index
+                subset_factor = dim_idx.sequence_len
+    return subset_factor * concat_idx + subset_idx
 
 
 def cache_input_metadata(
@@ -192,13 +213,10 @@ def region_and_conflicts_for_chunk(
     concat_dim: str,
     metadata_cache: Optional[MetadataTarget],
     subset_inputs: Optional[SubsetSpec],
-) -> Tuple[Dict[str, slice], Set[int]]:
+) -> Tuple[Dict[str, slice], Dict[str, Set[int]]]:
     # return a dict suitable to pass to xr.to_zarr(region=...)
     # specifies where in the overall array to put this chunk's data
     # also return the conflicts with other chunks
-
-    ninputs = file_pattern.dims[file_pattern.concat_dims[0]]
-    input_keys = inputs_for_chunk(chunk_key, inputs_per_chunk, ninputs)
 
     if nitems_per_input:
         input_sequence_lens = (nitems_per_input,) * file_pattern.dims[concat_dim]  # type: ignore
@@ -206,53 +224,31 @@ def region_and_conflicts_for_chunk(
         assert metadata_cache is not None  # for mypy
         global_metadata = metadata_cache[_GLOBAL_METADATA_KEY]
         input_sequence_lens = global_metadata["input_sequence_lens"]
+    total_len = sum(input_sequence_lens)
 
+    # for now this will just have one key since we only allow one concat_dim
+    # but it could expand to accomodate multiple concat dims
+    chunk_index = {concat_dim: chunk_position(chunk_key)}
+
+    input_chunk_grid = ChunkGrid({concat_dim: input_sequence_lens})
     if subset_inputs and concat_dim in subset_inputs:
-        # scenario I: there is a single input per chunk, possibly with subsetting
         assert (
             inputs_per_chunk == 1
         ), "Doesn't make sense to have multiple inputs per chunk plus subsetting"
-        subset_factor = subset_inputs[concat_dim]
-        input_sequence_lens = tuple(
-            chain(*(calc_subsets(input_len, subset_factor) for input_len in input_sequence_lens))
-        )
-        subset_idx = [
-            dim_idx.index
-            for dim_idx in chunk_key
-            if dim_idx.operation == CombineOp.SUBSET and dim_idx.name == concat_dim
-        ][0]
+        chunk_grid = input_chunk_grid.subset(subset_inputs)
+    elif inputs_per_chunk > 1:
+        chunk_grid = input_chunk_grid.consolidate({concat_dim: inputs_per_chunk})
     else:
-        subset_factor = 1
-        subset_idx = 0  # unused
+        chunk_grid = input_chunk_grid
+    assert chunk_grid.shape[concat_dim] == total_len
 
-    assert len(input_sequence_lens) == ninputs * subset_factor
+    region = chunk_grid.chunk_index_to_array_slice(chunk_index)
+
     assert concat_dim_chunks is not None
+    target_grid = ChunkGrid.from_uniform_grid({concat_dim: (concat_dim_chunks, total_len)})
+    conflicts = chunk_grid.chunk_conflicts(chunk_index, target_grid)
 
-    chunk_bounds, all_chunk_conflicts = chunk_bounds_and_conflicts(
-        chunks=input_sequence_lens, zchunks=concat_dim_chunks
-    )
-    input_positions = [input_position(input_key) for input_key in input_keys]
-
-    if subset_factor > 1:
-        assert len(input_positions) == 1
-        start_idx = subset_factor * input_positions[0] + subset_idx
-        stop_idx = start_idx + 1
-    else:
-        start_idx = min(input_positions)
-        stop_idx = max(input_positions) + 1
-
-    start = chunk_bounds[start_idx]
-    stop = chunk_bounds[stop_idx]
-    region_slice = slice(start, stop)
-
-    this_chunk_conflicts = set()
-    for idx in range(start_idx, stop_idx):
-        conflict = all_chunk_conflicts[idx]
-        if conflict:
-            for conflict_index in conflict:
-                this_chunk_conflicts.add(conflict_index)
-
-    return {concat_dim: region_slice}, this_chunk_conflicts
+    return region, conflicts
 
 
 @contextmanager
@@ -618,7 +614,11 @@ def store_chunk(
                     var.data
                 )  # TODO: can we buffer large data rather than loading it all?
             zarr_region = tuple(write_region.get(dim, slice(None)) for dim in var.dims)
-            lock_keys = [f"{vname}-{c}" for c in conflicts]
+            lock_keys = [
+                f"{vname}-{dim}-{c}"
+                for dim, dim_conflicts in conflicts.items()
+                for c in dim_conflicts
+            ]
             logger.debug(f"Acquiring locks {lock_keys}")
             with lock_for_conflicts(lock_keys, timeout=lock_timeout):
                 logger.info(
