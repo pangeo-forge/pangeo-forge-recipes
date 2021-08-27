@@ -83,7 +83,9 @@ def test_file_opener(
             # check that nothing happened
             assert cache.fs.ls(cache.root_path, detail=True) == details
 
-        opener = file_opener(path, cache, copy_to_local=copy_to_local, **open_kwargs)
+        opener = file_opener(
+            path, cache, copy_to_local=copy_to_local, secrets=secrets, **open_kwargs
+        )
         if use_cache and not cache_first:
             with pytest.raises(FileNotFoundError):
                 with opener as fp:
