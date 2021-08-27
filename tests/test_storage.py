@@ -46,6 +46,7 @@ def test_metadata_target(tmp_metadata_target):
         lazy_fixture("netcdf_paths"),
         lazy_fixture("netcdf_http_paths"),
         lazy_fixture("netcdf_http_paths_basic_auth"),
+        lazy_fixture("netcdf_http_paths_query_string"),
     ],
 )
 @pytest.mark.parametrize("copy_to_local", [False, True])
@@ -62,23 +63,16 @@ def test_file_opener(
     use_dask,
     use_xarray,
     open_kwargs={},
+    secrets={},
 ):
     all_paths = file_paths[0]
-
-    if "?" not in str(all_paths[0]):
-        path = str(all_paths[0])
-    elif "&" not in str(all_paths[0]):
-        path = str(all_paths[0]).split("?")[0]
-    else:
-        path = str(all_paths[0]).split("&")[0]
-
+    path = str(all_paths[0])
     cache = tmp_cache if use_cache else None
-    secrets = {"token": "bar"} if "?" in str(all_paths[0]) else None
 
-    if str(all_paths[0]).split(":")[0] == "http":
-        r = requests.get(all_paths[0])
-        # only pass username and password to fsspec if the server requires it
+    if path.split(":")[0] == "http":
+        r = requests.get(path)
         open_kwargs = dict(auth=aiohttp.BasicAuth("foo", "bar")) if r.status_code == 401 else {}
+        secrets = {"foo": "foo", "bar": "bar"} if r.status_code == 400 else {}
 
     def do_actual_test():
         if cache_first:
