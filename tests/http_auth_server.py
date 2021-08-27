@@ -1,6 +1,7 @@
 import base64
 import http.server
 import socketserver
+from urllib.parse import urlparse
 
 import click
 
@@ -10,7 +11,8 @@ import click
 @click.option("--port")
 @click.option("--username")
 @click.option("--password")
-def serve_forever(address, port, username, password):
+@click.option("--required-query-string")
+def serve_forever(address, port, username, password, required_query_string):
 
     port = int(port)
 
@@ -26,6 +28,12 @@ def serve_forever(address, port, username, password):
                 ):
                     self.send_response(401)
                     self.send_header("WWW-Authenticate", "Basic")
+                    self.end_headers()
+                    return
+            if required_query_string:
+                query = urlparse(self.path).query
+                if query != required_query_string:
+                    self.send_response(400)
                     self.end_headers()
                     return
             return http.server.SimpleHTTPRequestHandler.do_GET(self)
