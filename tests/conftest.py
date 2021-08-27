@@ -181,7 +181,8 @@ def start_http_server(paths, request, username=None, password=None, required_que
     params=[
         {},
         dict(username="foo", password="bar"),
-        dict(required_query_string="foo=foo&bar=bar")],
+        dict(required_query_string="foo=foo&bar=bar"),
+    ],
 )
 def netcdf_http_paths(netcdf_paths, request):
     paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
