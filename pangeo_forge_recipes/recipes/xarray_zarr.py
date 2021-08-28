@@ -205,6 +205,8 @@ def cache_input(
             process_input=process_input,
             metadata_cache=metadata_cache,
             is_opendap=is_opendap,
+            fsspec_open_kwargs=fsspec_open_kwargs,
+            query_string_secrets=query_string_secrets,
         )
 
 
