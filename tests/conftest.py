@@ -93,8 +93,15 @@ def split_up_files_by_variable_and_day(ds, day_param):
     return all_dsets, all_fnames, fnames_by_variable
 
 
-def make_file_pattern(netcdf_paths):
-    paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
+def make_file_pattern(path_fixture):
+    """Creates a filepattern from a `path_fixture`
+
+    Parameters
+    ----------
+    path_fixture : callable
+        One of `netcdf_paths` or `netcdf_http_paths`
+    """
+    paths, items_per_file, fnames_by_variable, path_format = path_fixture
 
     if not fnames_by_variable:
         file_pattern = pattern_from_file_sequence(
@@ -144,6 +151,11 @@ def netcdf_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_spli
 @pytest.fixture(scope="session")
 def netcdf_local_file_pattern(netcdf_paths):
     return make_file_pattern(netcdf_paths)
+
+
+@pytest.fixture(scope="session")
+def netcdf_http_file_pattern(netcdf_http_paths):
+    return make_file_pattern(netcdf_http_paths)
 
 
 def start_http_server(paths, request, username=None, password=None, required_query_string=None):
