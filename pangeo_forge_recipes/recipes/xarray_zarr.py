@@ -146,6 +146,8 @@ def cache_input_metadata(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     is_opendap: bool,
+    fsspec_open_kwargs: dict,
+    query_string_secrets: dict,
 ) -> None:
     if metadata_cache is None:
         raise ValueError("metadata_cache is not set.")
@@ -160,6 +162,8 @@ def cache_input_metadata(
         delete_input_encoding=delete_input_encoding,
         process_input=process_input,
         is_opendap=is_opendap,
+        fsspec_open_kwargs=fsspec_open_kwargs,
+        query_string_secrets=query_string_secrets,
     ) as ds:
         input_metadata = ds.to_dict(data=False)
         metadata_cache[_input_metadata_fname(input_key)] = input_metadata
@@ -262,6 +266,8 @@ def open_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     is_opendap: bool,
+    fsspec_open_kwargs: dict,
+    query_string_secrets: dict,
 ) -> xr.Dataset:
     fname = file_pattern[input_key]
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
@@ -275,7 +281,12 @@ def open_input(
     cache = input_cache if cache_inputs else None
 
     with file_opener(
-        fname, cache=cache, copy_to_local=copy_input_to_local_file, bypass_open=is_opendap
+        fname,
+        cache=cache,
+        copy_to_local=copy_input_to_local_file,
+        bypass_open=is_opendap,
+        secrets=query_string_secrets,
+        **fsspec_open_kwargs,
     ) as f:
         with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
             kw = xarray_open_kwargs.copy()
@@ -326,6 +337,8 @@ def open_chunk(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     is_opendap: bool,
+    fsspec_open_kwargs: dict,
+    query_string_secrets: dict,
 ) -> xr.Dataset:
     logger.info(f"Opening inputs for chunk {chunk_key!s}")
     ninputs = file_pattern.dims[file_pattern.concat_dims[0]]
@@ -345,6 +358,8 @@ def open_chunk(
                     delete_input_encoding=delete_input_encoding,
                     process_input=process_input,
                     is_opendap=is_opendap,
+                    fsspec_open_kwargs=fsspec_open_kwargs,
+                    query_string_secrets=query_string_secrets,
                 )
             )
             for i in inputs
@@ -441,6 +456,8 @@ def prepare_target(
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
     is_opendap: bool,
+    fsspec_open_kwargs: Optional[dict],
+    query_string_secrets: Optional[dict],
 ) -> None:
     try:
         ds = open_target(target)
@@ -471,6 +488,8 @@ def prepare_target(
                 delete_input_encoding=delete_input_encoding,
                 process_input=process_input,
                 is_opendap=is_opendap,
+                fsspec_open_kwargs=fsspec_open_kwargs,
+                query_string_secrets=query_string_secrets,
             ) as ds:
                 # ds is already chunked
 
@@ -547,6 +566,8 @@ def store_chunk(
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
     is_opendap: bool,
+    fsspec_open_kwargs: Optional[dict],
+    query_string_secrets: Optional[dict],
 ) -> None:
     if target is None:
         raise ValueError("target has not been set.")
@@ -566,6 +587,8 @@ def store_chunk(
         delete_input_encoding=delete_input_encoding,
         process_input=process_input,
         is_opendap=is_opendap,
+        fsspec_open_kwargs=fsspec_open_kwargs,
+        query_string_secrets=query_string_secrets,
     ) as ds_chunk:
         # writing a region means that all the variables MUST have concat_dim
         to_drop = [v for v in ds_chunk.variables if concat_dim not in ds_chunk[v].dims]
@@ -833,6 +856,8 @@ class XarrayZarrRecipe(BaseRecipe):
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
             is_opendap=self.is_opendap,
+            fsspec_open_kwargs=self.fsspec_open_kwargs,
+            query_string_secrets=self.query_string_secrets,
         )
 
     @property
@@ -876,6 +901,8 @@ class XarrayZarrRecipe(BaseRecipe):
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
             is_opendap=self.is_opendap,
+            fsspec_open_kwargs=self.fsspec_open_kwargs,
+            query_string_secrets=self.query_string_secrets,
         )
 
     @property
@@ -939,6 +966,8 @@ class XarrayZarrRecipe(BaseRecipe):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             is_opendap=self.is_opendap,
+            fsspec_open_kwargs=self.fsspec_open_kwargs,
+            query_string_secrets=self.query_string_secrets,
         ) as ds:
             yield ds
 
@@ -959,5 +988,7 @@ class XarrayZarrRecipe(BaseRecipe):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             is_opendap=self.is_opendap,
+            fsspec_open_kwargs=self.fsspec_open_kwargs,
+            query_string_secrets=self.query_string_secrets,
         ) as ds:
             yield ds
