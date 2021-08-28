@@ -16,6 +16,7 @@ import dask
 import numpy as np
 import xarray as xr
 import zarr
+from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
 from ..chunk_grid import ChunkGrid
 from ..patterns import CombineOp, DimIndex, FilePattern, Index, prune_pattern
@@ -776,6 +777,18 @@ class XarrayZarrRecipe(BaseRecipe):
             print("Inputs_for_chunk", inputs_for_chunk(chunk_key, self.inputs_per_chunk, ninputs))
             raise ValueError("Inputs and chunks are inconsistent")
 
+    def _to_pipelines(self) -> ParallelPipelines:
+        """Translate recipe to pipeline for execution.
+        """
+        pipeline = []  # type: MultiStagePipeline
+        pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
+        pipeline.append(Stage(self.prepare_target))
+        pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
+        pipeline.append(Stage(self.finalize_target))
+        pipelines = []  # type: ParallelPipelines
+        pipelines.append(pipeline)
+        return pipelines
+
     def copy_pruned(self, nkeep: int = 2) -> BaseRecipe:
         """Make a copy of this recipe with a pruned file pattern.
 
@@ -809,74 +822,87 @@ class XarrayZarrRecipe(BaseRecipe):
 
     @property
     def prepare_target(self) -> Callable[[], None]:
-        return functools.partial(
+
+        return functools.update_wrapper(
+            functools.partial(
+                prepare_target,
+                target=self.target,
+                target_chunks=self.target_chunks,
+                init_chunks=self._init_chunks,
+                concat_dim=self._concat_dim,
+                nitems_per_input=self._nitems_per_input,
+                file_pattern=self.file_pattern,
+                inputs_per_chunk=self.inputs_per_chunk,
+                cache_metadata=self._cache_metadata,
+                xarray_concat_kwargs=self.xarray_concat_kwargs,
+                process_chunk=self.process_chunk,
+                input_cache=self.input_cache,
+                cache_inputs=self.cache_inputs,
+                copy_input_to_local_file=self.copy_input_to_local_file,
+                xarray_open_kwargs=self.xarray_open_kwargs,
+                delete_input_encoding=self.delete_input_encoding,
+                process_input=self.process_input,
+                metadata_cache=self.metadata_cache,
+                is_opendap=self.is_opendap,
+            ),
             prepare_target,
-            target=self.target,
-            target_chunks=self.target_chunks,
-            init_chunks=self._init_chunks,
-            concat_dim=self._concat_dim,
-            nitems_per_input=self._nitems_per_input,
-            file_pattern=self.file_pattern,
-            inputs_per_chunk=self.inputs_per_chunk,
-            cache_metadata=self._cache_metadata,
-            xarray_concat_kwargs=self.xarray_concat_kwargs,
-            process_chunk=self.process_chunk,
-            input_cache=self.input_cache,
-            cache_inputs=self.cache_inputs,
-            copy_input_to_local_file=self.copy_input_to_local_file,
-            xarray_open_kwargs=self.xarray_open_kwargs,
-            delete_input_encoding=self.delete_input_encoding,
-            process_input=self.process_input,
-            metadata_cache=self.metadata_cache,
-            is_opendap=self.is_opendap,
         )
 
     @property
     def cache_input(self) -> Callable[[Hashable], None]:
-        return functools.partial(
+        return functools.update_wrapper(
+            functools.partial(
+                cache_input,
+                cache_inputs=self.cache_inputs,
+                input_cache=self.input_cache,
+                file_pattern=self.file_pattern,
+                fsspec_open_kwargs=self.fsspec_open_kwargs,
+                cache_metadata=self._cache_metadata,
+                copy_input_to_local_file=self.copy_input_to_local_file,
+                xarray_open_kwargs=self.xarray_open_kwargs,
+                delete_input_encoding=self.delete_input_encoding,
+                process_input=self.process_input,
+                metadata_cache=self.metadata_cache,
+                is_opendap=self.is_opendap,
+            ),
             cache_input,
-            cache_inputs=self.cache_inputs,
-            input_cache=self.input_cache,
-            file_pattern=self.file_pattern,
-            fsspec_open_kwargs=self.fsspec_open_kwargs,
-            cache_metadata=self._cache_metadata,
-            copy_input_to_local_file=self.copy_input_to_local_file,
-            xarray_open_kwargs=self.xarray_open_kwargs,
-            delete_input_encoding=self.delete_input_encoding,
-            process_input=self.process_input,
-            metadata_cache=self.metadata_cache,
-            is_opendap=self.is_opendap,
         )
 
     @property
     def store_chunk(self) -> Callable[[Hashable], None]:
-        return functools.partial(
+        return functools.update_wrapper(
+            functools.partial(
+                store_chunk,
+                target=self.target,
+                concat_dim=self._concat_dim,
+                nitems_per_input=self._nitems_per_input,
+                file_pattern=self.file_pattern,
+                inputs_per_chunk=self.inputs_per_chunk,
+                subset_inputs=self.subset_inputs,
+                concat_dim_chunks=self._concat_dim_chunks,
+                lock_timeout=self.lock_timeout,
+                xarray_concat_kwargs=self.xarray_concat_kwargs,
+                xarray_open_kwargs=self.xarray_open_kwargs,
+                process_chunk=self.process_chunk,
+                target_chunks=self.target_chunks,
+                input_cache=self.input_cache,
+                cache_inputs=self.cache_inputs,
+                copy_input_to_local_file=self.copy_input_to_local_file,
+                delete_input_encoding=self.delete_input_encoding,
+                process_input=self.process_input,
+                metadata_cache=self.metadata_cache,
+                is_opendap=self.is_opendap,
+            ),
             store_chunk,
-            target=self.target,
-            concat_dim=self._concat_dim,
-            nitems_per_input=self._nitems_per_input,
-            file_pattern=self.file_pattern,
-            inputs_per_chunk=self.inputs_per_chunk,
-            subset_inputs=self.subset_inputs,
-            concat_dim_chunks=self._concat_dim_chunks,
-            lock_timeout=self.lock_timeout,
-            xarray_concat_kwargs=self.xarray_concat_kwargs,
-            xarray_open_kwargs=self.xarray_open_kwargs,
-            process_chunk=self.process_chunk,
-            target_chunks=self.target_chunks,
-            input_cache=self.input_cache,
-            cache_inputs=self.cache_inputs,
-            copy_input_to_local_file=self.copy_input_to_local_file,
-            delete_input_encoding=self.delete_input_encoding,
-            process_input=self.process_input,
-            metadata_cache=self.metadata_cache,
-            is_opendap=self.is_opendap,
         )
 
     @property
     def finalize_target(self) -> Callable[[], None]:
-        return functools.partial(
-            finalize_target, target=self.target, consolidate_zarr=self.consolidate_zarr
+        return functools.update_wrapper(
+            functools.partial(
+                finalize_target, target=self.target, consolidate_zarr=self.consolidate_zarr
+            ),
+            finalize_target,
         )
 
     def iter_inputs(self) -> Iterator[InputKey]:
