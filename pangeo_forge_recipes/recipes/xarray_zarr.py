@@ -181,7 +181,7 @@ def cache_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
-    query_string_secrets: Optional[dict],
+    query_string_secrets: dict,
     is_opendap=bool,
 ) -> None:
     if cache_inputs:
@@ -456,8 +456,8 @@ def prepare_target(
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
     is_opendap: bool,
-    fsspec_open_kwargs: Optional[dict],
-    query_string_secrets: Optional[dict],
+    fsspec_open_kwargs: dict,
+    query_string_secrets: dict,
 ) -> None:
     try:
         ds = open_target(target)
@@ -566,8 +566,8 @@ def store_chunk(
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
     is_opendap: bool,
-    fsspec_open_kwargs: Optional[dict],
-    query_string_secrets: Optional[dict],
+    fsspec_open_kwargs: dict,
+    query_string_secrets: dict,
 ) -> None:
     if target is None:
         raise ValueError("target has not been set.")
@@ -729,7 +729,7 @@ class XarrayZarrRecipe(BaseRecipe):
     lock_timeout: Optional[int] = None
     subset_inputs: SubsetSpec = field(default_factory=dict)
     is_opendap: bool = False
-    query_string_secrets: Optional[dict] = None
+    query_string_secrets: dict = field(default_factory=dict)
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: str = field(default_factory=str, repr=False, init=False)
