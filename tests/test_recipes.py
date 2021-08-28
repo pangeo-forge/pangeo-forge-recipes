@@ -2,7 +2,9 @@ from contextlib import nullcontext as does_not_raise
 from dataclasses import replace
 from unittest.mock import patch
 
+import aiohttp
 import pytest
+import requests
 import xarray as xr
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
@@ -24,6 +26,19 @@ def netCDFtoZarr_recipe(
         metadata_cache=tmp_metadata_target,
     )
     return XarrayZarrRecipe, netcdf_local_file_pattern, kwargs, daily_xarray_dataset, tmp_target
+
+
+@pytest.fixture
+def netCDFtoZarr_http_recipe(
+    daily_xarray_dataset, netcdf_http_file_pattern, tmp_target, tmp_cache, tmp_metadata_target
+):
+    kwargs = dict(
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
+    return XarrayZarrRecipe, netcdf_http_file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture
@@ -102,6 +117,44 @@ def test_recipe_caching_copying(
     """Test that caching and copying to local file work."""
 
     RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
+
+    if not cache_inputs:
+        kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
+    rec = RecipeClass(
+        file_pattern,
+        **kwargs,
+        cache_inputs=cache_inputs,
+        copy_input_to_local_file=copy_input_to_local_file
+    )
+    execute_recipe(rec)
+    ds_actual = xr.open_zarr(target.get_mapper()).load()
+    xr.testing.assert_identical(ds_actual, ds_expected)
+
+
+@pytest.mark.parametrize("cache_inputs", [True, False])
+@pytest.mark.parametrize("copy_input_to_local_file", [True, False])
+def test_recipe_http_caching_copying(
+    netCDFtoZarr_http_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
+):
+    """Test that caching and copying from http to local file work."""
+
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_http_recipe
+
+    if len(file_pattern.merge_dims) != 0:
+        pytest.skip(
+            "This test ensures auth kwargs are correctly passed to the recipe class."
+            "`netcdf_http_file_pattern` fixture currently does not return a properly"
+            " formatted `path_format` for recipes with a `MergeDim.`"
+        )
+
+    first_url = list(file_pattern.items())[0][1]
+    r = requests.get(first_url)
+    if r.status_code == 401:
+        fsspec_open_kwargs = dict(auth=aiohttp.BasicAuth("foo", "bar"))
+        kwargs.update({"fsspec_open_kwargs": fsspec_open_kwargs})
+    elif r.status_code == 400:
+        query_string_secrets = {"foo": "foo", "bar": "bar"}
+        kwargs.update({"query_string_secrets": query_string_secrets})
 
     if not cache_inputs:
         kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
