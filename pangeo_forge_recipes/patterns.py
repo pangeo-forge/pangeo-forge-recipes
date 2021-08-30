@@ -127,12 +127,24 @@ class FilePattern:
       combine_op and returns a string representing the filename / url paths.
       Each argument name should correspond to a ``name`` in the ``combine_dims``
       list.
+    :param fsspec_open_kwargs: Extra options for opening the inputs with fsspec.
+      May include ``block_size``, ``username``, ``password``, etc.
+    :param query_string_secrets: If provided, these key/value pairs are appended to
+      the query string of each ``file_pattern`` url at runtime.
     :param combine_dims: A sequence of either concat or merge dimensions. The outer
       product of the keys is used to generate the full list of file paths.
     """
 
-    def __init__(self, format_function: Callable, *combine_dims: CombineDim):
+    def __init__(
+        self,
+        format_function: Callable,
+        fsspec_open_kwargs: dict = {},
+        query_string_secrets: dict = {},
+        *combine_dims: CombineDim,
+    ):
         self.format_function = format_function
+        self.fsspec_open_kwargs = fsspec_open_kwargs
+        self.query_string_secrets = query_string_secrets
         self.combine_dims = combine_dims
 
     def __repr__(self):
