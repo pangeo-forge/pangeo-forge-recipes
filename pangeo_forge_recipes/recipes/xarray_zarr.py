@@ -146,7 +146,6 @@ def cache_input_metadata(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     is_opendap: bool,
-    fsspec_open_kwargs: dict,
     query_string_secrets: dict,
 ) -> None:
     if metadata_cache is None:
@@ -162,7 +161,6 @@ def cache_input_metadata(
         delete_input_encoding=delete_input_encoding,
         process_input=process_input,
         is_opendap=is_opendap,
-        fsspec_open_kwargs=fsspec_open_kwargs,
         query_string_secrets=query_string_secrets,
     ) as ds:
         input_metadata = ds.to_dict(data=False)
@@ -174,7 +172,6 @@ def cache_input(
     cache_inputs: bool,
     input_cache: Optional[CacheFSSpecTarget],
     file_pattern: FilePattern,
-    fsspec_open_kwargs: dict,
     cache_metadata: bool,
     copy_input_to_local_file: bool,
     xarray_open_kwargs: dict,
@@ -191,7 +188,7 @@ def cache_input(
             raise ValueError("input_cache is not set.")
         logger.info(f"Caching input '{input_key!s}'")
         fname = file_pattern[input_key]
-        input_cache.cache_file(fname, query_string_secrets, **fsspec_open_kwargs)
+        input_cache.cache_file(fname, query_string_secrets, **file_pattern.fsspec_open_kwargs)
 
     if cache_metadata:
         return cache_input_metadata(
@@ -205,7 +202,6 @@ def cache_input(
             process_input=process_input,
             metadata_cache=metadata_cache,
             is_opendap=is_opendap,
-            fsspec_open_kwargs=fsspec_open_kwargs,
             query_string_secrets=query_string_secrets,
         )
 
@@ -268,7 +264,6 @@ def open_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     is_opendap: bool,
-    fsspec_open_kwargs: dict,
     query_string_secrets: dict,
 ) -> xr.Dataset:
     fname = file_pattern[input_key]
@@ -288,7 +283,7 @@ def open_input(
         copy_to_local=copy_input_to_local_file,
         bypass_open=is_opendap,
         secrets=query_string_secrets,
-        **fsspec_open_kwargs,
+        **file_pattern.fsspec_open_kwargs,
     ) as f:
         with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
             kw = xarray_open_kwargs.copy()
@@ -339,7 +334,6 @@ def open_chunk(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     is_opendap: bool,
-    fsspec_open_kwargs: dict,
     query_string_secrets: dict,
 ) -> xr.Dataset:
     logger.info(f"Opening inputs for chunk {chunk_key!s}")
@@ -360,7 +354,6 @@ def open_chunk(
                     delete_input_encoding=delete_input_encoding,
                     process_input=process_input,
                     is_opendap=is_opendap,
-                    fsspec_open_kwargs=fsspec_open_kwargs,
                     query_string_secrets=query_string_secrets,
                 )
             )
@@ -458,7 +451,6 @@ def prepare_target(
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
     is_opendap: bool,
-    fsspec_open_kwargs: dict,
     query_string_secrets: dict,
 ) -> None:
     try:
@@ -490,7 +482,6 @@ def prepare_target(
                 delete_input_encoding=delete_input_encoding,
                 process_input=process_input,
                 is_opendap=is_opendap,
-                fsspec_open_kwargs=fsspec_open_kwargs,
                 query_string_secrets=query_string_secrets,
             ) as ds:
                 # ds is already chunked
@@ -568,7 +559,6 @@ def store_chunk(
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
     is_opendap: bool,
-    fsspec_open_kwargs: dict,
     query_string_secrets: dict,
 ) -> None:
     if target is None:
@@ -589,7 +579,6 @@ def store_chunk(
         delete_input_encoding=delete_input_encoding,
         process_input=process_input,
         is_opendap=is_opendap,
-        fsspec_open_kwargs=fsspec_open_kwargs,
         query_string_secrets=query_string_secrets,
     ) as ds_chunk:
         # writing a region means that all the variables MUST have concat_dim
@@ -697,7 +686,6 @@ class XarrayZarrRecipe(BaseRecipe):
       the inputs to form a chunk.
     :param delete_input_encoding: Whether to remove Xarray encoding from variables
       in the input dataset
-    :param fsspec_open_kwargs: Extra options for opening the inputs with fsspec.
     :param process_input: Function to call on each opened input, with signature
       `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
     :param process_chunk: Function to call on each concatenated chunk, with signature
@@ -725,7 +713,6 @@ class XarrayZarrRecipe(BaseRecipe):
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_kwargs: dict = field(default_factory=dict)
     delete_input_encoding: bool = True
-    fsspec_open_kwargs: dict = field(default_factory=dict)
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
     lock_timeout: Optional[int] = None
@@ -858,7 +845,6 @@ class XarrayZarrRecipe(BaseRecipe):
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
             is_opendap=self.is_opendap,
-            fsspec_open_kwargs=self.fsspec_open_kwargs,
             query_string_secrets=self.query_string_secrets,
         )
 
@@ -869,7 +855,6 @@ class XarrayZarrRecipe(BaseRecipe):
             cache_inputs=self.cache_inputs,
             input_cache=self.input_cache,
             file_pattern=self.file_pattern,
-            fsspec_open_kwargs=self.fsspec_open_kwargs,
             cache_metadata=self._cache_metadata,
             copy_input_to_local_file=self.copy_input_to_local_file,
             xarray_open_kwargs=self.xarray_open_kwargs,
@@ -903,7 +888,6 @@ class XarrayZarrRecipe(BaseRecipe):
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
             is_opendap=self.is_opendap,
-            fsspec_open_kwargs=self.fsspec_open_kwargs,
             query_string_secrets=self.query_string_secrets,
         )
 
@@ -968,7 +952,6 @@ class XarrayZarrRecipe(BaseRecipe):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             is_opendap=self.is_opendap,
-            fsspec_open_kwargs=self.fsspec_open_kwargs,
             query_string_secrets=self.query_string_secrets,
         ) as ds:
             yield ds
@@ -990,7 +973,6 @@ class XarrayZarrRecipe(BaseRecipe):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             is_opendap=self.is_opendap,
-            fsspec_open_kwargs=self.fsspec_open_kwargs,
             query_string_secrets=self.query_string_secrets,
         ) as ds:
             yield ds
