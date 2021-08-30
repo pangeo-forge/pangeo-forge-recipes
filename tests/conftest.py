@@ -197,9 +197,10 @@ def start_http_server(paths, request, username=None, password=None, required_que
     ],
 )
 def netcdf_http_paths(netcdf_paths, request):
-    paths, items_per_file, fnames_by_variable, path_format = netcdf_paths
+    paths, items_per_file, fnames_by_variable, _ = netcdf_paths
 
     url = start_http_server(paths, request, **request.param)
+    path_format = url + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
 
     fnames = [path.basename for path in paths]
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]

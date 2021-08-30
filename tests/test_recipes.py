@@ -140,13 +140,6 @@ def test_recipe_http_caching_copying(
 
     RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_http_recipe
 
-    if len(file_pattern.merge_dims) != 0:
-        pytest.skip(
-            "This test ensures auth kwargs are correctly passed to the recipe class."
-            "`netcdf_http_file_pattern` fixture currently does not return a properly"
-            " formatted `path_format` for recipes with a `MergeDim.`"
-        )
-
     first_url = list(file_pattern.items())[0][1]
     r = requests.get(first_url)
     if r.status_code == 401:
