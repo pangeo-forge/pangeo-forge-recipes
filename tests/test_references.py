@@ -10,7 +10,7 @@ from pangeo_forge_recipes.storage import FSSpecTarget, MetadataTarget
 pytest.importorskip("fsspec_reference_maker")
 intake = pytest.importorskip("intake")
 reference_hdf_zarr = pytest.importorskip("pangeo_forge_recipes.recipes.reference_hdf_zarr")
-ReferenceHDFRecipe = reference_hdf_zarr.ReferenceHDFRecipe
+HDFReferenceRecipe = reference_hdf_zarr.HDFReferenceRecipe
 
 
 @pytest.mark.parametrize("with_intake", [True, False])
@@ -20,7 +20,7 @@ def test_single(netcdf_local_paths, tmpdir, with_intake):
     expected = xr.open_dataset(path, engine="h5netcdf")
 
     file_pattern = pattern_from_file_sequence([path], "time")
-    recipe = ReferenceHDFRecipe(file_pattern)
+    recipe = HDFReferenceRecipe(file_pattern)
 
     # make sure assigning storage later works
     out_target = FSSpecTarget(fs=fsspec.filesystem("file"), root_path=str(tmpdir))
@@ -52,7 +52,7 @@ def test_multi(netcdf_local_paths, tmpdir, with_intake):
     expected = xr.open_mfdataset(paths, engine="h5netcdf")
 
     file_pattern = pattern_from_file_sequence(paths, "time")
-    recipe = ReferenceHDFRecipe(file_pattern)
+    recipe = HDFReferenceRecipe(file_pattern)
 
     # make sure assigning storage later works
     out_target = FSSpecTarget(fs=fsspec.filesystem("file"), root_path=str(tmpdir))

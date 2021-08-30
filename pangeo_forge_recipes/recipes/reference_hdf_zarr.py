@@ -22,14 +22,14 @@ def no_op(*_, **__) -> None:
 
 
 @dataclass
-class ReferenceHDFRecipe(BaseRecipe):
+class HDFReferenceRecipe(BaseRecipe):
     """
     Generates reference files for each input netCDF, then combines
     into one ensemble output
 
     Currently supports concat or merge along a single dimension.
 
-    See fsspec-reference-maker and fsspec's ReferenceFileSystem
+    See fsspec-reference-maker and fsspec's ReferenceFileSystem.
     To use this class, you must have fsspec-reference-maker, ujson,
     xarray, fsspec, zarr, h5py and ujson in your recipe's requirements.
 

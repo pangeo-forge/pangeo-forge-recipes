@@ -91,7 +91,7 @@ Many of these options are explored further in the {doc}`../tutorials/index`.
 .. autoclass:: pangeo_forge_recipes.recipes.XarrayZarrRecipe
 ```
 
-### Reference HDF Recipe
+### HDF Reference Recipe
 
 Like the `XarrayZarrRecipe`, this recipe allows us to more efficiently access data from a bunch of NetCDF / HDF files.
 However, this recipe does not actually copy the original source data.
@@ -106,5 +106,5 @@ There is currently one tutorial for this recipe:
 
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.recipes.ReferenceHDFRecipe
+.. autoclass:: pangeo_forge_recipes.recipes.HDFReferenceRecipe
 ```
