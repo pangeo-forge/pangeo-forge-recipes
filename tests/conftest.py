@@ -135,7 +135,7 @@ def file_splitter(request):
 
 
 @pytest.fixture(scope="session")
-def netcdf_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter):
+def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter):
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     file_splitter_tuple = file_splitter(daily_xarray_dataset.copy(), items_per_file)
 
