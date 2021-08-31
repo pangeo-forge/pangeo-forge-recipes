@@ -10,13 +10,37 @@ from pangeo_forge_recipes.patterns import (
 )
 
 
-def test_file_pattern_concat():
+@pytest.fixture
+def concat_pattern():
     concat = ConcatDim(name="time", keys=list(range(3)))
 
     def format_function(time):
         return f"T_{time}"
 
-    fp = FilePattern(format_function, concat)
+    return FilePattern(format_function, concat)
+
+
+def make_concat_merge_pattern(**kwargs):
+    times = list(range(3))
+    varnames = ["foo", "bar"]
+    concat = ConcatDim(name="time", keys=times)
+    merge = MergeDim(name="variable", keys=varnames)
+
+    def format_function(time, variable):
+        return f"T_{time}_V_{variable}"
+
+    fp = FilePattern(format_function, merge, concat, **kwargs)
+
+    return fp, times, varnames, format_function, kwargs
+
+
+@pytest.fixture
+def concat_merge_pattern():
+    return make_concat_merge_pattern()
+
+
+def test_file_pattern_concat(concat_pattern):
+    fp = concat_pattern
     assert fp.dims == {"time": 3}
     assert fp.shape == (3,)
     assert fp.merge_dims == []
@@ -42,16 +66,8 @@ def test_pattern_from_file_sequence():
 
 
 @pytest.mark.parametrize("pickle", [False, True])
-def test_file_pattern_concat_merge(pickle):
-    times = list(range(3))
-    varnames = ["foo", "bar"]
-    concat = ConcatDim(name="time", keys=times)
-    merge = MergeDim(name="variable", keys=varnames)
-
-    def format_function(time, variable):
-        return f"T_{time}_V_{variable}"
-
-    fp = FilePattern(format_function, merge, concat)
+def test_file_pattern_concat_merge(pickle, concat_merge_pattern):
+    fp, times, varnames, format_function, _ = concat_merge_pattern
 
     if pickle:
         # regular pickle doesn't work here because it can't pickle format_function
@@ -81,14 +97,8 @@ def test_file_pattern_concat_merge(pickle):
 
 
 @pytest.mark.parametrize("nkeep", [1, 2])
-def test_prune(nkeep):
-    concat = ConcatDim(name="time", keys=list(range(3)))
-    merge = MergeDim(name="variable", keys=["foo", "bar"])
-
-    def format_function(time, variable):
-        return f"T_{time}_V_{variable}"
-
-    fp = FilePattern(format_function, merge, concat)
+def test_prune(nkeep, concat_merge_pattern):
+    fp = concat_merge_pattern[0]
     fp_pruned = prune_pattern(fp, nkeep=nkeep)
     assert fp_pruned.dims == {"variable": 2, "time": nkeep}
     assert len(list(fp_pruned.items())) == 2 * nkeep
