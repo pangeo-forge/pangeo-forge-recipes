@@ -138,10 +138,7 @@ class FilePattern:
     """
 
     def __init__(
-        self,
-        format_function: Callable,
-        *combine_dims: CombineDim,
-        **kwargs,
+        self, format_function: Callable, *combine_dims: CombineDim, **kwargs,
     ):
         self.format_function = format_function
         self.combine_dims = combine_dims

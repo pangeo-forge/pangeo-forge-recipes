@@ -118,7 +118,7 @@ def make_file_pattern(path_fixture):
             format_function,
             ConcatDim("time", time_index, items_per_file),
             MergeDim("variable", ["foo", "bar"]),
-            **kwargs
+            **kwargs,
         )
 
     return file_pattern

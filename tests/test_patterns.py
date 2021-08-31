@@ -86,11 +86,12 @@ def test_pattern_from_file_sequence():
 
 
 @pytest.mark.parametrize(
-    "runtime_secrets", [
+    "runtime_secrets",
+    [
         {},
         dict(fsspec_open_kwargs={"username": "foo", "password": "bar"}),
         dict(query_string_secrets={"token": "foo"}),
-    ]
+    ],
 )
 @pytest.mark.parametrize("pickle", [False, True])
 def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern_with_kwargs):
