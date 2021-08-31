@@ -145,7 +145,6 @@ def cache_input_metadata(
     xarray_open_kwargs: dict,
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
-    is_opendap: bool,
 ) -> None:
     if metadata_cache is None:
         raise ValueError("metadata_cache is not set.")
@@ -159,7 +158,6 @@ def cache_input_metadata(
         xarray_open_kwargs=xarray_open_kwargs,
         delete_input_encoding=delete_input_encoding,
         process_input=process_input,
-        is_opendap=is_opendap,
     ) as ds:
         input_metadata = ds.to_dict(data=False)
         metadata_cache[_input_metadata_fname(input_key)] = input_metadata
@@ -176,10 +174,9 @@ def cache_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
-    is_opendap=bool,
 ) -> None:
     if cache_inputs:
-        if is_opendap:
+        if file_pattern.is_opendap:
             raise ValueError("Can't cache opendap inputs")
         if input_cache is None:
             raise ValueError("input_cache is not set.")
@@ -200,7 +197,6 @@ def cache_input(
             delete_input_encoding=delete_input_encoding,
             process_input=process_input,
             metadata_cache=metadata_cache,
-            is_opendap=is_opendap,
         )
 
 
@@ -261,12 +257,11 @@ def open_input(
     xarray_open_kwargs: dict,
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
-    is_opendap: bool,
 ) -> xr.Dataset:
     fname = file_pattern[input_key]
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
 
-    if is_opendap:
+    if file_pattern.is_opendap:
         if input_cache:
             raise ValueError("Can't cache opendap inputs")
         if copy_input_to_local_file:
@@ -278,7 +273,7 @@ def open_input(
         fname,
         cache=cache,
         copy_to_local=copy_input_to_local_file,
-        bypass_open=is_opendap,
+        bypass_open=file_pattern.is_opendap,
         secrets=file_pattern.query_string_secrets,
         **file_pattern.fsspec_open_kwargs,
     ) as f:
@@ -330,7 +325,6 @@ def open_chunk(
     xarray_open_kwargs: dict,
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
-    is_opendap: bool,
 ) -> xr.Dataset:
     logger.info(f"Opening inputs for chunk {chunk_key!s}")
     ninputs = file_pattern.dims[file_pattern.concat_dims[0]]
@@ -349,7 +343,6 @@ def open_chunk(
                     xarray_open_kwargs=xarray_open_kwargs,
                     delete_input_encoding=delete_input_encoding,
                     process_input=process_input,
-                    is_opendap=is_opendap,
                 )
             )
             for i in inputs
@@ -445,7 +438,6 @@ def prepare_target(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
-    is_opendap: bool,
 ) -> None:
     try:
         ds = open_target(target)
@@ -475,7 +467,6 @@ def prepare_target(
                 xarray_open_kwargs=xarray_open_kwargs,
                 delete_input_encoding=delete_input_encoding,
                 process_input=process_input,
-                is_opendap=is_opendap,
             ) as ds:
                 # ds is already chunked
 
@@ -551,7 +542,6 @@ def store_chunk(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
-    is_opendap: bool,
 ) -> None:
     if target is None:
         raise ValueError("target has not been set.")
@@ -570,7 +560,6 @@ def store_chunk(
         xarray_open_kwargs=xarray_open_kwargs,
         delete_input_encoding=delete_input_encoding,
         process_input=process_input,
-        is_opendap=is_opendap,
     ) as ds_chunk:
         # writing a region means that all the variables MUST have concat_dim
         to_drop = [v for v in ds_chunk.variables if concat_dim not in ds_chunk[v].dims]
@@ -686,8 +675,6 @@ class XarrayZarrRecipe(BaseRecipe):
       along dimension according to the specified mapping. For example,
       ``{'time': 5}`` would split each input file into 5 chunks along the
       time dimension. Multiple dimensions are allowed.
-    :param is_opednap: If True, assume all input fnames represent opendap endpoints.
-      Cannot be used with caching.
     """
 
     file_pattern: FilePattern
@@ -706,7 +693,6 @@ class XarrayZarrRecipe(BaseRecipe):
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
     lock_timeout: Optional[int] = None
     subset_inputs: SubsetSpec = field(default_factory=dict)
-    is_opendap: bool = False
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: str = field(default_factory=str, repr=False, init=False)
@@ -727,7 +713,7 @@ class XarrayZarrRecipe(BaseRecipe):
         )
         self._nitems_per_input = self.file_pattern.nitems_per_input[self._concat_dim]
 
-        if self.is_opendap:
+        if self.file_pattern.is_opendap:
             if self.cache_inputs:
                 raise ValueError("Can't cache opendap inputs.")
             else:
@@ -832,7 +818,6 @@ class XarrayZarrRecipe(BaseRecipe):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
-            is_opendap=self.is_opendap,
         )
 
     @property
@@ -848,7 +833,6 @@ class XarrayZarrRecipe(BaseRecipe):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
-            is_opendap=self.is_opendap,
         )
 
     @property
@@ -873,7 +857,6 @@ class XarrayZarrRecipe(BaseRecipe):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
-            is_opendap=self.is_opendap,
         )
 
     @property
@@ -936,7 +919,6 @@ class XarrayZarrRecipe(BaseRecipe):
             xarray_open_kwargs=self.xarray_open_kwargs,
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
-            is_opendap=self.is_opendap,
         ) as ds:
             yield ds
 
@@ -956,6 +938,5 @@ class XarrayZarrRecipe(BaseRecipe):
             xarray_open_kwargs=self.xarray_open_kwargs,
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
-            is_opendap=self.is_opendap,
         ) as ds:
             yield ds
