@@ -4,6 +4,7 @@ import socket
 import subprocess
 import time
 
+import aiohttp
 import fsspec
 import numpy as np
 import pandas as pd
@@ -145,7 +146,9 @@ def netcdf_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_spli
     fnames_by_variable = file_splitter_tuple[-1] if len(file_splitter_tuple) == 3 else None
     path_format = str(tmp_path) + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
 
-    return full_paths, items_per_file, fnames_by_variable, path_format
+    kwargs = dict(fsspec_open_kwargs={}, query_string_secrets={})
+
+    return full_paths, items_per_file, fnames_by_variable, path_format, kwargs
 
 
 @pytest.fixture(scope="session")
@@ -197,7 +200,7 @@ def start_http_server(paths, request, username=None, password=None, required_que
     ],
 )
 def netcdf_http_paths(netcdf_paths, request):
-    paths, items_per_file, fnames_by_variable, _ = netcdf_paths
+    paths, items_per_file, fnames_by_variable, _, kwargs = netcdf_paths
 
     url = start_http_server(paths, request, **request.param)
     path_format = url + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
@@ -205,7 +208,12 @@ def netcdf_http_paths(netcdf_paths, request):
     fnames = [path.basename for path in paths]
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]
 
-    return all_urls, items_per_file, fnames_by_variable, path_format
+    if "username" in request.param.keys():
+        kwargs.update(dict(fsspec_open_kwargs={"auth": aiohttp.BasicAuth("foo", "bar")}))
+    if "required_query_string" in request.param.keys():
+        kwargs.update(dict(query_string_secrets={"foo": "foo", "bar": "bar"}))
+
+    return all_urls, items_per_file, fnames_by_variable, path_format, kwargs
 
 
 @pytest.fixture()
