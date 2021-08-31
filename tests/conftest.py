@@ -102,11 +102,11 @@ def make_file_pattern(path_fixture):
     path_fixture : callable
         One of `netcdf_paths` or `netcdf_http_paths`
     """
-    paths, items_per_file, fnames_by_variable, path_format = path_fixture
+    paths, items_per_file, fnames_by_variable, path_format, kwargs = path_fixture
 
     if not fnames_by_variable:
         file_pattern = pattern_from_file_sequence(
-            [str(path) for path in paths], "time", items_per_file
+            [str(path) for path in paths], "time", items_per_file, **kwargs
         )
     else:
         time_index = list(range(len(paths) // 2))
@@ -118,6 +118,7 @@ def make_file_pattern(path_fixture):
             format_function,
             ConcatDim("time", time_index, items_per_file),
             MergeDim("variable", ["foo", "bar"]),
+            **kwargs
         )
 
     return file_pattern
