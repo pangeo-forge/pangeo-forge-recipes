@@ -2,9 +2,7 @@ from contextlib import nullcontext as does_not_raise
 from dataclasses import replace
 from unittest.mock import patch
 
-import aiohttp
 import pytest
-import requests
 import xarray as xr
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
@@ -139,15 +137,6 @@ def test_recipe_http_caching_copying(
     """Test that caching and copying from http to local file work."""
 
     RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_http_recipe
-
-    first_url = list(file_pattern.items())[0][1]
-    r = requests.get(first_url)
-    if r.status_code == 401:
-        fsspec_open_kwargs = dict(auth=aiohttp.BasicAuth("foo", "bar"))
-        kwargs.update({"fsspec_open_kwargs": fsspec_open_kwargs})
-    elif r.status_code == 400:
-        query_string_secrets = {"foo": "foo", "bar": "bar"}
-        kwargs.update({"query_string_secrets": query_string_secrets})
 
     if not cache_inputs:
         kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
