@@ -1,6 +1,4 @@
-import aiohttp
 import pytest
-import requests
 import xarray as xr
 from dask import delayed
 from dask.distributed import Client
@@ -57,17 +55,12 @@ def test_file_opener(
     dask_cluster,
     use_dask,
     use_xarray,
-    open_kwargs={},
-    secrets={},
 ):
     all_paths = file_paths[0]
     path = str(all_paths[0])
+    open_kwargs = file_paths[-1]["fsspec_open_kwargs"]
+    secrets = file_paths[-1]["query_string_secrets"]
     cache = tmp_cache if use_cache else None
-
-    if path.split(":")[0] == "http":
-        r = requests.get(path)
-        open_kwargs = dict(auth=aiohttp.BasicAuth("foo", "bar")) if r.status_code == 401 else {}
-        secrets = {"foo": "foo", "bar": "bar"} if r.status_code == 400 else {}
 
     def do_actual_test():
         if cache_first:
