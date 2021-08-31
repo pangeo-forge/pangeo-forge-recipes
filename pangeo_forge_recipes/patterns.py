@@ -148,6 +148,11 @@ class FilePattern:
         self.fsspec_open_kwargs = kwargs.pop("fsspec_open_kwargs", {})
         self.query_string_secrets = kwargs.pop("query_string_secrets", {})
         self.is_opendap = kwargs.pop("is_opendap", False)
+        if self.fsspec_open_kwargs and self.is_opendap:
+            raise ValueError(
+                "OPeNDAP inputs are not opened with `fsspec`. "
+                "`is_opendap` must be `False` when passing `fsspec_open_kwargs`."
+            )
         if kwargs.keys():
             raise ValueError(f"{kwargs.keys()[0]} is not a valid keyword argument.")
 
