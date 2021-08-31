@@ -154,7 +154,7 @@ class FilePattern:
                 "`is_opendap` must be `False` when passing `fsspec_open_kwargs`."
             )
         if kwargs.keys():
-            raise ValueError(f"{kwargs.keys()[0]} is not a valid keyword argument.")
+            raise ValueError(f"`{list(kwargs.keys())[0]}` is not a supported keyword argument.")
 
     def __repr__(self):
         return f"<FilePattern {self.dims}>"
