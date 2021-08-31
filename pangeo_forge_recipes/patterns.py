@@ -127,12 +127,14 @@ class FilePattern:
       combine_op and returns a string representing the filename / url paths.
       Each argument name should correspond to a ``name`` in the ``combine_dims``
       list.
+    :param combine_dims: A sequence of either concat or merge dimensions. The outer
+      product of the keys is used to generate the full list of file paths.
     :param fsspec_open_kwargs: Extra options for opening the inputs with fsspec.
       May include ``block_size``, ``username``, ``password``, etc.
     :param query_string_secrets: If provided, these key/value pairs are appended to
       the query string of each ``file_pattern`` url at runtime.
-    :param combine_dims: A sequence of either concat or merge dimensions. The outer
-      product of the keys is used to generate the full list of file paths.
+    :param is_opendap: If True, assume all input fnames represent opendap endpoints.
+      Cannot be used with caching.
     """
 
     def __init__(
@@ -145,6 +147,9 @@ class FilePattern:
         self.combine_dims = combine_dims
         self.fsspec_open_kwargs = kwargs.pop("fsspec_open_kwargs", {})
         self.query_string_secrets = kwargs.pop("query_string_secrets", {})
+        self.is_opendap = kwargs.pop("is_opendap", False)
+        if kwargs.keys():
+            raise ValueError(f"{kwargs.keys()[0]} is not a valid keyword argument.")
 
     def __repr__(self):
         return f"<FilePattern {self.dims}>"
