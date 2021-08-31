@@ -20,6 +20,8 @@ def test_fixture_http_files(daily_xarray_dataset, netcdf_http_paths):
     ):
         pytest.skip("Authentication and required query strings are tested in test_storage.py")
     open_files = [fsspec.open(url).open() for url in urls]
-    ds = xr.open_mfdataset(open_files, combine="by_coords", concat_dim="time", engine="h5netcdf").load()
+    ds = xr.open_mfdataset(
+        open_files, combine="by_coords", concat_dim="time", engine="h5netcdf"
+    ).load()
     ds = fix_scalar_attr_encoding(ds)  # necessary?
     assert ds.identical(daily_xarray_dataset)
