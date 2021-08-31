@@ -138,14 +138,13 @@ class FilePattern:
     def __init__(
         self,
         format_function: Callable,
-        fsspec_open_kwargs: dict = {},
-        query_string_secrets: dict = {},
         *combine_dims: CombineDim,
+        **kwargs,
     ):
         self.format_function = format_function
-        self.fsspec_open_kwargs = fsspec_open_kwargs
-        self.query_string_secrets = query_string_secrets
         self.combine_dims = combine_dims
+        self.fsspec_open_kwargs = kwargs.pop("fsspec_open_kwargs", {})
+        self.query_string_secrets = kwargs.pop("query_string_secrets", {})
 
     def __repr__(self):
         return f"<FilePattern {self.dims}>"
@@ -226,7 +225,7 @@ class FilePattern:
             yield key, self[key]
 
 
-def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None):
+def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None, **kwargs):
     """Convenience function for creating a FilePattern from a list of files."""
 
     keys = list(range(len(file_list)))
@@ -235,7 +234,7 @@ def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None):
     def format_function(**kwargs):
         return file_list[kwargs[concat_dim]]
 
-    return FilePattern(format_function, concat)
+    return FilePattern(format_function, concat, **kwargs)
 
 
 def prune_pattern(fp: FilePattern, nkeep: int = 2) -> FilePattern:
