@@ -5,8 +5,8 @@ import xarray as xr
 from pangeo_forge_recipes.utils import fix_scalar_attr_encoding
 
 
-def test_fixture_local_files(daily_xarray_dataset, netcdf_paths):
-    paths = netcdf_paths[0]
+def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
+    paths = netcdf_local_paths[0]
     paths = [str(path) for path in paths]
     ds = xr.open_mfdataset(paths, combine="by_coords", concat_dim="time", engine="h5netcdf")
     assert ds.identical(daily_xarray_dataset)

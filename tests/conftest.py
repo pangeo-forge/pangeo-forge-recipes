@@ -100,7 +100,7 @@ def make_file_pattern(path_fixture):
     Parameters
     ----------
     path_fixture : callable
-        One of `netcdf_paths` or `netcdf_http_paths`
+        One of `netcdf_local_paths` or `netcdf_http_paths`
     """
     paths, items_per_file, fnames_by_variable, path_format, kwargs = path_fixture
 
@@ -153,8 +153,8 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, fil
 
 
 @pytest.fixture(scope="session")
-def netcdf_local_file_pattern(netcdf_paths):
-    return make_file_pattern(netcdf_paths)
+def netcdf_local_file_pattern(netcdf_local_paths):
+    return make_file_pattern(netcdf_local_paths)
 
 
 @pytest.fixture(scope="session")
@@ -200,8 +200,8 @@ def start_http_server(paths, request, username=None, password=None, required_que
         dict(required_query_string="foo=foo&bar=bar"),
     ],
 )
-def netcdf_http_paths(netcdf_paths, request):
-    paths, items_per_file, fnames_by_variable, _, kwargs = netcdf_paths
+def netcdf_http_paths(netcdf_local_paths, request):
+    paths, items_per_file, fnames_by_variable, _, kwargs = netcdf_local_paths
 
     url = start_http_server(paths, request, **request.param)
     path_format = url + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
