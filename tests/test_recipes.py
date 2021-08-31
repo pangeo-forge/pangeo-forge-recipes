@@ -8,8 +8,72 @@ import xarray as xr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.patterns import FilePattern
+from pangeo_forge_recipes.patterns import (
+    ConcatDim,
+    FilePattern,
+    MergeDim,
+    pattern_from_file_sequence,
+)
 from pangeo_forge_recipes.recipes.base import BaseRecipe
+from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
+
+
+@pytest.fixture
+def netCDFtoZarr_sequential_recipe(
+    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache, tmp_metadata_target
+):
+    paths, items_per_file = netcdf_local_paths
+    file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
+    kwargs = dict(
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
+    return XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
+
+
+@pytest.fixture
+def netCDFtoZarr_sequential_subset_recipe(
+    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache, tmp_metadata_target
+):
+    paths, items_per_file = netcdf_local_paths
+    if items_per_file != 2:
+        pytest.skip("This recipe only makes sense with items_per_file == 2.")
+    file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
+    kwargs = dict(
+        subset_inputs={"time": 2},
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
+    return XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
+
+
+@pytest.fixture
+def netCDFtoZarr_sequential_multi_variable_recipe(
+    daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache, tmp_metadata_target
+):
+    paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
+    time_index = list(range(len(paths) // 2))
+
+    def format_function(variable, time):
+        return path_format.format(variable=variable, time=time)
+
+    file_pattern = FilePattern(
+        format_function,
+        ConcatDim("time", time_index, items_per_file),
+        MergeDim("variable", ["foo", "bar"]),
+    )
+    kwargs = dict(
+        inputs_per_chunk=1,
+        target=tmp_target,
+        input_cache=tmp_cache,
+        metadata_cache=tmp_metadata_target,
+    )
+    return XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
+
 
 all_recipes = [
     lazy_fixture("netCDFtoZarr_sequential_recipe"),

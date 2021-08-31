@@ -44,11 +44,14 @@ The target Zarr dataset will conform to the
 
 The best way to really understand how recipes work is to go through the relevant
 tutorials for this recipe class. These are, in order of increasing complexity
-- {doc}`../tutorials/netcdf_zarr_sequential`
-- {doc}`../tutorials/multi_variable_recipe`
-- {doc}`../tutorials/terraclimate`
 
-Below we give a very basic overview of how recipes are used.
+- {doc}`../tutorials/xarray_zarr/netcdf_zarr_sequential`
+- {doc}`../tutorials/xarray_zarr/cmip6-recipe`
+- {doc}`../tutorials/xarray_zarr/multi_variable_recipe`
+- {doc}`../tutorials/xarray_zarr/terraclimate`
+- {doc}`../tutorials/xarray_zarr/opendap_subset_recipe`
+
+Below we give a very basic overview of how this recipe is used.
 
 First you must define a {doc}`file pattern <file_patterns>`.
 Once you have a {class}`file pattern <pangeo_forge_recipes.patterns.FilePattern>` object,
@@ -82,6 +85,26 @@ move on to {doc}`execution`.
 The API documentation below explains all of the possible options for `XarrayZarrRecipe`.
 Many of these options are explored further in the {doc}`../tutorials/index`.
 
+#### API Documentation
+
 ```{eval-rst}
 .. autoclass:: pangeo_forge_recipes.recipes.XarrayZarrRecipe
+```
+
+### HDF Reference Recipe
+
+Like the `XarrayZarrRecipe`, this recipe allows us to more efficiently access data from a bunch of NetCDF / HDF files.
+However, this recipe does not actually copy the original source data.
+Instead, it generates metadata files which reference and index the original data, allowing it to be accessed more quickly and easily.
+For more background, see [this blog post](https://medium.com/pangeo/fake-it-until-you-make-it-reading-goes-netcdf4-data-on-aws-s3-as-zarr-for-rapid-data-access-61e33f8fe685).
+
+There is currently one tutorial for this recipe:
+
+- - {doc}`../tutorials/hdf_reference/reference_cmip6`
+
+#### API Documentation
+
+
+```{eval-rst}
+.. autoclass:: pangeo_forge_recipes.recipes.HDFReferenceRecipe
 ```
