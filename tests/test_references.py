@@ -15,7 +15,9 @@ HDFReferenceRecipe = reference_hdf_zarr.HDFReferenceRecipe
 
 @pytest.mark.parametrize("with_intake", [True, False])
 def test_single(netcdf_local_paths, tmpdir, with_intake):
-    full_paths, items_per_file = netcdf_local_paths
+    full_paths, items_per_file, fnames_by_variable = netcdf_local_paths[:3]
+    if fnames_by_variable:
+        pytest.skip("This does not test merging operations.")
     path = str(full_paths[0])
     expected = xr.open_dataset(path, engine="h5netcdf")
 
@@ -47,7 +49,9 @@ def test_single(netcdf_local_paths, tmpdir, with_intake):
 
 @pytest.mark.parametrize("with_intake", [True, False])
 def test_multi(netcdf_local_paths, tmpdir, with_intake):
-    full_paths, items_per_file = netcdf_local_paths
+    full_paths, items_per_file, fnames_by_variable = netcdf_local_paths[:3]
+    if fnames_by_variable:
+        pytest.skip("This does not test merging operations.")
     paths = [str(f) for f in full_paths]
     expected = xr.open_mfdataset(paths, engine="h5netcdf")
 
