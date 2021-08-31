@@ -14,8 +14,11 @@ dependencies:
   - h5netcdf
   - h5py
   - hdf5
+  - intake
+  - intake-xarray
   - lxml
   - netcdf4
+  - numcodecs
   - numpy
   - pandas
   - pip
@@ -37,3 +40,4 @@ dependencies:
   - pip
   - pip:
     - pytest-timeout
+    - fsspec-reference-maker
