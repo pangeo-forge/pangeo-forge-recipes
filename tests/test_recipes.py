@@ -109,34 +109,13 @@ def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
 
 @pytest.mark.parametrize("cache_inputs", [True, False])
 @pytest.mark.parametrize("copy_input_to_local_file", [True, False])
-def test_recipe_caching_copying(
-    netCDFtoZarr_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
-):
+@pytest.mark.parametrize(
+    "recipe", [lazy_fixture("netCDFtoZarr_recipe"), lazy_fixture("netCDFtoZarr_http_recipe")],
+)
+def test_recipe_caching_copying(recipe, execute_recipe, cache_inputs, copy_input_to_local_file):
     """Test that caching and copying to local file work."""
 
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
-
-    if not cache_inputs:
-        kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
-    rec = RecipeClass(
-        file_pattern,
-        **kwargs,
-        cache_inputs=cache_inputs,
-        copy_input_to_local_file=copy_input_to_local_file
-    )
-    execute_recipe(rec)
-    ds_actual = xr.open_zarr(target.get_mapper()).load()
-    xr.testing.assert_identical(ds_actual, ds_expected)
-
-
-@pytest.mark.parametrize("cache_inputs", [True, False])
-@pytest.mark.parametrize("copy_input_to_local_file", [True, False])
-def test_recipe_http_caching_copying(
-    netCDFtoZarr_http_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
-):
-    """Test that caching and copying from http to local file work."""
-
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_http_recipe
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe
 
     if not cache_inputs:
         kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
