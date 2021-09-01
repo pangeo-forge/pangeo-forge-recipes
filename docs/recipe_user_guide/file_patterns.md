@@ -130,7 +130,7 @@ and mutually exclusive with `fsspec_open_kwargs`. Defaults to `False`.
 Secrets including login credentials and API tokens should never be committed to a public repository. As such,
 we strongly suggest that you do **not** instantiate your `FilePattern` with these or any other secrets when
 developing your recipe. If your source files require authentication via `fsspec_open_kwargs` and/or
-`query_string_secrets`, it is advisable to update these attributes at runtime. Pangeo Forge will soon offer a
+`query_string_secrets`, it is advisable to update these attributes at execution time. Pangeo Forge will soon offer a
 mechanism for securely handling such recipe secrets on GitHub.
 ```
 
