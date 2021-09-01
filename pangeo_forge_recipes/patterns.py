@@ -141,14 +141,14 @@ class FilePattern:
         self,
         format_function: Callable,
         *combine_dims: CombineDim,
-        fsspec_open_kwargs: dict = {},
-        query_string_secrets: dict = {},
+        fsspec_open_kwargs: Optional[Dict[str, Any]] = None,
+        query_string_secrets: Optional[Dict[str, str]] = None,
         is_opendap: bool = False,
     ):
         self.format_function = format_function
         self.combine_dims = combine_dims
-        self.fsspec_open_kwargs = fsspec_open_kwargs
-        self.query_string_secrets = query_string_secrets
+        self.fsspec_open_kwargs = fsspec_open_kwargs if fsspec_open_kwargs else {}
+        self.query_string_secrets = query_string_secrets if query_string_secrets else {}
         self.is_opendap = is_opendap
         if self.fsspec_open_kwargs and self.is_opendap:
             raise ValueError(
