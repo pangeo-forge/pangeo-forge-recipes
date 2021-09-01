@@ -33,10 +33,6 @@ def make_concat_merge_pattern(**kwargs):
         with pytest.raises(ValueError):
             fp = FilePattern(format_function, merge, concat, **kwargs)
             return
-    elif "unsupported_kwarg" in kwargs.keys():
-        with pytest.raises(ValueError):
-            fp = FilePattern(format_function, merge, concat, **kwargs)
-            return
     else:
         fp = FilePattern(format_function, merge, concat, **kwargs)
         return fp, times, varnames, format_function, kwargs
@@ -52,7 +48,6 @@ def concat_merge_pattern():
         dict(fsspec_open_kwargs={"block_size": "foo"}),
         dict(is_opendap=True),
         dict(fsspec_open_kwargs={"block_size": "foo"}, is_opendap=True),
-        dict(unsupported_kwarg="foo"),
     ]
 )
 def concat_merge_pattern_with_kwargs(request):
@@ -96,9 +91,8 @@ def test_pattern_from_file_sequence():
 @pytest.mark.parametrize("pickle", [False, True])
 def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern_with_kwargs):
     if not concat_merge_pattern_with_kwargs:
-        # if `fsspec_open_kwargs` are passed with `is_opendap`, or if an unsupported kwarg is
-        # passed to `FilePattern`, `FilePattern.__init__` raises ValueError and
-        # `concat_merge_pattern_with_kwargs` returns None, so nothing to test in these cases
+        # if `fsspec_open_kwargs` are passed with `is_opendap`, `FilePattern.__init__` raises
+        # ValueError and `concat_merge_pattern_with_kwargs` returns None, so nothing to test
         return
     else:
         fp, times, varnames, format_function, kwargs = concat_merge_pattern_with_kwargs

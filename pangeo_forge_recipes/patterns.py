@@ -138,20 +138,23 @@ class FilePattern:
     """
 
     def __init__(
-        self, format_function: Callable, *combine_dims: CombineDim, **kwargs,
+        self,
+        format_function: Callable,
+        *combine_dims: CombineDim,
+        fsspec_open_kwargs: dict = {},
+        query_string_secrets: dict = {},
+        is_opendap: bool = False,
     ):
         self.format_function = format_function
         self.combine_dims = combine_dims
-        self.fsspec_open_kwargs = kwargs.pop("fsspec_open_kwargs", {})
-        self.query_string_secrets = kwargs.pop("query_string_secrets", {})
-        self.is_opendap = kwargs.pop("is_opendap", False)
+        self.fsspec_open_kwargs = fsspec_open_kwargs
+        self.query_string_secrets = query_string_secrets
+        self.is_opendap = is_opendap
         if self.fsspec_open_kwargs and self.is_opendap:
             raise ValueError(
                 "OPeNDAP inputs are not opened with `fsspec`. "
                 "`is_opendap` must be `False` when passing `fsspec_open_kwargs`."
             )
-        if kwargs.keys():
-            raise ValueError(f"`{list(kwargs.keys())[0]}` is not a supported keyword argument.")
 
     def __repr__(self):
         return f"<FilePattern {self.dims}>"
