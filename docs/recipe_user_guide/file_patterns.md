@@ -113,6 +113,27 @@ and type of combine dimensions they support.
 ``ConcatDim`` and allows at most one ``MergeDim``.
 
 
+### Extra keyword arguments for `FilePattern`
+
+`FilePattern` objects carry all of the information needed to open source files. The following additional keyword
+arguments may passed to `FilePattern` instances as appropriate:
+
+- `fsspec_open_kwargs`: A dictionary of kwargs to pass to `fsspec.open` to aid opening of source files. For example,
+`{"block_size": 0}` may be passed if an HTTP source file server does not permit range requests. Authentication for
+`fsspec`-compatible filesystems may be handled here as well.
+- `query_string_secrets`: A dictionary of key:value pairs to append to each source file url query at runtime. Query
+parameters which are not secrets should instead be included in the `format_function`.
+- `is_opendap`: Boolean value to specify whether or not the source files are served via OPeNDAP. Incompatible with caching,
+and mutually exclusive with `fsspec_open_kwargs`. Defaults to `False`.
+
+```{warning}
+Secrets including login credentials and API tokens should never be committed to a public repository. As such,
+we strongly suggest that you do **not** instantiate your `FilePattern` with these or any other secrets when
+developing your recipe. If your source files require authentication via `fsspec_open_kwargs` and/or
+`query_string_secrets`, it is advisable to update these attributes at runtime. Pangeo Forge will soon offer a
+mechanism for securely handling such recipe secrets on GitHub.
+```
+
 ### Specifying `nitems_per_file` in a `ConcatDim`
 
 FilePatterns are deliberately very simple. However, there is one case where
