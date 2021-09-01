@@ -118,12 +118,20 @@ and type of combine dimensions they support.
 `FilePattern` objects carry all of the information needed to open source files. The following additional keyword
 arguments may passed to `FilePattern` instances as appropriate:
 
-- `fsspec_open_kwargs`: A dictionary of kwargs to pass to `fsspec.open` to aid opening of source files. For example,
+- **`fsspec_open_kwargs`**: A dictionary of kwargs to pass to `fsspec.open` to aid opening of source files. For example,
 `{"block_size": 0}` may be passed if an HTTP source file server does not permit range requests. Authentication for
-`fsspec`-compatible filesystems may be handled here as well.
-- `query_string_secrets`: A dictionary of key:value pairs to append to each source file url query at runtime. Query
+`fsspec`-compatible filesystems may be handled here as well. For HTTP username/password-based authentication, your specific
+`fsspec_open_kwargs` will depend on the configuration of the source file server, but are likely to conform to one of the following
+two formats:
+
+    ```ipython3
+    fsspec_open_kwargs={"username": "<your-username>", "password": "<your-password>"}
+    fsspec_open_kwargs={"auth": aiohttp.BasicAuth("<your-username>", "<your-password>")}
+    ```
+
+- **`query_string_secrets`**: A dictionary of key:value pairs to append to each source file url query at runtime. Query
 parameters which are not secrets should instead be included in the `format_function`.
-- `is_opendap`: Boolean value to specify whether or not the source files are served via OPeNDAP. Incompatible with caching,
+- **`is_opendap`**: Boolean value to specify whether or not the source files are served via OPeNDAP. Incompatible with caching,
 and mutually exclusive with `fsspec_open_kwargs`. Defaults to `False`.
 
 ```{warning}
