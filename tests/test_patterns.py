@@ -136,9 +136,7 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
         assert fp.is_opendap is False
         if "fsspec_open_kwargs" in runtime_secrets.keys():
             kwargs["fsspec_open_kwargs"].update(runtime_secrets["fsspec_open_kwargs"])
-            assert fp.fsspec_open_kwargs == kwargs["fsspec_open_kwargs"]
-        else:
-            assert fp.fsspec_open_kwargs == kwargs["fsspec_open_kwargs"]
+        assert fp.fsspec_open_kwargs == kwargs["fsspec_open_kwargs"]
     if "query_string_secrets" in runtime_secrets.keys():
         assert fp.query_string_secrets == runtime_secrets["query_string_secrets"]
     if "is_opendap" in kwargs.keys():
