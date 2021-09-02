@@ -21,7 +21,7 @@ command_list = ["pytest", "--disable-warnings", "--collect-only"]
 def parametrization_counter(filename):
     cmd = command_list + ["-q", filename]
     output = subprocess.check_output(cmd)
-    output = output.decode('utf-8')
+    output = output.decode("utf-8")
     lines = output.split("\n")
     lines = [line for line in lines if "::" in line]
     lines = [line.split("::")[1] for line in lines]
@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     cmd = command_list + ["-qq"]
     summary = subprocess.check_output(cmd)
-    summary = summary.decode('utf-8')
+    summary = summary.decode("utf-8")
     summary = summary.split("\n")
     summary = [line for line in summary if "test" in line]
 
@@ -71,6 +71,6 @@ if __name__ == "__main__":
             yticks = range(len(keys))
             plt.barh(yticks, values)
             plt.yticks(yticks, labels=keys)
-            plt.xticks(range(0, max(values)+1, 50))
+            plt.xticks(range(0, max(values) + 1, 50))
             plt.tight_layout()
             plt.show()
