@@ -4,6 +4,7 @@ import socket
 import subprocess
 import time
 
+import aiohttp
 import fsspec
 import numpy as np
 import pandas as pd
@@ -12,10 +13,19 @@ import xarray as xr
 from dask.distributed import Client, LocalCluster
 from prefect.executors import DaskExecutor
 
+# need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
+from pytest_lazyfixture import lazy_fixture
+
 from pangeo_forge_recipes.executors import (
     DaskPipelineExecutor,
     PrefectPipelineExecutor,
     PythonPipelineExecutor,
+)
+from pangeo_forge_recipes.patterns import (
+    ConcatDim,
+    FilePattern,
+    MergeDim,
+    pattern_from_file_sequence,
 )
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
 
@@ -67,19 +77,19 @@ def daily_xarray_dataset():
     return ds
 
 
-def _split_up_files_by_day(ds, day_param):
+def split_up_files_by_day(ds, day_param):
     gb = ds.resample(time=day_param)
     _, datasets = zip(*gb)
     fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
     return datasets, fnames
 
 
-def _split_up_files_by_variable_and_day(ds, day_param):
+def split_up_files_by_variable_and_day(ds, day_param):
     all_dsets = []
     all_fnames = []
     fnames_by_variable = {}
     for varname in ds.data_vars:
-        var_dsets, fnames = _split_up_files_by_day(ds[[varname]], day_param)
+        var_dsets, fnames = split_up_files_by_day(ds[[varname]], day_param)
         fnames = [f"{varname}_{fname}" for fname in fnames]
         all_dsets += var_dsets
         all_fnames += fnames
@@ -87,59 +97,131 @@ def _split_up_files_by_variable_and_day(ds, day_param):
     return all_dsets, all_fnames, fnames_by_variable
 
 
+def make_file_pattern(path_fixture):
+    """Creates a filepattern from a `path_fixture`
+
+    Parameters
+    ----------
+    path_fixture : callable
+        One of `netcdf_local_paths` or `netcdf_http_paths`
+    """
+    paths, items_per_file, fnames_by_variable, path_format, kwargs = path_fixture
+
+    if not fnames_by_variable:
+        file_pattern = pattern_from_file_sequence(
+            [str(path) for path in paths], "time", items_per_file, **kwargs
+        )
+    else:
+        time_index = list(range(len(paths) // 2))
+
+        def format_function(variable, time):
+            return path_format.format(variable=variable, time=time)
+
+        file_pattern = FilePattern(
+            format_function,
+            ConcatDim("time", time_index, items_per_file),
+            MergeDim("variable", ["foo", "bar"]),
+            **kwargs,
+        )
+
+    return file_pattern
+
+
 @pytest.fixture(scope="session", params=["D", "2D"])
-def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, request):
-    """Return a list of paths pointing to netcdf files."""
+def items_per_file(request):
+    return request.param
+
+
+def make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter):
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
-    # copy needed to avoid polluting metadata across multiple tests
-    datasets, fnames = _split_up_files_by_day(daily_xarray_dataset.copy(), request.param)
+    file_splitter_tuple = file_splitter(daily_xarray_dataset.copy(), items_per_file)
+
+    datasets, fnames = file_splitter_tuple[:2]
     full_paths = [tmp_path.join(fname) for fname in fnames]
     xr.save_mfdataset(datasets, [str(path) for path in full_paths])
-    items_per_file = {"D": 1, "2D": 2}[request.param]
-    return full_paths, items_per_file
+    items_per_file = {"D": 1, "2D": 2}[items_per_file]
+
+    fnames_by_variable = file_splitter_tuple[-1] if len(file_splitter_tuple) == 3 else None
+    path_format = str(tmp_path) + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
+
+    kwargs = dict(fsspec_open_kwargs={}, query_string_secrets={})
+
+    return full_paths, items_per_file, fnames_by_variable, path_format, kwargs
 
 
-# TODO: this is quite repetetive of the fixture above. Replace with parametrization.
-@pytest.fixture(scope="session", params=["D", "2D"])
-def netcdf_local_paths_by_variable(daily_xarray_dataset, tmpdir_factory, request):
-    """Return a list of paths pointing to netcdf files."""
-    tmp_path = tmpdir_factory.mktemp("netcdf_data")
-    datasets, fnames, fnames_by_variable = _split_up_files_by_variable_and_day(
-        daily_xarray_dataset.copy(), request.param
-    )
-    full_paths = [tmp_path.join(fname) for fname in fnames]
-    xr.save_mfdataset(datasets, [str(path) for path in full_paths])
-    items_per_file = {"D": 1, "2D": 2}[request.param]
-    path_format = str(tmp_path) + "/{variable}_{time:03d}.nc"
-    return full_paths, items_per_file, fnames_by_variable, path_format
-
-
-# TODO: refactor to allow netcdf_local_paths_by_variable to be passed without
-# duplicating the whole test.
 @pytest.fixture(scope="session")
-def netcdf_http_paths(netcdf_local_paths, request):
-    paths, items_per_file = netcdf_local_paths
+def netcdf_local_paths_sequential(daily_xarray_dataset, tmpdir_factory, items_per_file):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset, tmpdir_factory, items_per_file, split_up_files_by_day
+    )
 
-    username = ""
-    password = ""
+
+@pytest.fixture(scope="session")
+def netcdf_local_paths_sequential_multi_variable(
+    daily_xarray_dataset, tmpdir_factory, items_per_file
+):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset, tmpdir_factory, items_per_file, split_up_files_by_variable_and_day
+    )
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_local_paths_sequential"),
+        lazy_fixture("netcdf_local_paths_sequential_multi_variable"),
+    ],
+)
+def netcdf_local_paths(request):
+    return request.param
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_pattern_sequential(netcdf_local_paths_sequential):
+    return make_file_pattern(netcdf_local_paths_sequential)
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_pattern_sequential_multi_variable(
+    netcdf_local_paths_sequential_multi_variable,
+):
+    return make_file_pattern(netcdf_local_paths_sequential_multi_variable)
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_local_file_pattern_sequential"),
+        lazy_fixture("netcdf_local_file_pattern_sequential_multi_variable"),
+    ],
+)
+def netcdf_local_file_pattern(request):
+    return request.param
+
+
+@pytest.fixture(scope="session")
+def netcdf_http_file_pattern(netcdf_http_paths):
+    return make_file_pattern(netcdf_http_paths)
+
+
+def start_http_server(paths, request, username=None, password=None, required_query_string=None):
 
     first_path = paths[0]
     # assume that all files are in the same directory
     basedir = first_path.dirpath()
-    fnames = [path.basename for path in paths]
 
     this_dir = os.path.dirname(os.path.abspath(__file__))
     port = get_open_port()
     command_list = [
         "python",
         os.path.join(this_dir, "http_auth_server.py"),
-        port,
-        "127.0.0.1",
-        username,
-        password,
+        f"--port={port}",
+        "--address=127.0.0.1",
     ]
     if username:
-        command_list += [username, password]
+        command_list += [f"--username={username}", f"--password={password}"]
+    if required_query_string:
+        command_list += [f"--required-query-string={required_query_string}"]
     p = subprocess.Popen(command_list, cwd=basedir)
     url = f"http://127.0.0.1:{port}"
     time.sleep(2)  # let the server start up
@@ -149,8 +231,32 @@ def netcdf_http_paths(netcdf_local_paths, request):
 
     request.addfinalizer(teardown)
 
+    return url
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        {},
+        dict(username="foo", password="bar"),
+        dict(required_query_string="foo=foo&bar=bar"),
+    ],
+)
+def netcdf_http_paths(netcdf_local_paths, request):
+    paths, items_per_file, fnames_by_variable, _, kwargs = netcdf_local_paths
+
+    url = start_http_server(paths, request, **request.param)
+    path_format = url + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
+
+    fnames = [path.basename for path in paths]
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]
-    return all_urls, items_per_file
+
+    if "username" in request.param.keys():
+        kwargs.update(dict(fsspec_open_kwargs={"auth": aiohttp.BasicAuth("foo", "bar")}))
+    if "required_query_string" in request.param.keys():
+        kwargs.update(dict(query_string_secrets={"foo": "foo", "bar": "bar"}))
+
+    return all_urls, items_per_file, fnames_by_variable, path_format, kwargs
 
 
 @pytest.fixture()

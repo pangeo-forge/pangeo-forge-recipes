@@ -129,11 +129,32 @@ class FilePattern:
       list.
     :param combine_dims: A sequence of either concat or merge dimensions. The outer
       product of the keys is used to generate the full list of file paths.
+    :param fsspec_open_kwargs: Extra options for opening the inputs with fsspec.
+      May include ``block_size``, ``username``, ``password``, etc.
+    :param query_string_secrets: If provided, these key/value pairs are appended to
+      the query string of each ``file_pattern`` url at runtime.
+    :param is_opendap: If True, assume all input fnames represent opendap endpoints.
+      Cannot be used with caching.
     """
 
-    def __init__(self, format_function: Callable, *combine_dims: CombineDim):
+    def __init__(
+        self,
+        format_function: Callable,
+        *combine_dims: CombineDim,
+        fsspec_open_kwargs: Optional[Dict[str, Any]] = None,
+        query_string_secrets: Optional[Dict[str, str]] = None,
+        is_opendap: bool = False,
+    ):
         self.format_function = format_function
         self.combine_dims = combine_dims
+        self.fsspec_open_kwargs = fsspec_open_kwargs if fsspec_open_kwargs else {}
+        self.query_string_secrets = query_string_secrets if query_string_secrets else {}
+        self.is_opendap = is_opendap
+        if self.fsspec_open_kwargs and self.is_opendap:
+            raise ValueError(
+                "OPeNDAP inputs are not opened with `fsspec`. "
+                "`is_opendap` must be `False` when passing `fsspec_open_kwargs`."
+            )
 
     def __repr__(self):
         return f"<FilePattern {self.dims}>"
@@ -214,7 +235,7 @@ class FilePattern:
             yield key, self[key]
 
 
-def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None):
+def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None, **kwargs):
     """Convenience function for creating a FilePattern from a list of files."""
 
     keys = list(range(len(file_list)))
@@ -223,7 +244,7 @@ def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None):
     def format_function(**kwargs):
         return file_list[kwargs[concat_dim]]
 
-    return FilePattern(format_function, concat)
+    return FilePattern(format_function, concat, **kwargs)
 
 
 def prune_pattern(fp: FilePattern, nkeep: int = 2) -> FilePattern:

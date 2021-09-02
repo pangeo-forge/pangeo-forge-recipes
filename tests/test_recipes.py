@@ -8,87 +8,90 @@ import xarray as xr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.patterns import (
-    ConcatDim,
-    FilePattern,
-    MergeDim,
-    pattern_from_file_sequence,
-)
+from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.recipes.base import BaseRecipe
 from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
 
 
-@pytest.fixture
-def netCDFtoZarr_sequential_recipe(
-    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache, tmp_metadata_target
+def make_netCDFtoZarr_recipe(
+    file_pattern, xarray_dataset, target, cache, metadata_target, extra_kwargs=None
 ):
-    paths, items_per_file = netcdf_local_paths
-    file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
     kwargs = dict(
-        inputs_per_chunk=1,
-        target=tmp_target,
-        input_cache=tmp_cache,
-        metadata_cache=tmp_metadata_target,
+        inputs_per_chunk=1, target=target, input_cache=cache, metadata_cache=metadata_target,
     )
-    return XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
+    if extra_kwargs:
+        kwargs.update(extra_kwargs)
+    return XarrayZarrRecipe, file_pattern, kwargs, xarray_dataset, target
 
 
 @pytest.fixture
-def netCDFtoZarr_sequential_subset_recipe(
-    daily_xarray_dataset, netcdf_local_paths, tmp_target, tmp_cache, tmp_metadata_target
+def netCDFtoZarr_recipe_sequential_only(
+    netcdf_local_file_pattern_sequential,
+    daily_xarray_dataset,
+    tmp_target,
+    tmp_cache,
+    tmp_metadata_target,
 ):
-    paths, items_per_file = netcdf_local_paths
+    return make_netCDFtoZarr_recipe(
+        netcdf_local_file_pattern_sequential,
+        daily_xarray_dataset,
+        tmp_target,
+        tmp_cache,
+        tmp_metadata_target,
+    )
+
+
+@pytest.fixture
+def netCDFtoZarr_recipe(
+    netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+):
+    return make_netCDFtoZarr_recipe(
+        netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+    )
+
+
+@pytest.fixture
+def netCDFtoZarr_http_recipe(
+    netcdf_http_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+):
+    return make_netCDFtoZarr_recipe(
+        netcdf_http_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+    )
+
+
+@pytest.fixture
+def netCDFtoZarr_subset_recipe(
+    netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+):
+    items_per_file = netcdf_local_file_pattern.nitems_per_input.get("time", None)
     if items_per_file != 2:
         pytest.skip("This recipe only makes sense with items_per_file == 2.")
-    file_pattern = pattern_from_file_sequence([str(path) for path in paths], "time", items_per_file)
-    kwargs = dict(
-        subset_inputs={"time": 2},
-        inputs_per_chunk=1,
-        target=tmp_target,
-        input_cache=tmp_cache,
-        metadata_cache=tmp_metadata_target,
+
+    extra_kwargs = dict(subset_inputs={"time": 2})
+
+    return make_netCDFtoZarr_recipe(
+        netcdf_local_file_pattern,
+        daily_xarray_dataset,
+        tmp_target,
+        tmp_cache,
+        tmp_metadata_target,
+        extra_kwargs,
     )
-    return XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
-
-
-@pytest.fixture
-def netCDFtoZarr_sequential_multi_variable_recipe(
-    daily_xarray_dataset, netcdf_local_paths_by_variable, tmp_target, tmp_cache, tmp_metadata_target
-):
-    paths, items_per_file, fnames_by_variable, path_format = netcdf_local_paths_by_variable
-    time_index = list(range(len(paths) // 2))
-
-    def format_function(variable, time):
-        return path_format.format(variable=variable, time=time)
-
-    file_pattern = FilePattern(
-        format_function,
-        ConcatDim("time", time_index, items_per_file),
-        MergeDim("variable", ["foo", "bar"]),
-    )
-    kwargs = dict(
-        inputs_per_chunk=1,
-        target=tmp_target,
-        input_cache=tmp_cache,
-        metadata_cache=tmp_metadata_target,
-    )
-    return XarrayZarrRecipe, file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 all_recipes = [
-    lazy_fixture("netCDFtoZarr_sequential_recipe"),
-    lazy_fixture("netCDFtoZarr_sequential_multi_variable_recipe"),
-    lazy_fixture("netCDFtoZarr_sequential_subset_recipe"),
+    lazy_fixture("netCDFtoZarr_recipe"),
+    lazy_fixture("netCDFtoZarr_subset_recipe"),
 ]
 
 recipes_no_subset = [
-    lazy_fixture("netCDFtoZarr_sequential_recipe"),
-    lazy_fixture("netCDFtoZarr_sequential_multi_variable_recipe"),
+    lazy_fixture("netCDFtoZarr_recipe"),
 ]
 
 
-def test_to_pipelines_warns(netCDFtoZarr_sequential_recipe):
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+def test_to_pipelines_warns(netCDFtoZarr_recipe):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
+
     rec = RecipeClass(file_pattern, **kwargs)
     with pytest.warns(FutureWarning):
         rec.to_pipelines()
@@ -114,7 +117,7 @@ def test_recipe(recipe_fixture, execute_recipe):
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
 @pytest.mark.parametrize("nkeep", [1, 2])
 def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
-    """The basic recipe test. Use this as a template for other tests."""
+    """Check that recipe.copy_pruned works as expected."""
 
     RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
     rec = RecipeClass(file_pattern, **kwargs)
@@ -128,12 +131,14 @@ def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
 
 @pytest.mark.parametrize("cache_inputs", [True, False])
 @pytest.mark.parametrize("copy_input_to_local_file", [True, False])
-def test_recipe_caching_copying(
-    netCDFtoZarr_sequential_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
-):
-    """The basic recipe test. Use this as a template for other tests."""
+@pytest.mark.parametrize(
+    "recipe", [lazy_fixture("netCDFtoZarr_recipe"), lazy_fixture("netCDFtoZarr_http_recipe")],
+)
+def test_recipe_caching_copying(recipe, execute_recipe, cache_inputs, copy_input_to_local_file):
+    """Test that caching and copying to local file work."""
 
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe
+
     if not cache_inputs:
         kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
     rec = RecipeClass(
@@ -268,8 +273,9 @@ def test_chunks(
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
-def test_lock_timeout(netCDFtoZarr_sequential_recipe, execute_recipe):
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe_sequential_only
+
     recipe = RecipeClass(file_pattern=file_pattern, lock_timeout=1, **kwargs)
 
     with patch("pangeo_forge_recipes.recipes.xarray_zarr.lock_for_conflicts") as p:

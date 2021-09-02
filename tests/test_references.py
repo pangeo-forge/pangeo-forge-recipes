@@ -4,7 +4,6 @@ import fsspec
 import pytest
 import xarray as xr
 
-from pangeo_forge_recipes.patterns import pattern_from_file_sequence
 from pangeo_forge_recipes.storage import FSSpecTarget, MetadataTarget
 
 pytest.importorskip("fsspec_reference_maker")
@@ -14,12 +13,10 @@ HDFReferenceRecipe = reference_hdf_zarr.HDFReferenceRecipe
 
 
 @pytest.mark.parametrize("with_intake", [True, False])
-def test_single(netcdf_local_paths, tmpdir, with_intake):
-    full_paths, items_per_file = netcdf_local_paths
-    path = str(full_paths[0])
+def test_single(netcdf_local_file_pattern_sequential, tmpdir, with_intake):
+    file_pattern = netcdf_local_file_pattern_sequential
+    path = list(file_pattern.items())[0][1]
     expected = xr.open_dataset(path, engine="h5netcdf")
-
-    file_pattern = pattern_from_file_sequence([path], "time")
     recipe = HDFReferenceRecipe(file_pattern)
 
     # make sure assigning storage later works
@@ -46,12 +43,10 @@ def test_single(netcdf_local_paths, tmpdir, with_intake):
 
 
 @pytest.mark.parametrize("with_intake", [True, False])
-def test_multi(netcdf_local_paths, tmpdir, with_intake):
-    full_paths, items_per_file = netcdf_local_paths
-    paths = [str(f) for f in full_paths]
+def test_multi(netcdf_local_file_pattern_sequential, tmpdir, with_intake):
+    file_pattern = netcdf_local_file_pattern_sequential
+    paths = [f for _, f in list(file_pattern.items())]
     expected = xr.open_mfdataset(paths, engine="h5netcdf")
-
-    file_pattern = pattern_from_file_sequence(paths, "time")
     recipe = HDFReferenceRecipe(file_pattern)
 
     # make sure assigning storage later works

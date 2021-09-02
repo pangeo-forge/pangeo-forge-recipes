@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Sequence, Union
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
 from fsspec.implementations.http import BlockSizeError
@@ -20,8 +21,8 @@ logger = logging.getLogger(__name__)
 OpenFileType = Any
 
 
-def _get_url_size(fname, **open_kwargs):
-    with fsspec.open(fname, mode="rb", **open_kwargs) as of:
+def _get_url_size(fname, secrets, **open_kwargs):
+    with _get_opener(fname, secrets, **open_kwargs) as of:
         size = of.size
     return size
 
@@ -147,18 +148,18 @@ class FlatFSSpecTarget(FSSpecTarget):
 class CacheFSSpecTarget(FlatFSSpecTarget):
     """Alias for FlatFSSpecTarget"""
 
-    def cache_file(self, fname: str, **open_kwargs) -> None:
+    def cache_file(self, fname: str, secrets: Optional[dict], **open_kwargs) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
         if self.exists(fname):
             cached_size = self.size(fname)
-            remote_size = _get_url_size(fname, **open_kwargs)
+            remote_size = _get_url_size(fname, secrets, **open_kwargs)
             if cached_size == remote_size:
                 # TODO: add checksumming here
                 logger.info(f"File '{fname}' is already cached")
                 return
 
-        input_opener = fsspec.open(fname, mode="rb", **open_kwargs)
+        input_opener = _get_opener(fname, secrets, **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Copying remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
@@ -186,6 +187,7 @@ def file_opener(
     cache: Optional[CacheFSSpecTarget] = None,
     copy_to_local: bool = False,
     bypass_open: bool = False,
+    secrets: Optional[dict] = None,
     **open_kwargs,
 ) -> Iterator[Union[OpenFileType, str]]:
     """
@@ -213,7 +215,7 @@ def file_opener(
         opener = cache.open(fname, mode="rb")
     else:
         logger.info(f"Opening '{fname}' directly.")
-        opener = fsspec.open(fname, mode="rb", **open_kwargs)
+        opener = _get_opener(fname, secrets, **open_kwargs)
     if copy_to_local:
         _, suffix = os.path.splitext(fname)
         ntf = tempfile.NamedTemporaryFile(suffix=suffix)
@@ -240,3 +242,17 @@ def _slugify(value: str) -> str:
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     value = re.sub(r"[^.\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
+
+
+def _add_query_string_secrets(fname: str, secrets: dict) -> str:
+    parsed = urlparse(fname)
+    query = parse_qs(parsed.query)
+    for k, v in secrets.items():
+        query.update({k: v})
+    parsed = parsed._replace(query=urlencode(query, doseq=True))
+    return urlunparse(parsed)
+
+
+def _get_opener(fname: str, secrets: Optional[dict], **open_kwargs):
+    fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
+    return fsspec.open(fname, mode="rb", **open_kwargs)
