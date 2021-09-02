@@ -12,6 +12,8 @@ import pytest
 import xarray as xr
 from dask.distributed import Client, LocalCluster
 from prefect.executors import DaskExecutor
+# need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
+from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.executors import (
     DaskPipelineExecutor,
@@ -146,16 +148,54 @@ def make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file
     return full_paths, items_per_file, fnames_by_variable, path_format, kwargs
 
 
-@pytest.fixture(scope="session", params=[split_up_files_by_day, split_up_files_by_variable_and_day])
-def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, request):
+@pytest.fixture(scope="session")
+def netcdf_local_paths_sequential(daily_xarray_dataset, tmpdir_factory, items_per_file):
     return make_netcdf_local_paths(
-        daily_xarray_dataset, tmpdir_factory, items_per_file, request.param
+        daily_xarray_dataset, tmpdir_factory, items_per_file, split_up_files_by_day
     )
 
 
 @pytest.fixture(scope="session")
-def netcdf_local_file_pattern(netcdf_local_paths):
-    return make_file_pattern(netcdf_local_paths)
+def netcdf_local_paths_sequential_multi_variable(
+    daily_xarray_dataset, tmpdir_factory, items_per_file
+):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset, tmpdir_factory, items_per_file, split_up_files_by_variable_and_day
+    )
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_local_paths_sequential"),
+        lazy_fixture("netcdf_local_paths_sequential_multi_variable"),
+    ],
+)
+def netcdf_local_paths(request):
+    return request.param
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_pattern_sequential(netcdf_local_paths_sequential):
+    return make_file_pattern(netcdf_local_paths_sequential)
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_pattern_sequential_multi_variable(
+    netcdf_local_paths_sequential_multi_variable
+):
+    return make_file_pattern(netcdf_local_paths_sequential_multi_variable)
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_local_file_pattern_sequential"),
+        lazy_fixture("netcdf_local_file_pattern_sequential_multi_variable"),
+    ],
+)
+def netcdf_local_file_pattern(request):
+    return make_file_pattern(request.param)
 
 
 @pytest.fixture(scope="session")
