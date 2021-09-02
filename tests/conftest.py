@@ -129,13 +129,7 @@ def items_per_file(request):
     return request.param
 
 
-@pytest.fixture(scope="session", params=[split_up_files_by_day, split_up_files_by_variable_and_day])
-def file_splitter(request):
-    return request.param
-
-
-@pytest.fixture(scope="session")
-def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter):
+def make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter):
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     file_splitter_tuple = file_splitter(daily_xarray_dataset.copy(), items_per_file)
 
@@ -150,6 +144,13 @@ def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, fil
     kwargs = dict(fsspec_open_kwargs={}, query_string_secrets={})
 
     return full_paths, items_per_file, fnames_by_variable, path_format, kwargs
+
+
+@pytest.fixture(scope="session", params=[split_up_files_by_day, split_up_files_by_variable_and_day])
+def netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, request):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset, tmpdir_factory, items_per_file, request.param
+    )
 
 
 @pytest.fixture(scope="session")
