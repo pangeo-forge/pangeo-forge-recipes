@@ -17,10 +17,7 @@ def make_netCDFtoZarr_recipe(
     file_pattern, xarray_dataset, target, cache, metadata_target, extra_kwargs=None
 ):
     kwargs = dict(
-        inputs_per_chunk=1,
-        target=target,
-        input_cache=cache,
-        metadata_cache=metadata_target,
+        inputs_per_chunk=1, target=target, input_cache=cache, metadata_cache=metadata_target,
     )
     if extra_kwargs:
         kwargs.update(extra_kwargs)
@@ -29,10 +26,18 @@ def make_netCDFtoZarr_recipe(
 
 @pytest.fixture
 def netCDFtoZarr_recipe_sequential_only(
-    netcdf_local_file_pattern_sequential, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+    netcdf_local_file_pattern_sequential,
+    daily_xarray_dataset,
+    tmp_target,
+    tmp_cache,
+    tmp_metadata_target,
 ):
     return make_netCDFtoZarr_recipe(
-        netcdf_local_file_pattern_sequential, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+        netcdf_local_file_pattern_sequential,
+        daily_xarray_dataset,
+        tmp_target,
+        tmp_cache,
+        tmp_metadata_target,
     )
 
 

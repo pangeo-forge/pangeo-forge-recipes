@@ -182,7 +182,7 @@ def netcdf_local_file_pattern_sequential(netcdf_local_paths_sequential):
 
 @pytest.fixture(scope="session")
 def netcdf_local_file_pattern_sequential_multi_variable(
-    netcdf_local_paths_sequential_multi_variable
+    netcdf_local_paths_sequential_multi_variable,
 ):
     return make_file_pattern(netcdf_local_paths_sequential_multi_variable)
 
