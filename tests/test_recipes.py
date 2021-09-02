@@ -28,6 +28,15 @@ def make_netCDFtoZarr_recipe(
 
 
 @pytest.fixture
+def netCDFtoZarr_recipe_sequential_only(
+    netcdf_local_file_pattern_sequential, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+):
+    return make_netCDFtoZarr_recipe(
+        netcdf_local_file_pattern_sequential, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+    )
+
+
+@pytest.fixture
 def netCDFtoZarr_recipe(
     netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
 ):
@@ -259,12 +268,8 @@ def test_chunks(
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
-def test_lock_timeout(netCDFtoZarr_recipe, execute_recipe):
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
-
-    # `netCDFtoZarr_recipe` fixture is parametrized. We don't need to run this test more than once.
-    if len(file_pattern.merge_dims) != 0:
-        pytest.skip("It's redundant to run this test more than once.")
+def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe_sequential_only
 
     recipe = RecipeClass(file_pattern=file_pattern, lock_timeout=1, **kwargs)
 
