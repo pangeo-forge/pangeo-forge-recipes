@@ -13,7 +13,6 @@ import subprocess
 import sys
 
 import matplotlib.pyplot as plt
-from rich import print
 
 command_list = ["pytest", "--disable-warnings", "--collect-only"]
 
