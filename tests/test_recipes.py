@@ -13,48 +13,56 @@ from pangeo_forge_recipes.recipes.base import BaseRecipe
 from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
 
 
-@pytest.fixture
-def netCDFtoZarr_recipe(
-    daily_xarray_dataset, netcdf_local_file_pattern, tmp_target, tmp_cache, tmp_metadata_target
+def make_netCDFtoZarr_recipe(
+    file_pattern, xarray_dataset, target, cache, metadata_target, extra_kwargs=None
 ):
     kwargs = dict(
         inputs_per_chunk=1,
-        target=tmp_target,
-        input_cache=tmp_cache,
-        metadata_cache=tmp_metadata_target,
+        target=target,
+        input_cache=cache,
+        metadata_cache=metadata_target,
     )
-    return XarrayZarrRecipe, netcdf_local_file_pattern, kwargs, daily_xarray_dataset, tmp_target
+    if extra_kwargs:
+        kwargs.update(extra_kwargs)
+    return XarrayZarrRecipe, file_pattern, kwargs, xarray_dataset, target
+
+
+@pytest.fixture
+def netCDFtoZarr_recipe(
+    netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+):
+    return make_netCDFtoZarr_recipe(
+        netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+    )
 
 
 @pytest.fixture
 def netCDFtoZarr_http_recipe(
-    daily_xarray_dataset, netcdf_http_file_pattern, tmp_target, tmp_cache, tmp_metadata_target
+    netcdf_http_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
 ):
-    kwargs = dict(
-        inputs_per_chunk=1,
-        target=tmp_target,
-        input_cache=tmp_cache,
-        metadata_cache=tmp_metadata_target,
+    return make_netCDFtoZarr_recipe(
+        netcdf_http_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
     )
-    return XarrayZarrRecipe, netcdf_http_file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 @pytest.fixture
 def netCDFtoZarr_subset_recipe(
-    daily_xarray_dataset, netcdf_local_file_pattern, tmp_target, tmp_cache, tmp_metadata_target
+    netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
 ):
     items_per_file = netcdf_local_file_pattern.nitems_per_input.get("time", None)
     if items_per_file != 2:
         pytest.skip("This recipe only makes sense with items_per_file == 2.")
 
-    kwargs = dict(
-        subset_inputs={"time": 2},
-        inputs_per_chunk=1,
-        target=tmp_target,
-        input_cache=tmp_cache,
-        metadata_cache=tmp_metadata_target,
+    extra_kwargs = dict(subset_inputs={"time": 2})
+
+    return make_netCDFtoZarr_recipe(
+        netcdf_local_file_pattern,
+        daily_xarray_dataset,
+        tmp_target,
+        tmp_cache,
+        tmp_metadata_target,
+        extra_kwargs,
     )
-    return XarrayZarrRecipe, netcdf_local_file_pattern, kwargs, daily_xarray_dataset, tmp_target
 
 
 all_recipes = [
