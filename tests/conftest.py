@@ -1,3 +1,18 @@
+"""
+Objects in this module belong to the following groups, delimited by inline comments:
+    - Helper functions:
+        Functions used in the creation of fixtures
+    - Dataset + path fixtures:
+        Create a dataset or a path to dataset(s)
+    - FilePattern fixtures:
+        Create `pangeo_forge_recipes.patterns.FilePattern` instances
+    - Storage fixtures:
+        Create temporary storage locations for caching, writing, etc.
+    - Execution fixtures:
+        Create infrastructure or define steps for executing recipes
+Note:
+   Recipe fixtures are defined in their respective test modules, e.g. `test_recipes.py`
+"""
 import logging
 import os
 import socket
@@ -29,6 +44,8 @@ from pangeo_forge_recipes.patterns import (
 )
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
 
+# Helper functions --------------------------------------------------------------------------------
+
 
 # to use this feature, e.g.
 # $ pytest --redirect-dask-worker-logs-to-stdout=DEBUG
@@ -36,45 +53,6 @@ def pytest_addoption(parser):
     parser.addoption(
         "--redirect-dask-worker-logs-to-stdout", action="store", default="NOTSET",
     )
-
-
-def get_open_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("", 0))
-    s.listen(1)
-    port = str(s.getsockname()[1])
-    s.close()
-    return port
-
-
-@pytest.fixture(scope="session")
-def daily_xarray_dataset():
-    """Return a synthetic random xarray dataset."""
-    np.random.seed(1)
-    # TODO: change nt to 11 in order to catch the edge case where
-    # items_per_input does not evenly divide the length of the sequence dimension
-    nt, ny, nx = 10, 18, 36
-    time = pd.date_range(start="2010-01-01", periods=nt, freq="D")
-    lon = (np.arange(nx) + 0.5) * 360 / nx
-    lon_attrs = {"units": "degrees_east", "long_name": "longitude"}
-    lat = (np.arange(ny) + 0.5) * 180 / ny
-    lat_attrs = {"units": "degrees_north", "long_name": "latitude"}
-    foo = np.random.rand(nt, ny, nx)
-    foo_attrs = {"long_name": "Fantastic Foo"}
-    # make sure things work with heterogenous data types
-    bar = np.random.randint(0, 10, size=(nt, ny, nx))
-    bar_attrs = {"long_name": "Beautiful Bar"}
-    dims = ("time", "lat", "lon")
-    ds = xr.Dataset(
-        {"bar": (dims, bar, bar_attrs), "foo": (dims, foo, foo_attrs)},
-        coords={
-            "time": ("time", time),
-            "lat": ("lat", lat, lat_attrs),
-            "lon": ("lon", lon, lon_attrs),
-        },
-        attrs={"conventions": "CF 1.6"},
-    )
-    return ds
 
 
 def split_up_files_by_day(ds, day_param):
@@ -103,7 +81,7 @@ def make_file_pattern(path_fixture):
     Parameters
     ----------
     path_fixture : callable
-        One of `netcdf_local_paths` or `netcdf_http_paths`
+        `netcdf_local_paths`, `netcdf_http_paths`, or similar
     """
     paths, items_per_file, fnames_by_variable, path_format, kwargs = path_fixture
 
@@ -127,11 +105,6 @@ def make_file_pattern(path_fixture):
     return file_pattern
 
 
-@pytest.fixture(scope="session", params=["D", "2D"])
-def items_per_file(request):
-    return request.param
-
-
 def make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter):
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     file_splitter_tuple = file_splitter(daily_xarray_dataset.copy(), items_per_file)
@@ -149,59 +122,13 @@ def make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file
     return full_paths, items_per_file, fnames_by_variable, path_format, kwargs
 
 
-@pytest.fixture(scope="session")
-def netcdf_local_paths_sequential(daily_xarray_dataset, tmpdir_factory, items_per_file):
-    return make_netcdf_local_paths(
-        daily_xarray_dataset, tmpdir_factory, items_per_file, split_up_files_by_day
-    )
-
-
-@pytest.fixture(scope="session")
-def netcdf_local_paths_sequential_multi_variable(
-    daily_xarray_dataset, tmpdir_factory, items_per_file
-):
-    return make_netcdf_local_paths(
-        daily_xarray_dataset, tmpdir_factory, items_per_file, split_up_files_by_variable_and_day
-    )
-
-
-@pytest.fixture(
-    scope="session",
-    params=[
-        lazy_fixture("netcdf_local_paths_sequential"),
-        lazy_fixture("netcdf_local_paths_sequential_multi_variable"),
-    ],
-)
-def netcdf_local_paths(request):
-    return request.param
-
-
-@pytest.fixture(scope="session")
-def netcdf_local_file_pattern_sequential(netcdf_local_paths_sequential):
-    return make_file_pattern(netcdf_local_paths_sequential)
-
-
-@pytest.fixture(scope="session")
-def netcdf_local_file_pattern_sequential_multi_variable(
-    netcdf_local_paths_sequential_multi_variable,
-):
-    return make_file_pattern(netcdf_local_paths_sequential_multi_variable)
-
-
-@pytest.fixture(
-    scope="session",
-    params=[
-        lazy_fixture("netcdf_local_file_pattern_sequential"),
-        lazy_fixture("netcdf_local_file_pattern_sequential_multi_variable"),
-    ],
-)
-def netcdf_local_file_pattern(request):
-    return request.param
-
-
-@pytest.fixture(scope="session")
-def netcdf_http_file_pattern(netcdf_http_paths):
-    return make_file_pattern(netcdf_http_paths)
+def get_open_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("", 0))
+    s.listen(1)
+    port = str(s.getsockname()[1])
+    s.close()
+    return port
 
 
 def start_http_server(paths, request, username=None, password=None, required_query_string=None):
@@ -234,6 +161,71 @@ def start_http_server(paths, request, username=None, password=None, required_que
     return url
 
 
+# Dataset + path fixtures -------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def daily_xarray_dataset():
+    """Return a synthetic random xarray dataset."""
+    np.random.seed(1)
+    # TODO: change nt to 11 in order to catch the edge case where
+    # items_per_input does not evenly divide the length of the sequence dimension
+    nt, ny, nx = 10, 18, 36
+    time = pd.date_range(start="2010-01-01", periods=nt, freq="D")
+    lon = (np.arange(nx) + 0.5) * 360 / nx
+    lon_attrs = {"units": "degrees_east", "long_name": "longitude"}
+    lat = (np.arange(ny) + 0.5) * 180 / ny
+    lat_attrs = {"units": "degrees_north", "long_name": "latitude"}
+    foo = np.random.rand(nt, ny, nx)
+    foo_attrs = {"long_name": "Fantastic Foo"}
+    # make sure things work with heterogenous data types
+    bar = np.random.randint(0, 10, size=(nt, ny, nx))
+    bar_attrs = {"long_name": "Beautiful Bar"}
+    dims = ("time", "lat", "lon")
+    ds = xr.Dataset(
+        {"bar": (dims, bar, bar_attrs), "foo": (dims, foo, foo_attrs)},
+        coords={
+            "time": ("time", time),
+            "lat": ("lat", lat, lat_attrs),
+            "lon": ("lon", lon, lon_attrs),
+        },
+        attrs={"conventions": "CF 1.6"},
+    )
+    return ds
+
+
+@pytest.fixture(scope="session", params=["D", "2D"])
+def items_per_file(request):
+    return request.param
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_paths_sequential(daily_xarray_dataset, tmpdir_factory, items_per_file):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset, tmpdir_factory, items_per_file, split_up_files_by_day
+    )
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_paths_sequential_multi_variable(
+    daily_xarray_dataset, tmpdir_factory, items_per_file
+):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset, tmpdir_factory, items_per_file, split_up_files_by_variable_and_day
+    )
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_local_paths_sequential"),
+        lazy_fixture("netcdf_local_paths_sequential_multi_variable"),
+    ],
+)
+def netcdf_local_paths(request):
+    return request.param
+
+
 @pytest.fixture(
     scope="session",
     params=[
@@ -259,6 +251,40 @@ def netcdf_http_paths(netcdf_local_paths, request):
     return all_urls, items_per_file, fnames_by_variable, path_format, kwargs
 
 
+# FilePattern fixtures ----------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_pattern_sequential(netcdf_local_paths_sequential):
+    return make_file_pattern(netcdf_local_paths_sequential)
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_pattern_sequential_multi_variable(
+    netcdf_local_paths_sequential_multi_variable,
+):
+    return make_file_pattern(netcdf_local_paths_sequential_multi_variable)
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_local_file_pattern_sequential"),
+        lazy_fixture("netcdf_local_file_pattern_sequential_multi_variable"),
+    ],
+)
+def netcdf_local_file_pattern(request):
+    return request.param
+
+
+@pytest.fixture(scope="session")
+def netcdf_http_file_pattern(netcdf_http_paths):
+    return make_file_pattern(netcdf_http_paths)
+
+
+# Storage fixtures --------------------------------------------------------------------------------
+
+
 @pytest.fixture()
 def tmp_target(tmpdir_factory):
     fs = fsspec.get_filesystem_class("file")()
@@ -280,6 +306,9 @@ def tmp_metadata_target(tmpdir_factory):
     fs = fsspec.get_filesystem_class("file")()
     cache = MetadataTarget(fs, path)
     return cache
+
+
+# Execution fixtures ------------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="session")
