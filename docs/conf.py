@@ -16,8 +16,8 @@ extensions = [
 ]
 
 extlinks = {
-    "issue": ("https://github.com/pangeo-forge/pange-forge-recipes/issues/%s", "GH issue "),
-    "pull": ("https://github.com/pangeo-forge/pange-forge-recipes/pull/%s", "GH PR "),
+    "issue": ("https://github.com/pangeo-forge/pangeo-forge-recipes/issues/%s", "GH issue "),
+    "pull": ("https://github.com/pangeo-forge/pangeo-forge-recipes/pull/%s", "GH PR "),
 }
 
 exclude_patterns = ["_build", "**.ipynb_checkpoints"]

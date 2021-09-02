@@ -1,11 +1,21 @@
 # Release Notes
 
-## v0.5.1 - Unreleased
+## v0.6.1 - Unreleased
 
+
+## v0.6.0 - 2021-09-02
+
+- Added {class}`pangeo_forge_recipes.recipes.HDFReferenceRecipe` class to create virtual Zarrs from collections of
+  NetCDF / HDF5 files. {pull}`174`
+- Limit output from logging. {pull}`175`
+- Change documentation structure. {pull}`178`
+- Move `fsspec_open_kwargs`, `query_string_secrets`, and `is_opendap` parameters
+  out of {class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe` and into
+  {class}`pangeo_forge_recipes.patterns.FilePattern`. {pull}`167`
 
 ## v0.5.0 - 2021-07-11
 
-- Added `subset_inputs` option to `XarrayZarrRecipe`. {issue}`93`, {pull}`166`
+- Added `subset_inputs` option to {class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe`. {issue}`93`, {pull}`166`
 - Fixed file opening to eliminate HDF errors related to closed files. {issue}`170`, {pull}`171`
 - Changed default behavior of executors so that the `cache_input` loop is always
   run, regardless of the value of `cache_inputs`. {pull}`168`
@@ -20,7 +30,7 @@
 
 ## v0.3.4 - 2021-05-25
 
-- Added `copy_pruned` method to `XarrayZarrRecipe` to facilitate testing.
+- Added `copy_pruned` method to {class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe` to facilitate testing.
 - Internal refactor of storage module.
 
 ## v0.3.3 - 2021-05-10
