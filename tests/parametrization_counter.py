@@ -58,27 +58,19 @@ if __name__ == "__main__":
         if args[1] == "text":
             print(details)
         elif args[1] == "plot":
-            nrows = (len(details.keys()) // 3) + 1
-            fig, axs = plt.subplots(nrows=nrows, ncols=3, figsize=(20, 10))
-            row = col = 0
-            for i, k in enumerate(details.keys()):
-                if i // 3 != row:
-                    row += 1
-                keys = details[k]["detail"].keys()
-                values = details[k]["detail"].values()
-                yticks = range(len(keys))
-                axs[row, col].barh(yticks, values)
-                axs[row, col].set_yticks(yticks)
-                axs[row, col].set_yticklabels(keys)
-                axs[row, col].set_xticks(range(max(values)+1))
-                axs[row, col].set_title(label=f"{k}: {details[k]['total']} calls")
-                axs[row, col].set_box_aspect(1)
-                col += 1
-                col = col if col < 3 else 0
-                plt.tight_layout()
-            for row in axs:
-                for ax in row:
-                    # hide unused axes
-                    if not ax.patches:
-                        ax.set_axis_off()
+            fig, ax = plt.subplots(1, 1)
+
+            # aggregate values to plot
+            flattened = {}
+            for fname in details.keys():
+                for test in details[fname]["detail"].keys():
+                    flattened.update({test: details[fname]["detail"][test]})
+
+            keys = flattened.keys()
+            values = flattened.values()
+            yticks = range(len(keys))
+            plt.barh(yticks, values)
+            plt.yticks(yticks, labels=keys)
+            plt.xticks(range(0, max(values)+1, 50))
+            plt.tight_layout()
             plt.show()
