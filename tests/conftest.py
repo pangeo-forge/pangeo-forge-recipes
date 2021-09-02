@@ -161,6 +161,23 @@ def start_http_server(paths, request, username=None, password=None, required_que
     return url
 
 
+def make_netcdf_http_paths(netcdf_local_paths, request):
+    paths, items_per_file, fnames_by_variable, _, kwargs = netcdf_local_paths
+
+    url = start_http_server(paths, request, **request.param)
+    path_format = url + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
+
+    fnames = [path.basename for path in paths]
+    all_urls = ["/".join([url, str(fname)]) for fname in fnames]
+
+    if "username" in request.param.keys():
+        kwargs.update(dict(fsspec_open_kwargs={"auth": aiohttp.BasicAuth("foo", "bar")}))
+    if "required_query_string" in request.param.keys():
+        kwargs.update(dict(query_string_secrets={"foo": "foo", "bar": "bar"}))
+
+    return all_urls, items_per_file, fnames_by_variable, path_format, kwargs
+
+
 # Dataset + path fixtures -------------------------------------------------------------------------
 
 
@@ -207,7 +224,7 @@ def netcdf_local_paths_sequential(daily_xarray_dataset, tmpdir_factory, items_pe
 
 
 @pytest.fixture(scope="session")
-def netcdf_local_paths_sequential_multi_variable(
+def netcdf_local_paths_sequential_multivariable(
     daily_xarray_dataset, tmpdir_factory, items_per_file
 ):
     return make_netcdf_local_paths(
@@ -219,36 +236,74 @@ def netcdf_local_paths_sequential_multi_variable(
     scope="session",
     params=[
         lazy_fixture("netcdf_local_paths_sequential"),
-        lazy_fixture("netcdf_local_paths_sequential_multi_variable"),
+        lazy_fixture("netcdf_local_paths_sequential_multivariable"),
     ],
 )
 def netcdf_local_paths(request):
     return request.param
 
 
+http_auth_params = [
+    dict(username="foo", password="bar"),
+    dict(required_query_string="foo=foo&bar=bar"),
+]
+
+
+@pytest.fixture(scope="session", params=[dict()])
+def netcdf_public_http_paths_sequential(netcdf_local_paths_sequential, request):
+    return make_netcdf_http_paths(netcdf_local_paths_sequential, request)
+
+
+@pytest.fixture(scope="session", params=[*http_auth_params])
+def netcdf_private_http_paths_sequential(netcdf_local_paths_sequential, request):
+    return make_netcdf_http_paths(netcdf_local_paths_sequential, request)
+
+
+@pytest.fixture(scope="session", params=[dict()])
+def netcdf_public_http_paths_sequential_multivariable(
+    netcdf_local_paths_sequential_multivariable, request,
+):
+    return make_netcdf_http_paths(netcdf_local_paths_sequential_multivariable, request)
+
+
+@pytest.fixture(scope="session", params=[*http_auth_params])
+def netcdf_private_http_paths_sequential_multivariable(
+    netcdf_local_paths_sequential_multivariable, request,
+):
+    return make_netcdf_http_paths(netcdf_local_paths_sequential_multivariable, request)
+
+
 @pytest.fixture(
     scope="session",
     params=[
-        {},
-        dict(username="foo", password="bar"),
-        dict(required_query_string="foo=foo&bar=bar"),
+        lazy_fixture("netcdf_public_http_paths_sequential"),
+        lazy_fixture("netcdf_public_http_paths_sequential_multivariable"),
     ],
 )
-def netcdf_http_paths(netcdf_local_paths, request):
-    paths, items_per_file, fnames_by_variable, _, kwargs = netcdf_local_paths
+def netcdf_public_http_paths(request):
+    return request.param
 
-    url = start_http_server(paths, request, **request.param)
-    path_format = url + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
 
-    fnames = [path.basename for path in paths]
-    all_urls = ["/".join([url, str(fname)]) for fname in fnames]
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_private_http_paths_sequential"),
+        lazy_fixture("netcdf_private_http_paths_sequential_multivariable"),
+    ],
+)
+def netcdf_private_http_paths(request):
+    return request.param
 
-    if "username" in request.param.keys():
-        kwargs.update(dict(fsspec_open_kwargs={"auth": aiohttp.BasicAuth("foo", "bar")}))
-    if "required_query_string" in request.param.keys():
-        kwargs.update(dict(query_string_secrets={"foo": "foo", "bar": "bar"}))
 
-    return all_urls, items_per_file, fnames_by_variable, path_format, kwargs
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_public_http_paths"),
+        lazy_fixture("netcdf_private_http_paths"),
+    ],
+)
+def netcdf_http_paths(request):
+    return request.param
 
 
 # FilePattern fixtures ----------------------------------------------------------------------------
@@ -260,17 +315,17 @@ def netcdf_local_file_pattern_sequential(netcdf_local_paths_sequential):
 
 
 @pytest.fixture(scope="session")
-def netcdf_local_file_pattern_sequential_multi_variable(
-    netcdf_local_paths_sequential_multi_variable,
+def netcdf_local_file_pattern_sequential_multivariable(
+    netcdf_local_paths_sequential_multivariable,
 ):
-    return make_file_pattern(netcdf_local_paths_sequential_multi_variable)
+    return make_file_pattern(netcdf_local_paths_sequential_multivariable)
 
 
 @pytest.fixture(
     scope="session",
     params=[
         lazy_fixture("netcdf_local_file_pattern_sequential"),
-        lazy_fixture("netcdf_local_file_pattern_sequential_multi_variable"),
+        lazy_fixture("netcdf_local_file_pattern_sequential_multivariable"),
     ],
 )
 def netcdf_local_file_pattern(request):
