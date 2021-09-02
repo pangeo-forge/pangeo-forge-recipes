@@ -9,7 +9,7 @@
   NetCDF / HDF5 files. {pull}`174`
 - Limit output from logging. {pull}`175`
 - Change documentation structure. {pull}`178`
-- Move `fsspec_open_kwargs`, `query_string_secrets`, and `is_opendap` parameters
+- Move `fsspec_open_kwargs` and `is_opendap` parameters
   out of {class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe` and into
   {class}`pangeo_forge_recipes.patterns.FilePattern`. {pull}`167`
 
