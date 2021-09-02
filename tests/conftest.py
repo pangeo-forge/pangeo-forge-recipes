@@ -12,6 +12,7 @@ import pytest
 import xarray as xr
 from dask.distributed import Client, LocalCluster
 from prefect.executors import DaskExecutor
+
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
