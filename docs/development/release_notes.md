@@ -11,7 +11,8 @@
 - Change documentation structure. {pull}`178`
 - Move `fsspec_open_kwargs` and `is_opendap` parameters
   out of {class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe` and into
-  {class}`pangeo_forge_recipes.patterns.FilePattern`. {pull}`167`
+  {class}`pangeo_forge_recipes.patterns.FilePattern`. Add `query_string_secrets`
+  as attribute of {class}`pangeo_forge_recipes.patterns.FilePattern`. {pull}`167`
 
 ## v0.5.0 - 2021-07-11
 
