@@ -195,7 +195,7 @@ def netcdf_local_file_pattern_sequential_multi_variable(
     ],
 )
 def netcdf_local_file_pattern(request):
-    return make_file_pattern(request.param)
+    return request.param
 
 
 @pytest.fixture(scope="session")
