@@ -206,26 +206,9 @@ def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
-@pytest.mark.parametrize("inputs_per_chunk,subset_inputs", [(1, {}), (1, {"time": 2}), (2, {})])
-@pytest.mark.parametrize(
-    "target_chunks,specify_nitems_per_input,error_expectation",
-    [
-        ({}, True, does_not_raise()),
-        ({"lon": 12}, True, does_not_raise()),
-        ({"lon": 12, "time": 1}, True, does_not_raise()),
-        ({"lon": 12, "time": 3}, True, does_not_raise()),
-        ({"time": 10}, True, does_not_raise()),  # only one big chunk
-        ({"lon": 12, "time": 1}, False, does_not_raise()),
-        ({"lon": 12, "time": 3}, False, does_not_raise()),
-        # can't determine target chunks for the next two because 'time' missing from target_chunks
-        ({}, False, pytest.raises(ValueError)),
-        ({"lon": 12}, False, pytest.raises(ValueError)),
-    ],
-)
-@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
-def test_chunks(
+def do_actual_chunks_test(
     recipe_fixture,
-    execute_recipe_python,
+    executor,
     inputs_per_chunk,
     target_chunks,
     error_expectation,
@@ -271,7 +254,7 @@ def test_chunks(
     with subset_error_expectation as excinfo:
         # error is raised at execution stage because we don't generally know a priori how
         # many items in each file
-        execute_recipe_python(rec)
+        executor(rec)
     if excinfo:
         # don't continue if we got an exception
         return
@@ -292,6 +275,43 @@ def test_chunks(
 
     ds_actual.load()
     xr.testing.assert_identical(ds_actual, ds_expected)
+
+
+@pytest.mark.parametrize("inputs_per_chunk,subset_inputs", [(1, {}), (1, {"time": 2}), (2, {})])
+@pytest.mark.parametrize(
+    "target_chunks,specify_nitems_per_input,error_expectation",
+    [
+        ({}, True, does_not_raise()),
+        ({"lon": 12}, True, does_not_raise()),
+        ({"lon": 12, "time": 1}, True, does_not_raise()),
+        ({"lon": 12, "time": 3}, True, does_not_raise()),
+        ({"time": 10}, True, does_not_raise()),  # only one big chunk
+        ({"lon": 12, "time": 1}, False, does_not_raise()),
+        ({"lon": 12, "time": 3}, False, does_not_raise()),
+        # can't determine target chunks for the next two because 'time' missing from target_chunks
+        ({}, False, pytest.raises(ValueError)),
+        ({"lon": 12}, False, pytest.raises(ValueError)),
+    ],
+)
+@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
+def test_chunks(
+    recipe_fixture,
+    execute_recipe_python,
+    inputs_per_chunk,
+    target_chunks,
+    error_expectation,
+    subset_inputs,
+    specify_nitems_per_input,
+):
+    do_actual_chunks_test(
+        recipe_fixture,
+        execute_recipe_python,
+        inputs_per_chunk,
+        target_chunks,
+        error_expectation,
+        subset_inputs,
+        specify_nitems_per_input,
+    )
 
 
 def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_dask):
