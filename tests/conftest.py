@@ -486,10 +486,7 @@ def execute_recipe_no_dask(request):
 
 
 @pytest.fixture(
-    params=[
-        lazy_fixture("execute_recipe_dask"),
-        lazy_fixture("execute_recipe_prefect_dask"),
-    ],
+    params=[lazy_fixture("execute_recipe_dask"), lazy_fixture("execute_recipe_prefect_dask")],
 )
 def execute_recipe_with_dask(request):
     return request.param
