@@ -314,6 +314,32 @@ def test_chunks(
     )
 
 
+@pytest.mark.parametrize("inputs_per_chunk,subset_inputs", [(1, {}), (1, {"time": 2}), (2, {})])
+@pytest.mark.parametrize(
+    "target_chunks,specify_nitems_per_input,error_expectation",
+    [({"lon": 12, "time": 3}, False, does_not_raise())],
+)
+@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
+def test_chunks_distributed_locking(
+    recipe_fixture,
+    execute_recipe_with_dask,
+    inputs_per_chunk,
+    target_chunks,
+    error_expectation,
+    subset_inputs,
+    specify_nitems_per_input,
+):
+    do_actual_chunks_test(
+        recipe_fixture,
+        execute_recipe_with_dask,
+        inputs_per_chunk,
+        target_chunks,
+        error_expectation,
+        subset_inputs,
+        specify_nitems_per_input,
+    )
+
+
 def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_dask):
     RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe_sequential_only
 
