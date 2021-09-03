@@ -211,25 +211,52 @@ def daily_xarray_dataset():
     return ds
 
 
-@pytest.fixture(scope="session", params=["D", "2D"])
-def items_per_file(request):
+@pytest.fixture(scope="session")
+def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
+    return make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day)
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_paths_sequential_2d(daily_xarray_dataset, tmpdir_factory):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset, tmpdir_factory, "2D", split_up_files_by_day,
+    )
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_local_paths_sequential_1d"),
+        lazy_fixture("netcdf_local_paths_sequential_2d"),
+    ],
+)
+def netcdf_local_paths_sequential(request):
     return request.param
 
 
 @pytest.fixture(scope="session")
-def netcdf_local_paths_sequential(daily_xarray_dataset, tmpdir_factory, items_per_file):
+def netcdf_local_paths_sequential_multivariable_1d(daily_xarray_dataset, tmpdir_factory):
     return make_netcdf_local_paths(
-        daily_xarray_dataset, tmpdir_factory, items_per_file, split_up_files_by_day
+        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_variable_and_day,
     )
 
 
 @pytest.fixture(scope="session")
-def netcdf_local_paths_sequential_multivariable(
-    daily_xarray_dataset, tmpdir_factory, items_per_file
-):
+def netcdf_local_paths_sequential_multivariable_2d(daily_xarray_dataset, tmpdir_factory):
     return make_netcdf_local_paths(
-        daily_xarray_dataset, tmpdir_factory, items_per_file, split_up_files_by_variable_and_day
+        daily_xarray_dataset, tmpdir_factory, "2D", split_up_files_by_variable_and_day,
     )
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_local_paths_sequential_multivariable_1d"),
+        lazy_fixture("netcdf_local_paths_sequential_multivariable_2d"),
+    ],
+)
+def netcdf_local_paths_sequential_multivariable(request):
+    return request.param
 
 
 @pytest.fixture(
@@ -250,67 +277,23 @@ http_auth_params = [
 
 
 @pytest.fixture(scope="session", params=[dict()])
-def netcdf_public_http_paths_sequential(netcdf_local_paths_sequential, request):
-    return make_netcdf_http_paths(netcdf_local_paths_sequential, request)
+def netcdf_public_http_paths_sequential_1d(netcdf_local_paths_sequential_1d, request):
+    return make_netcdf_http_paths(netcdf_local_paths_sequential_1d, request)
 
 
 @pytest.fixture(scope="session", params=[*http_auth_params])
-def netcdf_private_http_paths_sequential(netcdf_local_paths_sequential, request):
-    return make_netcdf_http_paths(netcdf_local_paths_sequential, request)
-
-
-@pytest.fixture(scope="session", params=[dict()])
-def netcdf_public_http_paths_sequential_multivariable(
-    netcdf_local_paths_sequential_multivariable, request,
-):
-    return make_netcdf_http_paths(netcdf_local_paths_sequential_multivariable, request)
-
-
-@pytest.fixture(scope="session", params=[*http_auth_params])
-def netcdf_private_http_paths_sequential_multivariable(
-    netcdf_local_paths_sequential_multivariable, request,
-):
-    return make_netcdf_http_paths(netcdf_local_paths_sequential_multivariable, request)
+def netcdf_private_http_paths_sequential_1d(netcdf_local_paths_sequential_1d, request):
+    return make_netcdf_http_paths(netcdf_local_paths_sequential_1d, request)
 
 
 @pytest.fixture(
     scope="session",
     params=[
-        lazy_fixture("netcdf_public_http_paths_sequential"),
-        lazy_fixture("netcdf_public_http_paths_sequential_multivariable"),
+        lazy_fixture("netcdf_public_http_paths_sequential_1d"),
+        lazy_fixture("netcdf_private_http_paths_sequential_1d"),
     ],
 )
-def netcdf_public_http_paths(request):
-    return request.param
-
-
-@pytest.fixture(
-    scope="session",
-    params=[
-        lazy_fixture("netcdf_private_http_paths_sequential"),
-        lazy_fixture("netcdf_private_http_paths_sequential_multivariable"),
-    ],
-)
-def netcdf_private_http_paths(request):
-    return request.param
-
-
-@pytest.fixture(
-    scope="session",
-    params=[lazy_fixture("netcdf_public_http_paths"), lazy_fixture("netcdf_private_http_paths")],
-)
-def netcdf_http_paths(request):
-    return request.param
-
-
-@pytest.fixture(
-    scope="session",
-    params=[
-        lazy_fixture("netcdf_public_http_paths_sequential"),
-        lazy_fixture("netcdf_private_http_paths_sequential"),
-    ],
-)
-def netcdf_http_paths_sequential_only(request):
+def netcdf_http_paths_sequential_1d(request):
     return request.param
 
 
@@ -341,13 +324,8 @@ def netcdf_local_file_pattern(request):
 
 
 @pytest.fixture(scope="session")
-def netcdf_http_file_pattern(netcdf_http_paths):
-    return make_file_pattern(netcdf_http_paths)
-
-
-@pytest.fixture(scope="session")
-def netcdf_http_file_pattern_sequential_only(netcdf_http_paths_sequential_only):
-    return make_file_pattern(netcdf_http_paths_sequential_only)
+def netcdf_http_file_pattern_sequential_1d(netcdf_http_paths_sequential_1d):
+    return make_file_pattern(netcdf_http_paths_sequential_1d)
 
 
 # Storage fixtures --------------------------------------------------------------------------------
