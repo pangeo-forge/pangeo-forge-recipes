@@ -60,15 +60,15 @@ def netCDFtoZarr_http_recipe(
 
 
 @pytest.fixture
-def netCDFtoZarr_http_recipe_sequential_only(
-    netcdf_http_file_pattern_sequential_only,
+def netCDFtoZarr_http_recipe_sequential_1d(
+    netcdf_http_file_pattern_sequential_1d,
     daily_xarray_dataset,
     tmp_target,
     tmp_cache,
     tmp_metadata_target,
 ):
     return make_netCDFtoZarr_recipe(
-        netcdf_http_file_pattern_sequential_only,
+        netcdf_http_file_pattern_sequential_1d,
         daily_xarray_dataset,
         tmp_target,
         tmp_cache,
@@ -152,7 +152,7 @@ def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
     "recipe",
     [
         lazy_fixture("netCDFtoZarr_recipe_sequential_only"),
-        lazy_fixture("netCDFtoZarr_http_recipe_sequential_only"),
+        lazy_fixture("netCDFtoZarr_http_recipe_sequential_1d"),
     ],
 )
 def test_recipe_caching_copying(recipe, execute_recipe, cache_inputs, copy_input_to_local_file):
