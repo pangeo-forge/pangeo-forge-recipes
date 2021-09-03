@@ -1,9 +1,5 @@
 import fsspec
-import pytest
 import xarray as xr
-
-# need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
-from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.storage import _add_query_string_secrets
 from pangeo_forge_recipes.utils import fix_scalar_attr_encoding
@@ -16,14 +12,10 @@ def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
     assert ds.identical(daily_xarray_dataset)
 
 
-@pytest.mark.parametrize(
-    "http_paths",
-    [lazy_fixture("netcdf_http_paths"), lazy_fixture("netcdf_http_paths_sequential_only")],
-)
-def test_fixture_http_files(daily_xarray_dataset, http_paths):
-    urls = http_paths[0]
-    open_kwargs = http_paths[-1]["fsspec_open_kwargs"]
-    secrets = http_paths[-1]["query_string_secrets"]
+def test_fixture_http_files(daily_xarray_dataset, netcdf_http_paths_sequential_1d):
+    urls = netcdf_http_paths_sequential_1d[0]
+    open_kwargs = netcdf_http_paths_sequential_1d[-1]["fsspec_open_kwargs"]
+    secrets = netcdf_http_paths_sequential_1d[-1]["query_string_secrets"]
     if secrets:
         urls = [_add_query_string_secrets(url, secrets) for url in urls]
     open_files = [fsspec.open(url, **open_kwargs).open() for url in urls]
