@@ -40,7 +40,11 @@ def test_metadata_target(tmp_metadata_target):
 
 
 @pytest.mark.parametrize(
-    "file_paths", [lazy_fixture("netcdf_local_paths"), lazy_fixture("netcdf_http_paths")],
+    "file_paths",
+    [
+        lazy_fixture("netcdf_local_paths_sequential"),
+        lazy_fixture("netcdf_http_paths_sequential_only"),
+    ],
 )
 @pytest.mark.parametrize("copy_to_local", [False, True])
 @pytest.mark.parametrize("use_cache, cache_first", [(False, False), (True, False), (True, True)])
