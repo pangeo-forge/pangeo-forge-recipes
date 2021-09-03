@@ -18,10 +18,7 @@ def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
 
 @pytest.mark.parametrize(
     "http_paths",
-    [
-        lazy_fixture("netcdf_http_paths"),
-        lazy_fixture("netcdf_http_paths_sequential_only")
-    ],
+    [lazy_fixture("netcdf_http_paths"), lazy_fixture("netcdf_http_paths_sequential_only")],
 )
 def test_fixture_http_files(daily_xarray_dataset, http_paths):
     urls = http_paths[0]
