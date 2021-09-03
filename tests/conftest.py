@@ -306,6 +306,17 @@ def netcdf_http_paths(request):
     return request.param
 
 
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("netcdf_public_http_paths_sequential"),
+        lazy_fixture("netcdf_private_http_paths_sequential"),
+    ],
+)
+def netcdf_http_paths_sequential_only(request):
+    return request.param
+
+
 # FilePattern fixtures ----------------------------------------------------------------------------
 
 
