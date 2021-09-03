@@ -403,46 +403,90 @@ _executors = {
 }
 
 
-@pytest.fixture(params=["manual", "python", "dask", "prefect", "prefect-dask"])
-def execute_recipe(request, dask_cluster):
-    if request.param == "manual":
+@pytest.fixture()
+def execute_recipe_manual():
 
-        def execute(r):
-            if r.cache_inputs:
-                for input_key in r.iter_inputs():
-                    r.cache_input(input_key)
-            r.prepare_target()
-            for chunk_key in r.iter_chunks():
-                r.store_chunk(chunk_key)
-            r.finalize_target()
+    def execute(r):
+        if r.cache_inputs:
+            for input_key in r.iter_inputs():
+                r.cache_input(input_key)
+        r.prepare_target()
+        for chunk_key in r.iter_chunks():
+            r.store_chunk(chunk_key)
+        r.finalize_target()
 
-    elif request.param == "python":
-
-        def execute(recipe):
-            return recipe.to_function()()
-
-    elif request.param == "dask":
-
-        def execute(recipe):
-            with Client(dask_cluster):
-                return recipe.to_dask().compute()
-
-    elif request.param == "prefect":
-
-        def execute(recipe):
-            state = recipe.to_prefect().run()
-            if state.is_failed():
-                raise ValueError(f"Prefect flow run failed with message {state.message}")
-
-    else:
-        assert request.param == "prefect-dask"
-
-        def execute(recipe):
-            flow = recipe.to_prefect()
-            executor = DaskExecutor(address=dask_cluster.scheduler_address)
-            state = flow.run(executor=executor)
-            if state.is_failed():
-                raise ValueError(f"Prefect flow run failed with message {state.message}")
-
-    execute.param = request.param
     return execute
+
+
+@pytest.fixture()
+def execute_recipe_python():
+
+    def execute(recipe):
+        return recipe.to_function()()
+
+    return execute
+
+
+@pytest.fixture()
+def execute_recipe_dask(dask_cluster):
+
+    def execute(recipe):
+        with Client(dask_cluster):
+            return recipe.to_dask().compute()
+
+    return execute
+
+
+@pytest.fixture()
+def execute_recipe_prefect():
+
+    def execute(recipe):
+        state = recipe.to_prefect().run()
+        if state.is_failed():
+            raise ValueError(f"Prefect flow run failed with message {state.message}")
+
+    return execute
+
+
+@pytest.fixture()
+def execute_recipe_prefect_dask(dask_cluster):
+
+    def execute(recipe):
+        flow = recipe.to_prefect()
+        executor = DaskExecutor(address=dask_cluster.scheduler_address)
+        state = flow.run(executor=executor)
+        if state.is_failed():
+            raise ValueError(f"Prefect flow run failed with message {state.message}")
+
+    return execute
+
+
+@pytest.fixture(
+    params=[
+        lazy_fixture("execute_recipe_manual"),
+        lazy_fixture("execute_recipe_python"),
+        lazy_fixture("execute_recipe_dask"),
+    ],
+)
+def execute_recipe_no_prefect(request):
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        lazy_fixture("execute_recipe_prefect"),
+        lazy_fixture("execute_recipe_prefect_dask"),
+    ],
+)
+def execute_recipe_with_prefect(request):
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        lazy_fixture("execute_recipe_no_prefect"),
+        lazy_fixture("execute_recipe_with_prefect"),
+    ],
+)
+def execute_recipe(request):
+    return request.param
