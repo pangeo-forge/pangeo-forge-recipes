@@ -225,7 +225,7 @@ def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
 @pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
 def test_chunks(
     recipe_fixture,
-    execute_recipe,
+    execute_recipe_python,
     inputs_per_chunk,
     target_chunks,
     error_expectation,
@@ -271,7 +271,7 @@ def test_chunks(
     with subset_error_expectation as excinfo:
         # error is raised at execution stage because we don't generally know a priori how
         # many items in each file
-        execute_recipe(rec)
+        execute_recipe_python(rec)
     if excinfo:
         # don't continue if we got an exception
         return
