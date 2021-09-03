@@ -59,7 +59,8 @@ jobs:
           py.test tests -v --redirect-dask-worker-logs-to-stdout=DEBUG \
             --cov=pangeo_forge_recipes --cov-config .coveragerc \
             --cov-report term-missing \
-            --cov-report xml
+            --cov-report xml \
+            --durations=10 --durations-min=1.0
       - name: Codecov
         uses: codecov/codecov-action@v2.0.2
         with:
