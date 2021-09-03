@@ -60,6 +60,23 @@ def netCDFtoZarr_http_recipe(
 
 
 @pytest.fixture
+def netCDFtoZarr_http_recipe_sequential_only(
+    netcdf_http_file_pattern_sequential_only,
+    daily_xarray_dataset,
+    tmp_target,
+    tmp_cache,
+    tmp_metadata_target,
+):
+    return make_netCDFtoZarr_recipe(
+        netcdf_http_file_pattern_sequential_only,
+        daily_xarray_dataset,
+        tmp_target,
+        tmp_cache,
+        tmp_metadata_target,
+    )
+
+
+@pytest.fixture
 def netCDFtoZarr_subset_recipe(
     netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
 ):
@@ -132,7 +149,11 @@ def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
 @pytest.mark.parametrize("cache_inputs", [True, False])
 @pytest.mark.parametrize("copy_input_to_local_file", [True, False])
 @pytest.mark.parametrize(
-    "recipe", [lazy_fixture("netCDFtoZarr_recipe"), lazy_fixture("netCDFtoZarr_http_recipe")],
+    "recipe",
+    [
+        lazy_fixture("netCDFtoZarr_recipe_sequential_only"),
+        lazy_fixture("netCDFtoZarr_http_recipe_sequential_only"),
+    ],
 )
 def test_recipe_caching_copying(recipe, execute_recipe, cache_inputs, copy_input_to_local_file):
     """Test that caching and copying to local file work."""
