@@ -6,12 +6,15 @@ from typing import Callable, Dict, Hashable, Iterable, Optional
 
 import fsspec
 import yaml
+import xarray as xr
 from fsspec_reference_maker.combine import MultiZarrToZarr
 from fsspec_reference_maker.hdf import SingleHdf5ToZarr
 
 from ..patterns import FilePattern, Index
 from ..storage import FSSpecTarget, MetadataTarget
 from .base import BaseRecipe, FilePatternRecipeMixin
+
+
 
 ChunkKey = Index
 
@@ -56,6 +59,8 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
         Only used if `file_pattern` has more than one file.
     :param xarray_concat_args: kwargs passed to xarray.concat
         Only used if `file_pattern` has more than one file.
+    :param process_input: Function to call on each opened input, with signature
+      `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
     """
 
     # TODO: support chunked ("tree") aggregation: would entail processing each file
@@ -75,6 +80,7 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
     template_count: Optional[int] = 20
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_args: dict = field(default_factory=dict)
+    process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]] = None
 
     def __post_init__(self):
         self._validate_file_pattern()
@@ -140,6 +146,7 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
             xr_open_kwargs=self.xarray_open_kwargs,
             xr_concat_kwargs=concat_args,
             template_count=self.template_count,
+            process_input=self.process_input,
         )
 
 
@@ -167,6 +174,7 @@ def _finalize(
     xr_open_kwargs,
     xr_concat_kwargs,
     template_count,
+    process_input,
 ):
 
     files = list(
@@ -181,6 +189,7 @@ def _finalize(
             remote_options=remote_options,
             xarray_open_kwargs=xr_open_kwargs,
             xarray_concat_args=xr_concat_kwargs,
+            preprocess=process_input,
         )
         # mzz does not support directly writing to remote yet
         # get dict version and push it
