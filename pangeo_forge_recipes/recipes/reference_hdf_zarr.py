@@ -11,7 +11,7 @@ from fsspec_reference_maker.hdf import SingleHdf5ToZarr
 
 from ..patterns import FilePattern, Index
 from ..storage import FSSpecTarget, MetadataTarget
-from .base import BaseRecipe
+from .base import BaseRecipe, FilePatternRecipeMixin
 
 ChunkKey = Index
 
@@ -22,7 +22,7 @@ def no_op(*_, **__) -> None:
 
 
 @dataclass
-class HDFReferenceRecipe(BaseRecipe):
+class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
     """
     Generates reference files for each input netCDF, then combines
     into one ensemble output
@@ -65,7 +65,6 @@ class HDFReferenceRecipe(BaseRecipe):
 
     # TODO: as written, this recipe is specific to HDF5 files. fsspec-reference-maker
     #  also supports TIFF and grib2 (and more coming)
-    file_pattern: FilePattern
     output_json_fname: str = "reference.json"
     output_intake_yaml_fname: str = "reference.yaml"
     target: Optional[FSSpecTarget] = None

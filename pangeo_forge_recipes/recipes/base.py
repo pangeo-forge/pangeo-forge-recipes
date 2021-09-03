@@ -1,9 +1,12 @@
 import warnings
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, replace
 from functools import partial
 from typing import Callable, Hashable, Iterable
 
 from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
+
+from ..patterns import FilePattern, prune_pattern
 
 # How to manually execute a recipe: ###
 #
@@ -215,3 +218,17 @@ def _store_chunk(checkpoint, func, input_key):
 
 def _finalize_target(checkpoint, func):
     return func()
+
+
+@dataclass
+class FilePatternRecipeMixin:
+    file_pattern: FilePattern
+
+    def copy_pruned(self, nkeep: int = 2):
+        """Make a copy of this recipe with a pruned file pattern.
+
+        :param nkeep: The number of items to keep from each ConcatDim sequence.
+        """
+
+        new_pattern = prune_pattern(self.file_pattern, nkeep=nkeep)
+        return replace(self, file_pattern=new_pattern)
