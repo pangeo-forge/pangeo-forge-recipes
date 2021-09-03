@@ -297,10 +297,7 @@ def netcdf_private_http_paths(request):
 
 @pytest.fixture(
     scope="session",
-    params=[
-        lazy_fixture("netcdf_public_http_paths"),
-        lazy_fixture("netcdf_private_http_paths"),
-    ],
+    params=[lazy_fixture("netcdf_public_http_paths"), lazy_fixture("netcdf_private_http_paths")],
 )
 def netcdf_http_paths(request):
     return request.param
