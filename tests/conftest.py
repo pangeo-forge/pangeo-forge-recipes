@@ -476,6 +476,17 @@ def execute_recipe_with_prefect(request):
 
 @pytest.fixture(
     params=[
+        lazy_fixture("execute_recipe_manual"),
+        lazy_fixture("execute_recipe_python"),
+        lazy_fixture("execute_recipe_prefect"),
+    ],
+)
+def execute_recipe_no_dask(request):
+    return request.param
+
+
+@pytest.fixture(
+    params=[
         lazy_fixture("execute_recipe_no_prefect"),
         lazy_fixture("execute_recipe_with_prefect"),
     ],
