@@ -345,6 +345,11 @@ def netcdf_http_file_pattern(netcdf_http_paths):
     return make_file_pattern(netcdf_http_paths)
 
 
+@pytest.fixture(scope="session")
+def netcdf_http_file_pattern_sequential_only(netcdf_http_paths_sequential_only):
+    return make_file_pattern(netcdf_http_paths_sequential_only)
+
+
 # Storage fixtures --------------------------------------------------------------------------------
 
 
