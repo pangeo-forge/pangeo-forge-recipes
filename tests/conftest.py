@@ -405,7 +405,6 @@ _executors = {
 
 @pytest.fixture()
 def execute_recipe_manual():
-
     def execute(r):
         if r.cache_inputs:
             for input_key in r.iter_inputs():
@@ -420,7 +419,6 @@ def execute_recipe_manual():
 
 @pytest.fixture()
 def execute_recipe_python():
-
     def execute(recipe):
         return recipe.to_function()()
 
@@ -429,7 +427,6 @@ def execute_recipe_python():
 
 @pytest.fixture()
 def execute_recipe_dask(dask_cluster):
-
     def execute(recipe):
         with Client(dask_cluster):
             return recipe.to_dask().compute()
@@ -439,7 +436,6 @@ def execute_recipe_dask(dask_cluster):
 
 @pytest.fixture()
 def execute_recipe_prefect():
-
     def execute(recipe):
         state = recipe.to_prefect().run()
         if state.is_failed():
@@ -450,7 +446,6 @@ def execute_recipe_prefect():
 
 @pytest.fixture()
 def execute_recipe_prefect_dask(dask_cluster):
-
     def execute(recipe):
         flow = recipe.to_prefect()
         executor = DaskExecutor(address=dask_cluster.scheduler_address)
@@ -473,10 +468,7 @@ def execute_recipe_no_prefect(request):
 
 
 @pytest.fixture(
-    params=[
-        lazy_fixture("execute_recipe_prefect"),
-        lazy_fixture("execute_recipe_prefect_dask"),
-    ],
+    params=[lazy_fixture("execute_recipe_prefect"), lazy_fixture("execute_recipe_prefect_dask")],
 )
 def execute_recipe_with_prefect(request):
     return request.param
