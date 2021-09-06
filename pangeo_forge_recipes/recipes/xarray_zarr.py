@@ -18,10 +18,10 @@ import xarray as xr
 import zarr
 
 from ..chunk_grid import ChunkGrid
-from ..patterns import CombineOp, DimIndex, FilePattern, Index, prune_pattern
+from ..patterns import CombineOp, DimIndex, FilePattern, Index
 from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
-from .base import BaseRecipe
+from .base import BaseRecipe, FilePatternRecipeMixin
 
 # use this filename to store global recipe metadata in the metadata_cache
 # it will be written once (by prepare_target) and read many times (by store_chunk)
@@ -636,7 +636,7 @@ def finalize_target(target: CacheFSSpecTarget, consolidate_zarr: bool) -> None:
 
 
 @dataclass
-class XarrayZarrRecipe(BaseRecipe):
+class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
     """This class represents a dataset composed of many individual NetCDF files.
     This class uses Xarray to read and write data and writes its output to Zarr.
     The organization of the source files is described by the ``file_pattern``.
@@ -677,7 +677,6 @@ class XarrayZarrRecipe(BaseRecipe):
       time dimension. Multiple dimensions are allowed.
     """
 
-    file_pattern: FilePattern
     inputs_per_chunk: int = 1
     target_chunks: Dict[str, int] = field(default_factory=dict)
     target: Optional[AbstractTarget] = None
@@ -766,17 +765,7 @@ class XarrayZarrRecipe(BaseRecipe):
             print("Inputs_for_chunk", inputs_for_chunk(chunk_key, self.inputs_per_chunk, ninputs))
             raise ValueError("Inputs and chunks are inconsistent")
 
-    def copy_pruned(self, nkeep: int = 2) -> BaseRecipe:
-        """Make a copy of this recipe with a pruned file pattern.
-
-        :param nkeep: The number of items to keep from each ConcatDim sequence.
-        """
-
-        new_pattern = prune_pattern(self.file_pattern, nkeep=nkeep)
-        return replace(self, file_pattern=new_pattern)
-
     # below here are methods that are part of recipe execution
-
     def _set_target_chunks(self):
         target_concat_dim_chunks = self.target_chunks.get(self._concat_dim)
         if (self._nitems_per_input is None) and (target_concat_dim_chunks is None):
