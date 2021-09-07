@@ -59,7 +59,7 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
         Only used if `file_pattern` has more than one file.
     :param process_input: Function to call on each opened input, with signature
       `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
-      Note that this function can not modify the data itself, and only do things like
+      Note that this function cannot modify the data itself. It can only
       modifying the metadata attributes or drop variables.
     """
 
