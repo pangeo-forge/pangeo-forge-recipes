@@ -113,4 +113,4 @@ def test_process(netcdf_local_file_pattern_sequential, tmpdir, with_intake, proc
             skip_instance_cache=True,
         )
         ds = xr.open_dataset(m, engine="zarr", chunks={}, consolidated=False)
-    assert (ds.foo == expected.foo).all()
+    xr.testing.assert_equal(ds, expected)
