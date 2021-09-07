@@ -14,7 +14,6 @@ from ..patterns import FilePattern, Index
 from ..storage import FSSpecTarget, MetadataTarget
 from .base import BaseRecipe, FilePatternRecipeMixin
 
-
 ChunkKey = Index
 
 

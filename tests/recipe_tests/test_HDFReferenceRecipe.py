@@ -114,36 +114,3 @@ def test_process(netcdf_local_file_pattern_sequential, tmpdir, with_intake, proc
         )
         ds = xr.open_dataset(m, engine="zarr", chunks={}, consolidated=False)
     assert (ds.foo == expected.foo).all()
-
-
-# # function passed to preprocessing
-# def incr_date(ds, filename=""):
-#     # add one day
-#     t = [d + int(24 * 3600e9) for d in ds.time.values]
-#     ds = ds.assign_coords(time=t)
-#     return ds
-
-
-# @pytest.mark.parametrize(
-#     "process_input, process_chunk",
-#     [(None, None), (incr_date, None), (None, incr_date), (incr_date, incr_date)],
-# )
-# @pytest.mark.parametrize("recipe_fixture", all_recipes)
-# def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
-#     """Check that the process_chunk and process_input arguments work as expected."""
-
-#     RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
-#     kwargs["process_input"] = process_input
-#     kwargs["process_chunk"] = process_chunk
-#     rec = RecipeClass(file_pattern, **kwargs)
-#     execute_recipe(rec)
-#     ds_actual = xr.open_zarr(target.get_mapper()).load()
-
-#     if process_input and process_chunk:
-#         assert not ds_actual.identical(ds_expected)
-#         ds_expected = incr_date(incr_date(ds_expected))
-#     elif process_input or process_chunk:
-#         assert not ds_actual.identical(ds_expected)
-#         ds_expected = incr_date(ds_expected)
-
-#     xr.testing.assert_identical(ds_actual, ds_expected)
