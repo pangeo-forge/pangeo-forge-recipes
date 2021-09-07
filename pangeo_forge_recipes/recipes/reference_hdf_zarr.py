@@ -60,7 +60,8 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
     :param process_input: Function to call on each opened input, with signature
       `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
       Note that this function cannot modify the data itself. It can only
-      modifying the metadata attributes or drop variables.
+      modify attributes of the dataset accessible via lazy loading. Examples of supported
+      transformations include changing metadata, dropping variables, etc.
     """
 
     # TODO: support chunked ("tree") aggregation: would entail processing each file
