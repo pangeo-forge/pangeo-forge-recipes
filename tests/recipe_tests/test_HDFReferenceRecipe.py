@@ -86,7 +86,7 @@ def test_process(netcdf_local_file_pattern_sequential, tmpdir, with_intake, proc
     paths = [f for _, f in list(file_pattern.items())]
     expected = xr.open_mfdataset(paths, engine="h5netcdf")
     if process:
-        expected = _drop_lon(expected)
+        expected = process(expected)
 
     recipe = HDFReferenceRecipe(file_pattern, process_input=process)
 
