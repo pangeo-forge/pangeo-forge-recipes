@@ -59,6 +59,8 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
         Only used if `file_pattern` has more than one file.
     :param process_input: Function to call on each opened input, with signature
       `(ds: xr.Dataset, filename: str) -> ds: xr.Dataset`.
+      Note that this function can not modify the data itself, and only do things like
+      modifying the metadata attributes or drop variables.
     """
 
     # TODO: support chunked ("tree") aggregation: would entail processing each file
@@ -110,8 +112,7 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
 
     @property
     def store_chunk(self) -> Callable[[Hashable], None]:
-        """Store a chunk of data in the target.
-        """
+        """Store a chunk of data in the target."""
         return functools.partial(
             _one_chunk,
             file_pattern=self.file_pattern,
