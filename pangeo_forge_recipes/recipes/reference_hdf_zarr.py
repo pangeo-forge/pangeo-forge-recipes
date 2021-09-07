@@ -7,7 +7,6 @@ from typing import Callable, Dict, Hashable, Iterable, Optional
 import fsspec
 import xarray as xr
 import yaml
-import xarray as xr
 from fsspec_reference_maker.combine import MultiZarrToZarr
 from fsspec_reference_maker.hdf import SingleHdf5ToZarr
 
