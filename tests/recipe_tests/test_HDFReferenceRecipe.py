@@ -39,7 +39,7 @@ def test_single(netcdf_local_file_pattern_sequential, tmpdir, with_intake):
         )
         m = fs.get_mapper("")
         ds = xr.open_dataset(m, engine="zarr", chunks={}, consolidated=False)
-    assert (ds.foo == expected.foo).all()
+    xr.testing.assert_equal(ds, expected)
 
 
 def _drop_lon(ds):
