@@ -8,6 +8,7 @@ import fsspec
 import yaml
 from fsspec_reference_maker.combine import MultiZarrToZarr
 from fsspec_reference_maker.hdf import SingleHdf5ToZarr
+from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
 from ..patterns import FilePattern, Index
 from ..storage import FSSpecTarget, MetadataTarget
@@ -76,6 +77,15 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_args: dict = field(default_factory=dict)
 
+    def _to_pipelines(self) -> ParallelPipelines:
+        """Translate recipe to pipeline for execution.
+        """
+        pipeline = []  # type: MultiStagePipeline
+        pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
+        pipeline.append(Stage(self.finalize_target))
+        pipelines = [pipeline]  # type: ParallelPipelines
+        return pipelines
+
     def __post_init__(self):
         self._validate_file_pattern()
 
@@ -84,20 +94,6 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
             raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
         if len(self.file_pattern.concat_dims) > 1:
             raise NotImplementedError("This Recipe class can't handle more than one concat dim.")
-
-    def iter_inputs(self) -> Iterable[Hashable]:
-        return ()
-
-    @property
-    def cache_input(self) -> Callable[[Hashable], None]:
-        return no_op
-
-    @property
-    def prepare_target(self) -> Callable[[], None]:
-        """Prepare the recipe for execution by initializing the target.
-        Attribute that returns a callable function.
-        """
-        return no_op
 
     def iter_chunks(self) -> Iterable[Hashable]:
         """Iterate over all target chunks."""
@@ -108,11 +104,14 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
     def store_chunk(self) -> Callable[[Hashable], None]:
         """Store a chunk of data in the target.
         """
-        return functools.partial(
+        return functools.update_wrapper(
+            functools.partial(
+                _one_chunk,
+                file_pattern=self.file_pattern,
+                netcdf_storage_options=self.netcdf_storage_options,
+                metadata_cache=self.metadata_cache,
+            ),
             _one_chunk,
-            file_pattern=self.file_pattern,
-            netcdf_storage_options=self.netcdf_storage_options,
-            metadata_cache=self.metadata_cache,
         )
 
     @property
@@ -128,18 +127,21 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
                 "It is determined automatically from the File Pattern."
             )
         concat_args["dim"] = self.file_pattern.concat_dims[0]  # there should only be one
-        return functools.partial(
+        return functools.update_wrapper(
+            functools.partial(
+                _finalize,
+                output_json_fname=self.output_json_fname,
+                output_intake_yaml_fname=self.output_intake_yaml_fname,
+                out_target=self.target,
+                metadata_cache=self.metadata_cache,
+                remote_protocol=proto,
+                output_storage_options=self.output_storage_options,
+                remote_options=self.netcdf_storage_options,
+                xr_open_kwargs=self.xarray_open_kwargs,
+                xr_concat_kwargs=concat_args,
+                template_count=self.template_count,
+            ),
             _finalize,
-            output_json_fname=self.output_json_fname,
-            output_intake_yaml_fname=self.output_intake_yaml_fname,
-            out_target=self.target,
-            metadata_cache=self.metadata_cache,
-            remote_protocol=proto,
-            output_storage_options=self.output_storage_options,
-            remote_options=self.netcdf_storage_options,
-            xr_open_kwargs=self.xarray_open_kwargs,
-            xr_concat_kwargs=concat_args,
-            template_count=self.template_count,
         )
 
 

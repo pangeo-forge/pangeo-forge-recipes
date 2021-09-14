@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, replace
 from typing import Callable
-from dataclasses import dataclass
 
 from rechunker.executors import (
     DaskPipelineExecutor,
@@ -9,7 +9,8 @@ from rechunker.executors import (
 )
 from rechunker.types import ParallelPipelines
 
-from ..patterns import FilePattern
+from ..patterns import FilePattern, prune_pattern
+
 
 class BaseRecipe(ABC):
     """Base recipe class from which all other Recipes inherit.
