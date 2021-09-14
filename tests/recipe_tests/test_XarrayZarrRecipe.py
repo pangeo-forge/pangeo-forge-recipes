@@ -9,7 +9,6 @@ import xarray as xr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.patterns import FilePattern
-from pangeo_forge_recipes.recipes.base import BaseRecipe
 from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
 
 
