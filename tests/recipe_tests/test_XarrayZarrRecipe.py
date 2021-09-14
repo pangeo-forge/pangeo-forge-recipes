@@ -9,16 +9,100 @@ import xarray as xr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.patterns import FilePattern
+from pangeo_forge_recipes.recipes.base import BaseRecipe
+from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
+
+
+def make_netCDFtoZarr_recipe(
+    file_pattern, xarray_dataset, target, cache, metadata_target, extra_kwargs=None
+):
+    kwargs = dict(
+        inputs_per_chunk=1, target=target, input_cache=cache, metadata_cache=metadata_target,
+    )
+    if extra_kwargs:
+        kwargs.update(extra_kwargs)
+    return XarrayZarrRecipe, file_pattern, kwargs, xarray_dataset, target
+
+
+@pytest.fixture
+def netCDFtoZarr_recipe_sequential_only(
+    netcdf_local_file_pattern_sequential,
+    daily_xarray_dataset,
+    tmp_target,
+    tmp_cache,
+    tmp_metadata_target,
+):
+    return make_netCDFtoZarr_recipe(
+        netcdf_local_file_pattern_sequential,
+        daily_xarray_dataset,
+        tmp_target,
+        tmp_cache,
+        tmp_metadata_target,
+    )
+
+
+@pytest.fixture
+def netCDFtoZarr_recipe(
+    netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+):
+    return make_netCDFtoZarr_recipe(
+        netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+    )
+
+
+@pytest.fixture
+def netCDFtoZarr_http_recipe(
+    netcdf_http_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+):
+    return make_netCDFtoZarr_recipe(
+        netcdf_http_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+    )
+
+
+@pytest.fixture
+def netCDFtoZarr_http_recipe_sequential_1d(
+    netcdf_http_file_pattern_sequential_1d,
+    daily_xarray_dataset,
+    tmp_target,
+    tmp_cache,
+    tmp_metadata_target,
+):
+    return make_netCDFtoZarr_recipe(
+        netcdf_http_file_pattern_sequential_1d,
+        daily_xarray_dataset,
+        tmp_target,
+        tmp_cache,
+        tmp_metadata_target,
+    )
+
+
+@pytest.fixture
+def netCDFtoZarr_subset_recipe(
+    netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
+):
+    items_per_file = netcdf_local_file_pattern.nitems_per_input.get("time", None)
+    if items_per_file != 2:
+        pytest.skip("This recipe only makes sense with items_per_file == 2.")
+
+    extra_kwargs = dict(subset_inputs={"time": 2})
+
+    return make_netCDFtoZarr_recipe(
+        netcdf_local_file_pattern,
+        daily_xarray_dataset,
+        tmp_target,
+        tmp_cache,
+        tmp_metadata_target,
+        extra_kwargs,
+    )
+
 
 all_recipes = [
-    lazy_fixture("netCDFtoZarr_sequential_recipe"),
-    lazy_fixture("netCDFtoZarr_sequential_multi_variable_recipe"),
-    lazy_fixture("netCDFtoZarr_sequential_subset_recipe"),
+    lazy_fixture("netCDFtoZarr_recipe"),
+    lazy_fixture("netCDFtoZarr_subset_recipe"),
 ]
 
 recipes_no_subset = [
-    lazy_fixture("netCDFtoZarr_sequential_recipe"),
-    lazy_fixture("netCDFtoZarr_sequential_multi_variable_recipe"),
+    lazy_fixture("netCDFtoZarr_recipe"),
 ]
 
 
@@ -42,7 +126,7 @@ def test_recipe(recipe_fixture, execute_recipe):
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
 @pytest.mark.parametrize("nkeep", [1, 2])
 def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
-    """The basic recipe test. Use this as a template for other tests."""
+    """Check that recipe.copy_pruned works as expected."""
 
     RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
     rec = RecipeClass(file_pattern, **kwargs)
@@ -56,12 +140,18 @@ def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
 
 @pytest.mark.parametrize("cache_inputs", [True, False])
 @pytest.mark.parametrize("copy_input_to_local_file", [True, False])
-def test_recipe_caching_copying(
-    netCDFtoZarr_sequential_recipe, execute_recipe, cache_inputs, copy_input_to_local_file
-):
-    """The basic recipe test. Use this as a template for other tests."""
+@pytest.mark.parametrize(
+    "recipe",
+    [
+        lazy_fixture("netCDFtoZarr_recipe_sequential_only"),
+        lazy_fixture("netCDFtoZarr_http_recipe_sequential_1d"),
+    ],
+)
+def test_recipe_caching_copying(recipe, execute_recipe, cache_inputs, copy_input_to_local_file):
+    """Test that caching and copying to local file work."""
 
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe
+
     if not cache_inputs:
         kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
     rec = RecipeClass(
@@ -108,26 +198,9 @@ def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
-@pytest.mark.parametrize("inputs_per_chunk,subset_inputs", [(1, {}), (1, {"time": 2}), (2, {})])
-@pytest.mark.parametrize(
-    "target_chunks,specify_nitems_per_input,error_expectation",
-    [
-        ({}, True, does_not_raise()),
-        ({"lon": 12}, True, does_not_raise()),
-        ({"lon": 12, "time": 1}, True, does_not_raise()),
-        ({"lon": 12, "time": 3}, True, does_not_raise()),
-        ({"time": 10}, True, does_not_raise()),  # only one big chunk
-        ({"lon": 12, "time": 1}, False, does_not_raise()),
-        ({"lon": 12, "time": 3}, False, does_not_raise()),
-        # can't determine target chunks for the next two because 'time' missing from target_chunks
-        ({}, False, pytest.raises(ValueError)),
-        ({"lon": 12}, False, pytest.raises(ValueError)),
-    ],
-)
-@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
-def test_chunks(
+def do_actual_chunks_test(
     recipe_fixture,
-    execute_recipe,
+    executor,
     inputs_per_chunk,
     target_chunks,
     error_expectation,
@@ -173,7 +246,7 @@ def test_chunks(
     with subset_error_expectation as excinfo:
         # error is raised at execution stage because we don't generally know a priori how
         # many items in each file
-        execute_recipe(rec)
+        executor(rec)
     if excinfo:
         # don't continue if we got an exception
         return
@@ -196,16 +269,80 @@ def test_chunks(
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
-def test_lock_timeout(netCDFtoZarr_sequential_recipe, execute_recipe):
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_sequential_recipe
+@pytest.mark.parametrize("inputs_per_chunk,subset_inputs", [(1, {}), (1, {"time": 2}), (2, {})])
+@pytest.mark.parametrize(
+    "target_chunks,specify_nitems_per_input,error_expectation",
+    [
+        ({}, True, does_not_raise()),
+        ({"lon": 12}, True, does_not_raise()),
+        ({"lon": 12, "time": 1}, True, does_not_raise()),
+        ({"lon": 12, "time": 3}, True, does_not_raise()),
+        ({"time": 10}, True, does_not_raise()),  # only one big chunk
+        ({"lon": 12, "time": 1}, False, does_not_raise()),
+        ({"lon": 12, "time": 3}, False, does_not_raise()),
+        # can't determine target chunks for the next two because 'time' missing from target_chunks
+        ({}, False, pytest.raises(ValueError)),
+        ({"lon": 12}, False, pytest.raises(ValueError)),
+    ],
+)
+@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
+def test_chunks(
+    recipe_fixture,
+    execute_recipe_python,
+    inputs_per_chunk,
+    target_chunks,
+    error_expectation,
+    subset_inputs,
+    specify_nitems_per_input,
+):
+    do_actual_chunks_test(
+        recipe_fixture,
+        execute_recipe_python,
+        inputs_per_chunk,
+        target_chunks,
+        error_expectation,
+        subset_inputs,
+        specify_nitems_per_input,
+    )
+
+
+@pytest.mark.parametrize("inputs_per_chunk,subset_inputs", [(1, {}), (1, {"time": 2}), (2, {})])
+@pytest.mark.parametrize(
+    "target_chunks,specify_nitems_per_input,error_expectation",
+    [({"lon": 12, "time": 3}, False, does_not_raise())],
+)
+@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
+def test_chunks_distributed_locking(
+    recipe_fixture,
+    execute_recipe_with_dask,
+    inputs_per_chunk,
+    target_chunks,
+    error_expectation,
+    subset_inputs,
+    specify_nitems_per_input,
+):
+    do_actual_chunks_test(
+        recipe_fixture,
+        execute_recipe_with_dask,
+        inputs_per_chunk,
+        target_chunks,
+        error_expectation,
+        subset_inputs,
+        specify_nitems_per_input,
+    )
+
+
+def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_dask):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe_sequential_only
+
     recipe = RecipeClass(file_pattern=file_pattern, lock_timeout=1, **kwargs)
 
     with patch("pangeo_forge_recipes.recipes.xarray_zarr.lock_for_conflicts") as p:
-        execute_recipe(recipe)
+
+        execute_recipe_no_dask(recipe)
 
     # We can only check that the mock object is called with the right parameters if
     # the function is called in the same processes as our mock object. We can't
     # observe anything that happens when the function is executed in subprocess, i.e.
     # if we're using a Dask executor.
-    if execute_recipe.param in {"manual", "python", "prefect"}:
-        assert p.call_args[1]["timeout"] == 1
+    assert p.call_args[1]["timeout"] == 1

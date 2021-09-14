@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Callable
+from dataclasses import dataclass
 
 from rechunker.executors import (
     DaskPipelineExecutor,
@@ -8,6 +9,7 @@ from rechunker.executors import (
 )
 from rechunker.types import ParallelPipelines
 
+from ..patterns import FilePattern
 
 class BaseRecipe(ABC):
     """Base recipe class from which all other Recipes inherit.
@@ -44,3 +46,17 @@ class BaseRecipe(ABC):
         # just intercept the __post_init__ calls so they
         # aren't relayed to `object`
         pass
+
+
+@dataclass
+class FilePatternRecipeMixin:
+    file_pattern: FilePattern
+
+    def copy_pruned(self, nkeep: int = 2):
+        """Make a copy of this recipe with a pruned file pattern.
+
+        :param nkeep: The number of items to keep from each ConcatDim sequence.
+        """
+
+        new_pattern = prune_pattern(self.file_pattern, nkeep=nkeep)
+        return replace(self, file_pattern=new_pattern)

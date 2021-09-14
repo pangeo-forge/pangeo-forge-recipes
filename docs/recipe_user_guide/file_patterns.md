@@ -113,7 +113,36 @@ and type of combine dimensions they support.
 ``ConcatDim`` and allows at most one ``MergeDim``.
 
 
-### Specifying `nitems_per_input` in a `ConcatDim`
+### Extra keyword arguments for `FilePattern`
+
+`FilePattern` objects carry all of the information needed to open source files. The following additional keyword
+arguments may passed to `FilePattern` instances as appropriate:
+
+- **`fsspec_open_kwargs`**: A dictionary of kwargs to pass to `fsspec.open` to aid opening of source files. For example,
+`{"block_size": 0}` may be passed if an HTTP source file server does not permit range requests. Authentication for
+`fsspec`-compatible filesystems may be handled here as well. For HTTP username/password-based authentication, your specific
+`fsspec_open_kwargs` will depend on the configuration of the source file server, but are likely to conform to one of the following
+two formats:
+
+    ```ipython3
+    fsspec_open_kwargs={"username": "<your-username>", "password": "<your-password>"}
+    fsspec_open_kwargs={"auth": aiohttp.BasicAuth("<your-username>", "<your-password>")}
+    ```
+
+- **`query_string_secrets`**: A dictionary of key:value pairs to append to each source file url query at runtime. Query
+parameters which are not secrets should instead be included in the `format_function`.
+- **`is_opendap`**: Boolean value to specify whether or not the source files are served via OPeNDAP. Incompatible with caching,
+and mutually exclusive with `fsspec_open_kwargs`. Defaults to `False`.
+
+```{warning}
+Secrets including login credentials and API tokens should never be committed to a public repository. As such,
+we strongly suggest that you do **not** instantiate your `FilePattern` with these or any other secrets when
+developing your recipe. If your source files require authentication via `fsspec_open_kwargs` and/or
+`query_string_secrets`, it is advisable to update these attributes at execution time. Pangeo Forge will soon offer a
+mechanism for securely handling such recipe secrets on GitHub.
+```
+
+### Specifying `nitems_per_file` in a `ConcatDim`
 
 FilePatterns are deliberately very simple. However, there is one case where
 we can annotate the FilePattern with a bit of extra information.
@@ -127,7 +156,7 @@ have one record of daily temperature? Ten?
 In general, Pangeo Forge does not assume there is a constant, known number of
 records in each file; instead it will discover this information by peeking into each file.
 But _if we know a-priori that there is a fixed number of records per file_, we can
-provide this as a hint, via `niterms_per_file` keyword in `ConcatDim`.
+provide this as a hint, via `nitems_per_file` keyword in `ConcatDim`.
 Providing this hint will allow Pangeo Forge to work more quickly because it
 doesn't have to peek into the files.
 
