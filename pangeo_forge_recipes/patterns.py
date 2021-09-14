@@ -135,6 +135,7 @@ class FilePattern:
       the query string of each ``file_pattern`` url at runtime.
     :param is_opendap: If True, assume all input fnames represent opendap endpoints.
       Cannot be used with caching.
+    :param from_pickle: If True, assume all input fnames represent `pickle` files.
     """
 
     def __init__(
@@ -144,12 +145,14 @@ class FilePattern:
         fsspec_open_kwargs: Optional[Dict[str, Any]] = None,
         query_string_secrets: Optional[Dict[str, str]] = None,
         is_opendap: bool = False,
+        from_pickle: bool = False,
     ):
         self.format_function = format_function
         self.combine_dims = combine_dims
         self.fsspec_open_kwargs = fsspec_open_kwargs if fsspec_open_kwargs else {}
         self.query_string_secrets = query_string_secrets if query_string_secrets else {}
         self.is_opendap = is_opendap
+        self.from_pickle = from_pickle
         if self.fsspec_open_kwargs and self.is_opendap:
             raise ValueError(
                 "OPeNDAP inputs are not opened with `fsspec`. "
