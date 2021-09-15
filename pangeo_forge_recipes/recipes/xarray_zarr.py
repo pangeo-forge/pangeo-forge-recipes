@@ -10,6 +10,7 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from itertools import chain, product
 from math import ceil
+import pickle
 from typing import Callable, Dict, Hashable, Iterator, List, Optional, Sequence, Set, Tuple
 
 import dask
@@ -278,11 +279,14 @@ def open_input(
         **file_pattern.fsspec_open_kwargs,
     ) as f:
         with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
-            kw = xarray_open_kwargs.copy()
-            if "engine" not in kw:
-                kw["engine"] = "h5netcdf"
+            if not file_pattern.from_pickle:
+                dataset_opener, kw = xr.open_dataset, xarray_open_kwargs.copy()
+                if "engine" not in kw:
+                    kw["engine"] = "h5netcdf"
+            else:
+                dataset_opener, kw = pickle.load, {}
             logger.debug(f"about to enter xr.open_dataset context on {f}")
-            with xr.open_dataset(f, **kw) as ds:
+            with dataset_opener(f, **kw) as ds:
                 logger.debug("successfully opened dataset")
                 ds = fix_scalar_attr_encoding(ds)
 
