@@ -1,3 +1,5 @@
+import pickle
+
 import fsspec
 import xarray as xr
 
@@ -9,6 +11,13 @@ def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
     paths = netcdf_local_paths[0]
     paths = [str(path) for path in paths]
     ds = xr.open_mfdataset(paths, combine="by_coords", concat_dim="time", engine="h5netcdf")
+    assert ds.identical(daily_xarray_dataset)
+
+
+def test_fixture_local_pickle_files(daily_xarray_dataset, netcdf_local_pickle_path):
+    paths = netcdf_local_pickle_path[0]
+    path = paths[0]
+    ds = pickle.load(open(path, "rb"))
     assert ds.identical(daily_xarray_dataset)
 
 
