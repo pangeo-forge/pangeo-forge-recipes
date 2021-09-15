@@ -15,6 +15,7 @@ Note:
 """
 import logging
 import os
+import pickle
 import socket
 import subprocess
 import time
@@ -23,7 +24,6 @@ import aiohttp
 import fsspec
 import numpy as np
 import pandas as pd
-import pickle
 import pytest
 import xarray as xr
 from dask.distributed import Client, LocalCluster
