@@ -51,6 +51,23 @@ def netCDFtoZarr_recipe(
 
 
 @pytest.fixture
+def netCDFtoZarr_recipe_from_pickle(
+    netcdf_local_pickle_file_pattern,
+    daily_xarray_dataset,
+    tmp_target,
+    tmp_cache,
+    tmp_metadata_target,
+):
+    return make_netCDFtoZarr_recipe(
+        netcdf_local_pickle_file_pattern,
+        daily_xarray_dataset,
+        tmp_target,
+        tmp_cache,
+        tmp_metadata_target,
+    )
+
+
+@pytest.fixture
 def netCDFtoZarr_http_recipe(
     netcdf_http_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
 ):
@@ -99,9 +116,20 @@ def netCDFtoZarr_subset_recipe(
 all_recipes = [
     lazy_fixture("netCDFtoZarr_recipe"),
     lazy_fixture("netCDFtoZarr_subset_recipe"),
+    lazy_fixture("netCDFtoZarr_recipe_from_pickle"),
 ]
 
 recipes_no_subset = [
+    lazy_fixture("netCDFtoZarr_recipe"),
+    lazy_fixture("netCDFtoZarr_recipe_from_pickle"),
+]
+
+recipes_no_pickle = [
+    lazy_fixture("netCDFtoZarr_recipe"),
+    lazy_fixture("netCDFtoZarr_subset_recipe"),
+]
+
+recipes_no_subset_no_pickle = [
     lazy_fixture("netCDFtoZarr_recipe"),
 ]
 
@@ -131,7 +159,7 @@ def test_recipe(recipe_fixture, execute_recipe):
         pass
 
 
-@pytest.mark.parametrize("recipe_fixture", all_recipes)
+@pytest.mark.parametrize("recipe_fixture", recipes_no_pickle)
 @pytest.mark.parametrize("nkeep", [1, 2])
 def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
     """Check that recipe.copy_pruned works as expected."""
@@ -293,7 +321,7 @@ def do_actual_chunks_test(
         ({"lon": 12}, False, pytest.raises(ValueError)),
     ],
 )
-@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
+@pytest.mark.parametrize("recipe_fixture", recipes_no_subset_no_pickle)
 def test_chunks(
     recipe_fixture,
     execute_recipe_python,
@@ -319,7 +347,7 @@ def test_chunks(
     "target_chunks,specify_nitems_per_input,error_expectation",
     [({"lon": 12, "time": 3}, False, does_not_raise())],
 )
-@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
+@pytest.mark.parametrize("recipe_fixture", recipes_no_subset_no_pickle)
 def test_chunks_distributed_locking(
     recipe_fixture,
     execute_recipe_with_dask,
