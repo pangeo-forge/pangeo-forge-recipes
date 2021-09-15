@@ -23,6 +23,7 @@ import aiohttp
 import fsspec
 import numpy as np
 import pandas as pd
+import pickle
 import pytest
 import xarray as xr
 from dask.distributed import Client, LocalCluster
@@ -270,6 +271,15 @@ def netcdf_local_paths(request):
     return request.param
 
 
+@pytest.fixture(scope="session")
+def netcdf_local_pickle_path(tmpdir_factory, daily_xarray_dataset):
+    tmp_path = tmpdir_factory.mktemp("netcdf_data")
+    fname = tmp_path.join("pickled_dataset.pickle")
+    with open(fname, "wb") as f:
+        pickle.dump(daily_xarray_dataset, f, protocol=-1)
+    return [fname], len(daily_xarray_dataset["time"]), None, None, dict(from_pickle=True)
+
+
 http_auth_params = [
     dict(username="foo", password="bar"),
     dict(required_query_string="foo=foo&bar=bar"),
@@ -321,6 +331,11 @@ def netcdf_local_file_pattern_sequential_multivariable(
 )
 def netcdf_local_file_pattern(request):
     return request.param
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_pickle_file_pattern(netcdf_local_pickle_path):
+    return make_file_pattern(netcdf_local_pickle_path)
 
 
 @pytest.fixture(scope="session")
