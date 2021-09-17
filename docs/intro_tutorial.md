@@ -39,7 +39,7 @@ Define the recipe name and where to find the recipe object:
 
 ```yaml
 recipes:
-  - id: noaa-oisst-avhrr-only  # name of feedstock? 
+  - id: noaa-oisst-avhrr-only  # name of feedstock?
     object: "recipe:recipe"  # import schema for recipe object `{module}:{object}
 ```
 
@@ -55,7 +55,7 @@ bakery:
     cpu: 1024
 ```
 
-The final section includes metadata about the dataset and maintainers of the recipe. This dataset metadata ?can/will? be used to create a STAC catalog to aid in dataset discoverability. 
+The final section includes metadata about the dataset and maintainers of the recipe. This dataset metadata ?can/will? be used to create a STAC catalog to aid in dataset discoverability.
 
 ```yaml
 title: "NOAA Optimum Interpolated SST" #Dataset title
@@ -83,7 +83,7 @@ Multiple recipe examples dealing more more complex data cleaning/processing can 
 
 Imports:
 
-```python 
+```python
 import pandas as pd
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
@@ -109,7 +109,7 @@ def format_function(time):
 
 dates = pd.date_range(start_date, end_date, freq="D")
 ```
-The `FilePattern` part of the recipe is a crucial bit that defines the location of the input files. By exploring the input data source, you can usually determine a basic filepattern and then recreate it in the `FilePattern` part of the recipe. 
+The `FilePattern` part of the recipe is a crucial bit that defines the location of the input files. By exploring the input data source, you can usually determine a basic filepattern and then recreate it in the `FilePattern` part of the recipe.
 
 
 More details and examples on can be found in the [File Patterns Explainer](https://pangeo-forge.readthedocs.io/en/latest/recipe_user_guide/file_patterns.html)
@@ -128,11 +128,11 @@ recipe = XarrayZarrRecipe(pattern, inputs_per_chunk=20, cache_inputs=True)
 
 ### Testing
 
-#### Local Testing 
+#### Local Testing
 
-With our previous recipe construction, we can create a pruned copy of the first two entries for testing. 
-```python 
-recipe = recipe.copy_pruned()  
+With our previous recipe construction, we can create a pruned copy of the first two entries for testing.
+```python
+recipe = recipe.copy_pruned()
 ```
 
 Using ffspec and pangeo_forge_recipes, we can create a `LocalFileSystem` to cache recipe data. If you wish you can use any ffspec file system instead of a `LocalFileSystem` ex. (s3fs, gcsfs etc.)
@@ -161,24 +161,24 @@ def setup_logging():
     logger.addHandler(sh)
 setup_logging()
 ```
-Next we can test run our pruned recipe using Prefect. 
+Next we can test run our pruned recipe using Prefect.
 
 ```python
 flow = recipe.to_prefect()
 flow.run()
 ```
 
-Finally we can verify a slice of the dataset 
+Finally we can verify a slice of the dataset
 
-```python 
+```python
 ds_target = xr.open_zarr(recipe.target.get_mapper(), consolidated=True)
 ds_target
 ```
 
 ### Submitting the Recipe
 
-Once the local recipe testing 
-passes successfully, you can submit the recipe for execution. 
+Once the local recipe testing
+passes successfully, you can submit the recipe for execution.
 To do this, create a pull request in the [staged-recipes repository](https://github.com/pangeo-forge/staged-recipes)
 
 #### Automated Tests
@@ -192,7 +192,7 @@ Once a pull request of the recipe has been submitted, one of the pangeo-forge ma
 ?How does a submitter know when their data is sent to a bakery/processed?
 
 ## Data Access/Catalog
-?How is the data accessed once finished?
+How is the data accessed once finished?
 
 
 ## Maintaining a Recipe
