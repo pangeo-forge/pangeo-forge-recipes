@@ -621,9 +621,25 @@ def store_chunk(
                 zarr_array[zarr_region] = data
 
 
-def finalize_target(target: CacheFSSpecTarget, consolidate_zarr: bool) -> None:
+def finalize_target(
+    target: CacheFSSpecTarget,
+    consolidate_zarr: bool,
+    consolidate_dimension_coordinates: bool = True,
+) -> None:
     if target is None:
         raise ValueError("target has not been set.")
+
+    if consolidate_dimension_coordinates:
+        logger.info("Consolidating dimension coordinate arrays")
+        target_mapper = target.get_mapper()
+        ds = xr.open_zarr(target_mapper)  # Probably a better way to get the dimension coords?
+        group = zarr.open(target_mapper)
+        for dim in ds.dims:
+            attrs = dict(group[dim].attrs)
+            data = group[dim][:]
+            group[dim] = data
+            group[dim].attrs.update(attrs)
+
     if consolidate_zarr:
         logger.info("Consolidating Zarr metadata")
         target_mapper = target.get_mapper()
@@ -661,6 +677,9 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
       ``xr.open_dataset``. This is required for engines that can't open
       file-like objects (e.g. pynio).
     :param consolidate_zarr: Whether to consolidate the resulting Zarr dataset.
+    :param consolidate_dimension_coordinates: Whether to rewrite coordinate variables as a
+        single chunk. We recommend consolidating coordinate variables to avoid
+        many small read requests to get the coordinates in xarray.
     :param xarray_open_kwargs: Extra options for opening the inputs with Xarray.
     :param xarray_concat_kwargs: Extra options to pass to Xarray when concatenating
       the inputs to form a chunk.
@@ -685,6 +704,7 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
     cache_inputs: Optional[bool] = None
     copy_input_to_local_file: bool = False
     consolidate_zarr: bool = True
+    consolidate_dimension_coordinates: bool = True
     xarray_open_kwargs: dict = field(default_factory=dict)
     xarray_concat_kwargs: dict = field(default_factory=dict)
     delete_input_encoding: bool = True
@@ -851,7 +871,10 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
     @property
     def finalize_target(self) -> Callable[[], None]:
         return functools.partial(
-            finalize_target, target=self.target, consolidate_zarr=self.consolidate_zarr
+            finalize_target,
+            target=self.target,
+            consolidate_zarr=self.consolidate_zarr,
+            consolidate_dimension_coordinates=self.consolidate_dimension_coordinates,
         )
 
     def iter_inputs(self) -> Iterator[InputKey]:

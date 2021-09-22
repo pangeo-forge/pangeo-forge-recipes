@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 import xarray as xr
+import zarr
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
@@ -274,6 +275,10 @@ def do_actual_chunks_test(
         assert all([item == chunk_len for item in ds_actual.chunks[other_dim][:-1]])
 
     ds_actual.load()
+    store = zarr.open_consolidated(target.get_mapper())
+    for dim in ds_actual.dims:
+        assert store[dim].chunks == ds_actual[dim].shape
+
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
