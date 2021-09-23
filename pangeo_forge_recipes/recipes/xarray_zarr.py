@@ -3,6 +3,7 @@ A Pangeo Forge Recipe
 """
 
 import functools
+import itertools
 import logging
 import os
 import warnings
@@ -26,6 +27,7 @@ from .base import BaseRecipe, FilePatternRecipeMixin
 # use this filename to store global recipe metadata in the metadata_cache
 # it will be written once (by prepare_target) and read many times (by store_chunk)
 _GLOBAL_METADATA_KEY = "pangeo-forge-recipe-metadata.json"
+_ARRAY_DIMENSIONS = "_ARRAY_DIMENSIONS"
 MAX_MEMORY = (
     int(os.getenv("PANGEO_FORGE_MAX_MEMORY"))  # type: ignore
     if os.getenv("PANGEO_FORGE_MAX_MEMORY")
@@ -621,6 +623,12 @@ def store_chunk(
                 zarr_array[zarr_region] = data
 
 
+def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
+    return list(
+        set(itertools.chain(*(group[var].attrs.get(_ARRAY_DIMENSIONS, []) for var in group)))
+    )
+
+
 def finalize_target(
     target: CacheFSSpecTarget,
     consolidate_zarr: bool,
@@ -632,9 +640,9 @@ def finalize_target(
     if consolidate_dimension_coordinates:
         logger.info("Consolidating dimension coordinate arrays")
         target_mapper = target.get_mapper()
-        ds = xr.open_zarr(target_mapper)  # Probably a better way to get the dimension coords?
         group = zarr.open(target_mapper, mode="a")
-        for dim in ds.dims:
+        dims = _gather_coordinate_dimensions(group)
+        for dim in dims:
             arr = group[dim]
             attrs = dict(arr.attrs)
             new = group.array(
