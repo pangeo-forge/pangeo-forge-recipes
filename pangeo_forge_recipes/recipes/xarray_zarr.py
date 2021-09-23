@@ -633,12 +633,22 @@ def finalize_target(
         logger.info("Consolidating dimension coordinate arrays")
         target_mapper = target.get_mapper()
         ds = xr.open_zarr(target_mapper)  # Probably a better way to get the dimension coords?
-        group = zarr.open(target_mapper)
+        group = zarr.open(target_mapper, mode="a")
         for dim in ds.dims:
-            attrs = dict(group[dim].attrs)
-            data = group[dim][:]
-            group[dim] = data
-            group[dim].attrs.update(attrs)
+            arr = group[dim]
+            attrs = dict(arr.attrs)
+            new = group.array(
+                dim,
+                arr[:],
+                chunks=arr.shape,
+                dtype=arr.dtype,
+                compressor=arr.compressor,
+                fill_value=arr.fill_value,
+                order=arr.order,
+                filters=arr.filters,
+                overwrite=True,
+            )
+            new.attrs.update(attrs)
 
     if consolidate_zarr:
         logger.info("Consolidating Zarr metadata")
