@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 import xarray as xr
+import zarr
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
@@ -274,6 +275,10 @@ def do_actual_chunks_test(
         assert all([item == chunk_len for item in ds_actual.chunks[other_dim][:-1]])
 
     ds_actual.load()
+    store = zarr.open_consolidated(target.get_mapper())
+    for dim in ds_actual.dims:
+        assert store[dim].chunks == ds_actual[dim].shape
+
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
@@ -338,6 +343,19 @@ def test_chunks_distributed_locking(
         subset_inputs,
         specify_nitems_per_input,
     )
+
+
+def test_no_consolidate_dimension_coordinates(netCDFtoZarr_recipe):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
+
+    rec = RecipeClass(file_pattern, **kwargs)
+    rec.consolidate_dimension_coordinates = False
+    rec.to_function()()
+    ds_actual = xr.open_zarr(target.get_mapper()).load()
+    xr.testing.assert_identical(ds_actual, ds_expected)
+
+    store = zarr.open_consolidated(target.get_mapper())
+    assert store["time"].chunks == (file_pattern.nitems_per_input["time"],)
 
 
 def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_dask):
