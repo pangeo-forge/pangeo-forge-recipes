@@ -10,7 +10,7 @@ from fsspec_reference_maker.combine import MultiZarrToZarr
 
 from ..patterns import FilePattern, Index
 from ..reference import create_hdf5_reference
-from ..storage import FSSpecTarget, MetadataTarget
+from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from .base import BaseRecipe, FilePatternRecipeMixin
 
 ChunkKey = Index
@@ -151,7 +151,9 @@ def _one_chunk(
 ):
     fname = file_pattern[chunk_key]
     ref_fname = os.path.basename(fname + ".json")
-    metadata_cache[ref_fname] = create_hdf5_reference(fname, **netcdf_storage_options)
+    # with fsspec.open(fname, **netcdf_storage_options) as fp:
+    with file_opener(fname, **netcdf_storage_options) as fp:
+        metadata_cache[ref_fname] = create_hdf5_reference(fp, fname)
 
 
 def _finalize(

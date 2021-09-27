@@ -2,14 +2,12 @@
 Functions related to creating fsspec references.
 """
 
-import fsspec
 from fsspec_reference_maker.hdf import SingleHdf5ToZarr
 
 
-def create_hdf5_reference(fname: str, inline_threshold: int = 300, **netcdf_storage_options):
-    with fsspec.open(fname, **netcdf_storage_options) as f:
-        h5chunks = SingleHdf5ToZarr(f, _unstrip_protocol(fname, f.fs), inline_threshold=300)
-        reference_data = h5chunks.translate()
+def create_hdf5_reference(fp, fname: str, inline_threshold: int = 300, **netcdf_storage_options):
+    h5chunks = SingleHdf5ToZarr(fp, _unstrip_protocol(fname, fp.fs), inline_threshold=300)
+    reference_data = h5chunks.translate()
     return reference_data
 
 
