@@ -120,10 +120,11 @@ class FSSpecTarget(AbstractTarget):
         """Open file with a context manager."""
         full_path = self._full_path(path)
         logger.debug(f"entering fs.open context manager for {full_path}")
-        with self.fs.open(full_path, **kwargs) as f:
-            logger.debug(f"FSSpecTarget.open yielding {f}")
-            yield f
-            logger.debug("FSSpecTarget.open yielded")
+        of = self.fs.open(full_path, **kwargs)
+        logger.debug(f"FSSpecTarget.open yielding {of}")
+        yield of
+        logger.debug("FSSpecTarget.open yielded")
+        of.close()
 
     def __post_init__(self):
         if not self.fs.isdir(self.root_path):
@@ -181,6 +182,10 @@ class MetadataTarget(FSSpecTarget):
         return {k: json.loads(raw_bytes) for k, raw_bytes in all_meta_raw.items()}
 
 
+# A note about something frustrating about this context manager:
+# Sometimes it yields an fsspec.OpenFile object
+# Other times it yields something lower level, like an _io.BufferedReader
+# This can lead to unpredictable behavior
 @contextmanager
 def file_opener(
     fname: str,
