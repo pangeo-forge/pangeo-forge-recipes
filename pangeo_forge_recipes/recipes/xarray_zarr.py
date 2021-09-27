@@ -14,12 +14,14 @@ from math import ceil
 from typing import Callable, Dict, Hashable, Iterator, List, Optional, Sequence, Set, Tuple
 
 import dask
+import fsspec
 import numpy as np
 import xarray as xr
 import zarr
 
 from ..chunk_grid import ChunkGrid
 from ..patterns import CombineOp, DimIndex, FilePattern, Index
+from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
 from .base import BaseRecipe, FilePatternRecipeMixin
@@ -45,9 +47,14 @@ SubsetSpec = Dict[str, int]
 # (e.g. {'time': 5, 'depth': 2})
 
 
-def _input_metadata_fname(input_key):
+def _input_metadata_fname(input_key: InputKey) -> str:
     key_str = "-".join([f"{k.name}_{k.index}" for k in input_key])
     return "input-meta-" + key_str + ".json"
+
+
+def _input_reference_fname(input_key: InputKey) -> str:
+    key_str = "-".join([f"{k.name}_{k.index}" for k in input_key])
+    return "input-reference-" + key_str + ".json"
 
 
 def inputs_for_chunk(
@@ -147,6 +154,7 @@ def cache_input_metadata(
     xarray_open_kwargs: dict,
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
+    open_input_with_fsspec_reference: bool,
 ) -> None:
     if metadata_cache is None:
         raise ValueError("metadata_cache is not set.")
@@ -160,9 +168,39 @@ def cache_input_metadata(
         xarray_open_kwargs=xarray_open_kwargs,
         delete_input_encoding=delete_input_encoding,
         process_input=process_input,
+        open_input_with_fsspec_reference=open_input_with_fsspec_reference,
+        metadata_cache=metadata_cache,
     ) as ds:
         input_metadata = ds.to_dict(data=False)
         metadata_cache[_input_metadata_fname(input_key)] = input_metadata
+
+
+def make_input_reference(
+    input_key: InputKey,
+    metadata_cache: MetadataTarget,
+    file_pattern: FilePattern,
+    input_cache: Optional[CacheFSSpecTarget],
+    copy_input_to_local_file: bool,
+) -> None:
+
+    fname = file_pattern[input_key]
+    if input_cache is None:
+        protocol = fsspec.utils.get_protocol(fname)
+        url = unstrip_protocol(fname, protocol)
+    else:
+        url = unstrip_protocol(input_cache._full_path(fname), input_cache.fs.protocol)
+    with file_opener(
+        fname,
+        cache=input_cache,
+        copy_to_local=copy_input_to_local_file,
+        bypass_open=False,
+        secrets=file_pattern.query_string_secrets,
+        **file_pattern.fsspec_open_kwargs,
+    ) as fp:
+        ref_data = create_hdf5_reference(fp, url, fname)
+
+    ref_fname = _input_reference_fname(input_key)
+    metadata_cache[ref_fname] = ref_data
 
 
 def cache_input(
@@ -176,6 +214,7 @@ def cache_input(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
+    open_input_with_fsspec_reference: bool,
 ) -> None:
     if cache_inputs:
         if file_pattern.is_opendap:
@@ -188,8 +227,18 @@ def cache_input(
             fname, file_pattern.query_string_secrets, **file_pattern.fsspec_open_kwargs
         )
 
+    if open_input_with_fsspec_reference:
+        cache = input_cache if cache_inputs else None
+        if file_pattern.is_opendap:
+            raise ValueError("Can't make references for opendap inputs")
+        if metadata_cache is None:
+            raise ValueError("Can't make references; no metadata_cache assigned")
+        make_input_reference(
+            input_key, metadata_cache, file_pattern, cache, copy_input_to_local_file,
+        )
+
     if cache_metadata:
-        return cache_input_metadata(
+        cache_input_metadata(
             input_key,
             file_pattern=file_pattern,
             input_cache=input_cache,
@@ -199,6 +248,7 @@ def cache_input(
             delete_input_encoding=delete_input_encoding,
             process_input=process_input,
             metadata_cache=metadata_cache,
+            open_input_with_fsspec_reference=open_input_with_fsspec_reference,
         )
 
 
@@ -259,6 +309,8 @@ def open_input(
     xarray_open_kwargs: dict,
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
+    open_input_with_fsspec_reference: bool,
+    metadata_cache: Optional[MetadataTarget],
 ) -> xr.Dataset:
     fname = file_pattern[input_key]
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
@@ -268,35 +320,56 @@ def open_input(
             raise ValueError("Can't cache opendap inputs")
         if copy_input_to_local_file:
             raise ValueError("Can't copy opendap inputs to local file")
+        if open_input_with_fsspec_reference:
+            raise ValueError("Can't open opendap inputs with fsspec-reference-maker")
 
-    cache = input_cache if cache_inputs else None
+    if open_input_with_fsspec_reference:
+        if metadata_cache is None:
+            raise ValueError("metadata_cache is not set.")
+        from fsspec.implementations.reference import ReferenceFileSystem
 
-    with file_opener(
-        fname,
-        cache=cache,
-        copy_to_local=copy_input_to_local_file,
-        bypass_open=file_pattern.is_opendap,
-        secrets=file_pattern.query_string_secrets,
-        **file_pattern.fsspec_open_kwargs,
-    ) as f:
-        with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
-            kw = xarray_open_kwargs.copy()
-            if "engine" not in kw:
-                kw["engine"] = "h5netcdf"
-            logger.debug(f"about to enter xr.open_dataset context on {f}")
-            with xr.open_dataset(f, **kw) as ds:
-                logger.debug("successfully opened dataset")
-                ds = fix_scalar_attr_encoding(ds)
+        reference_data = metadata_cache[_input_reference_fname(input_key)]
+        # TODO: figure out how to set this for the cache target
+        remote_protocol = fsspec.utils.get_protocol(next(file_pattern.items())[1])
+        ref_fs = ReferenceFileSystem(
+            reference_data, remote_protocol=remote_protocol, skip_instance_cache=True
+        )
 
-                if delete_input_encoding:
-                    for var in ds.variables:
-                        ds[var].encoding = {}
+        mapper = ref_fs.get_mapper("/")
+        # Doesn't really need to be a context manager, but that's how this function works
+        with xr.open_dataset(mapper, engine="zarr", chunks={}, consolidated=False) as ds:
+            yield ds
 
-                if process_input is not None:
-                    ds = process_input(ds, str(fname))
+    else:
 
-                logger.debug(f"{ds}")
-                yield ds
+        cache = input_cache if cache_inputs else None
+
+        with file_opener(
+            fname,
+            cache=cache,
+            copy_to_local=copy_input_to_local_file,
+            bypass_open=file_pattern.is_opendap,
+            secrets=file_pattern.query_string_secrets,
+            **file_pattern.fsspec_open_kwargs,
+        ) as f:
+            with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
+                kw = xarray_open_kwargs.copy()
+                if "engine" not in kw:
+                    kw["engine"] = "h5netcdf"
+                logger.debug(f"about to enter xr.open_dataset context on {f}")
+                with xr.open_dataset(f, **kw) as ds:
+                    logger.debug("successfully opened dataset")
+                    ds = fix_scalar_attr_encoding(ds)
+
+                    if delete_input_encoding:
+                        for var in ds.variables:
+                            ds[var].encoding = {}
+
+                    if process_input is not None:
+                        ds = process_input(ds, str(fname))
+
+                    logger.debug(f"{ds}")
+                    yield ds
 
 
 def subset_dataset(ds: xr.Dataset, subset_spec: DimIndex) -> xr.Dataset:
@@ -327,6 +400,8 @@ def open_chunk(
     xarray_open_kwargs: dict,
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
+    open_input_with_fsspec_reference: bool,
+    metadata_cache: Optional[MetadataTarget],
 ) -> xr.Dataset:
     logger.info(f"Opening inputs for chunk {chunk_key!s}")
     ninputs = file_pattern.dims[file_pattern.concat_dims[0]]
@@ -345,6 +420,8 @@ def open_chunk(
                     xarray_open_kwargs=xarray_open_kwargs,
                     delete_input_encoding=delete_input_encoding,
                     process_input=process_input,
+                    open_input_with_fsspec_reference=open_input_with_fsspec_reference,
+                    metadata_cache=metadata_cache,
                 )
             )
             for i in inputs
@@ -440,6 +517,7 @@ def prepare_target(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
+    open_input_with_fsspec_reference: bool,
 ) -> None:
     try:
         ds = open_target(target)
@@ -469,6 +547,8 @@ def prepare_target(
                 xarray_open_kwargs=xarray_open_kwargs,
                 delete_input_encoding=delete_input_encoding,
                 process_input=process_input,
+                open_input_with_fsspec_reference=open_input_with_fsspec_reference,
+                metadata_cache=metadata_cache,
             ) as ds:
                 # ds is already chunked
 
@@ -544,6 +624,7 @@ def store_chunk(
     delete_input_encoding: bool,
     process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
     metadata_cache: Optional[MetadataTarget],
+    open_input_with_fsspec_reference: bool,
 ) -> None:
     if target is None:
         raise ValueError("target has not been set.")
@@ -562,6 +643,8 @@ def store_chunk(
         xarray_open_kwargs=xarray_open_kwargs,
         delete_input_encoding=delete_input_encoding,
         process_input=process_input,
+        open_input_with_fsspec_reference=open_input_with_fsspec_reference,
+        metadata_cache=metadata_cache,
     ) as ds_chunk:
         # writing a region means that all the variables MUST have concat_dim
         to_drop = [v for v in ds_chunk.variables if concat_dim not in ds_chunk[v].dims]
@@ -715,6 +798,9 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
       along dimension according to the specified mapping. For example,
       ``{'time': 5}`` would split each input file into 5 chunks along the
       time dimension. Multiple dimensions are allowed.
+    :param open_input_with_fsspec_reference: If True, use fsspec-reference-maker
+      to generate a reference filesystem for each input, to be used when opening
+      the file with Xarray as a virtual Zarr dataset.
     """
 
     inputs_per_chunk: int = 1
@@ -733,6 +819,7 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
     lock_timeout: Optional[int] = None
     subset_inputs: SubsetSpec = field(default_factory=dict)
+    open_input_with_fsspec_reference: bool = False
 
     # internal attributes not meant to be seen or accessed by user
     _concat_dim: str = field(default_factory=str, repr=False, init=False)
@@ -758,6 +845,8 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
                 raise ValueError("Can't cache opendap inputs.")
             else:
                 self.cache_inputs = False
+            if self.open_input_with_fsspec_reference:
+                raise ValueError("Can't generate references on opendap inputs")
             if "engine" in self.xarray_open_kwargs:
                 if self.xarray_open_kwargs["engine"] != "netcdf4":
                     raise ValueError(
@@ -848,6 +937,7 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
+            open_input_with_fsspec_reference=self.open_input_with_fsspec_reference,
         )
 
     @property
@@ -863,6 +953,7 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
+            open_input_with_fsspec_reference=self.open_input_with_fsspec_reference,
         )
 
     @property
@@ -887,6 +978,7 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
             metadata_cache=self.metadata_cache,
+            open_input_with_fsspec_reference=self.open_input_with_fsspec_reference,
         )
 
     @property
@@ -952,6 +1044,8 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
             xarray_open_kwargs=self.xarray_open_kwargs,
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
+            open_input_with_fsspec_reference=self.open_input_with_fsspec_reference,
+            metadata_cache=self.metadata_cache,
         ) as ds:
             yield ds
 
@@ -971,5 +1065,7 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
             xarray_open_kwargs=self.xarray_open_kwargs,
             delete_input_encoding=self.delete_input_encoding,
             process_input=self.process_input,
+            open_input_with_fsspec_reference=self.open_input_with_fsspec_reference,
+            metadata_cache=self.metadata_cache,
         ) as ds:
             yield ds
