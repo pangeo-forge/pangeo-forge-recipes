@@ -201,6 +201,7 @@ def file_opener(
         before opening. In this case, function yields a path name rather than an open file.
     :param bypass_open: If True, skip trying to open the file at all and just
         return the filename back directly. (A fancy way of doing nothing!)
+    :param secrets: Dictionary of secrets to encode into the query string.
     """
 
     if bypass_open:
