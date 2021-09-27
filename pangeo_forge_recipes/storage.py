@@ -9,7 +9,7 @@ import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Iterator, Optional, Sequence, Union
+from typing import Iterator, Optional, Sequence, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
@@ -18,7 +18,6 @@ from fsspec.implementations.http import BlockSizeError
 logger = logging.getLogger(__name__)
 
 # fsspec doesn't provide type hints, so I'm not sure what the write type is for open files
-OpenFileType = Any
 
 
 def _get_url_size(fname, secrets, **open_kwargs):
@@ -116,7 +115,7 @@ class FSSpecTarget(AbstractTarget):
         return self.fs.size(self._full_path(path))
 
     @contextmanager
-    def open(self, path: str, **kwargs) -> Iterator[None]:
+    def open(self, path: str, **kwargs) -> Iterator[fsspec.core.OpenFile]:
         """Open file with a context manager."""
         full_path = self._full_path(path)
         logger.debug(f"entering fs.open context manager for {full_path}")
@@ -194,7 +193,7 @@ def file_opener(
     bypass_open: bool = False,
     secrets: Optional[dict] = None,
     **open_kwargs,
-) -> Iterator[Union[OpenFileType, str]]:
+) -> Iterator[Union[fsspec.core.OpenFile, str]]:
     """
     Context manager for opening files.
 
