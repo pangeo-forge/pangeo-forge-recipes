@@ -9,7 +9,7 @@ import yaml
 from fsspec_reference_maker.combine import MultiZarrToZarr
 
 from ..patterns import FilePattern, Index
-from ..reference import create_hdf5_reference
+from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from .base import BaseRecipe, FilePatternRecipeMixin
 
@@ -151,9 +151,10 @@ def _one_chunk(
 ):
     fname = file_pattern[chunk_key]
     ref_fname = os.path.basename(fname + ".json")
-    # with fsspec.open(fname, **netcdf_storage_options) as fp:
     with file_opener(fname, **netcdf_storage_options) as fp:
-        metadata_cache[ref_fname] = create_hdf5_reference(fp, fname)
+        protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
+        target_url = unstrip_protocol(fname, protocol)
+        metadata_cache[ref_fname] = create_hdf5_reference(fp, target_url, fname)
 
 
 def _finalize(
