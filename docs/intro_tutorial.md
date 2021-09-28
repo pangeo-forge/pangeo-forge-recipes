@@ -18,7 +18,31 @@ See [](#maintaining) for more on what happens next.
 
 See [maintaining](##maintaining) for more on what happens next.
 
+
+# Forking Staged-Recipes
+
+Contributing a recipe begins with forking the pangeo-forge staged-recipes github repository to your account. <https://github.com/pangeo-forge/staged-recipes>
+From the pangeo-forge staged-recipes repository, click the `fork` badge in the top right. This will create a copy of the repo where you can commit changes.
+
+The current directory structure for this repo is:
+```
+staged-recipes
+├── LICENSE
+├── README.md
+├── pyproject.toml
+├── recipes
+│   └── <your_recipe_name>
+│       ├── meta.yml
+│       └── recipe.py
+└── setup.cfg
+```
+
+Once you have cloned the repository and created a new branch.. <insert git steps?>, create a new directory in `recipes/` with your project name along with empty recipe.py and meta.yml files. For example, you could create a directory named `noaa_oisst` and populate it with the `recipe.py` and `meta.yml` files.
+
+
+
 ## Developing a Recipe
+
 
 ### Ingredients
 
@@ -44,11 +68,11 @@ recipes:
 ```
 
 
-Specify bakery and compute resources:
+Specify bakery and compute resources. Details on available bakeries can be found in the [bakeries.yaml](https://github.com/pangeo-forge/bakery-database/blob/main/bakeries.yaml) file.
 
 ```yaml
 bakery:
-  id: "devseed.bakery.development.aws.us-west-2"  # must come from a valid list of bakeries -- Where is this? Link to valid list of bakeries
+  id: "devseed.bakery.development.aws.us-west-2"  # must come from a valid list of bakeries
   target: pangeo-forge-aws-bakery-flowcachebucketdasktest4-10neo67y7a924
   resources:
     memory: 4096
