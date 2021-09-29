@@ -19,7 +19,7 @@ See [](#maintaining) for more on what happens next.
 See [maintaining](##maintaining) for more on what happens next.
 
 
-# Initial Directory Structure Setup / Forking
+## Initial Directory Structure Setup / Forking
 
 Contributing a recipe begins with forking the pangeo-forge staged-recipes github repository to your account. <https://github.com/pangeo-forge/staged-recipes>
 From the pangeo-forge staged-recipes repository, click the `fork` badge in the top right. This will create a copy of the repo where you can commit changes.
