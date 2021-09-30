@@ -146,8 +146,14 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
 
 
 @pytest.mark.parametrize("nkeep", [1, 2])
-def test_prune(nkeep, concat_merge_pattern):
-    fp = concat_merge_pattern[0]
+def test_prune(nkeep, concat_merge_pattern_with_kwargs):
+    if not concat_merge_pattern_with_kwargs:
+        # if `fsspec_open_kwargs` are passed with `is_opendap`, `FilePattern.__init__` raises
+        # ValueError and `concat_merge_pattern_with_kwargs` returns None, so nothing to test
+        return
+    fp = concat_merge_pattern_with_kwargs[0]
     fp_pruned = prune_pattern(fp, nkeep=nkeep)
     assert fp_pruned.dims == {"variable": 2, "time": nkeep}
     assert len(list(fp_pruned.items())) == 2 * nkeep
+    assert fp.fsspec_open_kwargs == fp_pruned.fsspec_open_kwargs
+    assert fp.is_opendap == fp_pruned.is_opendap
