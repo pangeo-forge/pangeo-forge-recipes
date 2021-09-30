@@ -212,6 +212,18 @@ def daily_xarray_dataset():
 
 
 @pytest.fixture(scope="session")
+def daily_xarray_dataset_with_coordinateless_dimension(daily_xarray_dataset):
+    """
+    A Dataset with a coordinateless dimension.
+
+    Reproduces https://github.com/pangeo-forge/pangeo-forge-recipes/issues/214
+    """
+    ds = daily_xarray_dataset.copy()
+    del ds["lon"]
+    return ds
+
+
+@pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
     return make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day)
 
@@ -259,6 +271,18 @@ def netcdf_local_paths_sequential_multivariable(request):
     return request.param
 
 
+@pytest.fixture(scope="session",)
+def netcdf_local_paths_sequential_multivariable_with_coordinateless_dimension(
+    daily_xarray_dataset_with_coordinateless_dimension, tmpdir_factory
+):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset_with_coordinateless_dimension,
+        tmpdir_factory,
+        "D",
+        split_up_files_by_variable_and_day,
+    )
+
+
 @pytest.fixture(
     scope="session",
     params=[
@@ -297,6 +321,18 @@ def netcdf_http_paths_sequential_1d(request):
     return request.param
 
 
+@pytest.fixture(scope="session")
+def netcdf_local_paths_sequential_with_coordinateless_dimension(
+    daily_xarray_dataset_with_coordinateless_dimension, tmpdir_factory
+):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset_with_coordinateless_dimension,
+        tmpdir_factory,
+        "D",
+        split_up_files_by_day,
+    )
+
+
 # FilePattern fixtures ----------------------------------------------------------------------------
 
 
@@ -326,6 +362,16 @@ def netcdf_local_file_pattern(request):
 @pytest.fixture(scope="session")
 def netcdf_http_file_pattern_sequential_1d(netcdf_http_paths_sequential_1d):
     return make_file_pattern(netcdf_http_paths_sequential_1d)
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_pattern_sequential_with_coordinateless_dimension(
+    netcdf_local_paths_sequential_with_coordinateless_dimension,
+):
+    """
+    Filepattern where one of time dimensions doesn't have a coordinate.
+    """
+    return make_file_pattern(netcdf_local_paths_sequential_with_coordinateless_dimension)
 
 
 # Storage fixtures --------------------------------------------------------------------------------

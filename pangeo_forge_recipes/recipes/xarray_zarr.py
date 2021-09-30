@@ -641,7 +641,10 @@ def finalize_target(
         logger.info("Consolidating dimension coordinate arrays")
         target_mapper = target.get_mapper()
         group = zarr.open(target_mapper, mode="a")
-        dims = _gather_coordinate_dimensions(group)
+        # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/214
+        # intersect the dims from the array metadata with the Zarr group
+        # to handle coordinateless dimensions.
+        dims = set(_gather_coordinate_dimensions(group)) & set(group)
         for dim in dims:
             arr = group[dim]
             attrs = dict(arr.attrs)

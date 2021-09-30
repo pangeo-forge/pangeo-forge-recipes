@@ -358,6 +358,26 @@ def test_no_consolidate_dimension_coordinates(netCDFtoZarr_recipe):
     assert store["time"].chunks == (file_pattern.nitems_per_input["time"],)
 
 
+def test_consolidate_dimension_coordinates_with_coordinateless_dimension(
+    netcdf_local_file_pattern_sequential_with_coordinateless_dimension,
+    daily_xarray_dataset_with_coordinateless_dimension,
+    tmp_target,
+    tmp_cache,
+    tmp_metadata_target,
+):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = make_netCDFtoZarr_recipe(
+        netcdf_local_file_pattern_sequential_with_coordinateless_dimension,
+        daily_xarray_dataset_with_coordinateless_dimension,
+        tmp_target,
+        tmp_cache,
+        tmp_metadata_target,
+    )
+    rec = RecipeClass(file_pattern, **kwargs)
+    rec.to_function()()
+    ds_actual = xr.open_zarr(target.get_mapper()).load()
+    xr.testing.assert_identical(ds_actual, ds_expected)
+
+
 def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_dask):
     RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe_sequential_only
 
