@@ -87,19 +87,20 @@ def test_pattern_from_file_sequence():
 
 @pytest.mark.parametrize("pickle", [False, True])
 def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern_with_kwargs):
-    if not concat_merge_pattern_with_kwargs:
-        # if `fsspec_open_kwargs` are passed with `is_opendap`, `FilePattern.__init__` raises
-        # ValueError and `concat_merge_pattern_with_kwargs` returns None, so nothing to test
-        return
-    else:
-        fp, times, varnames, format_function, kwargs = concat_merge_pattern_with_kwargs
+
+    fp, times, varnames, format_function, kwargs = concat_merge_pattern_with_kwargs
 
     if runtime_secrets:
         if "fsspec_open_kwargs" in runtime_secrets.keys():
             if not fp.is_opendap:
                 fp.fsspec_open_kwargs.update(runtime_secrets["fsspec_open_kwargs"])
             else:
-                return
+                pytest.skip(
+                    "`fsspec_open_kwargs` should never be used in combination with `is_opendap`. "
+                    "This is checked in `FilePattern.__init__` but not when updating attributes. "
+                    "Proposed changes to secret handling will obviate the need for runtime updates"
+                    " to attributes in favor of encryption. So for now, we'll just skip this."
+                )
         if "query_string_secrets" in runtime_secrets.keys():
             fp.query_string_secrets.update(runtime_secrets["query_string_secrets"])
 
@@ -151,10 +152,6 @@ def test_incompatible_kwargs():
 
 @pytest.mark.parametrize("nkeep", [1, 2])
 def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
-    if not concat_merge_pattern_with_kwargs:
-        # if `fsspec_open_kwargs` are passed with `is_opendap`, `FilePattern.__init__` raises
-        # ValueError and `concat_merge_pattern_with_kwargs` returns None, so nothing to test
-        return
 
     fp = concat_merge_pattern_with_kwargs[0]
 
@@ -163,7 +160,12 @@ def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
             if not fp.is_opendap:
                 fp.fsspec_open_kwargs.update(runtime_secrets["fsspec_open_kwargs"])
             else:
-                return
+                pytest.skip(
+                    "`fsspec_open_kwargs` should never be used in combination with `is_opendap`. "
+                    "This is checked in `FilePattern.__init__` but not when updating attributes. "
+                    "Proposed changes to secret handling will obviate the need for runtime updates"
+                    " to attributes in favor of encryption. So for now, we'll just skip this."
+                )
         if "query_string_secrets" in runtime_secrets.keys():
             fp.query_string_secrets.update(runtime_secrets["query_string_secrets"])
 
