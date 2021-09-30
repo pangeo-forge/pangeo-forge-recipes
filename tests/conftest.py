@@ -369,7 +369,7 @@ def netcdf_local_file_pattern_sequential_with_coordinateless_dimension(
     netcdf_local_paths_sequential_with_coordinateless_dimension,
 ):
     """
-    Filepattern where one of time dimensions doesn't have a coordinate.
+    Filepattern where one of the dimensions doesn't have a coordinate.
     """
     return make_file_pattern(netcdf_local_paths_sequential_with_coordinateless_dimension)
 
