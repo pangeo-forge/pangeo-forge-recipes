@@ -29,13 +29,8 @@ def make_concat_merge_pattern(**kwargs):
     def format_function(time, variable):
         return f"T_{time}_V_{variable}"
 
-    if "fsspec_open_kwargs" in kwargs.keys() and "is_opendap" in kwargs.keys():
-        with pytest.raises(ValueError):
-            fp = FilePattern(format_function, merge, concat, **kwargs)
-            return
-    else:
-        fp = FilePattern(format_function, merge, concat, **kwargs)
-        return fp, times, varnames, format_function, kwargs
+    fp = FilePattern(format_function, merge, concat, **kwargs)
+    return fp, times, varnames, format_function, kwargs
 
 
 @pytest.fixture
@@ -47,7 +42,6 @@ def concat_merge_pattern():
     params=[
         dict(fsspec_open_kwargs={"block_size": "foo"}),
         dict(is_opendap=True),
-        dict(fsspec_open_kwargs={"block_size": "foo"}, is_opendap=True),
     ]
 )
 def concat_merge_pattern_with_kwargs(request):
@@ -146,6 +140,13 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
         assert fp.is_opendap == kwargs["is_opendap"]
         assert fp.is_opendap is True
         assert fp.fsspec_open_kwargs == {}
+
+
+def test_incompatible_kwargs():
+    kwargs = dict(fsspec_open_kwargs={"block_size": "foo"}, is_opendap=True)
+    with pytest.raises(ValueError):
+        make_concat_merge_pattern(**kwargs)
+        return
 
 
 @pytest.mark.parametrize("nkeep", [1, 2])
