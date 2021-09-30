@@ -145,13 +145,32 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
         assert fp.fsspec_open_kwargs == {}
 
 
+@pytest.mark.parametrize(
+    "runtime_secrets",
+    [
+        {},
+        dict(fsspec_open_kwargs={"username": "foo", "password": "bar"}),
+        dict(query_string_secrets={"token": "foo"}),
+    ],
+)
 @pytest.mark.parametrize("nkeep", [1, 2])
-def test_prune(nkeep, concat_merge_pattern_with_kwargs):
+def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
     if not concat_merge_pattern_with_kwargs:
         # if `fsspec_open_kwargs` are passed with `is_opendap`, `FilePattern.__init__` raises
         # ValueError and `concat_merge_pattern_with_kwargs` returns None, so nothing to test
         return
+
     fp = concat_merge_pattern_with_kwargs[0]
+
+    if runtime_secrets:
+        if "fsspec_open_kwargs" in runtime_secrets.keys():
+            if not fp.is_opendap:
+                fp.fsspec_open_kwargs.update(runtime_secrets["fsspec_open_kwargs"])
+            else:
+                return
+        if "query_string_secrets" in runtime_secrets.keys():
+            fp.query_string_secrets.update(runtime_secrets["query_string_secrets"])
+
     fp_pruned = prune_pattern(fp, nkeep=nkeep)
     assert fp_pruned.dims == {"variable": 2, "time": nkeep}
     assert len(list(fp_pruned.items())) == 2 * nkeep
