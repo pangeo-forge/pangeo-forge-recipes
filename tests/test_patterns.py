@@ -1,3 +1,5 @@
+import inspect
+
 import pytest
 
 from pangeo_forge_recipes.patterns import (
@@ -172,5 +174,13 @@ def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
     fp_pruned = prune_pattern(fp, nkeep=nkeep)
     assert fp_pruned.dims == {"variable": 2, "time": nkeep}
     assert len(list(fp_pruned.items())) == 2 * nkeep
-    assert fp.fsspec_open_kwargs == fp_pruned.fsspec_open_kwargs
-    assert fp.is_opendap == fp_pruned.is_opendap
+
+    def get_kwargs(file_pattern):
+        sig = inspect.signature(file_pattern.__init__)
+        kwargs = {
+            param: getattr(file_pattern, param) for param in sig.parameters.keys()
+            if param not in ['combine_dims']
+        }
+        return kwargs
+
+    assert get_kwargs(fp) == get_kwargs(fp_pruned)
