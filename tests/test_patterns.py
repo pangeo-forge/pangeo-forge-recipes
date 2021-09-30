@@ -54,6 +54,17 @@ def concat_merge_pattern_with_kwargs(request):
     return make_concat_merge_pattern(**request.param)
 
 
+@pytest.fixture(
+    params=[
+        {},
+        dict(fsspec_open_kwargs={"username": "foo", "password": "bar"}),
+        dict(query_string_secrets={"token": "foo"}),
+    ]
+)
+def runtime_secrets(request):
+    return request.param
+
+
 def test_file_pattern_concat(concat_pattern):
     fp = concat_pattern
     assert fp.dims == {"time": 3}
@@ -80,14 +91,6 @@ def test_pattern_from_file_sequence():
         assert fp[key] == file_sequence[key[0].index]
 
 
-@pytest.mark.parametrize(
-    "runtime_secrets",
-    [
-        {},
-        dict(fsspec_open_kwargs={"username": "foo", "password": "bar"}),
-        dict(query_string_secrets={"token": "foo"}),
-    ],
-)
 @pytest.mark.parametrize("pickle", [False, True])
 def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern_with_kwargs):
     if not concat_merge_pattern_with_kwargs:
@@ -145,14 +148,6 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
         assert fp.fsspec_open_kwargs == {}
 
 
-@pytest.mark.parametrize(
-    "runtime_secrets",
-    [
-        {},
-        dict(fsspec_open_kwargs={"username": "foo", "password": "bar"}),
-        dict(query_string_secrets={"token": "foo"}),
-    ],
-)
 @pytest.mark.parametrize("nkeep", [1, 2])
 def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
     if not concat_merge_pattern_with_kwargs:
