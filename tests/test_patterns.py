@@ -40,12 +40,7 @@ def concat_merge_pattern():
     return make_concat_merge_pattern()
 
 
-@pytest.fixture(
-    params=[
-        dict(fsspec_open_kwargs={"block_size": "foo"}),
-        dict(is_opendap=True),
-    ]
-)
+@pytest.fixture(params=[dict(fsspec_open_kwargs={"block_size": "foo"}), dict(is_opendap=True)])
 def concat_merge_pattern_with_kwargs(request):
     return make_concat_merge_pattern(**request.param)
 
@@ -178,8 +173,9 @@ def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
     def get_kwargs(file_pattern):
         sig = inspect.signature(file_pattern.__init__)
         kwargs = {
-            param: getattr(file_pattern, param) for param in sig.parameters.keys()
-            if param not in ['combine_dims']
+            param: getattr(file_pattern, param)
+            for param in sig.parameters.keys()
+            if param not in ["combine_dims"]
         }
         return kwargs
 

@@ -268,9 +268,10 @@ def prune_pattern(fp: FilePattern, nkeep: int = 2) -> FilePattern:
         else:  # pragma: no cover
             assert "Should never happen"
 
-    sig = inspect.signature(fp.__init__)
+    sig = inspect.signature(fp.__init__)  # type: ignore
     kwargs = {
-        param: getattr(fp, param) for param in sig.parameters.keys()
-        if param not in ['format_function', 'combine_dims']
+        param: getattr(fp, param)
+        for param in sig.parameters.keys()
+        if param not in ["format_function", "combine_dims"]
     }
     return FilePattern(fp.format_function, *new_combine_dims, **kwargs)
