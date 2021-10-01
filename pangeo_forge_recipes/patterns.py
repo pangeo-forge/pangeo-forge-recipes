@@ -2,7 +2,7 @@
 Filename / URL patterns.
 """
 
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from enum import Enum
 from itertools import product
 from typing import (
@@ -18,6 +18,8 @@ from typing import (
     Tuple,
     Union,
 )
+
+import dask.sizeof
 
 
 class CombineOp(Enum):
@@ -268,3 +270,22 @@ def prune_pattern(fp: FilePattern, nkeep: int = 2) -> FilePattern:
             assert "Should never happen"
 
     return FilePattern(fp.format_function, *new_combine_dims)
+
+
+# Register custom objects with Dask, to ensure memory usage is tracked properly
+
+
+@dask.sizeof.sizeof.register(FilePattern)
+def sizeof_file_pattern(o: FilePattern) -> int:
+    return (
+        dask.sizeof.sizeof(o.format_function)
+        + dask.sizeof.sizeof(o.fsspec_open_kwargs)
+        + dask.sizeof.sizeof(o.query_string_secrets)
+        + dask.sizeof.sizeof(o.is_opendap)
+    )
+
+
+@dask.sizeof.sizeof.register(MergeDim)
+@dask.sizeof.sizeof.register(ConcatDim)
+def sizeof_combinedim(o: CombineDim) -> int:
+    return dask.sizeof.sizeof(asdict(o))
