@@ -9,7 +9,7 @@ import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Iterator, Optional, Sequence, Union
+from typing import Any, Iterator, Optional, Sequence, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
@@ -18,6 +18,11 @@ from fsspec.implementations.http import BlockSizeError
 logger = logging.getLogger(__name__)
 
 # fsspec doesn't provide type hints, so I'm not sure what the write type is for open files
+OpenFileType = Any
+# https://github.com/pangeo-forge/pangeo-forge-recipes/pull/213#discussion_r717801623
+# There is no fool-proof method to tell whether the output of the context was created by fsspec.
+# You could check for the few concrete classes that we expect
+# like AbstractBufferedFile, LocalFileOpener.
 
 
 def _get_url_size(fname, secrets, **open_kwargs):
@@ -115,7 +120,7 @@ class FSSpecTarget(AbstractTarget):
         return self.fs.size(self._full_path(path))
 
     @contextmanager
-    def open(self, path: str, **kwargs) -> Iterator[fsspec.core.OpenFile]:
+    def open(self, path: str, **kwargs) -> Iterator[OpenFileType]:
         """Open file with a context manager."""
         full_path = self._full_path(path)
         logger.debug(f"entering fs.open context manager for {full_path}")
@@ -181,10 +186,6 @@ class MetadataTarget(FSSpecTarget):
         return {k: json.loads(raw_bytes) for k, raw_bytes in all_meta_raw.items()}
 
 
-# A note about something frustrating about this context manager:
-# Sometimes it yields an fsspec.OpenFile object
-# Other times it yields something lower level, like an _io.BufferedReader
-# This can lead to unpredictable behavior
 @contextmanager
 def file_opener(
     fname: str,
