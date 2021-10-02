@@ -1,3 +1,5 @@
+import inspect
+
 import pytest
 
 from pangeo_forge_recipes.patterns import (
@@ -29,13 +31,8 @@ def make_concat_merge_pattern(**kwargs):
     def format_function(time, variable):
         return f"T_{time}_V_{variable}"
 
-    if "fsspec_open_kwargs" in kwargs.keys() and "is_opendap" in kwargs.keys():
-        with pytest.raises(ValueError):
-            fp = FilePattern(format_function, merge, concat, **kwargs)
-            return
-    else:
-        fp = FilePattern(format_function, merge, concat, **kwargs)
-        return fp, times, varnames, format_function, kwargs
+    fp = FilePattern(format_function, merge, concat, **kwargs)
+    return fp, times, varnames, format_function, kwargs
 
 
 @pytest.fixture
@@ -43,15 +40,20 @@ def concat_merge_pattern():
     return make_concat_merge_pattern()
 
 
-@pytest.fixture(
-    params=[
-        dict(fsspec_open_kwargs={"block_size": "foo"}),
-        dict(is_opendap=True),
-        dict(fsspec_open_kwargs={"block_size": "foo"}, is_opendap=True),
-    ]
-)
+@pytest.fixture(params=[dict(fsspec_open_kwargs={"block_size": "foo"}), dict(is_opendap=True)])
 def concat_merge_pattern_with_kwargs(request):
     return make_concat_merge_pattern(**request.param)
+
+
+@pytest.fixture(
+    params=[
+        {},
+        dict(fsspec_open_kwargs={"username": "foo", "password": "bar"}),
+        dict(query_string_secrets={"token": "foo"}),
+    ]
+)
+def runtime_secrets(request):
+    return request.param
 
 
 def test_file_pattern_concat(concat_pattern):
@@ -80,29 +82,22 @@ def test_pattern_from_file_sequence():
         assert fp[key] == file_sequence[key[0].index]
 
 
-@pytest.mark.parametrize(
-    "runtime_secrets",
-    [
-        {},
-        dict(fsspec_open_kwargs={"username": "foo", "password": "bar"}),
-        dict(query_string_secrets={"token": "foo"}),
-    ],
-)
 @pytest.mark.parametrize("pickle", [False, True])
 def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern_with_kwargs):
-    if not concat_merge_pattern_with_kwargs:
-        # if `fsspec_open_kwargs` are passed with `is_opendap`, `FilePattern.__init__` raises
-        # ValueError and `concat_merge_pattern_with_kwargs` returns None, so nothing to test
-        return
-    else:
-        fp, times, varnames, format_function, kwargs = concat_merge_pattern_with_kwargs
+
+    fp, times, varnames, format_function, kwargs = concat_merge_pattern_with_kwargs
 
     if runtime_secrets:
         if "fsspec_open_kwargs" in runtime_secrets.keys():
             if not fp.is_opendap:
                 fp.fsspec_open_kwargs.update(runtime_secrets["fsspec_open_kwargs"])
             else:
-                return
+                pytest.skip(
+                    "`fsspec_open_kwargs` should never be used in combination with `is_opendap`. "
+                    "This is checked in `FilePattern.__init__` but not when updating attributes. "
+                    "Proposed changes to secret handling will obviate the need for runtime updates"
+                    " to attributes in favor of encryption. So for now, we'll just skip this."
+                )
         if "query_string_secrets" in runtime_secrets.keys():
             fp.query_string_secrets.update(runtime_secrets["query_string_secrets"])
 
@@ -145,9 +140,43 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
         assert fp.fsspec_open_kwargs == {}
 
 
+def test_incompatible_kwargs():
+    kwargs = dict(fsspec_open_kwargs={"block_size": "foo"}, is_opendap=True)
+    with pytest.raises(ValueError):
+        make_concat_merge_pattern(**kwargs)
+        return
+
+
 @pytest.mark.parametrize("nkeep", [1, 2])
-def test_prune(nkeep, concat_merge_pattern):
-    fp = concat_merge_pattern[0]
+def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
+
+    fp = concat_merge_pattern_with_kwargs[0]
+
+    if runtime_secrets:
+        if "fsspec_open_kwargs" in runtime_secrets.keys():
+            if not fp.is_opendap:
+                fp.fsspec_open_kwargs.update(runtime_secrets["fsspec_open_kwargs"])
+            else:
+                pytest.skip(
+                    "`fsspec_open_kwargs` should never be used in combination with `is_opendap`. "
+                    "This is checked in `FilePattern.__init__` but not when updating attributes. "
+                    "Proposed changes to secret handling will obviate the need for runtime updates"
+                    " to attributes in favor of encryption. So for now, we'll just skip this."
+                )
+        if "query_string_secrets" in runtime_secrets.keys():
+            fp.query_string_secrets.update(runtime_secrets["query_string_secrets"])
+
     fp_pruned = prune_pattern(fp, nkeep=nkeep)
     assert fp_pruned.dims == {"variable": 2, "time": nkeep}
     assert len(list(fp_pruned.items())) == 2 * nkeep
+
+    def get_kwargs(file_pattern):
+        sig = inspect.signature(file_pattern.__init__)
+        kwargs = {
+            param: getattr(file_pattern, param)
+            for param in sig.parameters.keys()
+            if param not in ["combine_dims"]
+        }
+        return kwargs
+
+    assert get_kwargs(fp) == get_kwargs(fp_pruned)
