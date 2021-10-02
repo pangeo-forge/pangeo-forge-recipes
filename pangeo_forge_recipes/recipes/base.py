@@ -33,13 +33,17 @@ from ..patterns import FilePattern, prune_pattern
 # 6)
 
 
+class RecipeContext(ABC):
+    pass
+
+
 class BaseRecipe(ABC):
     """Base recipe class from which all other Recipes inherit.
     """
 
     @property
     @abstractmethod
-    def prepare_target(self) -> Callable[[], None]:
+    def prepare_target(self) -> Callable[[RecipeContext], None]:
         """Prepare the recipe for execution by initializing the target.
         Attribute that returns a callable function.
         """
@@ -52,7 +56,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def cache_input(self) -> Callable[[Hashable], None]:
+    def cache_input(self) -> Callable[[RecipeContext, Hashable], None]:
         """Copy an input from its source location to the cache.
         Attribute that returns a callable function.
         """
@@ -65,7 +69,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def store_chunk(self) -> Callable[[Hashable], None]:
+    def store_chunk(self) -> Callable[[RecipeContext, Hashable], None]:
         """Store a chunk of data in the target.
         Attribute that returns a callable function.
         """
@@ -73,29 +77,11 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def finalize_target(self) -> Callable[[], None]:
+    def finalize_target(self) -> Callable[[RecipeContext], None]:
         """Final step to finish the recipe after data has been written.
         Attribute that returns a callable function.
         """
         pass
-
-    def to_pipelines(self) -> ParallelPipelines:
-        """Translate recipe to pipeline for execution.
-        """
-        warnings.warn(
-            "'to_pipelines' is deprecated. Use one of 'to_function', 'to_dask', or "
-            "'to_prefect' directly instead.",
-            FutureWarning,
-        )
-        pipeline = []  # type: MultiStagePipeline
-        # TODO: allow recipes to customize which stages to run
-        pipeline.append(Stage(self.cache_input, list(self.iter_inputs())))
-        pipeline.append(Stage(self.prepare_target))
-        pipeline.append(Stage(self.store_chunk, list(self.iter_chunks())))
-        pipeline.append(Stage(self.finalize_target))
-        pipelines = []  # type: ParallelPipelines
-        pipelines.append(pipeline)
-        return pipelines
 
     def to_function(self) -> Callable[[], None]:
         """
@@ -105,11 +91,11 @@ class BaseRecipe(ABC):
         def pipeline():
             # TODO: allow recipes to customize which stages to run
             for input_key in self.iter_inputs():
-                self.cache_input(input_key)
-            self.prepare_target()
+                self.cache_input(self.context, input_key)
+            self.prepare_target(self.context)
             for chunk_key in self.iter_chunks():
-                self.store_chunk(chunk_key)
-            self.finalize_target()
+                self.store_chunk(self.context, chunk_key)
+            self.finalize_target(self.context)
 
         return pipeline
 
@@ -132,27 +118,34 @@ class BaseRecipe(ABC):
 
         # TODO: allow recipes to customize which stages to run
         for i, input_key in enumerate(self.iter_inputs()):
-            dsk[(f"cache_input-{token}", i)] = (self.cache_input, input_key)
+            dsk[(f"cache_input-{token}", i)] = (self.cache_input, self.context, input_key)
 
         # Prepare Target ------------------------------------------------------
         dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
         dsk[f"prepare_target-{token}"] = (
-            _prepare_target,
+            _checkpoint,
             f"checkpoint_0-{token}",
             self.prepare_target,
+            self.context,
         )
 
         # Store Chunk --------------------------------------------------------
         keys = []
         for i, chunk_key in enumerate(self.iter_chunks()):
             k = (f"store_chunk-{token}", i)
-            dsk[k] = (_store_chunk, f"prepare_target-{token}", self.store_chunk, chunk_key)
+            dsk[k] = (
+                _checkpoint,
+                f"prepare_target-{token}",
+                self.store_chunk,
+                self.context,
+                chunk_key,
+            )
             keys.append(k)
 
         # Finalize Target -----------------------------------------------------
         dsk[f"checkpoint_1-{token}"] = (lambda *args: None, keys)
         key = f"finalize_target-{token}"
-        dsk[key] = (_finalize_target, f"checkpoint_1-{token}", self.finalize_target)
+        dsk[key] = (_checkpoint, f"checkpoint_1-{token}", self.finalize_target, self.context)
 
         return Delayed(key, dsk)
 
@@ -167,13 +160,20 @@ class BaseRecipe(ABC):
         finalize_target_task = task(self.finalize_target, name="finalize_target")
 
         with Flow("pangeo-forge-recipe") as flow:
-            cache_task = cache_input_task.map(input_key=list(self.iter_inputs()))
-            upstream_tasks = [cache_task]
-            prepare_task = prepare_target_task(upstream_tasks=upstream_tasks)
-            store_task = store_chunk_task.map(
-                chunk_key=list(self.iter_chunks()), upstream_tasks=[unmapped(prepare_task)],
+            # we hope this will be interpreted as a Prefect Constant
+            # https://docs.prefect.io/core/concepts/tasks.html#constants
+            context = self.contex
+            cache_task = cache_input_task.map(
+                context=unmapped(context), input_key=list(self.iter_inputs())
             )
-            _ = finalize_target_task(upstream_tasks=[store_task])
+            upstream_tasks = [cache_task]
+            prepare_task = prepare_target_task(context=context, upstream_tasks=upstream_tasks)
+            store_task = store_chunk_task.map(
+                context=unmapped(contex),
+                chunk_key=list(self.iter_chunks()),
+                upstream_tasks=[unmapped(prepare_task)],
+            )
+            _ = finalize_target_task(context=contex, upstream_tasks=[store_task])
 
         return flow
 
@@ -191,33 +191,8 @@ class BaseRecipe(ABC):
         pass
 
 
-def closure(func: Callable) -> Callable:
-    """Wrap a method to eliminate the self keyword from its signature."""
-
-    # tried using @functools.wraps, but could not get it to work right
-    def wrapped(*args, **kwargs):
-        self = args[0]
-        if len(args) > 1:
-            args = args[1:]
-        else:
-            args = ()
-        new_func = partial(func, self, *args, **kwargs)
-        new_func.__name__ = getattr(func, "__name__", None)
-        return new_func
-
-    return wrapped
-
-
-def _prepare_target(checkpoint, func):
-    return func()
-
-
-def _store_chunk(checkpoint, func, input_key):
-    return func(input_key)
-
-
-def _finalize_target(checkpoint, func):
-    return func()
+def _checkpoint(checkpoint, func, *args, **kwargs):
+    return func(*args, **kwargs)
 
 
 @dataclass

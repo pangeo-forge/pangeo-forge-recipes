@@ -108,14 +108,6 @@ recipes_no_subset = [
 ]
 
 
-def test_to_pipelines_warns(netCDFtoZarr_recipe):
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
-
-    rec = RecipeClass(file_pattern, **kwargs)
-    with pytest.warns(FutureWarning):
-        rec.to_pipelines()
-
-
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
 def test_recipe(recipe_fixture, execute_recipe):
     """The basic recipe test. Use this as a template for other tests."""
