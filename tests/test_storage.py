@@ -98,6 +98,7 @@ def test_file_opener(
                         ds.load()
                     else:
                         _ = fp.read()
+                    assert hasattr(fp, "fs")  # should be true for fsspec.OpenFile objects
 
     if use_dask:
         with Client(dask_cluster) as client:

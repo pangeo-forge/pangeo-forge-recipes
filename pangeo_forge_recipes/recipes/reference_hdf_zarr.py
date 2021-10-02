@@ -7,10 +7,10 @@ from typing import Callable, Dict, Hashable, Iterable, Optional
 import fsspec
 import yaml
 from fsspec_reference_maker.combine import MultiZarrToZarr
-from fsspec_reference_maker.hdf import SingleHdf5ToZarr
 
 from ..patterns import FilePattern, Index
-from ..storage import FSSpecTarget, MetadataTarget
+from ..reference import create_hdf5_reference, unstrip_protocol
+from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from .base import BaseRecipe, FilePatternRecipeMixin
 
 ChunkKey = Index
@@ -150,10 +150,11 @@ def _one_chunk(
     metadata_cache: MetadataTarget,
 ):
     fname = file_pattern[chunk_key]
-    with fsspec.open(fname, **netcdf_storage_options) as f:
-        fn = os.path.basename(fname + ".json")
-        h5chunks = SingleHdf5ToZarr(f, _unstrip_protocol(fname, f.fs), inline_threshold=300)
-        metadata_cache[fn] = h5chunks.translate()
+    ref_fname = os.path.basename(fname + ".json")
+    with file_opener(fname, **netcdf_storage_options) as fp:
+        protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
+        target_url = unstrip_protocol(fname, protocol)
+        metadata_cache[ref_fname] = create_hdf5_reference(fp, target_url, fname)
 
 
 def _finalize(
@@ -212,16 +213,3 @@ def _finalize(
     }
     with out_target.open(output_intake_yaml_fname, mode="wt") as f:
         yaml.dump(spec, f, default_flow_style=False)
-
-
-def _unstrip_protocol(name, fs):
-    # should be upstreamed into fsspec and maybe also
-    # be a method on an OpenFile
-    if isinstance(fs.protocol, str):
-        if name.startswith(fs.protocol):
-            return name
-        return fs.protocol + "://" + name
-    else:
-        if name.startswith(tuple(fs.protocol)):
-            return name
-        return fs.protocol[0] + "://" + name

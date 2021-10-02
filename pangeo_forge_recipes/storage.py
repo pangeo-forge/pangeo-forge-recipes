@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 # fsspec doesn't provide type hints, so I'm not sure what the write type is for open files
 OpenFileType = Any
+# https://github.com/pangeo-forge/pangeo-forge-recipes/pull/213#discussion_r717801623
+# There is no fool-proof method to tell whether the output of the context was created by fsspec.
+# You could check for the few concrete classes that we expect
+# like AbstractBufferedFile, LocalFileOpener.
 
 
 def _get_url_size(fname, secrets, **open_kwargs):
@@ -116,14 +120,15 @@ class FSSpecTarget(AbstractTarget):
         return self.fs.size(self._full_path(path))
 
     @contextmanager
-    def open(self, path: str, **kwargs) -> Iterator[None]:
+    def open(self, path: str, **kwargs) -> Iterator[OpenFileType]:
         """Open file with a context manager."""
         full_path = self._full_path(path)
         logger.debug(f"entering fs.open context manager for {full_path}")
-        with self.fs.open(full_path, **kwargs) as f:
-            logger.debug(f"FSSpecTarget.open yielding {f}")
-            yield f
-            logger.debug("FSSpecTarget.open yielded")
+        of = self.fs.open(full_path, **kwargs)
+        logger.debug(f"FSSpecTarget.open yielding {of}")
+        yield of
+        logger.debug("FSSpecTarget.open yielded")
+        of.close()
 
     def __post_init__(self):
         if not self.fs.isdir(self.root_path):
@@ -189,7 +194,7 @@ def file_opener(
     bypass_open: bool = False,
     secrets: Optional[dict] = None,
     **open_kwargs,
-) -> Iterator[Union[OpenFileType, str]]:
+) -> Iterator[Union[fsspec.core.OpenFile, str]]:
     """
     Context manager for opening files.
 
@@ -201,6 +206,7 @@ def file_opener(
         before opening. In this case, function yields a path name rather than an open file.
     :param bypass_open: If True, skip trying to open the file at all and just
         return the filename back directly. (A fancy way of doing nothing!)
+    :param secrets: Dictionary of secrets to encode into the query string.
     """
 
     if bypass_open:
