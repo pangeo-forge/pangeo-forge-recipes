@@ -1,10 +1,6 @@
-import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
-from functools import partial
 from typing import Callable, Hashable, Iterable
-
-from rechunker.types import MultiStagePipeline, ParallelPipelines, Stage
 
 from ..patterns import FilePattern, prune_pattern
 
@@ -33,7 +29,7 @@ from ..patterns import FilePattern, prune_pattern
 # 6)
 
 
-class RecipeContext(ABC):
+class RecipeConfig(ABC):
     pass
 
 
@@ -43,7 +39,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def prepare_target(self) -> Callable[[RecipeContext], None]:
+    def prepare_target(self) -> Callable[[RecipeConfig], None]:
         """Prepare the recipe for execution by initializing the target.
         Attribute that returns a callable function.
         """
@@ -56,7 +52,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def cache_input(self) -> Callable[[RecipeContext, Hashable], None]:
+    def cache_input(self) -> Callable[[RecipeConfig, Hashable], None]:
         """Copy an input from its source location to the cache.
         Attribute that returns a callable function.
         """
@@ -69,7 +65,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def store_chunk(self) -> Callable[[RecipeContext, Hashable], None]:
+    def store_chunk(self) -> Callable[[RecipeConfig, Hashable], None]:
         """Store a chunk of data in the target.
         Attribute that returns a callable function.
         """
@@ -77,7 +73,7 @@ class BaseRecipe(ABC):
 
     @property
     @abstractmethod
-    def finalize_target(self) -> Callable[[RecipeContext], None]:
+    def finalize_target(self) -> Callable[[RecipeConfig], None]:
         """Final step to finish the recipe after data has been written.
         Attribute that returns a callable function.
         """
@@ -91,11 +87,11 @@ class BaseRecipe(ABC):
         def pipeline():
             # TODO: allow recipes to customize which stages to run
             for input_key in self.iter_inputs():
-                self.cache_input(self.context, input_key)
-            self.prepare_target(self.context)
+                self.cache_input(self.config, input_key)
+            self.prepare_target(self.config)
             for chunk_key in self.iter_chunks():
-                self.store_chunk(self.context, chunk_key)
-            self.finalize_target(self.context)
+                self.store_chunk(self.config, chunk_key)
+            self.finalize_target(self.config)
 
         return pipeline
 
@@ -118,7 +114,7 @@ class BaseRecipe(ABC):
 
         # TODO: allow recipes to customize which stages to run
         for i, input_key in enumerate(self.iter_inputs()):
-            dsk[(f"cache_input-{token}", i)] = (self.cache_input, self.context, input_key)
+            dsk[(f"cache_input-{token}", i)] = (self.cache_input, self.config, input_key)
 
         # Prepare Target ------------------------------------------------------
         dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
@@ -126,7 +122,7 @@ class BaseRecipe(ABC):
             _checkpoint,
             f"checkpoint_0-{token}",
             self.prepare_target,
-            self.context,
+            self.config,
         )
 
         # Store Chunk --------------------------------------------------------
@@ -137,7 +133,7 @@ class BaseRecipe(ABC):
                 _checkpoint,
                 f"prepare_target-{token}",
                 self.store_chunk,
-                self.context,
+                self.config,
                 chunk_key,
             )
             keys.append(k)
@@ -145,7 +141,7 @@ class BaseRecipe(ABC):
         # Finalize Target -----------------------------------------------------
         dsk[f"checkpoint_1-{token}"] = (lambda *args: None, keys)
         key = f"finalize_target-{token}"
-        dsk[key] = (_checkpoint, f"checkpoint_1-{token}", self.finalize_target, self.context)
+        dsk[key] = (_checkpoint, f"checkpoint_1-{token}", self.finalize_target, self.config)
 
         return Delayed(key, dsk)
 
@@ -162,18 +158,18 @@ class BaseRecipe(ABC):
         with Flow("pangeo-forge-recipe") as flow:
             # we hope this will be interpreted as a Prefect Constant
             # https://docs.prefect.io/core/concepts/tasks.html#constants
-            context = self.contex
+            config = self.config
             cache_task = cache_input_task.map(
-                context=unmapped(context), input_key=list(self.iter_inputs())
+                config=unmapped(config), input_key=list(self.iter_inputs())
             )
             upstream_tasks = [cache_task]
-            prepare_task = prepare_target_task(context=context, upstream_tasks=upstream_tasks)
+            prepare_task = prepare_target_task(config=config, upstream_tasks=upstream_tasks)
             store_task = store_chunk_task.map(
-                context=unmapped(contex),
+                config=unmapped(config),
                 chunk_key=list(self.iter_chunks()),
                 upstream_tasks=[unmapped(prepare_task)],
             )
-            _ = finalize_target_task(context=contex, upstream_tasks=[store_task])
+            _ = finalize_target_task(config=config, upstream_tasks=[store_task])
 
         return flow
 

@@ -1,8 +1,8 @@
 """
 A Pangeo Forge Recipe
 """
+from __future__ import annotations
 
-import functools
 import itertools
 import logging
 import os
@@ -22,7 +22,7 @@ from ..chunk_grid import ChunkGrid
 from ..patterns import CombineOp, DimIndex, FilePattern, Index
 from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
-from .base import BaseRecipe, FilePatternRecipeMixin
+from .base import BaseRecipe, RecipeConfig
 
 # use this filename to store global recipe metadata in the metadata_cache
 # it will be written once (by prepare_target) and read many times (by store_chunk)
@@ -137,150 +137,96 @@ def chunk_position(chunk_key: ChunkKey) -> int:
     return subset_factor * concat_idx + subset_idx
 
 
-def cache_input_metadata(
-    input_key: InputKey,
-    metadata_cache: Optional[MetadataTarget],
-    file_pattern: FilePattern,
-    input_cache: Optional[CacheFSSpecTarget],
-    cache_inputs: bool,
-    copy_input_to_local_file: bool,
-    xarray_open_kwargs: dict,
-    delete_input_encoding: bool,
-    process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
-) -> None:
-    if metadata_cache is None:
-        raise ValueError("metadata_cache is not set.")
-    logger.info(f"Caching metadata for input '{input_key!s}'")
-    with open_input(
-        input_key,
-        file_pattern=file_pattern,
-        input_cache=input_cache,
-        cache_inputs=cache_inputs,
-        copy_input_to_local_file=copy_input_to_local_file,
-        xarray_open_kwargs=xarray_open_kwargs,
-        delete_input_encoding=delete_input_encoding,
-        process_input=process_input,
-    ) as ds:
-        input_metadata = ds.to_dict(data=False)
-        metadata_cache[_input_metadata_fname(input_key)] = input_metadata
-
-
-def cache_input(
-    input_key: InputKey,
-    cache_inputs: bool,
-    input_cache: Optional[CacheFSSpecTarget],
-    file_pattern: FilePattern,
-    cache_metadata: bool,
-    copy_input_to_local_file: bool,
-    xarray_open_kwargs: dict,
-    delete_input_encoding: bool,
-    process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
-    metadata_cache: Optional[MetadataTarget],
-) -> None:
-    if cache_inputs:
-        if file_pattern.is_opendap:
+def cache_input(config: XarrayZarrRecipeConfig, input_key: InputKey) -> None:
+    if config.cache_inputs:
+        if config.file_pattern.is_opendap:
             raise ValueError("Can't cache opendap inputs")
-        if input_cache is None:
+        if config.input_cache is None:
             raise ValueError("input_cache is not set.")
         logger.info(f"Caching input '{input_key!s}'")
-        fname = file_pattern[input_key]
-        input_cache.cache_file(
-            fname, file_pattern.query_string_secrets, **file_pattern.fsspec_open_kwargs
+        fname = config.file_pattern[input_key]
+        config.input_cache.cache_file(
+            fname,
+            config.file_pattern.query_string_secrets,
+            **config.file_pattern.fsspec_open_kwargs,
         )
 
-    if cache_metadata:
-        return cache_input_metadata(
-            input_key,
-            file_pattern=file_pattern,
-            input_cache=input_cache,
-            cache_inputs=cache_inputs,
-            copy_input_to_local_file=copy_input_to_local_file,
-            xarray_open_kwargs=xarray_open_kwargs,
-            delete_input_encoding=delete_input_encoding,
-            process_input=process_input,
-            metadata_cache=metadata_cache,
-        )
+    if config.cache_metadata:
+        if config.metadata_cache is None:
+            raise ValueError("metadata_cache is not set.")
+        logger.info(f"Caching metadata for input '{input_key!s}'")
+        with open_input(config, input_key) as ds:
+            input_metadata = ds.to_dict(data=False)
+            config.metadata_cache[_input_metadata_fname(input_key)] = input_metadata
 
 
 def region_and_conflicts_for_chunk(
-    chunk_key: ChunkKey,
-    inputs_per_chunk: int,
-    nitems_per_input: Optional[int],
-    file_pattern: FilePattern,
-    concat_dim_chunks: Optional[int],
-    concat_dim: str,
-    metadata_cache: Optional[MetadataTarget],
-    subset_inputs: Optional[SubsetSpec],
+    config: XarrayZarrRecipeConfig, chunk_key: ChunkKey
 ) -> Tuple[Dict[str, slice], Dict[str, Set[int]]]:
     # return a dict suitable to pass to xr.to_zarr(region=...)
     # specifies where in the overall array to put this chunk's data
     # also return the conflicts with other chunks
 
-    if nitems_per_input:
-        input_sequence_lens = (nitems_per_input,) * file_pattern.dims[concat_dim]  # type: ignore
+    if config.nitems_per_input:
+        input_sequence_lens = (config.nitems_per_input,) * config.file_pattern.dims[
+            config.concat_dim
+        ]  # type: ignore
     else:
-        assert metadata_cache is not None  # for mypy
-        global_metadata = metadata_cache[_GLOBAL_METADATA_KEY]
+        assert config.metadata_cache is not None  # for mypy
+        global_metadata = config.metadata_cache[_GLOBAL_METADATA_KEY]
         input_sequence_lens = global_metadata["input_sequence_lens"]
     total_len = sum(input_sequence_lens)
 
     # for now this will just have one key since we only allow one concat_dim
     # but it could expand to accomodate multiple concat dims
-    chunk_index = {concat_dim: chunk_position(chunk_key)}
+    chunk_index = {config.concat_dim: chunk_position(chunk_key)}
 
-    input_chunk_grid = ChunkGrid({concat_dim: input_sequence_lens})
-    if subset_inputs and concat_dim in subset_inputs:
+    input_chunk_grid = ChunkGrid({config.concat_dim: input_sequence_lens})
+    if config.subset_inputs and config.concat_dim in config.subset_inputs:
         assert (
-            inputs_per_chunk == 1
+            config.inputs_per_chunk == 1
         ), "Doesn't make sense to have multiple inputs per chunk plus subsetting"
-        chunk_grid = input_chunk_grid.subset(subset_inputs)
-    elif inputs_per_chunk > 1:
-        chunk_grid = input_chunk_grid.consolidate({concat_dim: inputs_per_chunk})
+        chunk_grid = input_chunk_grid.subset(config.subset_inputs)
+    elif config.inputs_per_chunk > 1:
+        chunk_grid = input_chunk_grid.consolidate({config.concat_dim: config.inputs_per_chunk})
     else:
         chunk_grid = input_chunk_grid
-    assert chunk_grid.shape[concat_dim] == total_len
+    assert chunk_grid.shape[config.concat_dim] == total_len
 
     region = chunk_grid.chunk_index_to_array_slice(chunk_index)
 
-    assert concat_dim_chunks is not None
-    target_grid = ChunkGrid.from_uniform_grid({concat_dim: (concat_dim_chunks, total_len)})
+    assert config.concat_dim_chunks is not None
+    target_grid = ChunkGrid.from_uniform_grid(
+        {config.concat_dim: (config.concat_dim_chunks, total_len)}
+    )
     conflicts = chunk_grid.chunk_conflicts(chunk_index, target_grid)
 
     return region, conflicts
 
 
 @contextmanager
-def open_input(
-    input_key: InputKey,
-    file_pattern: FilePattern,
-    input_cache: Optional[CacheFSSpecTarget],
-    cache_inputs: bool,
-    copy_input_to_local_file: bool,
-    xarray_open_kwargs: dict,
-    delete_input_encoding: bool,
-    process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
-) -> xr.Dataset:
-    fname = file_pattern[input_key]
+def open_input(config: XarrayZarrRecipeConfig, input_key: InputKey) -> xr.Dataset:
+    fname = config.file_pattern[input_key]
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
 
-    if file_pattern.is_opendap:
-        if input_cache:
+    if config.file_pattern.is_opendap:
+        if config.input_cache:
             raise ValueError("Can't cache opendap inputs")
-        if copy_input_to_local_file:
+        if config.copy_input_to_local_file:
             raise ValueError("Can't copy opendap inputs to local file")
 
-    cache = input_cache if cache_inputs else None
+    cache = config.input_cache if config.cache_inputs else None
 
     with file_opener(
         fname,
         cache=cache,
-        copy_to_local=copy_input_to_local_file,
-        bypass_open=file_pattern.is_opendap,
-        secrets=file_pattern.query_string_secrets,
-        **file_pattern.fsspec_open_kwargs,
+        copy_to_local=config.copy_input_to_local_file,
+        bypass_open=config.file_pattern.is_opendap,
+        secrets=config.file_pattern.query_string_secrets,
+        **config.file_pattern.fsspec_open_kwargs,
     ) as f:
         with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
-            kw = xarray_open_kwargs.copy()
+            kw = config.xarray_open_kwargs.copy()
             if "engine" not in kw:
                 kw["engine"] = "h5netcdf"
             logger.debug(f"about to enter xr.open_dataset context on {f}")
@@ -288,12 +234,12 @@ def open_input(
                 logger.debug("successfully opened dataset")
                 ds = fix_scalar_attr_encoding(ds)
 
-                if delete_input_encoding:
+                if config.delete_input_encoding:
                     for var in ds.variables:
                         ds[var].encoding = {}
 
-                if process_input is not None:
-                    ds = process_input(ds, str(fname))
+                if config.process_input is not None:
+                    ds = config.process_input(ds, str(fname))
 
                 logger.debug(f"{ds}")
                 yield ds
@@ -313,42 +259,14 @@ def subset_dataset(ds: xr.Dataset, subset_spec: DimIndex) -> xr.Dataset:
 
 
 @contextmanager
-def open_chunk(
-    chunk_key: ChunkKey,
-    inputs_per_chunk: int,
-    concat_dim: Optional[str],
-    xarray_concat_kwargs: dict,
-    process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]],
-    target_chunks: Dict[str, int],
-    file_pattern: FilePattern,
-    input_cache: Optional[CacheFSSpecTarget],
-    cache_inputs: bool,
-    copy_input_to_local_file: bool,
-    xarray_open_kwargs: dict,
-    delete_input_encoding: bool,
-    process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
-) -> xr.Dataset:
+def open_chunk(config: XarrayZarrRecipeConfig, chunk_key: ChunkKey) -> xr.Dataset:
     logger.info(f"Opening inputs for chunk {chunk_key!s}")
-    ninputs = file_pattern.dims[file_pattern.concat_dims[0]]
-    inputs = inputs_for_chunk(chunk_key, inputs_per_chunk, ninputs)
+    ninputs = config.file_pattern.dims[config.file_pattern.concat_dims[0]]
+    inputs = inputs_for_chunk(chunk_key, config.inputs_per_chunk, ninputs)
 
     # need to open an unknown number of contexts at the same time
     with ExitStack() as stack:
-        dsets = [
-            stack.enter_context(
-                open_input(
-                    i,
-                    file_pattern=file_pattern,
-                    input_cache=input_cache,
-                    cache_inputs=cache_inputs,
-                    copy_input_to_local_file=copy_input_to_local_file,
-                    xarray_open_kwargs=xarray_open_kwargs,
-                    delete_input_encoding=delete_input_encoding,
-                    process_input=process_input,
-                )
-            )
-            for i in inputs
-        ]
+        dsets = [stack.enter_context(open_input(config, input_key)) for input_key in inputs]
 
         # subset before chunking; hopefully lazy
         subset_dims = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.SUBSET]
@@ -365,23 +283,23 @@ def open_chunk(
             # During concat, attributes and encoding are taken from the first dataset
             # https://github.com/pydata/xarray/issues/1614
             with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
-                ds = xr.concat(dsets, concat_dim, **xarray_concat_kwargs)
+                ds = xr.concat(dsets, config.concat_dim, **config.xarray_concat_kwargs)
         elif len(dsets) == 1:
             ds = dsets[0]
         else:  # pragma: no cover
             assert False, "Should never happen"
 
-        if process_chunk is not None:
+        if config.process_chunk is not None:
             with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
-                ds = process_chunk(ds)
+                ds = config.process_chunk(ds)
 
         with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
             logger.debug(f"{ds}")
 
-        if target_chunks:
+        if config.target_chunks:
             # The input may be too large to process in memory at once, so
             # rechunk it to the target chunks.
-            ds = ds.chunk(target_chunks)
+            ds = ds.chunk(config.target_chunks)
         yield ds
 
 
@@ -402,6 +320,7 @@ def calculate_sequence_lens(
     concat_dim = file_pattern.concat_dims[0]
 
     if nitems_per_input:
+        concat_dim = file_pattern.concat_dims[0]
         return list((nitems_per_input,) * file_pattern.dims[concat_dim])
 
     # read per-input metadata; this is distinct from global metadata
@@ -422,31 +341,13 @@ def calculate_sequence_lens(
     return np.atleast_1d(sequence_lens.squeeze()).tolist()
 
 
-def prepare_target(
-    target: CacheFSSpecTarget,
-    target_chunks: Dict[str, int],
-    init_chunks: List[ChunkKey],
-    concat_dim: Optional[str],
-    nitems_per_input: Optional[int],
-    file_pattern: FilePattern,
-    inputs_per_chunk: int,
-    cache_metadata: bool,
-    xarray_concat_kwargs: dict,
-    process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]],
-    input_cache: Optional[CacheFSSpecTarget],
-    cache_inputs: bool,
-    copy_input_to_local_file: bool,
-    xarray_open_kwargs: dict,
-    delete_input_encoding: bool,
-    process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
-    metadata_cache: Optional[MetadataTarget],
-) -> None:
+def prepare_target(config: XarrayZarrRecipeConfig) -> None:
     try:
-        ds = open_target(target)
+        ds = open_target(config.target)
         logger.info("Found an existing dataset in target")
         logger.debug(f"{ds}")
 
-        if target_chunks:
+        if config.target_chunks:
             # TODO: check that target_chunks id compatibile with the
             # existing chunks
             pass
@@ -454,31 +355,26 @@ def prepare_target(
         logger.info("Creating a new dataset in target")
 
         # need to rewrite this as an append loop
+
+        def filter_init_chunks(chunk_key):
+            for dim_idx in chunk_key:
+                if (dim_idx.operation != CombineOp.MERGE) and (dim_idx.index > 0):
+                    return False
+            return True
+
+        init_chunks = list(filter(filter_init_chunks, config.iter_chunks()))
+
         for chunk_key in init_chunks:
-            with open_chunk(
-                chunk_key=chunk_key,
-                inputs_per_chunk=inputs_per_chunk,
-                concat_dim=concat_dim,
-                xarray_concat_kwargs=xarray_concat_kwargs,
-                process_chunk=process_chunk,
-                target_chunks=target_chunks,
-                file_pattern=file_pattern,
-                input_cache=input_cache,
-                cache_inputs=cache_inputs,
-                copy_input_to_local_file=copy_input_to_local_file,
-                xarray_open_kwargs=xarray_open_kwargs,
-                delete_input_encoding=delete_input_encoding,
-                process_input=process_input,
-            ) as ds:
+            with open_chunk(config, chunk_key) as ds:
                 # ds is already chunked
 
                 # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
                 for v in ds.variables:
-                    if target_chunks:
+                    if config.target_chunks:
                         this_var = ds[v]
                         chunks = {
                             this_var.get_axis_num(dim): chunk
-                            for dim, chunk in target_chunks.items()
+                            for dim, chunk in config.target_chunks.items()
                             if dim in this_var.dims
                         }
                         encoding_chunks = tuple(
@@ -494,11 +390,11 @@ def prepare_target(
                 # Variables that are loaded will be written even with compute=False
                 # TODO: make this behavior customizable
                 for v in ds.variables:
-                    if concat_dim not in ds[v].dims:
+                    if config.concat_dim not in ds[v].dims:
                         ds[v].load()
 
-                target_mapper = target.get_mapper()
-                logger.info(f"Storing dataset in {target.root_path}")
+                target_mapper = config.target.get_mapper()
+                logger.info(f"Storing dataset in {config.target.root_path}")
                 logger.debug(f"{ds}")
                 with warnings.catch_warnings():
                     warnings.simplefilter(
@@ -509,75 +405,32 @@ def prepare_target(
     # Regardless of whether there is an existing dataset or we are creating a new one,
     # we need to expand the concat_dim to hold the entire expected size of the data
     input_sequence_lens = calculate_sequence_lens(
-        nitems_per_input, file_pattern, metadata_cache=metadata_cache,
+        config.nitems_per_input, config.file_pattern, config.metadata_cache,
     )
     n_sequence = sum(input_sequence_lens)
-    logger.info(f"Expanding target concat dim '{concat_dim}' to size {n_sequence}")
-    expand_target_dim(target, concat_dim, n_sequence)
+    logger.info(f"Expanding target concat dim '{config.concat_dim}' to size {n_sequence}")
+    expand_target_dim(config.target, config.concat_dim, n_sequence)
     # TODO: handle possible subsetting
     # The init chunks might not cover the whole dataset along multiple dimensions!
 
-    if cache_metadata:
+    if config.cache_metadata:
         # if nitems_per_input is not constant, we need to cache this info
-        assert metadata_cache is not None  # for mypy
-        recipe_meta = {"input_sequence_lens": input_sequence_lens}
-        metadata_cache[_GLOBAL_METADATA_KEY] = recipe_meta
+        assert config.metadata_cache is not None  # for mypy
+        recipe_meta = {"input_sequence_lens": config.input_sequence_lens}
+        config.metadata_cache[_GLOBAL_METADATA_KEY] = recipe_meta
 
 
-def store_chunk(
-    chunk_key: ChunkKey,
-    target: CacheFSSpecTarget,
-    concat_dim: str,
-    nitems_per_input: Optional[int],
-    file_pattern: FilePattern,
-    inputs_per_chunk: int,
-    subset_inputs: SubsetSpec,
-    concat_dim_chunks: Optional[int],
-    lock_timeout: Optional[int],
-    xarray_concat_kwargs: dict,
-    process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]],
-    target_chunks: Dict[str, int],
-    input_cache: Optional[CacheFSSpecTarget],
-    cache_inputs: bool,
-    copy_input_to_local_file: bool,
-    xarray_open_kwargs: dict,
-    delete_input_encoding: bool,
-    process_input: Optional[Callable[[xr.Dataset, str], xr.Dataset]],
-    metadata_cache: Optional[MetadataTarget],
-) -> None:
-    if target is None:
+def store_chunk(config: XarrayZarrRecipeConfig, chunk_key: ChunkKey) -> None:
+    if config.target is None:
         raise ValueError("target has not been set.")
 
-    with open_chunk(
-        chunk_key=chunk_key,
-        inputs_per_chunk=inputs_per_chunk,
-        concat_dim=concat_dim,
-        xarray_concat_kwargs=xarray_concat_kwargs,
-        process_chunk=process_chunk,
-        target_chunks=target_chunks,
-        file_pattern=file_pattern,
-        input_cache=input_cache,
-        cache_inputs=cache_inputs,
-        copy_input_to_local_file=copy_input_to_local_file,
-        xarray_open_kwargs=xarray_open_kwargs,
-        delete_input_encoding=delete_input_encoding,
-        process_input=process_input,
-    ) as ds_chunk:
+    with open_chunk(config, chunk_key) as ds_chunk:
         # writing a region means that all the variables MUST have concat_dim
-        to_drop = [v for v in ds_chunk.variables if concat_dim not in ds_chunk[v].dims]
+        to_drop = [v for v in ds_chunk.variables if config.concat_dim not in ds_chunk[v].dims]
         ds_chunk = ds_chunk.drop_vars(to_drop)
 
-        target_mapper = target.get_mapper()
-        write_region, conflicts = region_and_conflicts_for_chunk(
-            chunk_key=chunk_key,
-            inputs_per_chunk=inputs_per_chunk,
-            nitems_per_input=nitems_per_input,
-            file_pattern=file_pattern,
-            concat_dim_chunks=concat_dim_chunks,
-            concat_dim=concat_dim,
-            metadata_cache=metadata_cache,
-            subset_inputs=subset_inputs,
-        )
+        target_mapper = config.target.get_mapper()
+        write_region, conflicts = region_and_conflicts_for_chunk(config, chunk_key)
 
         zgroup = zarr.open_group(target_mapper)
         for vname, var_coded in ds_chunk.variables.items():
@@ -596,12 +449,13 @@ def store_chunk(
                 )
                 if var.data.nbytes > MAX_MEMORY:
                     factor = round((var.data.nbytes / MAX_MEMORY), 2)
+                    cdim = config.concat_dim
                     logger.warning(
                         f"Variable {vname} of {var.data.nbytes} bytes is {factor} times larger "
                         f"than specified maximum variable array size of {MAX_MEMORY} bytes. "
-                        f'Consider re-instantiating recipe with `subset_inputs = {{"{concat_dim}": '
-                        f'{ceil(factor)}}}`. If `len(ds["{concat_dim}"])` < {ceil(factor)}, '
-                        f'substitute "{concat_dim}" for any name in ds["{vname}"].dims with length '
+                        f'Consider re-instantiating recipe with `subset_inputs = {{"{cdim}": '
+                        f'{ceil(factor)}}}`. If `len(ds["{cdim}"])` < {ceil(factor)}, '
+                        f'substitute "{cdim}" for any name in ds["{vname}"].dims with length '
                         f">= {ceil(factor)} or consider subsetting along multiple dimensions."
                         " Setting PANGEO_FORGE_MAX_MEMORY env variable changes the variable array"
                         " size which will trigger this warning."
@@ -616,7 +470,7 @@ def store_chunk(
                 for c in dim_conflicts
             ]
             logger.debug(f"Acquiring locks {lock_keys}")
-            with lock_for_conflicts(lock_keys, timeout=lock_timeout):
+            with lock_for_conflicts(lock_keys, timeout=config.lock_timeout):
                 logger.info(
                     f"Storing variable {vname} chunk {chunk_key!s} " f"to Zarr region {zarr_region}"
                 )
@@ -629,17 +483,13 @@ def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
     )
 
 
-def finalize_target(
-    target: CacheFSSpecTarget,
-    consolidate_zarr: bool,
-    consolidate_dimension_coordinates: bool = True,
-) -> None:
-    if target is None:
+def finalize_target(config: XarrayZarrRecipeConfig) -> None:
+    if config.target is None:
         raise ValueError("target has not been set.")
 
-    if consolidate_dimension_coordinates:
+    if config.consolidate_dimension_coordinates:
         logger.info("Consolidating dimension coordinate arrays")
-        target_mapper = target.get_mapper()
+        target_mapper = config.target.get_mapper()
         group = zarr.open(target_mapper, mode="a")
         # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/214
         # intersect the dims from the array metadata with the Zarr group
@@ -661,9 +511,9 @@ def finalize_target(
             )
             new.attrs.update(attrs)
 
-    if consolidate_zarr:
+    if config.consolidate_zarr:
         logger.info("Consolidating Zarr metadata")
-        target_mapper = target.get_mapper()
+        target_mapper = config.target.get_mapper()
         zarr.consolidate_metadata(target_mapper)
 
 
@@ -673,8 +523,8 @@ def finalize_target(
 
 
 @dataclass
-class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
-    """This class represents a dataset composed of many individual NetCDF files.
+class XarrayZarrRecipeConfig(RecipeConfig):
+    """This configuration represents a dataset composed of many individual NetCDF files.
     This class uses Xarray to read and write data and writes its output to Zarr.
     The organization of the source files is described by the ``file_pattern``.
     Currently this recipe supports at most one ``MergeDim`` and one ``ConcatDim``
@@ -717,6 +567,7 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
       time dimension. Multiple dimensions are allowed.
     """
 
+    file_pattern: FilePattern
     inputs_per_chunk: int = 1
     target_chunks: Dict[str, int] = field(default_factory=dict)
     target: Optional[AbstractTarget] = None
@@ -735,23 +586,30 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
     subset_inputs: SubsetSpec = field(default_factory=dict)
 
     # internal attributes not meant to be seen or accessed by user
-    _concat_dim: str = field(default_factory=str, repr=False, init=False)
+    concat_dim: str = field(default_factory=str, repr=False, init=False)
     """The concatenation dimension name."""
 
-    _concat_dim_chunks: Optional[int] = field(default=None, repr=False, init=False)
+    concat_dim_chunks: Optional[int] = field(default=None, repr=False, init=False)
     """The desired chunking along the sequence dimension."""
 
-    _init_chunks: List[ChunkKey] = field(default_factory=list, repr=False, init=False)
+    init_chunks: List[ChunkKey] = field(default_factory=list, repr=False, init=False)
     """List of chunks needed to initialize the recipe."""
+
+    cache_metadata: bool = field(default=False, repr=False, init=False)
+    """Whether metadata caching is needed."""
+
+    nitems_per_input: Optional[int] = field(default=None, repr=False, init=False)
+    """How many items per input along concat_dim."""
 
     def __post_init__(self):
         self._validate_file_pattern()
+
         # from here on we know there is at most one merge dim and one concat dim
-        self._concat_dim = self.file_pattern.concat_dims[0]
-        self._cache_metadata = any(
+        self.concat_dim = self.file_pattern.concat_dims[0]
+        self.cache_metadata = any(
             [v is None for v in self.file_pattern.concat_sequence_lens.values()]
         )
-        self._nitems_per_input = self.file_pattern.nitems_per_input[self._concat_dim]
+        self.nitems_per_input = self.file_pattern.nitems_per_input[self.concat_dim]
 
         if self.file_pattern.is_opendap:
             if self.cache_inputs:
@@ -770,16 +628,19 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
         elif self.cache_inputs is None:
             self.cache_inputs = True  # old defult
 
-        def filter_init_chunks(chunk_key):
-            for dim_idx in chunk_key:
-                if (dim_idx.operation != CombineOp.MERGE) and (dim_idx.index > 0):
-                    return False
-            return True
-
-        self._init_chunks = list(filter(filter_init_chunks, self.iter_chunks()))
-
         self._validate_input_and_chunk_keys()
-        self._set_target_chunks()
+
+        # set concat_dim_chunks
+        target_concat_dim_chunks = self.target_chunks.get(self.concat_dim)
+        if (self.nitems_per_input is None) and (target_concat_dim_chunks is None):
+            raise ValueError(
+                "Unable to determine target chunks. Please specify either "
+                "`target_chunks` or `nitems_per_input`"
+            )
+        elif target_concat_dim_chunks:
+            self.concat_dim_chunks = target_concat_dim_chunks
+        else:
+            self.concat_dim_chunks = self.nitems_per_input * self.inputs_per_chunk
 
     def _validate_file_pattern(self):
         if len(self.file_pattern.merge_dims) > 1:
@@ -805,98 +666,6 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
             print("First chunk", chunk_key)
             print("Inputs_for_chunk", inputs_for_chunk(chunk_key, self.inputs_per_chunk, ninputs))
             raise ValueError("Inputs and chunks are inconsistent")
-
-    # below here are methods that are part of recipe execution
-    def _set_target_chunks(self):
-        target_concat_dim_chunks = self.target_chunks.get(self._concat_dim)
-        if (self._nitems_per_input is None) and (target_concat_dim_chunks is None):
-            raise ValueError(
-                "Unable to determine target chunks. Please specify either "
-                "`target_chunks` or `nitems_per_input`"
-            )
-        elif target_concat_dim_chunks:
-            self._concat_dim_chunks = target_concat_dim_chunks
-        else:
-            self._concat_dim_chunks = self._nitems_per_input * self.inputs_per_chunk
-
-    # Each stage of the recipe follows the same pattern:
-    # 1. A top-level function, e.g. `prepare_target`, that does the actual work.
-    # 2. A public property, e.g. `.prepare_target`, that calls the partially applied function
-    #    with the provided arguments if any (e.g. a chunk_key)
-    # This ensures that the actual function objects shipped to and executed on
-    # workers do not contain any references to the `recipe` object itself, which is complicated
-    # to serialize.
-
-    @property
-    def prepare_target(self) -> Callable[[], None]:
-        return functools.partial(
-            prepare_target,
-            target=self.target,
-            target_chunks=self.target_chunks,
-            init_chunks=self._init_chunks,
-            concat_dim=self._concat_dim,
-            nitems_per_input=self._nitems_per_input,
-            file_pattern=self.file_pattern,
-            inputs_per_chunk=self.inputs_per_chunk,
-            cache_metadata=self._cache_metadata,
-            xarray_concat_kwargs=self.xarray_concat_kwargs,
-            process_chunk=self.process_chunk,
-            input_cache=self.input_cache,
-            cache_inputs=self.cache_inputs,
-            copy_input_to_local_file=self.copy_input_to_local_file,
-            xarray_open_kwargs=self.xarray_open_kwargs,
-            delete_input_encoding=self.delete_input_encoding,
-            process_input=self.process_input,
-            metadata_cache=self.metadata_cache,
-        )
-
-    @property
-    def cache_input(self) -> Callable[[Hashable], None]:
-        return functools.partial(
-            cache_input,
-            cache_inputs=self.cache_inputs,
-            input_cache=self.input_cache,
-            file_pattern=self.file_pattern,
-            cache_metadata=self._cache_metadata,
-            copy_input_to_local_file=self.copy_input_to_local_file,
-            xarray_open_kwargs=self.xarray_open_kwargs,
-            delete_input_encoding=self.delete_input_encoding,
-            process_input=self.process_input,
-            metadata_cache=self.metadata_cache,
-        )
-
-    @property
-    def store_chunk(self) -> Callable[[Hashable], None]:
-        return functools.partial(
-            store_chunk,
-            target=self.target,
-            concat_dim=self._concat_dim,
-            nitems_per_input=self._nitems_per_input,
-            file_pattern=self.file_pattern,
-            inputs_per_chunk=self.inputs_per_chunk,
-            subset_inputs=self.subset_inputs,
-            concat_dim_chunks=self._concat_dim_chunks,
-            lock_timeout=self.lock_timeout,
-            xarray_concat_kwargs=self.xarray_concat_kwargs,
-            xarray_open_kwargs=self.xarray_open_kwargs,
-            process_chunk=self.process_chunk,
-            target_chunks=self.target_chunks,
-            input_cache=self.input_cache,
-            cache_inputs=self.cache_inputs,
-            copy_input_to_local_file=self.copy_input_to_local_file,
-            delete_input_encoding=self.delete_input_encoding,
-            process_input=self.process_input,
-            metadata_cache=self.metadata_cache,
-        )
-
-    @property
-    def finalize_target(self) -> Callable[[], None]:
-        return functools.partial(
-            finalize_target,
-            target=self.target,
-            consolidate_zarr=self.consolidate_zarr,
-            consolidate_dimension_coordinates=self.consolidate_dimension_coordinates,
-        )
 
     def iter_inputs(self) -> Iterator[InputKey]:
         for input_key in self.file_pattern:
@@ -939,37 +708,55 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternRecipeMixin):
         ninputs = self.file_pattern.dims[self.file_pattern.concat_dims[0]]
         return inputs_for_chunk(chunk_key, self.inputs_per_chunk, ninputs)
 
+
+@dataclass
+class XarrayZarrRecipe(BaseRecipe):
+
+    config: XarrayZarrRecipeConfig
+
+    # Each stage of the recipe follows the same pattern:
+    # 1. A top-level function, e.g. `prepare_target`, that does the actual work.
+    # 2. A public property, e.g. `.prepare_target`, that calls the partially applied function
+    #    with the provided arguments if any (e.g. a chunk_key)
+    # This ensures that the actual function objects shipped to and executed on
+    # workers do not contain any references to the `recipe` object itself, which is complicated
+    # to serialize.
+
+    @property
+    def prepare_target(self) -> Callable[[XarrayZarrRecipeConfig], None]:
+        return prepare_target
+
+    @property
+    def cache_input(self) -> Callable[[XarrayZarrRecipeConfig, Hashable], None]:
+        return cache_input
+
+    @property
+    def store_chunk(self) -> Callable[[XarrayZarrRecipeConfig, Hashable], None]:
+        return store_chunk
+
+    @property
+    def finalize_target(self) -> Callable[[XarrayZarrRecipeConfig], None]:
+        return finalize_target
+
     # ------------------------------------------------------------------------
     # Convenience methods
     @contextmanager
     def open_input(self, input_key):
-        with open_input(
-            input_key,
-            file_pattern=self.file_pattern,
-            input_cache=self.input_cache,
-            cache_inputs=self.cache_inputs,
-            copy_input_to_local_file=self.copy_input_to_local_file,
-            xarray_open_kwargs=self.xarray_open_kwargs,
-            delete_input_encoding=self.delete_input_encoding,
-            process_input=self.process_input,
-        ) as ds:
+        with open_input(self.config, input_key) as ds:
             yield ds
 
     @contextmanager
     def open_chunk(self, chunk_key):
-        with open_chunk(
-            chunk_key,
-            inputs_per_chunk=self.inputs_per_chunk,
-            concat_dim=self._concat_dim,
-            xarray_concat_kwargs=self.xarray_concat_kwargs,
-            process_chunk=self.process_chunk,
-            target_chunks=self.target_chunks,
-            file_pattern=self.file_pattern,
-            input_cache=self.input_cache,
-            cache_inputs=self.cache_input,
-            copy_input_to_local_file=self.copy_input_to_local_file,
-            xarray_open_kwargs=self.xarray_open_kwargs,
-            delete_input_encoding=self.delete_input_encoding,
-            process_input=self.process_input,
-        ) as ds:
+        with open_chunk(self.config, chunk_key,) as ds:
             yield ds
+
+    def iter_inputs(self) -> Iterator[InputKey]:
+        for input_key in self.config.iter_inputs():
+            yield input_key
+
+    def iter_chunks(self) -> Iterator[ChunkKey]:
+        for chunk_key in self.config.iter_chunks():
+            yield chunk_key
+
+    def inputs_for_chunk(self, chunk_key: ChunkKey) -> Sequence[InputKey]:
+        return self.config(inputs_for_chunk)

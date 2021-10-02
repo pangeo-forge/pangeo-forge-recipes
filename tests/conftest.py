@@ -450,20 +450,6 @@ _executors = {
 
 
 @pytest.fixture()
-def execute_recipe_manual():
-    def execute(r):
-        if r.cache_inputs:
-            for input_key in r.iter_inputs():
-                r.cache_input(input_key)
-        r.prepare_target()
-        for chunk_key in r.iter_chunks():
-            r.store_chunk(chunk_key)
-        r.finalize_target()
-
-    return execute
-
-
-@pytest.fixture()
 def execute_recipe_python():
     def execute(recipe):
         return recipe.to_function()()
@@ -503,11 +489,7 @@ def execute_recipe_prefect_dask(dask_cluster):
 
 
 @pytest.fixture(
-    params=[
-        lazy_fixture("execute_recipe_manual"),
-        lazy_fixture("execute_recipe_python"),
-        lazy_fixture("execute_recipe_dask"),
-    ],
+    params=[lazy_fixture("execute_recipe_python"), lazy_fixture("execute_recipe_dask")],
 )
 def execute_recipe_no_prefect(request):
     return request.param
@@ -521,11 +503,7 @@ def execute_recipe_with_prefect(request):
 
 
 @pytest.fixture(
-    params=[
-        lazy_fixture("execute_recipe_manual"),
-        lazy_fixture("execute_recipe_python"),
-        lazy_fixture("execute_recipe_prefect"),
-    ],
+    params=[lazy_fixture("execute_recipe_python"), lazy_fixture("execute_recipe_prefect")],
 )
 def execute_recipe_no_dask(request):
     return request.param

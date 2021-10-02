@@ -47,9 +47,9 @@ def test_locks(n_tasks, conflicts, tmp_target, dask_cluster):
 @pytest.mark.parametrize(
     "shape, zarr_chunks, write_chunks",
     [
-        ((100,), (10,), (15,)),  # just a few conflicts
-        ((100,), (100,), (10,)),  # lots of conflicts!
-    ],
+        ((100,), (10,), (15,)),
+        ((100,), (100,), (10,)),
+    ],  # just a few conflicts  # lots of conflicts!
 )
 def test_locked_array_writing(shape, zarr_chunks, write_chunks, tmp_target, dask_cluster):
 
