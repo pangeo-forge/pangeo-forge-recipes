@@ -125,14 +125,16 @@ class BaseRecipe(ABC):
         import dask
         from dask.delayed import Delayed
 
-        # TODO: HighlevelGraph layers for each of these mapped inputs.
-        # Cache Input --------------------------------------------------------
         dsk = {}
         token = dask.base.tokenize(self)
 
+        # TODO: HighlevelGraph layers for each of these mapped inputs.
+        # Cache Input --------------------------------------------------------
         # TODO: allow recipes to customize which stages to run
+        cache_input_token = f"cache_input-{token}"
+        dsk[cache_input_token] = self.cache_input
         for i, input_key in enumerate(self.iter_inputs()):
-            dsk[(f"cache_input-{token}", i)] = (self.cache_input, input_key)
+            dsk[(f"cache_input-{token}", i)] = (cache_input_token, input_key)
 
         # Prepare Target ------------------------------------------------------
         dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
@@ -143,10 +145,13 @@ class BaseRecipe(ABC):
         )
 
         # Store Chunk --------------------------------------------------------
+        store_chunk_token = f"cache_chunk-{token}"
+        dsk[store_chunk_token] = self.store_chunk
+
         keys = []
         for i, chunk_key in enumerate(self.iter_chunks()):
             k = (f"store_chunk-{token}", i)
-            dsk[k] = (_store_chunk, f"prepare_target-{token}", self.store_chunk, chunk_key)
+            dsk[k] = (_store_chunk, f"prepare_target-{token}", store_chunk_token, chunk_key)
             keys.append(k)
 
         # Finalize Target -----------------------------------------------------
