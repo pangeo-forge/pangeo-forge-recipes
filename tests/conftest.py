@@ -31,11 +31,6 @@ from prefect.executors import DaskExecutor
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.executors import (
-    DaskPipelineExecutor,
-    PrefectPipelineExecutor,
-    PythonPipelineExecutor,
-)
 from pangeo_forge_recipes.patterns import (
     ConcatDim,
     FilePattern,
@@ -439,14 +434,6 @@ def dask_cluster(request):
     yield cluster
 
     cluster.close()
-
-
-_executors = {
-    "python": PythonPipelineExecutor,
-    "dask": DaskPipelineExecutor,
-    "prefect": PrefectPipelineExecutor,
-    "prefect-dask": PrefectPipelineExecutor,
-}
 
 
 @pytest.fixture()
