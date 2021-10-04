@@ -112,9 +112,12 @@ class BaseRecipe(ABC):
         dsk = {}
         token = dask.base.tokenize(self)
 
+        config_ = f"config-{token}"
+        dsk[config_] = self.config
+
         # TODO: allow recipes to customize which stages to run
         for i, input_key in enumerate(self.iter_inputs()):
-            dsk[(f"cache_input-{token}", i)] = (self.cache_input, self.config, input_key)
+            dsk[(f"cache_input-{token}", i)] = (self.cache_input, config_, input_key)
 
         # Prepare Target ------------------------------------------------------
         dsk[f"checkpoint_0-{token}"] = (lambda *args: None, list(dsk))
@@ -122,7 +125,7 @@ class BaseRecipe(ABC):
             _checkpoint,
             f"checkpoint_0-{token}",
             self.prepare_target,
-            self.config,
+            config_,
         )
 
         # Store Chunk --------------------------------------------------------
@@ -133,7 +136,7 @@ class BaseRecipe(ABC):
                 _checkpoint,
                 f"prepare_target-{token}",
                 self.store_chunk,
-                self.config,
+                config_,
                 chunk_key,
             )
             keys.append(k)
@@ -141,7 +144,7 @@ class BaseRecipe(ABC):
         # Finalize Target -----------------------------------------------------
         dsk[f"checkpoint_1-{token}"] = (lambda *args: None, keys)
         key = f"finalize_target-{token}"
-        dsk[key] = (_checkpoint, f"checkpoint_1-{token}", self.finalize_target, self.config)
+        dsk[key] = (_checkpoint, f"checkpoint_1-{token}", self.finalize_target, config_)
 
         return Delayed(key, dsk)
 
