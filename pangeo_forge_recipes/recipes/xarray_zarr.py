@@ -19,10 +19,11 @@ import xarray as xr
 import zarr
 
 from ..chunk_grid import ChunkGrid
+from ..executors.base import Pipeline, Stage
 from ..patterns import CombineOp, DimIndex, FilePattern, Index
 from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
-from .base import BaseRecipe, RecipeConfig
+from .base import BaseRecipe, FilePatternMixin
 
 # use this filename to store global recipe metadata in the metadata_cache
 # it will be written once (by prepare_target) and read many times (by store_chunk)
@@ -137,7 +138,7 @@ def chunk_position(chunk_key: ChunkKey) -> int:
     return subset_factor * concat_idx + subset_idx
 
 
-def cache_input(config: XarrayZarrRecipeConfig, input_key: InputKey) -> None:
+def cache_input(input_key: InputKey,  *, config: XarrayZarrRecipe) -> None:
     if config.cache_inputs:
         if config.file_pattern.is_opendap:
             raise ValueError("Can't cache opendap inputs")
@@ -155,13 +156,13 @@ def cache_input(config: XarrayZarrRecipeConfig, input_key: InputKey) -> None:
         if config.metadata_cache is None:
             raise ValueError("metadata_cache is not set.")
         logger.info(f"Caching metadata for input '{input_key!s}'")
-        with open_input(config, input_key) as ds:
+        with open_input(input_key, config=config) as ds:
             input_metadata = ds.to_dict(data=False)
             config.metadata_cache[_input_metadata_fname(input_key)] = input_metadata
 
 
 def region_and_conflicts_for_chunk(
-    config: XarrayZarrRecipeConfig, chunk_key: ChunkKey
+    config: XarrayZarrRecipe, chunk_key: ChunkKey
 ) -> Tuple[Dict[str, slice], Dict[str, Set[int]]]:
     # return a dict suitable to pass to xr.to_zarr(region=...)
     # specifies where in the overall array to put this chunk's data
@@ -205,7 +206,7 @@ def region_and_conflicts_for_chunk(
 
 
 @contextmanager
-def open_input(config: XarrayZarrRecipeConfig, input_key: InputKey) -> xr.Dataset:
+def open_input(input_key: InputKey,  *, config: XarrayZarrRecipe) -> xr.Dataset:
     fname = config.file_pattern[input_key]
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
 
@@ -259,14 +260,14 @@ def subset_dataset(ds: xr.Dataset, subset_spec: DimIndex) -> xr.Dataset:
 
 
 @contextmanager
-def open_chunk(config: XarrayZarrRecipeConfig, chunk_key: ChunkKey) -> xr.Dataset:
+def open_chunk(chunk_key: ChunkKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
     logger.info(f"Opening inputs for chunk {chunk_key!s}")
     ninputs = config.file_pattern.dims[config.file_pattern.concat_dims[0]]
     inputs = inputs_for_chunk(chunk_key, config.inputs_per_chunk, ninputs)
 
     # need to open an unknown number of contexts at the same time
     with ExitStack() as stack:
-        dsets = [stack.enter_context(open_input(config, input_key)) for input_key in inputs]
+        dsets = [stack.enter_context(open_input(input_key, config=config)) for input_key in inputs]
 
         # subset before chunking; hopefully lazy
         subset_dims = [dim_idx for dim_idx in chunk_key if dim_idx.operation == CombineOp.SUBSET]
@@ -341,7 +342,7 @@ def calculate_sequence_lens(
     return np.atleast_1d(sequence_lens.squeeze()).tolist()
 
 
-def prepare_target(config: XarrayZarrRecipeConfig) -> None:
+def prepare_target(*, config: XarrayZarrRecipe) -> None:
     try:
         ds = open_target(config.target)
         logger.info("Found an existing dataset in target")
@@ -365,7 +366,7 @@ def prepare_target(config: XarrayZarrRecipeConfig) -> None:
         init_chunks = list(filter(filter_init_chunks, config.iter_chunks()))
 
         for chunk_key in init_chunks:
-            with open_chunk(config, chunk_key) as ds:
+            with open_chunk(chunk_key, config=config) as ds:
                 # ds is already chunked
 
                 # https://github.com/pydata/xarray/blob/5287c7b2546fc8848f539bb5ee66bb8d91d8496f/xarray/core/variable.py#L1069
@@ -420,11 +421,11 @@ def prepare_target(config: XarrayZarrRecipeConfig) -> None:
         config.metadata_cache[_GLOBAL_METADATA_KEY] = recipe_meta
 
 
-def store_chunk(config: XarrayZarrRecipeConfig, chunk_key: ChunkKey) -> None:
+def store_chunk(chunk_key: ChunkKey, *, config: XarrayZarrRecipe) -> None:
     if config.target is None:
         raise ValueError("target has not been set.")
 
-    with open_chunk(config, chunk_key) as ds_chunk:
+    with open_chunk(chunk_key, config=config) as ds_chunk:
         # writing a region means that all the variables MUST have concat_dim
         to_drop = [v for v in ds_chunk.variables if config.concat_dim not in ds_chunk[v].dims]
         ds_chunk = ds_chunk.drop_vars(to_drop)
@@ -483,7 +484,7 @@ def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
     )
 
 
-def finalize_target(config: XarrayZarrRecipeConfig) -> None:
+def finalize_target(*, config: XarrayZarrRecipe) -> None:
     if config.target is None:
         raise ValueError("target has not been set.")
 
@@ -517,13 +518,23 @@ def finalize_target(config: XarrayZarrRecipeConfig) -> None:
         zarr.consolidate_metadata(target_mapper)
 
 
+def xarray_zarr_recipe_compiler(recipe: XarrayZarrRecipe) -> Pipeline:
+    stages = [
+        Stage(name="cache_input", function=cache_input, mappable=list(recipe.iter_inputs())),
+        Stage(name="prepare_target", function=prepare_target),
+        Stage(name="store_chunk", function=store_chunk, mappable=list(recipe.iter_chunks())),
+        Stage(name="finalize_target", function=finalize_target),
+    ]
+    return Pipeline(stages=stages, config=recipe)
+
+
 # Notes about dataclasses:
 # - https://www.python.org/dev/peps/pep-0557/#inheritance
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
 
 
 @dataclass
-class XarrayZarrRecipeConfig(RecipeConfig):
+class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
     """This configuration represents a dataset composed of many individual NetCDF files.
     This class uses Xarray to read and write data and writes its output to Zarr.
     The organization of the source files is described by the ``file_pattern``.
@@ -567,7 +578,8 @@ class XarrayZarrRecipeConfig(RecipeConfig):
       time dimension. Multiple dimensions are allowed.
     """
 
-    file_pattern: FilePattern
+    _compiler = xarray_zarr_recipe_compiler
+
     inputs_per_chunk: int = 1
     target_chunks: Dict[str, int] = field(default_factory=dict)
     target: Optional[AbstractTarget] = None
@@ -668,8 +680,7 @@ class XarrayZarrRecipeConfig(RecipeConfig):
             raise ValueError("Inputs and chunks are inconsistent")
 
     def iter_inputs(self) -> Iterator[InputKey]:
-        for input_key in self.file_pattern:
-            yield input_key
+        yield from self.file_pattern
 
     def iter_chunks(self) -> Iterator[ChunkKey]:
         for input_key in self.iter_inputs():
@@ -707,56 +718,3 @@ class XarrayZarrRecipeConfig(RecipeConfig):
         """Convenience function for users to introspect recipe."""
         ninputs = self.file_pattern.dims[self.file_pattern.concat_dims[0]]
         return inputs_for_chunk(chunk_key, self.inputs_per_chunk, ninputs)
-
-
-@dataclass
-class XarrayZarrRecipe(BaseRecipe):
-
-    config: XarrayZarrRecipeConfig
-
-    # Each stage of the recipe follows the same pattern:
-    # 1. A top-level function, e.g. `prepare_target`, that does the actual work.
-    # 2. A public property, e.g. `.prepare_target`, that calls the partially applied function
-    #    with the provided arguments if any (e.g. a chunk_key)
-    # This ensures that the actual function objects shipped to and executed on
-    # workers do not contain any references to the `recipe` object itself, which is complicated
-    # to serialize.
-
-    @property
-    def prepare_target(self) -> Callable[[XarrayZarrRecipeConfig], None]:
-        return prepare_target
-
-    @property
-    def cache_input(self) -> Callable[[XarrayZarrRecipeConfig, Hashable], None]:
-        return cache_input
-
-    @property
-    def store_chunk(self) -> Callable[[XarrayZarrRecipeConfig, Hashable], None]:
-        return store_chunk
-
-    @property
-    def finalize_target(self) -> Callable[[XarrayZarrRecipeConfig], None]:
-        return finalize_target
-
-    # ------------------------------------------------------------------------
-    # Convenience methods
-    @contextmanager
-    def open_input(self, input_key):
-        with open_input(self.config, input_key) as ds:
-            yield ds
-
-    @contextmanager
-    def open_chunk(self, chunk_key):
-        with open_chunk(self.config, chunk_key,) as ds:
-            yield ds
-
-    def iter_inputs(self) -> Iterator[InputKey]:
-        for input_key in self.config.iter_inputs():
-            yield input_key
-
-    def iter_chunks(self) -> Iterator[ChunkKey]:
-        for chunk_key in self.config.iter_chunks():
-            yield chunk_key
-
-    def inputs_for_chunk(self, chunk_key: ChunkKey) -> Sequence[InputKey]:
-        return self.config(inputs_for_chunk)

@@ -4,10 +4,8 @@ from .base import Pipeline, PipelineExecutor
 
 
 class FunctionPipelineExecutor(PipelineExecutor[Callable]):
-
     @staticmethod
     def compile(pipeline: Pipeline):
-
         def function():
             for stage in pipeline.stages:
                 if stage.mappable is not None:

@@ -12,10 +12,10 @@ from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
 from pangeo_forge_recipes.recipes.base import BaseRecipe
-from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe, XarrayZarrRecipeConfig
+from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
 
 
-def make_netCDFtoZarr_recipe_config(
+def make_netCDFtoZarr_recipe(
     file_pattern, xarray_dataset, target, cache, metadata_target, extra_kwargs=None
 ):
     kwargs = dict(
@@ -23,7 +23,7 @@ def make_netCDFtoZarr_recipe_config(
     )
     if extra_kwargs:
         kwargs.update(extra_kwargs)
-    return XarrayZarrRecipeConfig(file_pattern=file_pattern, **kwargs), xarray_dataset, target
+    return XarrayZarrRecipe, file_pattern, kwargs, xarray_dataset, target
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def netCDFtoZarr_recipe_sequential_only(
     tmp_cache,
     tmp_metadata_target,
 ):
-    return make_netCDFtoZarr_recipe_config(
+    return make_netCDFtoZarr_recipe(
         netcdf_local_file_pattern_sequential,
         daily_xarray_dataset,
         tmp_target,
@@ -47,7 +47,7 @@ def netCDFtoZarr_recipe_sequential_only(
 def netCDFtoZarr_recipe(
     netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
 ):
-    return make_netCDFtoZarr_recipe_config(
+    return make_netCDFtoZarr_recipe(
         netcdf_local_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
     )
 
@@ -56,7 +56,7 @@ def netCDFtoZarr_recipe(
 def netCDFtoZarr_http_recipe(
     netcdf_http_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
 ):
-    return make_netCDFtoZarr_recipe_config(
+    return make_netCDFtoZarr_recipe(
         netcdf_http_file_pattern, daily_xarray_dataset, tmp_target, tmp_cache, tmp_metadata_target
     )
 
@@ -69,7 +69,7 @@ def netCDFtoZarr_http_recipe_sequential_1d(
     tmp_cache,
     tmp_metadata_target,
 ):
-    return make_netCDFtoZarr_recipe_config(
+    return make_netCDFtoZarr_recipe(
         netcdf_http_file_pattern_sequential_1d,
         daily_xarray_dataset,
         tmp_target,
@@ -88,7 +88,7 @@ def netCDFtoZarr_subset_recipe(
 
     extra_kwargs = dict(subset_inputs={"time": 2})
 
-    return make_netCDFtoZarr_recipe_config(
+    return make_netCDFtoZarr_recipe(
         netcdf_local_file_pattern,
         daily_xarray_dataset,
         tmp_target,
@@ -112,17 +112,11 @@ recipes_no_subset = [
 def test_recipe(recipe_fixture, execute_recipe):
     """The basic recipe test. Use this as a template for other tests."""
 
-    config, ds_expected, target = recipe_fixture
-    rec = XarrayZarrRecipe(config)
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
+    rec = RecipeClass(file_pattern, **kwargs)
     execute_recipe(rec)
     ds_actual = xr.open_zarr(target.get_mapper()).load()
     xr.testing.assert_identical(ds_actual, ds_expected)
-
-    with rec.open_input(next(rec.iter_inputs())):
-        pass
-
-    with rec.open_chunk(next(rec.iter_chunks())):
-        pass
 
 
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
@@ -358,7 +352,7 @@ def test_consolidate_dimension_coordinates_with_coordinateless_dimension(
     tmp_cache,
     tmp_metadata_target,
 ):
-    RecipeClass, file_pattern, kwargs, ds_expected, target = make_netCDFtoZarr_recipe_config(
+    RecipeClass, file_pattern, kwargs, ds_expected, target = make_netCDFtoZarr_recipe(
         netcdf_local_file_pattern_sequential_with_coordinateless_dimension,
         daily_xarray_dataset_with_coordinateless_dimension,
         tmp_target,

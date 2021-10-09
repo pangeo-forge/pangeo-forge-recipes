@@ -1,15 +1,7 @@
-from pprint import pprint
-from typing import Any, Callable, Dict, Optional
-
 import dask
-import dask.bag as db
 from dask.delayed import Delayed
-from dask.graph_manipulation import bind
 
 from .base import Pipeline, PipelineExecutor
-
-# task = (apply, func, args, kwargs)  # func(*args, **kwargs)
-
 
 
 def wrap_map_task(function):
