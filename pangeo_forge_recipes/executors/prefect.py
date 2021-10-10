@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from prefect import Flow, task, unmapped
 
@@ -6,11 +6,13 @@ from .base import Pipeline, PipelineExecutor, StageAnnotations, StageAnnotationT
 
 
 def annotations_to_task_kwargs(annotations: Optional[StageAnnotations]) -> Dict[str, Any]:
+    if annotations is None:
+        return {}
     task_kwargs = {}
-    for ann_type in annotations or []:
-        if ann_type == StageAnnotationType.retries:
+    for ann_type in annotations:
+        if ann_type == StageAnnotationType.RETRIES:
             task_kwargs["max_retries"] = annotations[ann_type]
-        if ann_type == StageAnnotationType.concurrency:
+        if ann_type == StageAnnotationType.CONCURRENCY:
             raise ValueError("Haven't figured out concurrency yet.")
     return task_kwargs
 
@@ -20,7 +22,7 @@ class PrefectPipelineExecutor(PipelineExecutor[Flow]):
     def compile(pipeline: Pipeline):
 
         with Flow("pangeo-forge-recipe") as flow:
-            upstream_tasks = None
+            upstream_tasks = []  # type: List[task]
             for stage in pipeline.stages:
                 task_kwargs = annotations_to_task_kwargs(stage.annotations)
                 stage_task = task(stage.function, name=stage.name, **task_kwargs)
