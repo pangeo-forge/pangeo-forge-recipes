@@ -1,9 +1,9 @@
 import enum
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, Hashable, Iterable, Optional, Protocol, TypeVar, Union
+from typing import Any, Callable, Dict, Generic, Hashable, Iterable, Optional, Protocol, TypeVar
 
 Config = Any
+
 
 # https://stackoverflow.com/questions/57837609/python-typing-signature-typing-callable-for-function-with-kwargs
 class NoArgumentStageFunction(Protocol):
@@ -16,7 +16,15 @@ class SingleArgumentStageFunction(Protocol):
         ...
 
 
-StageFunction = Union[NoArgumentStageFunction, SingleArgumentStageFunction]
+# For some reason, mypy does not like this
+# StageFunction = Union[NoArgumentStageFunction, SingleArgumentStageFunction]
+# pangeo_forge_recipes/recipes/xarray_zarr.py:525: error:
+#  Argument "function" to "Stage" has incompatible type
+#    "Callable[[Index, NamedArg(XarrayZarrRecipe, 'config')], None]";
+#    expected "NoArgumentStageFunction"  [arg-type]
+
+# TODO: fix this to be a stricter type as above
+StageFunction = Callable
 
 
 class StageAnnotationType(enum.Enum):

@@ -11,7 +11,7 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from itertools import chain, product
 from math import ceil
-from typing import Callable, Dict, Hashable, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, Tuple
 
 import dask
 import numpy as np
@@ -21,7 +21,7 @@ import zarr
 from ..chunk_grid import ChunkGrid
 from ..executors.base import Pipeline, Stage
 from ..patterns import CombineOp, DimIndex, FilePattern, Index
-from ..storage import AbstractTarget, CacheFSSpecTarget, MetadataTarget, file_opener
+from ..storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
 from .base import BaseRecipe, FilePatternMixin
 
@@ -84,7 +84,7 @@ def inputs_for_chunk(
     return input_keys
 
 
-def expand_target_dim(target: CacheFSSpecTarget, concat_dim: Optional[str], dimsize: int) -> None:
+def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: int) -> None:
     target_mapper = target.get_mapper()
     zgroup = zarr.open_group(target_mapper)
     ds = open_target(target)
@@ -105,7 +105,7 @@ def expand_target_dim(target: CacheFSSpecTarget, concat_dim: Optional[str], dims
         zgroup[concat_dim][:] = 0
 
 
-def open_target(target: CacheFSSpecTarget) -> xr.Dataset:
+def open_target(target: FSSpecTarget) -> xr.Dataset:
     return xr.open_zarr(target.get_mapper())
 
 
@@ -138,7 +138,7 @@ def chunk_position(chunk_key: ChunkKey) -> int:
     return subset_factor * concat_idx + subset_idx
 
 
-def cache_input(input_key: InputKey,  *, config: XarrayZarrRecipe) -> None:
+def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
     if config.cache_inputs:
         if config.file_pattern.is_opendap:
             raise ValueError("Can't cache opendap inputs")
@@ -206,7 +206,7 @@ def region_and_conflicts_for_chunk(
 
 
 @contextmanager
-def open_input(input_key: InputKey,  *, config: XarrayZarrRecipe) -> xr.Dataset:
+def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
     fname = config.file_pattern[input_key]
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
 
@@ -343,6 +343,8 @@ def calculate_sequence_lens(
 
 
 def prepare_target(*, config: XarrayZarrRecipe) -> None:
+    if config.target is None:
+        raise ValueError("Cannot proceed without a target")
     try:
         ds = open_target(config.target)
         logger.info("Found an existing dataset in target")
@@ -582,7 +584,7 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
 
     inputs_per_chunk: int = 1
     target_chunks: Dict[str, int] = field(default_factory=dict)
-    target: Optional[AbstractTarget] = None
+    target: Optional[FSSpecTarget] = None
     input_cache: Optional[CacheFSSpecTarget] = None
     metadata_cache: Optional[MetadataTarget] = None
     cache_inputs: Optional[bool] = None

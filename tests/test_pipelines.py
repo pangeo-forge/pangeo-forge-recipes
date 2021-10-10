@@ -55,7 +55,7 @@ def pipeline_with_config(tmpdir_factory):
 )
 @pytest.mark.parametrize(
     "pipeline_config_tmpdir",
-    [lazy_fixture("pipeline_no_config"), lazy_fixture("pipeline_with_config"),],
+    [lazy_fixture("pipeline_no_config"), lazy_fixture("pipeline_with_config")],
 )
 def test_pipeline(pipeline_config_tmpdir, Executor):
     pipeline, config, tmpdir = pipeline_config_tmpdir

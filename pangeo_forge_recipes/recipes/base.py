@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass, replace
-from typing import Callable, ClassVar, Hashable, Iterable
+from typing import Callable, ClassVar
 
 from ..executors.base import Pipeline
 from ..patterns import FilePattern, prune_pattern
