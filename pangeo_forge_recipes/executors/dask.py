@@ -1,3 +1,5 @@
+from typing import Any, Dict, Tuple, Union
+
 import dask
 from dask.delayed import Delayed
 
@@ -30,9 +32,9 @@ class DaskPipelineExecutor(PipelineExecutor[Delayed]):
         token = dask.base.tokenize(pipeline)
         # create a custom delayed object for the config
         config_task = f"config-{token}"
-        dsk = {config_task: pipeline.config}
+        dsk = {config_task: pipeline.config}  # type: Dict[Union[str, Tuple[str, int]], Any]
 
-        prev_layer = tuple()
+        prev_layer = tuple()  # type: Tuple[str, ...]
         for stage in pipeline.stages:
             stage_name = f"{stage.name}-{token}"
             if stage.mappable is None:
@@ -50,7 +52,7 @@ class DaskPipelineExecutor(PipelineExecutor[Delayed]):
                 dsk[checkpoint_key] = (checkpoint, *checkpoint_args)
                 prev_layer = (checkpoint_key,)
 
-        delayed = Delayed(checkpoint_key, dsk)
+        delayed = Delayed(prev_layer[0], dsk)
         return delayed
 
     @staticmethod
