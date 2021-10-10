@@ -417,7 +417,7 @@ def prepare_target(*, config: XarrayZarrRecipe) -> None:
     if config.cache_metadata:
         # if nitems_per_input is not constant, we need to cache this info
         assert config.metadata_cache is not None  # for mypy
-        recipe_meta = {"input_sequence_lens": config.input_sequence_lens}
+        recipe_meta = {"input_sequence_lens": input_sequence_lens}
         config.metadata_cache[_GLOBAL_METADATA_KEY] = recipe_meta
 
 
