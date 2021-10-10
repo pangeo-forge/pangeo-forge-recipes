@@ -1,7 +1,8 @@
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Set, Tuple, Union
 
 import dask
 from dask.delayed import Delayed
+from dask.highlevelgraph import HighLevelGraph
 
 from .base import Pipeline, PipelineExecutor
 
@@ -25,34 +26,53 @@ def checkpoint(*args):
     return
 
 
+def append_token(task_name: str, token: str) -> str:
+    return f"{task_name}-{token}"
+
+
 class DaskPipelineExecutor(PipelineExecutor[Delayed]):
     @staticmethod
     def compile(pipeline: Pipeline):
 
         token = dask.base.tokenize(pipeline)
-        # create a custom delayed object for the config
-        config_task = f"config-{token}"
-        dsk = {config_task: pipeline.config}  # type: Dict[Union[str, Tuple[str, int]], Any]
 
-        prev_layer = tuple()  # type: Tuple[str, ...]
+        # we are constructing a HighLevelGraph from scratch
+        # https://docs.dask.org/en/latest/high-level-graphs.html
+        layers = dict()  # type: Dict[str, Dict[Union[str, Tuple[str, int]], Any]]
+        dependencies = dict()  # type: Dict[str, Set[str]]
+
+        # start with just the config as a standalone layer
+        # create a custom delayed object for the config
+        config_task = "config"
+        config_token = append_token(config_task, token)
+        layers[config_task] = {config_token: pipeline.config}
+        dependencies[config_task] = set()
+
+        prev_token = ()  # type: Tuple[str, ...]
+        prev_task = config_task
         for stage in pipeline.stages:
-            stage_name = f"{stage.name}-{token}"
+            stage_token = append_token(stage.name, token)
+            stage_graph = {}  # type: Dict[Union[str, Tuple[str, int]], Any]
             if stage.mappable is None:
                 func = wrap_standalone_task(stage.function)
-                dsk[stage_name] = (func, config_task) + prev_layer
-                prev_layer = (stage_name,)
+                stage_graph[stage_token] = (func, config_token) + prev_token
+                prev_token = (stage_token,)
             else:
                 func = wrap_map_task(stage.function)
                 checkpoint_args = []
                 for i, m in enumerate(stage.mappable):
-                    key = (stage_name, i)
-                    dsk[key] = (func, m, config_task) + prev_layer
+                    key = (stage.name, i)
+                    stage_graph[key] = (func, m, config_token) + prev_token
                     checkpoint_args.append(key)
                 checkpoint_key = f"{stage.name}-checkpoint-{token}"
-                dsk[checkpoint_key] = (checkpoint, *checkpoint_args)
-                prev_layer = (checkpoint_key,)
+                stage_graph[checkpoint_key] = (checkpoint, *checkpoint_args)
+                prev_token = (checkpoint_key,)
+            layers[stage.name] = stage_graph
+            dependencies[stage.name] = {prev_task}
+            prev_task = stage.name
 
-        delayed = Delayed(prev_layer[0], dsk)
+        hlg = HighLevelGraph(layers, dependencies)
+        delayed = Delayed(prev_token[0], hlg)
         return delayed
 
     @staticmethod
