@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import functools
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Hashable, Iterable, Optional
+from typing import Hashable, Iterable, Optional
 
 import fsspec
 import yaml
 from fsspec_reference_maker.combine import MultiZarrToZarr
 
 from ..executors.base import Pipeline, Stage
-from ..patterns import FilePattern, Index
+from ..patterns import Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from .base import BaseRecipe, FilePatternMixin
@@ -25,6 +24,7 @@ def no_op(*_, **__) -> None:
 
 
 def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
+    assert config.metadata_cache is not None, "metadata_cache is required"
     fname = config.file_pattern[chunk_key]
     ref_fname = os.path.basename(fname + ".json")
     with file_opener(fname, **config.netcdf_storage_options) as fp:
@@ -34,17 +34,8 @@ def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
 
 
 def finalize(config: HDFReferenceRecipe):
-    # output_json_fname,
-    # output_intake_yaml_fname,
-    # out_target,
-    # metadata_cache,
-    # remote_protocol,
-    # output_storage_options,
-    # remote_options,
-    # xr_open_kwargs,
-    # xr_concat_kwargs,
-    # template_count,
-
+    assert config.target is not None, "target is required"
+    assert config.metadata_cache is not None, "metadata_cache is required"
     remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
     concat_args = config.xarray_concat_args.copy()
     if "dim" in concat_args:
