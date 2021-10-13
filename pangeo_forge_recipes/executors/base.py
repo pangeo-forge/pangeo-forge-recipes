@@ -1,7 +1,9 @@
 import enum
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generic, Hashable, Iterable, Optional, Protocol, TypeVar
+from typing import Any, Dict, Generic, Hashable, Iterable, Optional, Protocol, TypeVar, Union
 
+# there is no good way to type hint a dataclass
+# https://stackoverflow.com/questions/54668000/type-hint-for-an-instance-of-a-non-specific-dataclass
 Config = Any
 
 
@@ -17,14 +19,14 @@ class SingleArgumentStageFunction(Protocol):
 
 
 # For some reason, mypy does not like this
-# StageFunction = Union[NoArgumentStageFunction, SingleArgumentStageFunction]
+StageFunction = Union[NoArgumentStageFunction, SingleArgumentStageFunction]
 # pangeo_forge_recipes/recipes/xarray_zarr.py:525: error:
 #  Argument "function" to "Stage" has incompatible type
 #    "Callable[[Index, NamedArg(XarrayZarrRecipe, 'config')], None]";
 #    expected "NoArgumentStageFunction"  [arg-type]
 
 # TODO: fix this to be a stricter type as above
-StageFunction = Callable
+# StageFunction = Callable
 
 
 class StageAnnotationType(enum.Enum):
