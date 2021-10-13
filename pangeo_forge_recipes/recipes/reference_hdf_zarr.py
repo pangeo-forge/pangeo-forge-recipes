@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import json
 import os
@@ -8,10 +10,11 @@ import fsspec
 import yaml
 from fsspec_reference_maker.combine import MultiZarrToZarr
 
+from ..executors.base import Pipeline, Stage
 from ..patterns import FilePattern, Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
-from .base import BaseRecipe, FilePatternRecipeMixin
+from .base import BaseRecipe, FilePatternMixin
 
 ChunkKey = Index
 
@@ -21,8 +24,91 @@ def no_op(*_, **__) -> None:
     return None
 
 
+def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
+    fname = config.file_pattern[chunk_key]
+    ref_fname = os.path.basename(fname + ".json")
+    with file_opener(fname, **config.netcdf_storage_options) as fp:
+        protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
+        target_url = unstrip_protocol(fname, protocol)
+        config.metadata_cache[ref_fname] = create_hdf5_reference(fp, target_url, fname)
+
+
+def finalize(config: HDFReferenceRecipe):
+    # output_json_fname,
+    # output_intake_yaml_fname,
+    # out_target,
+    # metadata_cache,
+    # remote_protocol,
+    # output_storage_options,
+    # remote_options,
+    # xr_open_kwargs,
+    # xr_concat_kwargs,
+    # template_count,
+
+    remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
+    concat_args = config.xarray_concat_args.copy()
+    if "dim" in concat_args:
+        raise ValueError(
+            "Please do not set 'dim' in xarray_concat_args. "
+            "It is determined automatically from the File Pattern."
+        )
+    concat_args["dim"] = config.file_pattern.concat_dims[0]  # there should only be one
+
+    files = list(
+        config.metadata_cache.getitems(list(config.metadata_cache.get_mapper())).values()
+    )  # returns dicts from remote
+    if len(files) == 1:
+        out = files[0]
+    else:
+        mzz = MultiZarrToZarr(
+            files,
+            remote_protocol=remote_protocol,
+            remote_options=config.netcdf_storage_options,
+            xarray_open_kwargs=config.xarray_open_kwargs,
+            xarray_concat_args=concat_args,
+        )
+        # mzz does not support directly writing to remote yet
+        # get dict version and push it
+        out = mzz.translate(None, template_count=config.template_count)
+    fs = config.target.fs
+    protocol = fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0]
+    with config.target.open(config.output_json_fname, mode="wt") as f:
+        f.write(json.dumps(out))
+    spec = {
+        "sources": {
+            "data": {
+                "driver": "intake_xarray.xzarr.ZarrSource",
+                "description": "",  # could derive from data attrs or recipe
+                "args": {
+                    "urlpath": "reference://",
+                    "storage_options": {
+                        "fo": config.target._full_path(config.output_json_fname),
+                        "target_protocol": protocol,
+                        "target_options": config.output_storage_options,
+                        "remote_protocol": remote_protocol,
+                        "remote_options": config.netcdf_storage_options,
+                        "skip_instance_cache": True,
+                    },
+                    "chunks": {},  # can optimize access here
+                    "consolidated": False,
+                },
+            }
+        }
+    }
+    with config.target.open(config.output_intake_yaml_fname, mode="wt") as f:
+        yaml.dump(spec, f, default_flow_style=False)
+
+
+def hdf_reference_recipe_compiler(recipe: HDFReferenceRecipe) -> Pipeline:
+    stages = [
+        Stage(name="scan_file", function=scan_file, mappable=list(recipe.iter_inputs())),
+        Stage(name="finalize", function=finalize),
+    ]
+    return Pipeline(stages=stages, config=recipe)
+
+
 @dataclass
-class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
+class HDFReferenceRecipe(BaseRecipe, FilePatternMixin):
     """
     Generates reference files for each input netCDF, then combines
     into one ensemble output
@@ -58,6 +144,8 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
         Only used if `file_pattern` has more than one file.
     """
 
+    _compiler = hdf_reference_recipe_compiler
+
     # TODO: support chunked ("tree") aggregation: would entail processing each file
     #  in one stage, running a set of merges in a second step and doing
     #  a master merge in finalise. This would maybe map to iter_chunk,
@@ -86,130 +174,4 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternRecipeMixin):
             raise NotImplementedError("This Recipe class can't handle more than one concat dim.")
 
     def iter_inputs(self) -> Iterable[Hashable]:
-        return ()
-
-    @property
-    def cache_input(self) -> Callable[[Hashable], None]:
-        return no_op
-
-    @property
-    def prepare_target(self) -> Callable[[], None]:
-        """Prepare the recipe for execution by initializing the target.
-        Attribute that returns a callable function.
-        """
-        return no_op
-
-    def iter_chunks(self) -> Iterable[Hashable]:
-        """Iterate over all target chunks."""
-        for input_key in self.file_pattern:
-            yield input_key
-
-    @property
-    def store_chunk(self) -> Callable[[Hashable], None]:
-        """Store a chunk of data in the target.
-        """
-        return functools.partial(
-            _one_chunk,
-            file_pattern=self.file_pattern,
-            netcdf_storage_options=self.netcdf_storage_options,
-            metadata_cache=self.metadata_cache,
-        )
-
-    @property
-    def finalize_target(self) -> Callable[[], None]:
-        """Final step to finish the recipe after data has been written.
-        Attribute that returns a callable function.
-        """
-        proto = fsspec.utils.get_protocol(next(self.file_pattern.items())[1])
-        concat_args = self.xarray_concat_args.copy()
-        if "dim" in concat_args:
-            raise ValueError(
-                "Please do not set 'dim' in xarray_concat_args. "
-                "It is determined automatically from the File Pattern."
-            )
-        concat_args["dim"] = self.file_pattern.concat_dims[0]  # there should only be one
-        return functools.partial(
-            _finalize,
-            output_json_fname=self.output_json_fname,
-            output_intake_yaml_fname=self.output_intake_yaml_fname,
-            out_target=self.target,
-            metadata_cache=self.metadata_cache,
-            remote_protocol=proto,
-            output_storage_options=self.output_storage_options,
-            remote_options=self.netcdf_storage_options,
-            xr_open_kwargs=self.xarray_open_kwargs,
-            xr_concat_kwargs=concat_args,
-            template_count=self.template_count,
-        )
-
-
-def _one_chunk(
-    chunk_key: ChunkKey,
-    file_pattern: FilePattern,
-    netcdf_storage_options: Dict,
-    metadata_cache: MetadataTarget,
-):
-    fname = file_pattern[chunk_key]
-    ref_fname = os.path.basename(fname + ".json")
-    with file_opener(fname, **netcdf_storage_options) as fp:
-        protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
-        target_url = unstrip_protocol(fname, protocol)
-        metadata_cache[ref_fname] = create_hdf5_reference(fp, target_url, fname)
-
-
-def _finalize(
-    output_json_fname,
-    output_intake_yaml_fname,
-    out_target,
-    metadata_cache,
-    remote_protocol,
-    output_storage_options,
-    remote_options,
-    xr_open_kwargs,
-    xr_concat_kwargs,
-    template_count,
-):
-
-    files = list(
-        metadata_cache.getitems(list(metadata_cache.get_mapper())).values()
-    )  # returns dicts from remote
-    if len(files) == 1:
-        out = files[0]
-    else:
-        mzz = MultiZarrToZarr(
-            files,
-            remote_protocol=remote_protocol,
-            remote_options=remote_options,
-            xarray_open_kwargs=xr_open_kwargs,
-            xarray_concat_args=xr_concat_kwargs,
-        )
-        # mzz does not support directly writing to remote yet
-        # get dict version and push it
-        out = mzz.translate(None, template_count=template_count)
-    fs = out_target.fs
-    protocol = fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0]
-    with out_target.open(output_json_fname, mode="wt") as f:
-        f.write(json.dumps(out))
-    spec = {
-        "sources": {
-            "data": {
-                "driver": "intake_xarray.xzarr.ZarrSource",
-                "description": "",  # could derive from data attrs or recipe
-                "args": {
-                    "urlpath": "reference://",
-                    "storage_options": {
-                        "fo": out_target._full_path(output_json_fname),
-                        "target_protocol": protocol,
-                        "target_options": output_storage_options,
-                        "remote_protocol": remote_protocol,
-                        "remote_options": remote_options,
-                        "skip_instance_cache": True,
-                    },
-                    "chunks": {},  # can optimize access here
-                    "consolidated": False,
-                },
-            }
-        }
-    }
-    with out_target.open(output_intake_yaml_fname, mode="wt") as f:
-        yaml.dump(spec, f, default_flow_style=False)
+        yield from self.file_pattern
