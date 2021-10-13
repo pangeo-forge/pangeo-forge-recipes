@@ -1,19 +1,8 @@
-from contextlib import nullcontext as does_not_raise
-from dataclasses import replace
-from unittest.mock import patch
-
 import dask.core
-from dask.highlevelgraph import HighLevelGraph
-from dask.delayed import Delayed
 import pytest
-import xarray as xr
-import zarr
-
-# need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
-from pytest_lazyfixture import lazy_fixture
+from dask.highlevelgraph import HighLevelGraph
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.recipes.base import BaseRecipe
 from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
 
 

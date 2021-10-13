@@ -9,8 +9,7 @@ import zarr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.recipes.base import BaseRecipe
+from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
 
 

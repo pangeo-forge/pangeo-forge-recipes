@@ -7,30 +7,6 @@ from typing import Callable, ClassVar
 from ..executors.base import Pipeline
 from ..patterns import FilePattern, prune_pattern
 
-# How to manually execute a recipe: ###
-#
-#   t = PangeoForgeTarget()
-#   r = MyRecipe(target=t, **opts) # 1
-#   # manual execution of recipe
-#   for input_key in r.iter_inputs():
-#       r.cache_input(input_key) # 4
-#   r.prepare_target() # 3
-#   for chunk_key in r.iter_chunks():
-#       r.store_chunk(chunk_key) # 5
-#   r.finalize_target() # 6
-
-
-# 1) Initialize the Recipe object
-# 2) Point the Recipe at its Target
-# 3) Initialize the recipe.
-#    Check if the target exists; if not, create it.
-# 4) cache the inputs to proximate storage (OPTIONAL)
-#    Some recipes won't need this (e.g. cloud to cloud)
-#    If so, iter_inputs is just an empty iterator
-# 5) Load each chunk from the inputs and store it in the target
-#    Might be coming from the cache or might be read directly.
-# 6)
-
 
 @dataclass
 class BaseRecipe(ABC):
