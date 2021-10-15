@@ -118,6 +118,17 @@ def test_recipe(recipe_fixture, execute_recipe):
 
 
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
+def test_recipe_with_references(recipe_fixture, execute_recipe):
+    """Same as above, but use fsspec references for opening the files."""
+
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
+    rec = RecipeClass(file_pattern, open_input_with_fsspec_reference=True, **kwargs)
+    execute_recipe(rec)
+    ds_actual = xr.open_zarr(target.get_mapper()).load()
+    xr.testing.assert_identical(ds_actual, ds_expected)
+
+
+@pytest.mark.parametrize("recipe_fixture", all_recipes)
 @pytest.mark.parametrize("nkeep", [1, 2])
 def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
     """Check that recipe.copy_pruned works as expected."""

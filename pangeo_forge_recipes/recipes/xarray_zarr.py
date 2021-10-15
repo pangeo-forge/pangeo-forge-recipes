@@ -14,6 +14,7 @@ from math import ceil
 from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, Tuple
 
 import dask
+import fsspec
 import numpy as np
 import xarray as xr
 import zarr
@@ -21,6 +22,7 @@ import zarr
 from ..chunk_grid import ChunkGrid
 from ..executors.base import Pipeline, Stage
 from ..patterns import CombineOp, DimIndex, FilePattern, Index
+from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
 from .base import BaseRecipe, FilePatternMixin
@@ -46,9 +48,14 @@ SubsetSpec = Dict[str, int]
 # (e.g. {'time': 5, 'depth': 2})
 
 
-def _input_metadata_fname(input_key):
+def _input_metadata_fname(input_key: InputKey) -> str:
     key_str = "-".join([f"{k.name}_{k.index}" for k in input_key])
     return "input-meta-" + key_str + ".json"
+
+
+def _input_reference_fname(input_key: InputKey) -> str:
+    key_str = "-".join([f"{k.name}_{k.index}" for k in input_key])
+    return "input-reference-" + key_str + ".json"
 
 
 def inputs_for_chunk(
@@ -160,6 +167,31 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             input_metadata = ds.to_dict(data=False)
             config.metadata_cache[_input_metadata_fname(input_key)] = input_metadata
 
+    if config.open_input_with_fsspec_reference:
+        if config.file_pattern.is_opendap:
+            raise ValueError("Can't make references for opendap inputs")
+        if config.metadata_cache is None:
+            raise ValueError("Can't make references; no metadata_cache assigned")
+        fname = config.file_pattern[input_key]
+        if config.input_cache is None:
+            protocol = fsspec.utils.get_protocol(fname)
+            url = unstrip_protocol(fname, protocol)
+        else:
+            url = unstrip_protocol(
+                config.input_cache._full_path(fname), config.input_cache.fs.protocol
+            )
+        with file_opener(
+            fname,
+            cache=config.input_cache,
+            copy_to_local=config.copy_input_to_local_file,
+            bypass_open=False,
+            secrets=config.file_pattern.query_string_secrets,
+            **config.file_pattern.fsspec_open_kwargs,
+        ) as fp:
+            ref_data = create_hdf5_reference(fp, url, fname)
+        ref_fname = _input_reference_fname(input_key)
+        config.metadata_cache[ref_fname] = ref_data
+
 
 def region_and_conflicts_for_chunk(
     config: XarrayZarrRecipe, chunk_key: ChunkKey
@@ -215,25 +247,25 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
             raise ValueError("Can't cache opendap inputs")
         if config.copy_input_to_local_file:
             raise ValueError("Can't copy opendap inputs to local file")
+        if open_input_with_fsspec_reference:
+            raise ValueError("Can't open opendap inputs with fsspec-reference-maker")
 
-    cache = config.input_cache if config.cache_inputs else None
+    if config.open_input_with_fsspec_reference:
+        if config.metadata_cache is None:
+            raise ValueError("metadata_cache is not set.")
+        from fsspec.implementations.reference import ReferenceFileSystem
 
-    with file_opener(
-        fname,
-        cache=cache,
-        copy_to_local=config.copy_input_to_local_file,
-        bypass_open=config.file_pattern.is_opendap,
-        secrets=config.file_pattern.query_string_secrets,
-        **config.file_pattern.fsspec_open_kwargs,
-    ) as f:
+        reference_data = config.metadata_cache[_input_reference_fname(input_key)]
+        # TODO: figure out how to set this for the cache target
+        remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
+        ref_fs = ReferenceFileSystem(
+            reference_data, remote_protocol=remote_protocol, skip_instance_cache=True
+        )
+        mapper = ref_fs.get_mapper("/")
+        # Doesn't really need to be a context manager, but that's how this function works
         with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
-            kw = config.xarray_open_kwargs.copy()
-            if "engine" not in kw:
-                kw["engine"] = "h5netcdf"
-            logger.debug(f"about to enter xr.open_dataset context on {f}")
-            with xr.open_dataset(f, **kw) as ds:
-                logger.debug("successfully opened dataset")
-                ds = fix_scalar_attr_encoding(ds)
+            with xr.open_dataset(mapper, engine="zarr", chunks={}, consolidated=False) as ds:
+                logger.debug("successfully opened reference dataset with zarr")
 
                 if config.delete_input_encoding:
                     for var in ds.variables:
@@ -244,6 +276,37 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
 
                 logger.debug(f"{ds}")
                 yield ds
+
+    else:
+
+        cache = config.input_cache if config.cache_inputs else None
+
+        with file_opener(
+            fname,
+            cache=cache,
+            copy_to_local=config.copy_input_to_local_file,
+            bypass_open=config.file_pattern.is_opendap,
+            secrets=config.file_pattern.query_string_secrets,
+            **config.file_pattern.fsspec_open_kwargs,
+        ) as f:
+            with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
+                kw = config.xarray_open_kwargs.copy()
+                if "engine" not in kw:
+                    kw["engine"] = "h5netcdf"
+                logger.debug(f"about to enter xr.open_dataset context on {f}")
+                with xr.open_dataset(f, **kw) as ds:
+                    logger.debug("successfully opened dataset")
+                    ds = fix_scalar_attr_encoding(ds)
+
+                    if config.delete_input_encoding:
+                        for var in ds.variables:
+                            ds[var].encoding = {}
+
+                    if config.process_input is not None:
+                        ds = config.process_input(ds, str(fname))
+
+                    logger.debug(f"{ds}")
+                    yield ds
 
 
 def subset_dataset(ds: xr.Dataset, subset_spec: DimIndex) -> xr.Dataset:
@@ -578,6 +641,9 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
       along dimension according to the specified mapping. For example,
       ``{'time': 5}`` would split each input file into 5 chunks along the
       time dimension. Multiple dimensions are allowed.
+    :param open_input_with_fsspec_reference: If True, use fsspec-reference-maker
+      to generate a reference filesystem for each input, to be used when opening
+      the file with Xarray as a virtual Zarr dataset.
     """
 
     _compiler = xarray_zarr_recipe_compiler
@@ -598,6 +664,7 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
     lock_timeout: Optional[int] = None
     subset_inputs: SubsetSpec = field(default_factory=dict)
+    open_input_with_fsspec_reference: bool = False
 
     # internal attributes not meant to be seen or accessed by user
     concat_dim: str = field(default_factory=str, repr=False, init=False)
@@ -630,6 +697,8 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
                 raise ValueError("Can't cache opendap inputs.")
             else:
                 self.cache_inputs = False
+            if self.open_input_with_fsspec_reference:
+                raise ValueError("Can't generate references on opendap inputs")
             if "engine" in self.xarray_open_kwargs:
                 if self.xarray_open_kwargs["engine"] != "netcdf4":
                     raise ValueError(
