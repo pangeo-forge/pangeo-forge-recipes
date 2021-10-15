@@ -247,7 +247,7 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
             raise ValueError("Can't cache opendap inputs")
         if config.copy_input_to_local_file:
             raise ValueError("Can't copy opendap inputs to local file")
-        if open_input_with_fsspec_reference:
+        if config.open_input_with_fsspec_reference:
             raise ValueError("Can't open opendap inputs with fsspec-reference-maker")
 
     if config.open_input_with_fsspec_reference:
