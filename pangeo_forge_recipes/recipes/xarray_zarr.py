@@ -617,6 +617,9 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
 
     To manually execute a this recipe, run the following steps:
 
+    .. highlight:: python
+    .. code-block:: python
+
         for input_key in recipe.iter_inputs():
             recipe.cache_input(input_key)
         recipe.prepare_target()
