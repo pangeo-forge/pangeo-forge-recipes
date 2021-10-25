@@ -2,7 +2,6 @@ from contextlib import nullcontext as does_not_raise
 from dataclasses import replace
 from unittest.mock import patch
 
-import dask.core
 import pytest
 import xarray as xr
 import zarr
@@ -10,8 +9,7 @@ import zarr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.recipes.base import BaseRecipe
+from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
 
 
@@ -108,14 +106,6 @@ recipes_no_subset = [
 ]
 
 
-def test_to_pipelines_warns(netCDFtoZarr_recipe):
-    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
-
-    rec = RecipeClass(file_pattern, **kwargs)
-    with pytest.warns(FutureWarning):
-        rec.to_pipelines()
-
-
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
 def test_recipe(recipe_fixture, execute_recipe):
     """The basic recipe test. Use this as a template for other tests."""
@@ -126,11 +116,23 @@ def test_recipe(recipe_fixture, execute_recipe):
     ds_actual = xr.open_zarr(target.get_mapper()).load()
     xr.testing.assert_identical(ds_actual, ds_expected)
 
-    with rec.open_input(next(rec.iter_inputs())):
-        pass
 
-    with rec.open_chunk(next(rec.iter_chunks())):
-        pass
+@pytest.mark.parametrize("recipe_fixture", all_recipes)
+def test_recipe_manual_execution(recipe_fixture):
+    """The basic recipe test. Use this as a template for other tests."""
+
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
+    rec = RecipeClass(file_pattern, **kwargs)
+
+    for input_key in rec.iter_inputs():
+        rec.cache_input(input_key)
+    rec.prepare_target()
+    for chunk_key in rec.iter_chunks():
+        rec.store_chunk(chunk_key)
+    rec.finalize_target()
+
+    ds_actual = xr.open_zarr(target.get_mapper()).load()
+    xr.testing.assert_identical(ds_actual, ds_expected)
 
 
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
@@ -403,122 +405,3 @@ def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_das
         execute_recipe_no_dask(recipe)
 
     assert p.call_args[1]["timeout"] == 1
-
-
-class MyRecipe(BaseRecipe):
-    def __init__(self) -> None:
-        super().__init__()
-        self.cache = {}
-        self.target = None
-        self.finalized = False
-        self.cache_inputs = True
-
-    @property
-    def prepare_target(self):
-        def _():
-            self.target = {}
-
-        return _
-
-    @property
-    def cache_input(self):
-        def _(input_key):
-            self.cache[input_key] = input_key
-
-        return _
-
-    @property
-    def store_chunk(self):
-        def _(chunk_key):
-            self.target[chunk_key] = self.cache[chunk_key]
-
-        return _
-
-    @property
-    def finalize_target(self):
-        def _():
-            self.finalized = True
-
-        return _
-
-    def iter_inputs(self):
-        return iter(range(4))
-
-    def iter_chunks(self):
-        return iter(range(4))
-
-
-def test_base_recipe():
-    recipe = MyRecipe()
-    recipe.to_function()()
-    assert recipe.finalized
-    assert recipe.target == {i: i for i in range(4)}
-
-    import dask
-
-    dask.config.set(scheduler="single-threaded")
-    recipe = MyRecipe()
-    recipe.to_dask().compute()
-    assert recipe.finalized
-    assert recipe.target == {i: i for i in range(4)}
-
-    recipe = MyRecipe()
-    recipe.to_prefect().run()
-    assert recipe.finalized
-    assert recipe.target == {i: i for i in range(4)}
-
-
-def _make_filename_for_memory_usage_test(time):
-    import pandas as pd
-
-    input_url_pattern = (
-        "https://arthurhouhttps.pps.eosdis.nasa.gov/gpmdata/{yyyy}/{mm}/{dd}/"
-        "imerg/3B-HHR.MS.MRG.3IMERG.{yyyymmdd}-S{sh}{sm}00-E{eh}{em}59.{MMMM}.V06B.HDF5"
-    ).format(
-        yyyy=time.strftime("%Y"),
-        mm=time.strftime("%m"),
-        dd=time.strftime("%d"),
-        yyyymmdd=time.strftime("%Y%m%d"),
-        sh=time.strftime("%H"),
-        sm=time.strftime("%M"),
-        eh=time.strftime("%H"),
-        em=(time + pd.Timedelta("29 min")).strftime("%M"),
-        MMMM=f"{(time.hour*60 + time.minute):04}",
-    )
-    return input_url_pattern
-
-
-def _simple_func(*args, **kwargs):
-    return None
-
-
-@pytest.mark.timeout(90)
-@pytest.mark.filterwarnings("ignore:Large object")
-def test_memory_usage():
-    # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/151
-    # Requires >4 GiB of memory to run.
-    pd = pytest.importorskip("pandas")
-    distributed = pytest.importorskip("distributed")
-
-    dates = pd.date_range("2020-05-31T00:00:00", "2021-05-31T23:59:59", freq="30min")
-    time_concat_dim = ConcatDim("time", dates, nitems_per_file=1)
-    pattern = FilePattern(_make_filename_for_memory_usage_test, time_concat_dim,)
-
-    recipe = XarrayZarrRecipe(
-        pattern, xarray_open_kwargs={"group": "Grid", "decode_coords": "all"}, inputs_per_chunk=1,
-    )
-
-    obj = recipe.to_dask()
-    dsk = obj.dask
-
-    for k, v in dsk.items():
-        if dask.core.istask(v):
-            _, *args = v
-            dsk[k] = (_simple_func,) + tuple(args)
-
-    with dask.config.set(
-        **{"distributed.worker.memory.pause": 0.95, "distributed.worker.memory.terminate": 0.9}
-    ):
-        with distributed.Client(n_workers=1, threads_per_worker=1, memory_limit="4G") as client:
-            print("submitting")
-            client.get(dsk, [obj.key])
