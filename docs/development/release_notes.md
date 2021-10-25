@@ -2,6 +2,11 @@
 
 ## v0.6.1 - Unreleased
 
+- Major internal refactor of executors. {pull}`219`.
+  Began deprecation cycle for recipe methods (e.g. `recipe.prepare_target()`) in
+  favor of module functions.
+- Addition of `open_input_with_fsspec_reference` option on {class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe`,
+  permitting the bypassing of h5py when opening inputs. {pull}`218`
 
 ## v0.6.0 - 2021-09-02
 
