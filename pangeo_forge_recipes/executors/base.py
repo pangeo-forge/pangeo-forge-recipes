@@ -1,32 +1,15 @@
+from __future__ import annotations
+
 import enum
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, Hashable, Iterable, Optional, Protocol, TypeVar, Union
+from typing import Any, Callable, Dict, Generic, Iterable, Optional, TypeVar, Union
 
-# there is no good way to type hint a dataclass
-# https://stackoverflow.com/questions/54668000/type-hint-for-an-instance-of-a-non-specific-dataclass
-Config = Any
+from mypy_extensions import NamedArg
 
-
-# https://stackoverflow.com/questions/57837609/python-typing-signature-typing-callable-for-function-with-kwargs
-class NoArgumentStageFunction(Protocol):
-    def __call__(*, config: Optional[Config] = None) -> None:
-        ...
-
-
-class SingleArgumentStageFunction(Protocol):
-    def __call__(__a: Hashable, *, config: Optional[Config] = None) -> None:
-        ...
-
-
-# For some reason, mypy does not like this
+Config = Any  # TODO: better typing for config
+SingleArgumentStageFunction = Callable[[Any, NamedArg(type=Any, name="config")], None]  # noqa: F821
+NoArgumentStageFunction = Callable[[NamedArg(type=Any, name="config")], None]  # noqa: F821
 StageFunction = Union[NoArgumentStageFunction, SingleArgumentStageFunction]
-# pangeo_forge_recipes/recipes/xarray_zarr.py:525: error:
-#  Argument "function" to "Stage" has incompatible type
-#    "Callable[[Index, NamedArg(XarrayZarrRecipe, 'config')], None]";
-#    expected "NoArgumentStageFunction"  [arg-type]
-
-# TODO: fix this to be a stricter type as above
-# StageFunction = Callable
 
 
 class StageAnnotationType(enum.Enum):
