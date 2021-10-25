@@ -826,7 +826,6 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
         with open_input(input_key, config=self) as ds:
             yield ds
 
-    @contextmanager
     def cache_input(self, input_key: InputKey) -> None:
         """Cache an input
 
