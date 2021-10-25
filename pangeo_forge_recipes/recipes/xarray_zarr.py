@@ -598,6 +598,12 @@ def xarray_zarr_recipe_compiler(recipe: XarrayZarrRecipe) -> Pipeline:
 # - https://stackoverflow.com/questions/51575931/class-inheritance-in-python-3-7-dataclasses
 
 
+_deprecation_message = (
+    "This method will be deprecated in v0.8.0. "
+    "Please call the equivalent function directly from the xarray_zarr module."
+)
+
+
 @dataclass
 class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
     """This configuration represents a dataset composed of many individual NetCDF files.
@@ -605,6 +611,19 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
     The organization of the source files is described by the ``file_pattern``.
     Currently this recipe supports at most one ``MergeDim`` and one ``ConcatDim``
     in the File Pattern.
+
+    Manual Execution
+    ----------------
+
+    To manually execute a this recipe, run the following steps:
+
+        for input_key in recipe.iter_inputs():
+            recipe.cache_input(input_key)
+        recipe.prepare_target()
+        for chunk_key in recipe.iter_chunks():
+            recipe.store_chunk(chunk_key)
+        recipe.finalize_target()
+
 
     :param file_pattern: An object which describes the organization of the input files.
     :param inputs_per_chunk: The number of inputs to use in each chunk along the concat dim.
@@ -785,7 +804,61 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
                 ]
                 yield Index((chunk_key_base + subset_dims))
 
+    # Below lie convience methods that help users develop and debug the recipe
+    # They will all be deprecated
+
     def inputs_for_chunk(self, chunk_key: ChunkKey) -> Sequence[InputKey]:
-        """Convenience function for users to introspect recipe."""
+        """Show which inputs are needed for which chunk.
+
+        :param chunk_key: Which chunk to examine
+        """
+        warnings.warn(_deprecation_message, DeprecationWarning)
         ninputs = self.file_pattern.dims[self.file_pattern.concat_dims[0]]
         return inputs_for_chunk(chunk_key, self.inputs_per_chunk, ninputs)
+
+    @contextmanager
+    def open_input(self, input_key: InputKey) -> xr.Dataset:
+        """Open an input
+
+        :param chunk_key: Which input to open
+        """
+        warnings.warn(_deprecation_message, DeprecationWarning)
+        with open_input(input_key, config=self) as ds:
+            yield ds
+
+    @contextmanager
+    def cache_input(self, input_key: InputKey) -> None:
+        """Cache an input
+
+        :param chunk_key: Which input to cache
+        """
+        warnings.warn(_deprecation_message, DeprecationWarning)
+        cache_input(input_key, config=self)
+
+    def prepare_target(self) -> None:
+        """Prepare target for writing."""
+        warnings.warn(_deprecation_message, DeprecationWarning)
+        prepare_target(config=self)
+
+    @contextmanager
+    def open_chunk(self, chunk_key: ChunkKey) -> xr.Dataset:
+        """Open the inputs that go into a chunk as a single dataset
+
+        :param chunk_key: Which chunk to open
+        """
+        warnings.warn(_deprecation_message, DeprecationWarning)
+        with open_chunk(chunk_key, config=self) as ds:
+            yield ds
+
+    def store_chunk(self, chunk_key: ChunkKey) -> None:
+        """Store a chunk into the target
+
+        :param chunk_key: Which chunk to store
+        """
+        warnings.warn(_deprecation_message, DeprecationWarning)
+        store_chunk(chunk_key, config=self)
+
+    def finalize_target(self) -> None:
+        """Prepare target for writing."""
+        warnings.warn(_deprecation_message, DeprecationWarning)
+        finalize_target(config=self)

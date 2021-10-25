@@ -118,6 +118,24 @@ def test_recipe(recipe_fixture, execute_recipe):
 
 
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
+def test_recipe_manual_execution(recipe_fixture):
+    """The basic recipe test. Use this as a template for other tests."""
+
+    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
+    rec = RecipeClass(file_pattern, **kwargs)
+
+    for input_key in rec.iter_inputs():
+        rec.cache_input(input_key)
+    rec.prepare_target()
+    for chunk_key in rec.iter_chunks():
+        rec.store_chunk(chunk_key)
+    rec.finalize_target()
+
+    ds_actual = xr.open_zarr(target.get_mapper()).load()
+    xr.testing.assert_identical(ds_actual, ds_expected)
+
+
+@pytest.mark.parametrize("recipe_fixture", all_recipes)
 def test_recipe_with_references(recipe_fixture, execute_recipe):
     """Same as above, but use fsspec references for opening the files."""
 
