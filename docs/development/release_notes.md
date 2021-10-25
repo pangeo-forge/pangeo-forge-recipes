@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.6.1 - Unreleased
+## v0.6.1 - 2021-10-25
 
 - Major internal refactor of executors. {pull}`219`.
   Began deprecation cycle for recipe methods (e.g. `recipe.prepare_target()`) in
