@@ -4,7 +4,7 @@ channels:
 dependencies:
   - python=3.8
   - aiohttp
-  - apache_beam
+  - apache-beam
   - black
   - boto3
   - cfgrib<0.9.9.0
