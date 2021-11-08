@@ -7,11 +7,11 @@ import apache_beam as beam
 from .base import Config, NoArgumentStageFunction, Pipeline, PipelineExecutor, Stage
 
 
-def _no_arg_stage(last: int, *, current: int, func: NoArgumentStageFunction, config: Config) -> int:
+def _no_arg_stage(last: int, *, current: int, fun: NoArgumentStageFunction, config: Config) -> int:
     """Execute a NoArgumentStageFunction, ensuring execution order."""
     assert (last + 1) == current, f"stages are executing out of order! On step {current!r}."
 
-    func(config=config)
+    fun(config=config)
 
     return current
 
@@ -67,7 +67,7 @@ class BeamPipelineExecutor(PipelineExecutor[beam.PTransform]):
                 pcoll |= stage.name >> _SingleArgumentStage(step, stage, pipeline.config)
             else:
                 pcoll |= stage.name >> beam.Map(
-                    _no_arg_stage, current=step, func=stage.function, config=pipeline.config
+                    _no_arg_stage, current=step, fun=stage.function, config=pipeline.config
                 )
 
         return pcoll
