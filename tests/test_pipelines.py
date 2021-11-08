@@ -6,10 +6,10 @@ import pytest
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.executors.base import Pipeline, Stage
+from pangeo_forge_recipes.executors.beam import BeamPipelineExecutor
 from pangeo_forge_recipes.executors.dask import DaskPipelineExecutor
 from pangeo_forge_recipes.executors.function import FunctionPipelineExecutor
 from pangeo_forge_recipes.executors.prefect import PrefectPipelineExecutor
-from pangeo_forge_recipes.executors.beam import BeamPipelineExecutor
 
 
 @pytest.fixture
@@ -52,7 +52,8 @@ def pipeline_with_config(tmpdir_factory):
 
 
 @pytest.mark.parametrize(
-    "Executor", [FunctionPipelineExecutor, PrefectPipelineExecutor, DaskPipelineExecutor, BeamPipelineExecutor],
+    "Executor",
+    [FunctionPipelineExecutor, PrefectPipelineExecutor, DaskPipelineExecutor, BeamPipelineExecutor],
 )
 @pytest.mark.parametrize(
     "pipeline_config_tmpdir",
@@ -70,4 +71,4 @@ def test_pipeline(pipeline_config_tmpdir, Executor):
         f"{prefix}func1_b.log",
         f"{prefix}func1_3.log",
     ]:
-        assert tmpdir.join(fname).check(file=True), f'File not found in temporary directory: {fname}.'
+        assert tmpdir.join(fname).check(file=True), f"File not found in temp directory: {fname}."

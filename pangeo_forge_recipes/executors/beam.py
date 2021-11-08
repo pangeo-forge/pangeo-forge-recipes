@@ -1,26 +1,17 @@
 import itertools
 from dataclasses import dataclass
-from typing import Optional, Iterable, Tuple, Any, List
+from typing import Any, Iterable, List, Tuple, cast
 
 import apache_beam as beam
 
-from .base import (
-    Pipeline,
-    PipelineExecutor,
-    Config,
-    Stage,
-    NoArgumentStageFunction,
-    SingleArgumentStageFunction
-)
+from .base import Config, NoArgumentStageFunction, Pipeline, PipelineExecutor, Stage
 
 
-def _exec_no_arg_stage(
-    last: int, *, current: int, function: NoArgumentStageFunction, config: Config
-) -> int:
+def _no_arg_stage(last: int, *, current: int, func: NoArgumentStageFunction, config: Config) -> int:
     """Execute a NoArgumentStageFunction, ensuring execution order."""
-    assert (last + 1) == current, f'stages are executing out of order! On step {current!r}.'
+    assert (last + 1) == current, f"stages are executing out of order! On step {current!r}."
 
-    function(config=config)
+    func(config=config)
 
     return current
 
@@ -37,38 +28,33 @@ class _SingleArgumentStage(beam.PTransform):
     stage: Stage
     config: Config
 
-    @staticmethod
-    def prepare_stage(last: int, *, current: int, mappable: Iterable) -> Iterable[Tuple[int, Any]]:
+    def prepare_stage(self, last: int) -> Iterable[Tuple[int, Any]]:
         """Propagate current stage to Mappables for parallel execution."""
-        assert (last + 1) == current, f'stages are executing out of order! On step {current!r}.'
-        return zip(itertools.repeat(current), mappable)
+        assert (last + 1) == self.step, f"stages are executing out of order! On step {self.step!r}."
+        return zip(itertools.repeat(self.step), cast(Iterable, self.stage.mappable))
 
-    @staticmethod
-    def exec_stage(
-        last: int, arg,
-        current: int = -1, function: SingleArgumentStageFunction = _no_op, config: Optional[Config] = None
-    ) -> int:
+    def exec_stage(self, last: int, arg: Any) -> int:
         """Execute stage function."""
-        assert last == current, f'stages are executing out of order! On step {current!r}.'
+        assert last == self.step, f"stages are executing out of order! On step {self.step!r}."
 
-        function(arg, config=config)
+        self.stage.function(arg, config=self.config)  # type: ignore
 
-        return current
+        return self.step
 
-    @staticmethod
-    def post_validate(last: List[int], *, current: int) -> int:
+    def post_validate(self, last: List[int]) -> int:
         """Propagate step number for downstream stage validation."""
-        assert all([it == current for it in last]), f'stages are executing out of order! On step {current!r}.'
-        return current
+        in_current_step = all((it == self.step for it in last))
+        assert in_current_step, f"stages are executing out of order! On step {self.step!r}."
+
+        return self.step
 
     def expand(self, pcoll):
         return (
-                pcoll
-                | "Prepare" >> beam.FlatMap(self.prepare_stage, current=self.step, mappable=self.stage.mappable)
-                | "Execute" >> beam.MapTuple(self.exec_stage, current=self.step, function=self.stage.function,
-                                             config=self.config)
-                | beam.combiners.ToList()
-                | "Validate" >> beam.Map(self.post_validate, current=self.step)
+            pcoll
+            | "Prepare" >> beam.FlatMap(self.prepare_stage)
+            | "Execute" >> beam.MapTuple(self.exec_stage)
+            | beam.combiners.ToList()
+            | "Validate" >> beam.Map(self.post_validate)
         )
 
 
@@ -80,15 +66,14 @@ class BeamPipelineExecutor(PipelineExecutor[beam.PTransform]):
             if stage.mappable is not None:
                 pcoll |= stage.name >> _SingleArgumentStage(step, stage, pipeline.config)
             else:
-                pcoll |= stage.name >> beam.Map(_exec_no_arg_stage,
-                                                current=step,
-                                                function=stage.function,
-                                                config=pipeline.config)
+                pcoll |= stage.name >> beam.Map(
+                    _no_arg_stage, current=step, func=stage.function, config=pipeline.config
+                )
 
         return pcoll
 
     @staticmethod
     def execute(plan: beam.PTransform, *args, **kwargs):
-        """Execute a plan. All args and kwargs are pass to a `apache_beam.Pipeline`."""
+        """Execute a plan. All args and kwargs are passed to a `apache_beam.Pipeline`."""
         with beam.Pipeline(*args, **kwargs) as p:
             p | plan
