@@ -91,7 +91,12 @@ def inputs_for_chunk(
     return input_keys
 
 
-def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: int) -> None:
+def expand_target_dim(
+    target: FSSpecTarget,
+    concat_dim: Optional[str],
+    dimsize: int,
+    consolidate_dimension_coordinates: bool = True,
+) -> None:
     target_mapper = target.get_mapper()
     zgroup = zarr.open_group(target_mapper)
     ds = open_target(target)
@@ -106,7 +111,10 @@ def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: 
         logger.debug(f"resizing array {v} to shape {shape}")
         arr.resize(shape)
 
-    # now explicity write the sequence coordinate to avoid missing data
+        if v == concat_dim and concat_dim in zgroup and consolidate_dimension_coordinates:
+            _consolidate_dimension_coordinate(target_mapper, dims={v})
+
+    # now explicitly write the sequence coordinate to avoid missing data
     # when reopening
     if concat_dim in zgroup:
         zgroup[concat_dim][:] = 0
@@ -233,6 +241,15 @@ def region_and_conflicts_for_chunk(
         {config.concat_dim: (config.concat_dim_chunks, total_len)}
     )
     conflicts = chunk_grid.chunk_conflicts(chunk_index, target_grid)
+
+    if config.consolidate_dimension_coordinates:
+        # with config.consolidate_dimension_coordinates we consolidate the concat dim (e.g. time)
+        # during prepare_target. This means that we *always* have conflicts when writing the
+        # concat dim coordinate labels, and so *always* need to acquire a lock before writing.
+        # Since we're writing small values for coordinates, it's hoped that updating the
+        # coordinates will be a small fraction of the overall `store_chunk`, and so the locking
+        # of this coordinate won't be too contentious.
+        conflicts[config.concat_dim] = {0}
 
     return region, conflicts
 
@@ -475,7 +492,12 @@ def prepare_target(*, config: XarrayZarrRecipe) -> None:
     )
     n_sequence = sum(input_sequence_lens)
     logger.info(f"Expanding target concat dim '{config.concat_dim}' to size {n_sequence}")
-    expand_target_dim(config.target, config.concat_dim, n_sequence)
+    expand_target_dim(
+        config.target,
+        config.concat_dim,
+        n_sequence,
+        consolidate_dimension_coordinates=config.consolidate_dimension_coordinates,
+    )
     # TODO: handle possible subsetting
     # The init chunks might not cover the whole dataset along multiple dimensions!
 
@@ -549,20 +571,20 @@ def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
     )
 
 
-def finalize_target(*, config: XarrayZarrRecipe) -> None:
-    if config.target is None:
-        raise ValueError("target has not been set.")
-
-    if config.consolidate_dimension_coordinates:
-        logger.info("Consolidating dimension coordinate arrays")
-        target_mapper = config.target.get_mapper()
-        group = zarr.open(target_mapper, mode="a")
-        # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/214
-        # intersect the dims from the array metadata with the Zarr group
-        # to handle coordinateless dimensions.
+def _consolidate_dimension_coordinate(
+    target_mapper: fsspec.mapping.FSMap, dims: Optional[Set[str]] = None
+) -> None:
+    group = zarr.open(target_mapper, mode="a")
+    # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/214
+    # intersect the dims from the array metadata with the Zarr group
+    # to handle coordinateless dimensions.
+    if dims is None:
         dims = set(_gather_coordinate_dimensions(group)) & set(group)
-        for dim in dims:
-            arr = group[dim]
+
+    for dim in dims:
+        arr = group[dim]
+        if arr.chunks != arr.shape:
+            logger.info("Consolidating dimension coordinate %s", dim)
             attrs = dict(arr.attrs)
             new = group.array(
                 dim,
@@ -576,6 +598,14 @@ def finalize_target(*, config: XarrayZarrRecipe) -> None:
                 overwrite=True,
             )
             new.attrs.update(attrs)
+
+
+def finalize_target(*, config: XarrayZarrRecipe) -> None:
+    if config.target is None:
+        raise ValueError("target has not been set.")
+
+    if config.consolidate_dimension_coordinates:
+        _consolidate_dimension_coordinate(config.target.get_mapper())
 
     if config.consolidate_zarr:
         logger.info("Consolidating Zarr metadata")

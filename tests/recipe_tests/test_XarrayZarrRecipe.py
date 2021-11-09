@@ -9,8 +9,9 @@ import zarr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
+from pangeo_forge_recipes.executors.function import FunctionPipelineExecutor
 from pangeo_forge_recipes.patterns import FilePattern
-from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
+from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe, xarray_zarr_recipe_compiler
 
 
 def make_netCDFtoZarr_recipe(
@@ -357,6 +358,21 @@ def test_chunks_distributed_locking(
         subset_inputs,
         specify_nitems_per_input,
     )
+
+
+def test_early_consolidate_dimension_coordinates(netCDFtoZarr_recipe):
+    RecipeClass, file_pattern, kwargs, ds_expected, target = netCDFtoZarr_recipe
+
+    rec = RecipeClass(file_pattern, **kwargs)
+    pipeline = xarray_zarr_recipe_compiler(rec)
+    # grab just cache_input and prepare_target, to make sure we consolidate early
+    pipeline = type(pipeline)(pipeline.stages[:2], config=rec)
+    executor = FunctionPipelineExecutor.compile(pipeline)
+    executor()
+
+    target_mapper = rec.target.get_mapper()
+    zgroup = zarr.open_group(target_mapper)
+    assert zgroup[rec.concat_dim].chunks == zgroup[rec.concat_dim].shape
 
 
 def test_no_consolidate_dimension_coordinates(netCDFtoZarr_recipe):
