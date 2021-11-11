@@ -33,7 +33,7 @@ jobs:
         with:
           miniforge-variant: Mambaforge
           miniforge-version: latest
-          # activate-environment: pangeo-forge-recipes
+          activate-environment: pangeo-forge-recipes
           use-mamba: true
       - name: Set cache number
         run: echo "::set-output name=number::$(date +'%d%m')"
@@ -51,7 +51,6 @@ jobs:
       - name: Activate conda env
         shell: bash -l {0}
         run: |
-          conda activate pangeo-forge-recipes
           conda info
           conda list
       - name: install pangeo-forge-recipes
