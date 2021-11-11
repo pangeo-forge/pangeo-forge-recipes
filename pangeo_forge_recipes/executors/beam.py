@@ -52,6 +52,7 @@ class _SingleArgumentStage(beam.PTransform):
         return (
             pcoll
             | "Prepare" >> beam.FlatMap(self.prepare_stage)
+            | beam.Reshuffle()
             | "Execute" >> beam.MapTuple(self.exec_stage)
             | beam.combiners.ToList()
             | "Validate" >> beam.Map(self.post_validate)
