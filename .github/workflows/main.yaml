@@ -39,6 +39,7 @@ jobs:
       - name: setup miniconda
         uses: conda-incubator/setup-miniconda@v2
         with:
+          mamba-version: "*"
           activate-environment: pangeo-forge-recipes
           environment-file: ci/py${{ matrix.python-version }}.yml
           python-version: ${{ matrix.python-version }}
