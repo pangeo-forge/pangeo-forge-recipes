@@ -40,7 +40,7 @@ jobs:
         id: cache-number
       - uses: actions/cache@v2
         with:
-          path: /usr/share/miniconda3/envs/carsus
+          path: /usr/share/miniconda3/envs/pangeo-forge-recipes
           key: ${{ runner.os }}-conda-${{ hashFiles('ci/*.yml') }}-${{ env.CACHE_NUMBER }}
         env:
           CACHE_NUMBER: ${{ steps.cache-number.outputs.number }}
