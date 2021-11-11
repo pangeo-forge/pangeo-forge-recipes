@@ -24,30 +24,34 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - name: Cache conda
-        uses: actions/cache@v2
-        env:
-          # Increase this value to reset cache if ci/py${{ matrix.python-version }}.yml has not changed
-          CACHE_NUMBER: 0
-        with:
-          path: ~/conda_pkgs_dir
-          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('ci/*.yml') }}
-      - name: setup miniconda
+      - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v2
         with:
-          mamba-version: "*"
-          activate-environment: pangeo-forge-recipes
-          environment-file: ci/py${{ matrix.python-version }}.yml
-          python-version: ${{ matrix.python-version }}
-          auto-activate-base: false
-          use-only-tar-bz2: true
-      - name: print conda env
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
+          # activate-environment: pangeo-forge-recipes
+          use-mamba: true
+      - name: Set cache number
+        run: echo "::set-output name=number::$(date +'%d%m')"
+        id: cache-number
+      - uses: actions/cache@v2
+        with:
+          path: /usr/share/miniconda3/envs/carsus
+          key: ${{ runner.os }}-conda-${{ hashFiles('ci/*.yml') }}-${{ env.CACHE_NUMBER }}
+        env:
+          CACHE_NUMBER: ${{ steps.cache-number.outputs.number }}
+        id: conda-cache
+      - name: Update environment
+        run: mamba env update -n pangeo-forge-recipes -f ci/py${{ matrix.python-version }}.yml
+        if: steps.conda-cache.outputs.cache-hit != 'true'
+      - name: Activate conda env
         shell: bash -l {0}
         run: |
+          conda activate pangeo-forge-recipes
           conda info
           conda list
       - name: install pangeo-forge-recipes
