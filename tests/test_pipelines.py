@@ -5,11 +5,20 @@ Test Pipline Executors
 import pytest
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.executors.base import Pipeline, Stage
-from pangeo_forge_recipes.executors.beam import BeamPipelineExecutor
+from pangeo_forge_recipes.executors.base import Pipeline, PipelineExecutor, Stage
 from pangeo_forge_recipes.executors.dask import DaskPipelineExecutor
 from pangeo_forge_recipes.executors.function import FunctionPipelineExecutor
 from pangeo_forge_recipes.executors.prefect import PrefectPipelineExecutor
+
+# Only run Beam executor tests if Beam is in the current test environment.
+try:
+    from pangeo_forge_recipes.executors.beam import BeamPipelineExecutor
+except (ImportError, AttributeError):
+
+    class BeamPipelineExecutor(PipelineExecutor[None]):
+        @staticmethod
+        def compile(pipeline: Pipeline) -> None:
+            pytest.skip()
 
 
 @pytest.fixture
