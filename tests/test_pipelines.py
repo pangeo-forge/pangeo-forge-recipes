@@ -5,20 +5,7 @@ Test Pipline Executors
 import pytest
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.executors.base import Pipeline, PipelineExecutor, Stage
-from pangeo_forge_recipes.executors.dask import DaskPipelineExecutor
-from pangeo_forge_recipes.executors.function import FunctionPipelineExecutor
-from pangeo_forge_recipes.executors.prefect import PrefectPipelineExecutor
-
-# Only run Beam executor tests if Beam is in the current test environment.
-try:
-    from pangeo_forge_recipes.executors.beam import BeamPipelineExecutor
-except (ImportError, AttributeError):
-
-    class BeamPipelineExecutor(PipelineExecutor[None]):
-        @staticmethod
-        def compile(pipeline: Pipeline) -> None:
-            pytest.skip()
+from pangeo_forge_recipes.executors.base import Pipeline, Stage
 
 
 @pytest.fixture
@@ -60,10 +47,23 @@ def pipeline_with_config(tmpdir_factory):
     return pipeline, config, tmp
 
 
-@pytest.mark.parametrize(
-    "Executor",
-    [FunctionPipelineExecutor, PrefectPipelineExecutor, DaskPipelineExecutor, BeamPipelineExecutor],
+@pytest.fixture(
+    scope="session",
+    params=[
+        ("pangeo_forge_recipes.executors.dask", "DaskPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.function", "FunctionPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.prefect", "PrefectPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.beam", "BeamPipelineExecutor"),
+    ],
 )
+def Executor(request):
+    try:
+        module = pytest.importorskip(request.param[0])
+        return getattr(module, request.param[1])
+    except (AttributeError, ImportError):
+        pytest.skip()
+
+
 @pytest.mark.parametrize(
     "pipeline_config_tmpdir",
     [lazy_fixture("pipeline_no_config"), lazy_fixture("pipeline_with_config")],
