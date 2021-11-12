@@ -49,7 +49,7 @@ jobs:
       - name: 🐫 Update environment
         run: mamba env update -n pangeo-forge-recipes -f ci/py${{ matrix.python-version }}.yml
         if: steps.conda-cache.outputs.cache-hit != 'true'
-      - name: 🐍 Activate conda env
+      - name: 🐍 List conda env
         shell: bash -l {0}
         run: |
           conda info
