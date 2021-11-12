@@ -52,8 +52,6 @@ jobs:
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
           key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ env.CACHE_NUMBER }}
-        env:
-          CACHE_NUMBER: ${{ steps.cache-number.outputs.number }}
         id: conda-cache
       - name: 🐫 Update environment
         run: mamba env update -n pangeo-forge-recipes -f ${{ env.env_file }}
