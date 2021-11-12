@@ -37,12 +37,16 @@ jobs:
           use-mamba: true
       - name: 🎯 Set cache number
         id: cache-number
-        run: echo "::set-output name=number::$(date +'%d%m')"
+        # cache will last 3 days by default
+        run: echo CACHE_NUMBER=`expr $(date +'%d%m') / 3` >> $GITHUB_ENV
       - name: 🎯 Set environment file
         id: env-file
+        run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
+      - name: ✅ Check environment variables
+        id: check-env
         run: |
-          echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
-        # should be accessible via env.env_file
+          echo "${{ env.CACHE_NUMBER }}"
+          echo "${{ env.env_file }}"
       - uses: actions/cache@v2
         name: 🗃 Cache Environment
         with:
