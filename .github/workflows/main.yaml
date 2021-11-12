@@ -71,7 +71,7 @@ jobs:
             --cov-report term-missing \
             --cov-report xml \
             --durations=10 --durations-min=1.0
-      - name: 🚦 Codecov
+      - name: 🚦 Run Codecov
         uses: codecov/codecov-action@v2.0.2
         with:
           file: ./coverage.xml
