@@ -42,7 +42,7 @@ jobs:
         name: 🗃 Cache Environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
-          key: ${{ runner.os }}-conda-${{ hashFiles(join('ci/', matrix.python-version, '.yml') }}-${{ env.CACHE_NUMBER }}
+          key: ${{ runner.os }}-conda-${{ hashFiles(join('ci/', matrix.python-version, '.yml')) }}-${{ env.CACHE_NUMBER }}
         env:
           CACHE_NUMBER: ${{ steps.cache-number.outputs.number }}
         id: conda-cache
