@@ -27,6 +27,11 @@ class BaseRecipe(ABC):
 
         return PrefectPipelineExecutor.compile(self._compiler())
 
+    def to_beam(self):
+        from pangeo_forge_recipes.executors.beam import BeamPipelineExecutor
+
+        return BeamPipelineExecutor.compile(self._compiler())
+
 
 RecipeCompiler = Callable[[BaseRecipe], Pipeline]
 
