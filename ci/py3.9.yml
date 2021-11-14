@@ -19,6 +19,7 @@ dependencies:
   - intake
   - intake-xarray
   - lxml    # Optional dep of pydap
+  - matplotlib  # needed for building tutorial notebooks
   - netcdf4
   - numcodecs
   - numpy
