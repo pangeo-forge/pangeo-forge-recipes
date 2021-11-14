@@ -56,8 +56,6 @@ jobs:
       - name: 🐫 Update environment
         run: mamba env update -n pangeo-forge-recipes -f ${{ env.env_file }}
         if: steps.conda-cache.outputs.cache-hit != 'true'
-      - name: 💍 Install nbmake
-        run: python -m pip install nbmake
       - name: 🐍 List conda env
         shell: bash -l {0}
         run: |

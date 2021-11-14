@@ -38,5 +38,6 @@ dependencies:
   - xarray>=0.18.0
   - zarr>=2.6.0
   - pip:
+    - nbmake  # used in tutorial nb worklow
     - pytest-timeout
     - fsspec-reference-maker>=0.0.4
