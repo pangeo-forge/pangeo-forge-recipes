@@ -7,10 +7,12 @@ dependencies:
   - black
   - boto3
   - cfgrib<0.9.9.0
+  - cftime
   - codecov
   - dask
   - distributed
   - fsspec>=2021.6.0
+  - gcsfs
   - h5netcdf
   # can't solve environment; moved to pip
   # - h5py>=3.3.0  - hdf5
@@ -31,6 +33,7 @@ dependencies:
   - rasterio
   - requests
   - rechunker>=0.4.2
+  - s3fs
   - scipy
   - setuptools
   - toolz

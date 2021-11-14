@@ -71,4 +71,4 @@ jobs:
       - name: 🏗 Build Notebook
         shell: bash -l {0}
         run: >
-          pytest --timeout=3000 --nbmake docs/tutorials/${{ env.nb-path }}
+          pytest --timeout=3000 --nbmake docs/tutorials/${{ matrix.nb-path }}
