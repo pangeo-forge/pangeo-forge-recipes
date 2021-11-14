@@ -12,7 +12,7 @@ dependencies:
   - distributed
   - fsspec>=2021.6.0
   - h5netcdf
-  - h5py
+  - h5py>=3.3.0
   - hdf5
   - intake
   - intake-xarray

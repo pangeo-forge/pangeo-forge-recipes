@@ -12,8 +12,8 @@ dependencies:
   - distributed
   - fsspec>=2021.6.0
   - h5netcdf
-  - h5py
-  - hdf5
+  # can't solve environment; moved to pip
+  # - h5py>=3.3.0  - hdf5
   - intake
   - intake-xarray
   - lxml
@@ -39,5 +39,6 @@ dependencies:
   - pytest-repeat
   - pip
   - pip:
+    - h5py>=3.3.0
     - pytest-timeout
     - fsspec-reference-maker>=0.0.4
