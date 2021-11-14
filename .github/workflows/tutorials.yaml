@@ -16,10 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: "3.9"
         include:
          - nb-path: "xarray_zarr/cmip6-recipe.ipynb"
+           python-version: "3.9"
          - nb-path: "xarray_zarr/netcdf_zarr_sequential.ipynb"
+           python-version: "3.9"
     steps:
       - uses: actions/checkout@v2
       - name: 🔁 Setup Python
