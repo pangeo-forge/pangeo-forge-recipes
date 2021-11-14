@@ -104,3 +104,19 @@ flow.run()
 ```
 
 By default the flow is run using Prefect's [LocalExecutor](https://docs.prefect.io/orchestration/flow_config/executors.html#localexecutor). See [executors](https://docs.prefect.io/orchestration/flow_config/executors.html) for more.
+
+### Beam PTransform
+
+You can convert your recipe to an Apache Beam [PTransform](https://beam.apache.org/documentation/programming-guide/#transforms)
+to be used within a [Pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) using the
+:meth:`BaseRecipe.to_beam()` method. For example
+
+```{code-block} python
+import apache_beam as beam
+
+with beam.Pipeline() as p:
+   p | recipe.to_beam()
+```
+
+By default the pipeline runs using Beam's [DirectRunner](https://beam.apache.org/documentation/runners/direct/).
+See [runners](https://beam.apache.org/documentation/#runners) for more.
