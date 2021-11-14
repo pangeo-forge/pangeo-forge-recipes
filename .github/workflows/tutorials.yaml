@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: 3.9
+        python-version: "3.9"
         include:
          - nb-path: "xarray_zarr/cmip6-recipe.ipynb"
          - nb-path: "xarray_zarr/netcdf_zarr_sequential.ipynb"
