@@ -13,6 +13,7 @@ dependencies:
   - distributed
   - fsspec>=2021.6.0
   - gcsfs
+  - graphviz  # needed for building tutorial notebooks
   - h5netcdf
   - h5py>=3.3.0
   - hdf5
@@ -32,6 +33,7 @@ dependencies:
   - pytest
   - pytest-cov
   - pytest-lazy-fixture
+  - python-graphviz  # needed for building tutorial notebooks
   - rasterio
   - requests
   - rechunker>=0.4.2

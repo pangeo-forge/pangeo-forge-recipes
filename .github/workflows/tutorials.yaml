@@ -9,6 +9,7 @@ on:
 
 env:
   PYTEST_ADDOPTS: "--color=yes"
+  python-version: "3.9"
 
 jobs:
   test:
@@ -19,23 +20,17 @@ jobs:
       matrix:
         include:
          - nb-path: "hdf_reference/reference_cmip6.ipynb"
-           python-version: "3.9"
          - nb-path: "xarray_zarr/cmip6-recipe.ipynb"
-           python-version: "3.9"
          - nb-path: "xarray_zarr/multi_variable_recipe.ipynb"
-           python-version: "3.9"
          - nb-path: "xarray_zarr/netcdf_zarr_sequential.ipynb"
-           python-version: "3.9"
          - nb-path: "xarray_zarr/opendap_subset_recipe.ipynb"
-           python-version: "3.9"
          - nb-path: "xarray_zarr/terraclimate.ipynb"
-           python-version: "3.9"
     steps:
       - uses: actions/checkout@v2
       - name: 🔁 Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.python-version }}
           architecture: x64
       - name: 🔁 Setup Miniconda
         uses: conda-incubator/setup-miniconda@v2
@@ -50,7 +45,7 @@ jobs:
         run: echo CACHE_NUMBER=`expr $(date +'%d%m') / 3` >> $GITHUB_ENV
       - name: 🎯 Set environment file
         id: env-file
-        run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
+        run: echo "env_file=ci/py${{ env.python-version }}.yml" >> $GITHUB_ENV
       - name: ✅ Check environment variables
         id: check-env
         run: |
@@ -60,7 +55,7 @@ jobs:
         name: 🗃 Cache environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
-          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ env.CACHE_NUMBER }}
+          key: ${{ runner.os }}-conda-${{ env.python-version }}-${{ hashFiles( env.env_file ) }}-${{ env.CACHE_NUMBER }}
         id: conda-cache
       - name: 🐫 Update environment
         run: mamba env update -n pangeo-forge-recipes -f ${{ env.env_file }}
