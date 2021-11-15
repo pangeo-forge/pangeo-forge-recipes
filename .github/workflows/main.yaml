@@ -15,7 +15,6 @@ env:
 
 jobs:
   prepare-env:
-    name: ${{ matrix.python-version }}-build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -70,6 +69,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
+      - name: 🔁 Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
+          activate-environment: pangeo-forge-recipes
+          use-mamba: true
       - name: 🎯 Set cache number
         id: cache-number
         # cache will last 3 days by default
@@ -86,10 +92,6 @@ jobs:
       - name: 🤿  Bail out if no cache hit
         if: steps.conda-cache.outputs.cache-hit != 'true'
         run: false
-      - name: 🔁 Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          activate-environment: pangeo-forge-recipes
       - name: 🌈 Install pangeo-forge-recipes package
         shell: bash -l {0}
         run: |
