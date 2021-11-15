@@ -6,9 +6,6 @@ on:
   repository_dispatch:
     types: [run-test-tutorials]
   workflow_dispatch:
-  # remove this before merging
-  pull_request:
-    branches: master
 
 env:
   PYTEST_ADDOPTS: "--color=yes"
