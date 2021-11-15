@@ -14,8 +14,7 @@ env:
   PYTEST_ADDOPTS: "--color=yes"
 
 jobs:
-  test:
-    name: ${{ matrix.python-version }}-build
+  prepare-env:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -42,25 +41,57 @@ jobs:
       - name: 🎯 Set environment file
         id: env-file
         run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
-      - name: ✅ Check environment variables
-        id: check-env
-        run: |
-          echo "env.CACHE_NUMBER: ${{ env.CACHE_NUMBER }}"
-          echo "env.env_file: ${{ env.env_file }}"
       - uses: actions/cache@v2
         name: 🗃 Cache environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
           key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ env.CACHE_NUMBER }}
         id: conda-cache
-      - name: 🐫 Update environment
-        run: mamba env update -n pangeo-forge-recipes -f ${{ env.env_file }}
+      - name: 🐫 Maybe Update environment
         if: steps.conda-cache.outputs.cache-hit != 'true'
+        run: mamba env update -n pangeo-forge-recipes -f ${{ env.env_file }}
       - name: 🐍 List conda env
         shell: bash -l {0}
         run: |
           conda info
           conda list
+  run-tests:
+    needs: prepare-env
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.8, 3.9]
+    steps:
+      - uses: actions/checkout@v2
+      - name: 🔁 Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+      - name: 🔁 Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
+          activate-environment: pangeo-forge-recipes
+          use-mamba: true
+      - name: 🎯 Set cache number
+        id: cache-number
+        # cache will last 3 days by default
+        run: echo CACHE_NUMBER=`expr $(date +'%d%m') / 3` >> $GITHUB_ENV
+      - name: 🎯 Set environment file
+        id: env-file
+        run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
+      - uses: actions/cache@v2
+        name: 🗃 Loaded Cached environment
+        with:
+          path: /usr/share/miniconda3/envs/pangeo-forge-recipes
+          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ env.CACHE_NUMBER }}
+        id: conda-cache
+      - name: 🤿  Bail out if no cache hit
+        if: steps.conda-cache.outputs.cache-hit != 'true'
+        run: false
       - name: 🌈 Install pangeo-forge-recipes package
         shell: bash -l {0}
         run: |

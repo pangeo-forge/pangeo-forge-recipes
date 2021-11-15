@@ -7,16 +7,20 @@ dependencies:
   - black
   - boto3
   - cfgrib<0.9.9.0
+  - cftime
   - codecov
   - dask
   - distributed
   - fsspec>=2021.6.0
+  - gcsfs
+  - graphviz  # needed for building tutorial notebooks
   - h5netcdf
   - h5py>=3.3.0
   - hdf5
   - intake
   - intake-xarray
   - lxml    # Optional dep of pydap
+  - matplotlib  # needed for building tutorial notebooks
   - netcdf4
   - numcodecs
   - numpy
@@ -29,14 +33,17 @@ dependencies:
   - pytest
   - pytest-cov
   - pytest-lazy-fixture
+  - python-graphviz  # needed for building tutorial notebooks
   - rasterio
   - requests
   - rechunker>=0.4.2
   - scipy
+  - s3fs
   - setuptools
   - toolz
   - xarray>=0.18.0
   - zarr>=2.6.0
   - pip:
+    - nbmake  # used in tutorial nb worklow
     - pytest-timeout
     - fsspec-reference-maker>=0.0.4
