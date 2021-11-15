@@ -70,11 +70,6 @@ jobs:
       - name: 🎯 Set environment file
         id: env-file
         run: echo "env_file=ci/py${{ env.python-version }}.yml" >> $GITHUB_ENV
-      - name: ✅ Check environment variables
-        id: check-env
-        run: |
-          echo "env.CACHE_NUMBER: ${{ env.CACHE_NUMBER }}"
-          echo "env.env_file: ${{ env.env_file }}"
       - uses: actions/cache@v2
         name: 🗃 Cache environment
         with:
@@ -106,7 +101,7 @@ jobs:
       # this won't work if we are not inside a repository_dispatch event,
       # but I don't see how to combine multiple if statements
       - uses: LouisBrunner/checks-action@v1.2.0
-        if: ${{ always() }}
+        if: ${{ always() && steps.init.outputs.check_id }}
         with:
           sha: ${{ github.event.client_payload.pull_request.head.sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
