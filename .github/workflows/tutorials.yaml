@@ -46,6 +46,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: Test Notebook ${{ matrix.nb-path }}
           status: in_progress
+          # this seems to be broken
           details_url: https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
 
       - name: 🔁 Setup Python
