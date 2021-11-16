@@ -37,7 +37,7 @@ jobs:
       - name: 🎯 Set cache number
         id: cache-number
         # cache will last 3 days by default
-        run: echo CACHE_NUMBER=`expr $(date +'%d%m') / 3` >> $GITHUB_ENV
+        run: echo CACHE_NUMBER=`expr $(date +'%j') / 3` >> $GITHUB_ENV
       - name: 🎯 Set environment file
         id: env-file
         run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
@@ -79,7 +79,7 @@ jobs:
       - name: 🎯 Set cache number
         id: cache-number
         # cache will last 3 days by default
-        run: echo CACHE_NUMBER=`expr $(date +'%d%m') / 3` >> $GITHUB_ENV
+        run: echo CACHE_NUMBER=`expr $(date +'%j') / 3` >> $GITHUB_ENV
       - name: 🎯 Set environment file
         id: env-file
         run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
