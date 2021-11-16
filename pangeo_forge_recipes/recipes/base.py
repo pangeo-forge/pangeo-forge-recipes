@@ -13,22 +13,22 @@ class BaseRecipe(ABC):
     _compiler: ClassVar[RecipeCompiler]
 
     def to_function(self):
-        from ..executors.function import FunctionPipelineExecutor
+        from ..executors import FunctionPipelineExecutor
 
         return FunctionPipelineExecutor.compile(self._compiler())
 
     def to_dask(self):
-        from pangeo_forge_recipes.executors.dask import DaskPipelineExecutor
+        from pangeo_forge_recipes.executors import DaskPipelineExecutor
 
         return DaskPipelineExecutor.compile(self._compiler())
 
     def to_prefect(self):
-        from pangeo_forge_recipes.executors.prefect import PrefectPipelineExecutor
+        from pangeo_forge_recipes.executors import PrefectPipelineExecutor
 
         return PrefectPipelineExecutor.compile(self._compiler())
 
     def to_beam(self):
-        from pangeo_forge_recipes.executors.beam import BeamPipelineExecutor
+        from pangeo_forge_recipes.executors import BeamPipelineExecutor
 
         return BeamPipelineExecutor.compile(self._compiler())
 
