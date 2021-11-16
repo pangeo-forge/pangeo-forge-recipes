@@ -51,18 +51,22 @@ def pipeline_with_config(tmpdir_factory):
 @pytest.fixture(
     scope="session",
     params=[
-        ("pangeo_forge_recipes.executors.dask", "DaskPipelineExecutor"),
-        ("pangeo_forge_recipes.executors.function", "FunctionPipelineExecutor"),
-        ("pangeo_forge_recipes.executors.prefect", "PrefectPipelineExecutor"),
-        ("pangeo_forge_recipes.executors.beam", "BeamPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.dask.DaskPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.python.FunctionPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.python.GeneratorPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.prefect.PrefectPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.beam.BeamPipelineExecutor"),
     ],
 )
 def Executor(request):
     try:
-        module = importlib.import_module(request.param[0])
-        return getattr(module, request.param[1])
+        split = request.param.split('.')
+        executor_name = split[-1]
+        module_name = '.'.join(split[:-1])
+        module = importlib.import_module(module_name)
+        return getattr(module, executor_name)
     except (AttributeError, ImportError):
-        pytest.skip()
+        pytest.skip(f"Couldn't import {request.param}")
 
 
 @pytest.mark.parametrize(
