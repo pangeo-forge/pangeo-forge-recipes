@@ -1,14 +1,12 @@
 """
 Test Pipline Executors
 """
+import importlib
 
 import pytest
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.executors.base import Pipeline, Stage
-from pangeo_forge_recipes.executors.dask import DaskPipelineExecutor
-from pangeo_forge_recipes.executors.function import FunctionPipelineExecutor
-from pangeo_forge_recipes.executors.prefect import PrefectPipelineExecutor
 
 
 @pytest.fixture
@@ -50,9 +48,23 @@ def pipeline_with_config(tmpdir_factory):
     return pipeline, config, tmp
 
 
-@pytest.mark.parametrize(
-    "Executor", [FunctionPipelineExecutor, PrefectPipelineExecutor, DaskPipelineExecutor],
+@pytest.fixture(
+    scope="session",
+    params=[
+        ("pangeo_forge_recipes.executors.dask", "DaskPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.function", "FunctionPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.prefect", "PrefectPipelineExecutor"),
+        ("pangeo_forge_recipes.executors.beam", "BeamPipelineExecutor"),
+    ],
 )
+def Executor(request):
+    try:
+        module = importlib.import_module(request.param[0])
+        return getattr(module, request.param[1])
+    except (AttributeError, ImportError):
+        pytest.skip()
+
+
 @pytest.mark.parametrize(
     "pipeline_config_tmpdir",
     [lazy_fixture("pipeline_no_config"), lazy_fixture("pipeline_with_config")],
@@ -69,4 +81,4 @@ def test_pipeline(pipeline_config_tmpdir, Executor):
         f"{prefix}func1_b.log",
         f"{prefix}func1_3.log",
     ]:
-        assert tmpdir.join(fname).check(file=True)
+        assert tmpdir.join(fname).check(file=True), f"File not found in temp directory: {fname}."

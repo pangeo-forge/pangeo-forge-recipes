@@ -1,5 +1,9 @@
 # Release Notes
 
+## v0.7.0 - unreleased
+
+- Apache Beam executor added. {issue}`169`. By [Alex Merose](https://github.com/alxmrs).
+
 ## v0.6.1 - 2021-10-25
 
 - Major internal refactor of executors. {pull}`219`.
