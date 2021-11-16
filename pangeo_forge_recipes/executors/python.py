@@ -1,10 +1,11 @@
 from __future__ import annotations
-from typing import Callable, Generator, Tuple, Optional, Any
+
+from typing import Any, Callable, Generator
 
 from .base import Pipeline, PipelineExecutor
 
-
 GeneratorPipeline = Generator[Any, None, None]
+
 
 class GeneratorPipelineExecutor(PipelineExecutor[GeneratorPipeline]):
     """An executor which returns a Generator.
@@ -25,7 +26,7 @@ class GeneratorPipelineExecutor(PipelineExecutor[GeneratorPipeline]):
         return generator_function()
 
     @staticmethod
-    def execute(generator: GenetatorPipeline) -> None:
+    def execute(generator: GeneratorPipeline) -> None:
         for func, args, kwargs in generator:
             func(*args, **kwargs)
 
