@@ -1,6 +1,7 @@
 """
 Test Pipline Executors
 """
+import importlib
 
 import pytest
 from pytest_lazyfixture import lazy_fixture
@@ -58,7 +59,7 @@ def pipeline_with_config(tmpdir_factory):
 )
 def Executor(request):
     try:
-        module = pytest.importorskip(request.param[0])
+        module = importlib.import_module(request.param[0])
         return getattr(module, request.param[1])
     except (AttributeError, ImportError):
         pytest.skip()
