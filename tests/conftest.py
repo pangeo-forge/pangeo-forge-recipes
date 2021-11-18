@@ -436,7 +436,11 @@ def dask_cluster(request):
     cluster.close()
 
 
-@pytest.fixture()
+# The fixtures below use the following pattern to only run when the marks are activated
+# Based on https://github.com/pytest-dev/pytest/issues/1368#issuecomment-466339463
+
+
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_python)])
 def execute_recipe_python():
     def execute(recipe):
         return recipe.to_function()()
@@ -444,7 +448,7 @@ def execute_recipe_python():
     return execute
 
 
-@pytest.fixture()
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_dask)])
 def execute_recipe_dask(dask_cluster):
     def execute(recipe):
         with Client(dask_cluster):
@@ -453,7 +457,7 @@ def execute_recipe_dask(dask_cluster):
     return execute
 
 
-@pytest.fixture()
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_prefect)])
 def execute_recipe_prefect():
     def execute(recipe):
         state = recipe.to_prefect().run()
@@ -463,7 +467,7 @@ def execute_recipe_prefect():
     return execute
 
 
-@pytest.fixture()
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_prefect_dask)])
 def execute_recipe_prefect_dask(dask_cluster):
     def execute(recipe):
         flow = recipe.to_prefect()
@@ -473,6 +477,17 @@ def execute_recipe_prefect_dask(dask_cluster):
             raise ValueError(f"Prefect flow run failed with message {state.message}")
 
     return execute
+
+
+# now mark all other tests with "no_executor"
+# https://stackoverflow.com/questions/39846230/how-to-run-only-unmarked-tests-in-pytest
+def pytest_collection_modifyitems(items, config):
+    for item in items:
+        executor_markers = [
+            marker for marker in item.iter_markers() if marker.name.startswith("executor_")
+        ]
+        if len(executor_markers) == 0:
+            item.add_marker("no_executor")
 
 
 @pytest.fixture(

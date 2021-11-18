@@ -99,6 +99,19 @@ py.test tests -v --redirect-dask-worker-logs-to-stdout=DEBUG
 
 These can be useful in debugging.
 
+#### Custom Markers
+
+The test suite is configured with a custom set of [pytest markers](https://docs.pytest.org/en/latest/example/markers.htm).
+These can be used to select specific executors to test.
+This feature is used in the [main test Github Workfow](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/.github/workflows/main.yaml).
+These marks are enumerated in [setup.cfg](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/setup.cfg).
+
+For example, to run just the test that use the Dask executor, you can do
+
+```bash
+py.test tests -m executor_dask
+```
+
 ### Submit a Pull Request
 
 [![GitHub pull requests](https://img.shields.io/github/issues-pr/pangeo-forge/pangeo-forge-recipes?style=flat-square)](https://github.com/pangeo-forge/pangeo-forge-recipes/pulls)
@@ -130,6 +143,24 @@ When you are ready to make changes.
   git branch -d my-cool-feature
   ```
 
+### Continuous Integration
+
+Continuous integration is done with [GitHub Actions](https://docs.github.com/en/actions/learn-github-actions).
+
+There are currently 5 workflows configured:
+
+- [pre-commit.yaml](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/.github/workflows/pre-commit.yaml) -
+  Code linting.
+- [main.yaml](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/.github/workflows/main.yaml) -
+  Run test suite with pytest.
+- [slash-command-dispatch.yaml](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/.github/workflows/slash-command-dispatch.yaml) and [tutorials.yaml](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/.github/workflows/tutorials.yaml) -
+  These workflows collaborate to enable the slash-command `/run-test-tutorials` to be run
+  via a comment on a PR. This enables us to check whether the PR breaks any of our tutorials.
+  We don't run the tutorials as part of regular CI because they are very slow.
+  (However, the tutorial workflow _is_ run on commits to the `master` branch.)
+- [release.yaml](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/.github/workflows/release.yaml) -
+  This workflow generates a pypi release every time a GitHub release is created.
+
 ## Contributing to the Documentation
 
 We strongly encourage contributions to make the documentation clearer and more complete.
@@ -153,3 +184,10 @@ Serving the documentation locally (staring from the `docs` directory)
 cd _build/html; python -m http.server; cd ../..
 # press ctrl-C to exit
 ```
+
+## Releasing
+
+To make a new release, just go to <https://github.com/pangeo-forge/pangeo-forge-recipes/releases>
+and click "Draft a new release".
+The [release.yaml](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/.github/workflows/release.yaml) -
+workflow should take care of the rest.
