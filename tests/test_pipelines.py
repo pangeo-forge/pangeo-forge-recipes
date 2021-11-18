@@ -46,25 +46,6 @@ def pipeline_with_config(tmpdir_factory):
     return pipeline, config, tmp
 
 
-@pytest.fixture(
-    scope="session",
-    params=[
-        "DaskPipelineExecutor",
-        "FunctionPipelineExecutor",
-        "GeneratorPipelineExecutor",
-        "PrefectPipelineExecutor",
-        "BeamPipelineExecutor",
-    ],
-)
-def Executor(request):
-    try:
-        import pangeo_forge_recipes.executors as exec_module
-
-        return getattr(exec_module, request.param)
-    except AttributeError:
-        pytest.skip(f"Couldn't import {request.param}")
-
-
 @pytest.mark.parametrize(
     "pipeline_config_tmpdir",
     [lazy_fixture("pipeline_no_config"), lazy_fixture("pipeline_with_config")],

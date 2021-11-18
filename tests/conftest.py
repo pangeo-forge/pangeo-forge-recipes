@@ -440,6 +440,25 @@ def dask_cluster(request):
 # Based on https://github.com/pytest-dev/pytest/issues/1368#issuecomment-466339463
 
 
+@pytest.fixture(
+    scope="session",
+    params=[
+        pytest.param("FunctionPipelineExecutor", marks=pytest.mark.executor_function),
+        pytest.param("GeneratorPipelineExecutor", marks=pytest.mark.executor_generator),
+        pytest.param("DaskPipelineExecutor", marks=pytest.mark.executor_dask),
+        pytest.param("PrefectPipelineExecutor", marks=pytest.mark.executor_prefect),
+        pytest.param("BeamPipelineExecutor", marks=pytest.mark.executor_beam),
+    ],
+)
+def Executor(request):
+    try:
+        import pangeo_forge_recipes.executors as exec_module
+
+        return getattr(exec_module, request.param)
+    except AttributeError:
+        pytest.skip(f"Couldn't import {request.param}")
+
+
 @pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_python)])
 def execute_recipe_python():
     def execute(recipe):
