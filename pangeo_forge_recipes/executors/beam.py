@@ -70,6 +70,7 @@ class BeamPipelineExecutor(PipelineExecutor[beam.PTransform]):
                 pcoll |= stage.name >> beam.Map(
                     _no_arg_stage, current=step, fun=stage.function, config=pipeline.config
                 )
+            pcoll |= f"Reshuffle{step:03d}" >> beam.Reshuffle()
 
         return pcoll
 
