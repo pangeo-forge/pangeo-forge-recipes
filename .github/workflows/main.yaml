@@ -65,18 +65,18 @@ jobs:
         pytest-mark: ["no_executor", "executor_python", "executor_dask", "executor_prefect", "executor_prefect_dask"]
     steps:
       - uses: actions/checkout@v2
-      - name: 🔁 Setup Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-          architecture: x64
-      - name: 🔁 Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          miniforge-variant: Mambaforge
-          miniforge-version: latest
-          activate-environment: pangeo-forge-recipes
-          use-mamba: true
+      # - name: 🔁 Setup Python
+      #   uses: actions/setup-python@v2
+      #   with:
+      #     python-version: ${{ matrix.python-version }}
+      #     architecture: x64
+      # - name: 🔁 Setup Miniconda
+      #   uses: conda-incubator/setup-miniconda@v2
+      #   with:
+      #     miniforge-variant: Mambaforge
+      #     miniforge-version: latest
+      #     activate-environment: pangeo-forge-recipes
+      #     use-mamba: true
       - name: 🎯 Set cache number
         id: cache-number
         # cache will last 3 days by default
@@ -93,6 +93,8 @@ jobs:
       - name: 🤿  Bail out if no cache hit
         if: steps.conda-cache.outputs.cache-hit != 'true'
         run: false
+      - name: 🎯 Set path to include conda python
+        run: echo "/usr/share/miniconda3/envs/pangeo-forge-recipes/bin" >> $GITHUB_PATH
       - name: 🌈 Install pangeo-forge-recipes package
         shell: bash -l {0}
         run: |
