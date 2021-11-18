@@ -13,6 +13,37 @@ on:
 env:
   PYTEST_ADDOPTS: "--color=yes"
 
+# This is a pretty complicated workflow. The reason it is this way is that it
+# has been optimized to go fast fast. The specific optimizations are
+#
+# ## Environment building and caching ("prepare-env" job)
+#
+#    This step builds and caches the test environments using conda.
+#    If there is no cache, building each environment takes 3-4 minutes.
+#    If there is a cache this step should take about 40 seconds.
+#    (The time needed to install conda and check the cache.)
+#
+#    The cache key is as follows:
+#    ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ env.CACHE_NUMBER }}
+#
+#    A key parameter env.CACHE_NUMBER. This is a number that is set based on the current date:
+#    CACHE_NUMBER=`expr $(date +'%j') / 3`
+#    This is designed such that the cached environment will be reused for maximum 3 days.
+#    After 3 days, the CACHE_NUMBER will increment, forcing a new environment to be built.
+#    This cadence was chosen as a balance between making the tests go fast
+#    (avoiding rebuilding environments every run), and using a fresh, recent environment.
+#
+#    The test environment is cached in /usr/share/miniconda3/envs/pangeo-forge-recipes
+#
+# ## Running the tests ("run-tests" job)
+#
+#    This step does not even attempt to build environments. It just loads them from the cache.
+#    Then it adds the following path to $PATH
+#    /usr/share/miniconda3/envs/pangeo-forge-recipes/bin
+#
+#    We use pytest marks to parallelize execution across the different executors.
+#    These marks are configured in tests/conftest.py
+
 jobs:
   prepare-env:
     runs-on: ubuntu-latest
