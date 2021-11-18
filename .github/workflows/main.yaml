@@ -62,6 +62,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [3.8, 3.9]
+        pytest-mark: ["no_executor", "executor_python", "executor_dask", "executor_prefect", "executor_prefect_dask"]
     steps:
       - uses: actions/checkout@v2
       - name: 🔁 Setup Python
@@ -99,7 +100,7 @@ jobs:
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
         run: |
-          py.test tests -v --redirect-dask-worker-logs-to-stdout=DEBUG \
+          py.test tests -v -m ${{ matrix.pytest-mark }} \
             --cov=pangeo_forge_recipes --cov-config .coveragerc \
             --cov-report term-missing \
             --cov-report xml \
