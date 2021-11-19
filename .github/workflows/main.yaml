@@ -94,7 +94,12 @@ jobs:
       matrix:
         python-version: [3.8, 3.9]
         pytest-mark: ["no_executor", "executor_function", "executor_generator",
-                      "executor_dask", "executor_prefect", "executor_prefect_dask"]
+                      "executor_dask", "executor_prefect", "executor_prefect_dask",
+                      "executor_beam"]
+        exclude:
+          # No beam support in python 3.9
+          - python-version: 3.9
+            pytest-mark: "executor_beam"
     steps:
       - uses: actions/checkout@v2
       - name: 🎯 Set cache number
