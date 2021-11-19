@@ -162,10 +162,15 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
     if config.cache_metadata:
         if config.metadata_cache is None:
             raise ValueError("metadata_cache is not set.")
-        logger.info(f"Caching metadata for input '{input_key!s}'")
-        with open_input(input_key, config=config) as ds:
-            input_metadata = ds.to_dict(data=False)
-            config.metadata_cache[_input_metadata_fname(input_key)] = input_metadata
+
+        if not _input_metadata_fname(input_key) in config.metadata_cache:
+            with open_input(input_key, config=config) as ds:
+                logger.info(f"Caching metadata for input '{input_key!s}'")
+                input_metadata = ds.to_dict(data=False)
+                config.metadata_cache[_input_metadata_fname(input_key)] = input_metadata
+        else:
+            logger.info(f"Metadata already ached for input '{input_key!s}'")
+
 
     if config.open_input_with_fsspec_reference:
         if config.file_pattern.is_opendap:

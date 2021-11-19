@@ -180,6 +180,9 @@ class MetadataTarget(FSSpecTarget):
     def __getitem__(self, key: str) -> dict:
         return json.loads(self.get_mapper()[key])
 
+    def __contains__(self, item: str) -> bool:
+        return item in self.get_mapper()
+
     def getitems(self, keys: Sequence[str]) -> dict:
         mapper = self.get_mapper()
         all_meta_raw = mapper.getitems(keys)
