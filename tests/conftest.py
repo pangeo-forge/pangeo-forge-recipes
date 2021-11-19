@@ -507,6 +507,18 @@ def execute_recipe_prefect_dask(dask_cluster):
     return execute
 
 
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_beam)])
+def execute_recipe_beam():
+    beam = pytest.importorskip("apache_beam")
+
+    def execute(recipe):
+        pcoll = recipe.to_beam()
+        with beam.Pipeline() as p:
+            p | pcoll
+
+    return execute
+
+
 # now mark all other tests with "no_executor"
 # https://stackoverflow.com/questions/39846230/how-to-run-only-unmarked-tests-in-pytest
 def pytest_collection_modifyitems(items, config):
@@ -523,6 +535,7 @@ def pytest_collection_modifyitems(items, config):
         lazy_fixture("execute_recipe_function"),
         lazy_fixture("execute_recipe_generator"),
         lazy_fixture("execute_recipe_dask"),
+        lazy_fixture("execute_recipe_beam"),
     ],
 )
 def execute_recipe_no_prefect(request):
