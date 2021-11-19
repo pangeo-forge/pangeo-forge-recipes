@@ -171,13 +171,19 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
         else:
             logger.info(f"Metadata already ached for input '{input_key!s}'")
 
-
     if config.open_input_with_fsspec_reference:
         if config.file_pattern.is_opendap:
             raise ValueError("Can't make references for opendap inputs")
         if config.metadata_cache is None:
             raise ValueError("Can't make references; no metadata_cache assigned")
         fname = config.file_pattern[input_key]
+
+        ref_fname = _input_reference_fname(input_key)
+
+        if ref_fname in config.metadata_cache:
+            logger.info('Metadata is already cached with fsspec_reference.')
+            return
+
         if config.input_cache is None:
             protocol = fsspec.utils.get_protocol(fname)
             url = unstrip_protocol(fname, protocol)
@@ -194,7 +200,6 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             **config.file_pattern.fsspec_open_kwargs,
         ) as fp:
             ref_data = create_hdf5_reference(fp, url, fname)
-        ref_fname = _input_reference_fname(input_key)
         config.metadata_cache[ref_fname] = ref_data
 
 
