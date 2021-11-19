@@ -459,10 +459,19 @@ def Executor(request):
         pytest.skip(f"Couldn't import {request.param}")
 
 
-@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_python)])
-def execute_recipe_python():
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_function)])
+def execute_recipe_function():
     def execute(recipe):
         return recipe.to_function()()
+
+    return execute
+
+
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_generator)])
+def execute_recipe_generator():
+    def execute(recipe):
+        for f, args, kwargs in recipe.to_generator():
+            f(*args, **kwargs)
 
     return execute
 
@@ -510,7 +519,11 @@ def pytest_collection_modifyitems(items, config):
 
 
 @pytest.fixture(
-    params=[lazy_fixture("execute_recipe_python"), lazy_fixture("execute_recipe_dask")],
+    params=[
+        lazy_fixture("execute_recipe_function"),
+        lazy_fixture("execute_recipe_generator"),
+        lazy_fixture("execute_recipe_dask"),
+    ],
 )
 def execute_recipe_no_prefect(request):
     return request.param
@@ -524,7 +537,7 @@ def execute_recipe_with_prefect(request):
 
 
 @pytest.fixture(
-    params=[lazy_fixture("execute_recipe_python"), lazy_fixture("execute_recipe_prefect")],
+    params=[lazy_fixture("execute_recipe_function"), lazy_fixture("execute_recipe_prefect")],
 )
 def execute_recipe_no_dask(request):
     return request.param
