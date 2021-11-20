@@ -181,7 +181,7 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
         ref_fname = _input_reference_fname(input_key)
 
         if ref_fname in config.metadata_cache:
-            logger.info('Metadata is already cached with fsspec_reference.')
+            logger.info("Metadata is already cached with fsspec_reference.")
             return
 
         if config.input_cache is None:
