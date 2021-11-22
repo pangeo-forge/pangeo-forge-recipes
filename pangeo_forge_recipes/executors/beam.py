@@ -62,7 +62,7 @@ class _SingleArgumentStage(beam.PTransform):
 class BeamPipelineExecutor(PipelineExecutor[beam.PTransform]):
     @staticmethod
     def compile(pipeline: Pipeline) -> beam.PTransform:
-        pcoll = beam.Create([-1])
+        pcoll = "Start" >> beam.Create([-1])
         for step, stage in enumerate(pipeline.stages):
             if stage.mappable is not None:
                 pcoll |= stage.name >> _SingleArgumentStage(step, stage, pipeline.config)
@@ -70,7 +70,11 @@ class BeamPipelineExecutor(PipelineExecutor[beam.PTransform]):
                 pcoll |= stage.name >> beam.Map(
                     _no_arg_stage, current=step, fun=stage.function, config=pipeline.config
                 )
-            pcoll |= f"Reshuffle{step:03d}" >> beam.Reshuffle()
+
+            # This prevents fusion:
+            #   https://cloud.google.com/dataflow/docs/guides/deploying-a-pipeline#preventing-fusion
+            # Avoiding fusion on Dataflow is necessary to ensure that stages execute serially.
+            pcoll |= f"Reshuffle_{step:03d}" >> beam.Reshuffle()
 
         return pcoll
 
