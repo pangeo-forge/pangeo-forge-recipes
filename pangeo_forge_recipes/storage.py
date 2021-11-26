@@ -4,16 +4,13 @@ import logging
 import os
 import re
 import tempfile
-import time
 import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Sequence, Union
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
-from fsspec.implementations.http import BlockSizeError
 
 logger = logging.getLogger(__name__)
 
@@ -23,41 +20,6 @@ OpenFileType = Any
 # There is no fool-proof method to tell whether the output of the context was created by fsspec.
 # You could check for the few concrete classes that we expect
 # like AbstractBufferedFile, LocalFileOpener.
-
-
-def _get_url_size(fname, secrets, **open_kwargs):
-    with _get_opener(fname, secrets, **open_kwargs) as of:
-        size = of.size
-    return size
-
-
-def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
-    with input_opener as source:
-        with output_opener as target:
-            start = time.time()
-            interval = 5  # seconds
-            bytes_read = log_count = 0
-            while True:
-                try:
-                    data = source.read(BLOCK_SIZE)
-                except BlockSizeError as e:
-                    raise ValueError(
-                        "Server does not permit random access to this file via Range requests. "
-                        'Try re-instantiating recipe with `fsspec_open_kwargs={"block_size": 0}`'
-                    ) from e
-                if not data:
-                    break
-                target.write(data)
-                bytes_read += len(data)
-                elapsed = time.time() - start
-                throughput = bytes_read / elapsed
-                if elapsed // interval >= log_count:
-                    logger.debug(f"_copy_btw_filesystems total bytes copied: {bytes_read}")
-                    logger.debug(
-                        f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
-                    )
-                    log_count += 1
-    logger.debug("_copy_btw_filesystems done")
 
 
 class AbstractTarget(ABC):
@@ -84,10 +46,6 @@ class AbstractTarget(ABC):
     def size(self, path: str) -> int:
         """Get file size"""
         pass
-
-
-def _hash_path(path: str) -> str:
-    return str(hash(path))
 
 
 @dataclass
@@ -248,17 +206,3 @@ def _slugify(value: str) -> str:
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     value = re.sub(r"[^.\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
-
-
-def _add_query_string_secrets(fname: str, secrets: dict) -> str:
-    parsed = urlparse(fname)
-    query = parse_qs(parsed.query)
-    for k, v in secrets.items():
-        query.update({k: v})
-    parsed = parsed._replace(query=urlencode(query, doseq=True))
-    return urlunparse(parsed)
-
-
-def _get_opener(fname: str, secrets: Optional[dict], **open_kwargs):
-    fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
-    return fsspec.open(fname, mode="rb", **open_kwargs)
