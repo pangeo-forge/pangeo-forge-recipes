@@ -1,19 +1,20 @@
-import time
-from contextlib import contextmanager
-from dataclasses import dataclass, field
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
-from typing import Optional, Generator
 import logging
 import os
 import tempfile
+import time
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from typing import Generator, Optional
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
 from fsspec.implementations.http import BlockSizeError
 
-from .base import BaseOpener
 from ..storage import CacheFSSpecTarget
+from .base import BaseOpener
 
 logger = logging.getLogger(__name__)
+
 
 def _add_query_string_secrets(fname: str, secrets: Optional[dict]) -> str:
     if secrets is None:
@@ -70,7 +71,6 @@ class FsspecOpener(BaseOpener[str, fsspec.core.OpenFile]):
     secrets: Optional[dict] = None
     open_kwargs: dict = field(default_factory=dict)
 
-
     def _get_opener(self, fname: str):
         fname = _add_query_string_secrets(fname, self.secrets)
         return fsspec.open(fname, mode="rb", **self.open_kwargs)
@@ -81,20 +81,20 @@ class FsspecOpener(BaseOpener[str, fsspec.core.OpenFile]):
         return size
 
     @contextmanager
-    def open(self, fname: str) -> Generator[fsspec.core.OpenFile, None, None]:
+    def open(self, input: str) -> Generator[fsspec.core.OpenFile, None, None]:
         """
         Open a file. Yields an fsspec.core.OpenFile object.
 
-        :param fname: The filename / url to open. Fsspec will inspect the protocol
+        :param input: The filename / url to open. Fsspec will inspect the protocol
             (e.g. http, ftp) and determine the appropriate filesystem type to use.
         """
 
         if self.cache is not None:
-            logger.info(f"Opening '{fname}' from cache")
-            opener = self.cache.open(fname, mode="rb")
+            logger.info(f"Opening '{input}' from cache")
+            opener = self.cache.open(input, mode="rb")
         else:
-            logger.info(f"Opening '{fname}' directly.")
-            opener = self._get_opener(fname)
+            logger.info(f"Opening '{input}' directly.")
+            opener = self._get_opener(input)
 
         logger.debug(f"file_opener entering first context for {opener}")
         with opener as fp:
@@ -102,7 +102,6 @@ class FsspecOpener(BaseOpener[str, fsspec.core.OpenFile]):
             yield fp
             logger.debug("file_opener yielded")
         logger.debug("opener done")
-
 
     def cache_file(self, fname: str) -> None:
         # check and see if the file already exists in the cache
@@ -125,7 +124,6 @@ class FsspecOpener(BaseOpener[str, fsspec.core.OpenFile]):
 
 @dataclass(frozen=True)
 class FsspecLocalCopyOpener(FsspecOpener, BaseOpener[str, str]):
-
     @contextmanager
     def open(self, fname: str) -> Generator[str, None, None]:
         """

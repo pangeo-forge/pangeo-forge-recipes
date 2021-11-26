@@ -1,10 +1,11 @@
+import pytest
 import xarray as xr
 from dask import delayed
 from dask.distributed import Client
-import pytest
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.openers.fsspec import FsspecOpener, FsspecLocalCopyOpener
+from pangeo_forge_recipes.openers.fsspec import FsspecLocalCopyOpener, FsspecOpener
+
 
 @pytest.mark.parametrize(
     "file_paths",
@@ -72,7 +73,7 @@ def test_file_opener(
                 assert hasattr(fp, "fs")  # should be true for fsspec.OpenFile objects
 
     if use_dask:
-        with Client(dask_cluster) as client:
+        with Client(dask_cluster) as _:
             to_actual_test_delayed = delayed(do_actual_test)()
             to_actual_test_delayed.compute()
     else:
