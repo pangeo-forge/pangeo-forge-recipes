@@ -51,6 +51,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [3.8, 3.9]
+        use-upstream-dev: [true, false]
     steps:
       - uses: actions/checkout@v2
       - name: 🔁 Setup Python
@@ -81,6 +82,9 @@ jobs:
       - name: 🐫 Maybe Update environment
         if: steps.conda-cache.outputs.cache-hit != 'true'
         run: mamba env update -n pangeo-forge-recipes -f ${{ env.env_file }}
+      - name: 🧑‍💻 Maybe use upstream dev versions
+        if: ${{ matrix.use-upstream-dev }} == 'true'
+        run: mamba env update -n pangeo-forge-recipes -f ci/upstream-dev.yml
       - name: 🐍 List conda env
         shell: bash -l {0}
         run: |
