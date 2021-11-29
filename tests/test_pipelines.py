@@ -1,8 +1,6 @@
 """
 Test Pipline Executors
 """
-import importlib
-
 import pytest
 from pytest_lazyfixture import lazy_fixture
 
@@ -46,23 +44,6 @@ def pipeline_with_config(tmpdir_factory):
     config = {"prefix": "special-"}
     pipeline = Pipeline(stages=[stage0, stage1], config=config)
     return pipeline, config, tmp
-
-
-@pytest.fixture(
-    scope="session",
-    params=[
-        ("pangeo_forge_recipes.executors.dask", "DaskPipelineExecutor"),
-        ("pangeo_forge_recipes.executors.function", "FunctionPipelineExecutor"),
-        ("pangeo_forge_recipes.executors.prefect", "PrefectPipelineExecutor"),
-        ("pangeo_forge_recipes.executors.beam", "BeamPipelineExecutor"),
-    ],
-)
-def Executor(request):
-    try:
-        module = importlib.import_module(request.param[0])
-        return getattr(module, request.param[1])
-    except (AttributeError, ImportError):
-        pytest.skip()
 
 
 @pytest.mark.parametrize(
