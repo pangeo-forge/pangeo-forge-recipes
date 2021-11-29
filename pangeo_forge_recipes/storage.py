@@ -13,7 +13,6 @@ from typing import Any, Iterator, Optional, Sequence, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
-from fsspec.implementations.http import BlockSizeError
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +37,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
             interval = 5  # seconds
             bytes_read = log_count = 0
             while True:
-                try:
-                    data = source.read(BLOCK_SIZE)
-                except BlockSizeError as e:
-                    raise ValueError(
-                        "Server does not permit random access to this file via Range requests. "
-                        'Try re-instantiating recipe with `fsspec_open_kwargs={"block_size": 0}`'
-                    ) from e
+                data = source.read(BLOCK_SIZE)
                 if not data:
                     break
                 target.write(data)
