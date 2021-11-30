@@ -93,7 +93,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [3.8, 3.9]
-        use-upstream-dev: [true, false]
+        dependencies: ["releases-only", "upstream-dev"]
         pytest-mark: ["no_executor", "executor_function", "executor_generator",
                       "executor_dask", "executor_prefect", "executor_prefect_dask",
                       "executor_beam"]
@@ -122,8 +122,10 @@ jobs:
       - name: 🎯 Set path to include conda python
         run: echo "/usr/share/miniconda3/envs/pangeo-forge-recipes/bin" >> $GITHUB_PATH
       - name: 🧑‍💻 Maybe use upstream dev versions
-        if: matrix.use-upstream-dev == 'true'
-        run: mamba env update -n pangeo-forge-recipes -f ci/upstream-dev.yml
+        if: matrix.dependencies == 'upstream-dev'
+        run: |
+          mamba env update -n pangeo-forge-recipes -f ci/upstream-dev.yml \
+          && conda list
       - name: 🌈 Install pangeo-forge-recipes package
         shell: bash -l {0}
         run: |
