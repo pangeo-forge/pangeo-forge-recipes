@@ -39,7 +39,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                 except BlockSizeError as e:
                     raise ValueError(
                         "Server does not permit random access to this file via Range requests. "
-                        'Try re-instantiating Opener with `fsspec_open_kwargs={"block_size": 0}`'
+                        'Try re-instantiating Opener with `fsspec_fsspec_open_kwargs={"block_size": 0}`'  # noqa
                     ) from e
                 if not data:
                     break
@@ -64,16 +64,16 @@ class FsspecOpener(BaseOpener[str, fsspec.core.OpenFile]):
     :param cache: A target where the file may have been cached. If none, the file
         will be opened directly.
     :param secrets: Dictionary of secrets to encode into the query string.
-    :param open_kwargs: Keyword arguments to pass to fsspec.open
+    :param fsspec_open_kwargs: Keyword arguments to pass to fsspec.open
     """
 
     cache: Optional[CacheFSSpecTarget] = None
     secrets: Optional[dict] = None
-    open_kwargs: dict = field(default_factory=dict)
+    fsspec_open_kwargs: dict = field(default_factory=dict)
 
     def _get_opener(self, fname: str):
         fname = _add_query_string_secrets(fname, self.secrets)
-        return fsspec.open(fname, mode="rb", **self.open_kwargs)
+        return fsspec.open(fname, mode="rb", **self.fsspec_open_kwargs)
 
     def _get_url_size(self, fname: str) -> int:
         with self._get_opener(fname) as of:

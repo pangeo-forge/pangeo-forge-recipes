@@ -30,7 +30,7 @@ def test_file_opener(
 ):
     all_paths = file_paths[0]
     path = str(all_paths[0])
-    open_kwargs = file_paths[-1]["fsspec_open_kwargs"]
+    fsspec_open_kwargs = file_paths[-1]["fsspec_open_kwargs"]
     secrets = file_paths[-1]["query_string_secrets"]
     cache = tmp_cache if use_cache else None
 
@@ -39,7 +39,7 @@ def test_file_opener(
             Opener = FsspecLocalCopyOpener
         else:
             Opener = FsspecOpener
-        opener = Opener(cache=cache, secrets=secrets, open_kwargs=open_kwargs)
+        opener = Opener(cache=cache, secrets=secrets, fsspec_open_kwargs=fsspec_open_kwargs)
 
         if cache_first:
             opener.cache_file(path)
