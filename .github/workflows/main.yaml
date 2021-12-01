@@ -124,7 +124,8 @@ jobs:
       - name: 🧑‍💻 Maybe use upstream dev versions
         if: matrix.dependencies == 'upstream-dev'
         run: |
-          mamba env update -n pangeo-forge-recipes -f ci/upstream-dev.yml \
+          conda install mamba -n pangeo-forge-recipes -c conda-forge -y \
+          && mamba env update -n pangeo-forge-recipes -f ci/upstream-dev.yml \
           && conda list
       - name: 🌈 Install pangeo-forge-recipes package
         shell: bash -l {0}
