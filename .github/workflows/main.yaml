@@ -82,7 +82,7 @@ jobs:
       - name: 🐫 Maybe Update environment
         if: steps.conda-cache.outputs.cache-hit != 'true'
         run: mamba env update -n pangeo-forge-recipes -f ${{ env.env_file }}
-      - name: 🧑‍💻 If not 'releases-only' job, always update upstream dev versions
+      - name: 🧑‍💻 Maybe update to upstream dev versions
         if: matrix.dependencies == 'upstream-dev'
         run: mamba env update -n pangeo-forge-recipes -f ci/upstream-dev.yml
       - name: 🐍 List conda env
