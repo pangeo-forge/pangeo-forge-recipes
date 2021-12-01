@@ -445,6 +445,7 @@ def dask_cluster(request):
     params=[
         pytest.param("FunctionPipelineExecutor", marks=pytest.mark.executor_function),
         pytest.param("GeneratorPipelineExecutor", marks=pytest.mark.executor_generator),
+        pytest.param("ManualPipelineExecutor", marks=pytest.mark.executor_manual),
         pytest.param("DaskPipelineExecutor", marks=pytest.mark.executor_dask),
         pytest.param("PrefectPipelineExecutor", marks=pytest.mark.executor_prefect),
         pytest.param("BeamPipelineExecutor", marks=pytest.mark.executor_beam),
@@ -472,6 +473,16 @@ def execute_recipe_generator():
     def execute(recipe):
         for f, args, kwargs in recipe.to_generator():
             f(*args, **kwargs)
+
+    return execute
+
+
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_manual)])
+def execute_recipe_manual():
+    def execute(recipe):
+        ncalls, execute_stage = recipe.to_manual()
+        for stage_name in ncalls.keys():
+            execute_stage(stage_name)
 
     return execute
 
@@ -534,6 +545,7 @@ def pytest_collection_modifyitems(items, config):
     params=[
         lazy_fixture("execute_recipe_function"),
         lazy_fixture("execute_recipe_generator"),
+        lazy_fixture("execute_recipe_manual"),
         lazy_fixture("execute_recipe_dask"),
         lazy_fixture("execute_recipe_beam"),
     ],
