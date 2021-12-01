@@ -1,7 +1,7 @@
 name: pangeo-forge-recipes
-channels:
-  - conda-forge
+
 dependencies:
+  - pip
   - pip:
     - "git+https://github.com/dask/dask.git"
     - "git+https://github.com/fsspec/filesystem_spec.git"

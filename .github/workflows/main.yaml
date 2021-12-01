@@ -51,6 +51,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [3.8, 3.9]
+        dependencies: ["releases-only", "upstream-dev"]
     steps:
       - uses: actions/checkout@v2
       - name: 🔁 Setup Python
@@ -76,11 +77,14 @@ jobs:
         name: 🗃 Cache environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
-          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ env.CACHE_NUMBER }}
+          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ matrix.dependencies }}-${{ env.CACHE_NUMBER }}
         id: conda-cache
       - name: 🐫 Maybe Update environment
         if: steps.conda-cache.outputs.cache-hit != 'true'
         run: mamba env update -n pangeo-forge-recipes -f ${{ env.env_file }}
+      - name: 🧑‍💻 If not 'releases-only' job, always update upstream dev versions
+        if: matrix.dependencies == 'upstream-dev'
+        run: mamba env update -n pangeo-forge-recipes -f ci/upstream-dev.yml
       - name: 🐍 List conda env
         shell: bash -l {0}
         run: |
@@ -114,19 +118,13 @@ jobs:
         name: 🗃 Loaded Cached environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
-          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ env.CACHE_NUMBER }}
+          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ matrix.dependencies }}-${{ env.CACHE_NUMBER }}
         id: conda-cache
       - name: 🤿  Bail out if no cache hit
         if: steps.conda-cache.outputs.cache-hit != 'true'
         run: false
       - name: 🎯 Set path to include conda python
         run: echo "/usr/share/miniconda3/envs/pangeo-forge-recipes/bin" >> $GITHUB_PATH
-      - name: 🧑‍💻 Maybe use upstream dev versions
-        if: matrix.dependencies == 'upstream-dev'
-        run: |
-          conda install mamba -n pangeo-forge-recipes -c conda-forge -y \
-          && mamba env update -n pangeo-forge-recipes -f ci/upstream-dev.yml \
-          && conda list
       - name: 🌈 Install pangeo-forge-recipes package
         shell: bash -l {0}
         run: |
