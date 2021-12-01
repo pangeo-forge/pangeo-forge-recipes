@@ -1,6 +1,6 @@
-from .python import FunctionPipelineExecutor, GeneratorPipelineExecutor
+from .python import FunctionPipelineExecutor, GeneratorPipelineExecutor, ManualPipelineExecutor
 
-__all__ = ["GeneratorPipelineExecutor", "FunctionPipelineExecutor"]
+__all__ = ["GeneratorPipelineExecutor", "FunctionPipelineExecutor", "ManualPipelineExecutor"]
 
 try:
     from .dask import DaskPipelineExecutor

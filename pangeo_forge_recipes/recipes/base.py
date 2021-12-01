@@ -22,6 +22,11 @@ class BaseRecipe(ABC):
 
         return GeneratorPipelineExecutor.compile(self._compiler())
 
+    def to_manual(self):
+        from ..executors import ManualPipelineExecutor
+
+        return ManualPipelineExecutor.compile(self._compiler())
+
     def to_dask(self):
         from pangeo_forge_recipes.executors import DaskPipelineExecutor
 
