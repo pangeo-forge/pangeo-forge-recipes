@@ -405,3 +405,9 @@ def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_das
         execute_recipe_no_dask(recipe)
 
     assert p.call_args[1]["timeout"] == 1
+
+
+def test_to_pipeline(netCDFtoZarr_recipe_sequential_only):
+    RecipeClass, file_pattern, kwargs, _, _ = netCDFtoZarr_recipe_sequential_only
+    recipe = RecipeClass(file_pattern=file_pattern, **kwargs)
+    assert recipe.to_pipeline() == recipe._compiler()

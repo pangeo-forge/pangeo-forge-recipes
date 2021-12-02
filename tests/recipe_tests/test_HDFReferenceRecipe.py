@@ -73,3 +73,9 @@ def test_multi(netcdf_local_file_pattern_sequential, tmpdir, with_intake, execut
         )
         ds = xr.open_dataset(m, engine="zarr", chunks={}, consolidated=False)
     assert (ds.foo == expected.foo).all()
+
+
+def test_to_pipeline(netcdf_local_file_pattern_sequential):
+    file_pattern = netcdf_local_file_pattern_sequential
+    recipe = HDFReferenceRecipe(file_pattern)
+    assert recipe.to_pipeline() == recipe._compiler()
