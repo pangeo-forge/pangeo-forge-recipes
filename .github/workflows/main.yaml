@@ -105,6 +105,8 @@ jobs:
           # No beam support in python 3.9
           - python-version: 3.9
             pytest-mark: "executor_beam"
+          - dependencies: "upstream-dev"
+            pytest-mark: ["no_executor", "executor_function", "executor_generator"]
     steps:
       - uses: actions/checkout@v2
       - name: 🎯 Set cache number
