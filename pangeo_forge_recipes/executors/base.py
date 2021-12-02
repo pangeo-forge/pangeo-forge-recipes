@@ -27,11 +27,26 @@ class Stage:
     mappable: Optional[Iterable] = None
     annotations: Optional[StageAnnotations] = None
 
+    @property
+    def ismappable(self):
+        return True if self.mappable is not None else False
+
 
 @dataclass(frozen=True)
 class Pipeline:
     stages: Iterable[Stage]
     config: Optional[Config] = None
+
+    def __iter__(self):
+        for stage in self.stages:
+            yield stage.name
+
+    def __getitem__(self, name):
+        names = [s.name for s in self.stages]
+        if name not in names:
+            raise KeyError(f"'{name}' not a stage name in this pipeline. Must be one of {names}.")
+        stage = [s for s in self.stages if s.name == name][0]
+        return stage
 
 
 T = TypeVar("T")

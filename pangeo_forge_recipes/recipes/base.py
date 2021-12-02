@@ -12,6 +12,9 @@ from ..patterns import FilePattern, prune_pattern
 class BaseRecipe(ABC):
     _compiler: ClassVar[RecipeCompiler]
 
+    def to_pipeline(self):
+        return self._compiler()
+
     def to_function(self):
         from ..executors import FunctionPipelineExecutor
 
@@ -21,11 +24,6 @@ class BaseRecipe(ABC):
         from ..executors import GeneratorPipelineExecutor
 
         return GeneratorPipelineExecutor.compile(self._compiler())
-
-    def to_manual(self):
-        from ..executors import ManualPipelineExecutor
-
-        return ManualPipelineExecutor.compile(self._compiler())
 
     def to_dask(self):
         from pangeo_forge_recipes.executors import DaskPipelineExecutor
