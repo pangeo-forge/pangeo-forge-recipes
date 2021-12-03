@@ -1,5 +1,4 @@
 import pytest
-import xarray as xr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.openers.fsspec import FsspecLocalCopyOpener, FsspecOpener
@@ -18,10 +17,11 @@ from pangeo_forge_recipes.openers.fsspec import FsspecLocalCopyOpener, FsspecOpe
 def test_file_opener(
     file_paths, tmp_cache, copy_to_local, use_cache, cache_first, use_xarray,
 ):
-    all_paths = file_paths[0]
+    all_paths, items_per_file, _, _, kwargs = file_paths
     path = str(all_paths[0])
-    fsspec_open_kwargs = file_paths[-1]["fsspec_open_kwargs"]
-    secrets = file_paths[-1]["query_string_secrets"]
+    fsspec_open_kwargs = kwargs["fsspec_open_kwargs"]
+    secrets = kwargs["query_string_secrets"]
+
     cache = tmp_cache if use_cache else None
 
     if copy_to_local:
@@ -48,15 +48,10 @@ def test_file_opener(
         if copy_to_local:
             assert isinstance(fp, str)
             with open(fp, mode="rb") as fp2:
-                if use_xarray:
-                    ds = xr.open_dataset(fp2, engine="h5netcdf")
-                    ds.load()
-                else:
-                    _ = fp2.read()
+                data = fp2.read()
         else:
-            if use_xarray:
-                ds = xr.open_dataset(fp, engine="h5netcdf")
-                ds.load()
-            else:
-                _ = fp.read()
+            data = fp.read()
             assert hasattr(fp, "fs")  # should be true for fsspec.OpenFile objects
+
+    expected_length = {1: 19000, 2: 29376}  # hard coded expected value
+    assert len(data) == expected_length[items_per_file]
