@@ -48,10 +48,10 @@ def netcdf_path_expected_size_and_kwargs(request):
 def _cache_checker(opener, cache, path):
     """Check that the cache on an opener is working."""
 
-    opener.cache_file(path)
+    opener.cache_file(path, cache)
     assert cache.exists(path)
     details = cache.fs.ls(cache.root_path, detail=True)
-    opener.cache_file(path)
+    opener.cache_file(path, cache)
     # check that nothing happened
     assert cache.fs.ls(cache.root_path, detail=True) == details
 
@@ -71,13 +71,12 @@ def test_fsspec_opener(netcdf_path_expected_size_and_kwargs, cache_and_cache_che
     path, expected_size, kwargs = netcdf_path_expected_size_and_kwargs
     cache, cache_checker = cache_and_cache_checker
     opener = FsspecOpener(
-        cache=cache,
-        secrets=kwargs["query_string_secrets"],
-        fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
+        secrets=kwargs["query_string_secrets"], fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
     )
     cache_checker(opener, cache, path)
 
-    with opener.open(path) as fp:
+    print(path)
+    with opener.open(path, cache) as fp:
         data = fp.read()
         assert hasattr(fp, "fs")  # should be true for fsspec.OpenFile objects
     assert len(data) == expected_size
@@ -87,13 +86,11 @@ def test_fsspec_local_copy_opener(netcdf_path_expected_size_and_kwargs, cache_an
     path, expected_size, kwargs = netcdf_path_expected_size_and_kwargs
     cache, cache_checker = cache_and_cache_checker
     opener = FsspecLocalCopyOpener(
-        cache=cache,
-        secrets=kwargs["query_string_secrets"],
-        fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
+        secrets=kwargs["query_string_secrets"], fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
     )
     cache_checker(opener, cache, path)
 
-    with opener.open(path) as fname:
+    with opener.open(path, cache) as fname:
         assert isinstance(fname, str)  # shouldn't be necessary with proper type hints
         with open(fname, mode="rb") as fp2:
             data = fp2.read()
@@ -113,12 +110,10 @@ def test_xarray_fsspec_opener(netcdf_path_expected_size_and_kwargs, cache_and_ca
     path, expected_size, kwargs = netcdf_path_expected_size_and_kwargs
     cache, cache_checker = cache_and_cache_checker
     opener = XarrayFsspecOpener(
-        cache=cache,
-        secrets=kwargs["query_string_secrets"],
-        fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
+        secrets=kwargs["query_string_secrets"], fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
     )
     cache_checker(opener, cache, path)
-    with opener.open(path) as ds:
+    with opener.open(path, cache=cache) as ds:
         assert isinstance(ds, xr.Dataset)
 
 
@@ -128,12 +123,10 @@ def test_xarray_fsspec_local_copy_opener(
     path, expected_size, kwargs = netcdf_path_expected_size_and_kwargs
     cache, cache_checker = cache_and_cache_checker
     opener = XarrayFsspecLocalCopyOpener(
-        cache=cache,
-        secrets=kwargs["query_string_secrets"],
-        fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
+        secrets=kwargs["query_string_secrets"], fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
     )
     cache_checker(opener, cache, path)
-    with opener.open(path) as ds:
+    with opener.open(path, cache=cache) as ds:
         assert isinstance(ds, xr.Dataset)
 
 
@@ -143,12 +136,9 @@ def test_xarray_kerchunk_opener(
     path, expected_size, kwargs = netcdf_path_expected_size_and_kwargs
     cache, cache_checker = cache_and_cache_checker
     opener = XarrayKerchunkOpener(
-        metadata_cache=tmp_metadata_target,
-        cache=cache,
-        secrets=kwargs["query_string_secrets"],
-        fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
+        secrets=kwargs["query_string_secrets"], fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
     )
     cache_checker(opener, cache, path)
-    opener.cache_input_metadata(path)
-    with opener.open(path) as ds:
+    opener.cache_input_metadata(path, tmp_metadata_target, cache)
+    with opener.open(path, tmp_metadata_target) as ds:
         assert isinstance(ds, xr.Dataset)

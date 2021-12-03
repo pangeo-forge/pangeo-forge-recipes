@@ -56,24 +56,30 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     logger.debug("_copy_btw_filesystems done")
 
 
+# It's a leaky abstraction if we mix storage into the openers themselves
+# Instead, we should have to pass the storage at call time, e.g.
+# opener.open(path, cache)
+
+
 @dataclass(frozen=True)
 class FsspecOpener(BaseOpener[str, fsspec.core.OpenFile]):
     """
     Opener that takes a string and opens it with fsspec.open.
 
-    :param cache: A target where the file may have been cached. If none, the file
-        will be opened directly.
     :param secrets: Dictionary of secrets to encode into the query string.
     :param fsspec_open_kwargs: Keyword arguments to pass to fsspec.open
     """
 
-    cache: Optional[CacheFSSpecTarget] = None
     secrets: Optional[dict] = None
     fsspec_open_kwargs: dict = field(default_factory=dict)
 
-    def _get_opener(self, fname: str):
-        fname = _add_query_string_secrets(fname, self.secrets)
-        return fsspec.open(fname, mode="rb", **self.fsspec_open_kwargs)
+    def _get_opener(self, fname: str, cache: Optional[CacheFSSpecTarget] = None):
+        if cache is None:
+            return fsspec.open(
+                _add_query_string_secrets(fname, self.secrets), mode="rb", **self.fsspec_open_kwargs
+            )
+        else:
+            return cache.open(fname, mode="rb")
 
     def _get_url_size(self, fname: str) -> int:
         with self._get_opener(fname) as of:
@@ -81,20 +87,19 @@ class FsspecOpener(BaseOpener[str, fsspec.core.OpenFile]):
         return size
 
     @contextmanager
-    def open(self, input: str) -> Generator[fsspec.core.OpenFile, None, None]:
+    def open(
+        self, input: str, cache: Optional[CacheFSSpecTarget] = None
+    ) -> Generator[fsspec.core.OpenFile, None, None]:
         """
         Open a file. Yields an fsspec.core.OpenFile object.
 
         :param input: The filename / url to open. Fsspec will inspect the protocol
             (e.g. http, ftp) and determine the appropriate filesystem type to use.
+        :param cache: A target where the file may have been cached. If None, the file
+            will be opened directly.
         """
 
-        if self.cache is not None:
-            logger.info(f"Opening '{input}' from cache")
-            opener = self.cache.open(input, mode="rb")
-        else:
-            logger.info(f"Opening '{input}' directly.")
-            opener = self._get_opener(input)
+        opener = self._get_opener(input, cache)
 
         logger.debug(f"file_opener entering first context for {opener}")
         with opener as fp:
@@ -103,21 +108,19 @@ class FsspecOpener(BaseOpener[str, fsspec.core.OpenFile]):
             logger.debug("file_opener yielded")
         logger.debug("opener done")
 
-    def cache_file(self, fname: str) -> None:
+    def cache_file(self, fname: str, cache: CacheFSSpecTarget) -> None:
         # check and see if the file already exists in the cache
-        if self.cache is None:
-            raise ValueError("Cannot cache file; no cache object provided.")
         logger.info(f"Caching file '{fname}'")
-        if self.cache.exists(fname):
-            cached_size = self.cache.size(fname)
+        if cache.exists(fname):
+            cached_size = cache.size(fname)
             remote_size = self._get_url_size(fname)
             if cached_size == remote_size:
                 # TODO: add checksumming here
                 logger.info(f"File '{fname}' is already cached")
                 return
 
-        input_opener = self._get_opener(fname)
-        target_opener = self.cache.open(fname, mode="wb")
+        input_opener = self._get_opener(fname, cache=None)
+        target_opener = cache.open(fname, mode="wb")
         logger.info(f"Copying remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
 
@@ -125,20 +128,19 @@ class FsspecOpener(BaseOpener[str, fsspec.core.OpenFile]):
 @dataclass(frozen=True)
 class FsspecLocalCopyOpener(FsspecOpener, BaseOpener[str, str]):
     @contextmanager
-    def open(self, fname: str) -> Generator[str, None, None]:
+    def open(
+        self, fname: str, cache: Optional[CacheFSSpecTarget] = None
+    ) -> Generator[str, None, None]:
         """
         Copy the file to a local path and yield the path.
 
         :param fname: The filename / url to open. Fsspec will inspect the protocol
             (e.g. http, ftp) and determine the appropriate filesystem type to use.
+        :param cache: A target where the file may have been cached. If None, the file
+            will be opened directly.
         """
 
-        if self.cache is not None:
-            logger.info(f"Opening '{fname}' from cache")
-            opener = self.cache.open(fname, mode="rb")
-        else:
-            logger.info(f"Opening '{fname}' directly.")
-            opener = self._get_opener(fname)
+        opener = self._get_opener(fname, cache)
 
         _, suffix = os.path.splitext(fname)
         ntf = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)

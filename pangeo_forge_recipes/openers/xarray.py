@@ -8,7 +8,7 @@ import fsspec
 import xarray as xr
 
 from ..reference import create_hdf5_reference, unstrip_protocol
-from ..storage import MetadataTarget
+from ..storage import CacheFSSpecTarget, MetadataTarget
 from .base import BaseOpener
 from .fsspec import FsspecLocalCopyOpener, FsspecOpener
 
@@ -38,9 +38,11 @@ class XarrayFsspecOpener(XarrayOpener, FsspecOpener, BaseOpener[str, xr.Dataset]
     """Open an input as an Xarray Dataset via fsspec."""
 
     @contextmanager
-    def open(self, input: str) -> Generator[xr.Dataset, None, None]:
+    def open(
+        self, input: str, cache: Optional[CacheFSSpecTarget] = None
+    ) -> Generator[xr.Dataset, None, None]:
         # could not get super() to work right here
-        with FsspecOpener.open(self, input) as f_obj:
+        with FsspecOpener.open(self, input, cache) as f_obj:
             with XarrayOpener.open(self, f_obj) as ds:
                 yield ds
 
@@ -52,8 +54,10 @@ class XarrayFsspecLocalCopyOpener(XarrayOpener, FsspecLocalCopyOpener, BaseOpene
     """
 
     @contextmanager
-    def open(self, input: str) -> Generator[xr.Dataset, None, None]:
-        with FsspecLocalCopyOpener.open(self, input) as path:
+    def open(
+        self, input: str, cache: Optional[CacheFSSpecTarget] = None
+    ) -> Generator[xr.Dataset, None, None]:
+        with FsspecLocalCopyOpener.open(self, input, cache) as path:
             with XarrayOpener.open(self, path) as ds:
                 yield ds
 
@@ -68,27 +72,29 @@ def _input_reference_fname(input: str) -> str:
 class XarrayKerchunkOpener(XarrayOpener, FsspecOpener, BaseOpener[str, xr.Dataset]):
     """Open an input as an Xarray Dataset via Kerchunk + Zarr."""
 
-    # Can't make this a required argument because parent classes have default arugments 😖
-    # (This changes in Python 3.10 - https://stackoverflow.com/a/69822584/3266235)
-    # The fact that it is optional leads to typing errors, which we ignore below
-    metadata_cache: Optional[MetadataTarget] = None
-
-    def cache_input_metadata(self, input: str) -> None:
-        if self.cache is None:
+    def cache_input_metadata(
+        self, input: str, metadata_cache: MetadataTarget, cache: CacheFSSpecTarget
+    ) -> None:
+        if cache is None:
             protocol = fsspec.utils.get_protocol(input)
             url = unstrip_protocol(input, protocol)
         else:
-            url = unstrip_protocol(self.cache._full_path(input), self.cache.fs.protocol)
+            url = unstrip_protocol(cache._full_path(input), cache.fs.protocol)
         with FsspecOpener.open(self, input) as fp:
             ref_data = create_hdf5_reference(fp, url, input)
         ref_fname = _input_reference_fname(input)
-        self.metadata_cache[ref_fname] = ref_data  # type: ignore
+        metadata_cache[ref_fname] = ref_data
 
+    # pangeo_forge_recipes/openers/xarray.py:89: error: Signature of "open" incompatible
+    #   with supertype "BaseOpener"  [override]
+    # Looks like mypy doesn't like having another non-keyword argument
     @contextmanager
-    def open(self, input: str) -> Generator[xr.Dataset, None, None]:
+    def open(  # type: ignore
+        self, input: str, metadata_cache: MetadataTarget
+    ) -> Generator[xr.Dataset, None, None]:
         from fsspec.implementations.reference import ReferenceFileSystem
 
-        reference_data = self.metadata_cache[_input_reference_fname(input)]  # type: ignore
+        reference_data = metadata_cache[_input_reference_fname(input)]
 
         # TODO: figure out how to set this for the cache target
         remote_protocol = fsspec.utils.get_protocol(input)
