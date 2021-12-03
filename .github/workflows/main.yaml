@@ -106,8 +106,6 @@ jobs:
           - python-version: 3.9
             pytest-mark: "executor_beam"
           - dependencies: "upstream-dev"
-            pytest-mark: "no_executor"
-          - dependencies: "upstream-dev"
             pytest-mark: "executor_function"
           - dependencies: "upstream-dev"
             pytest-mark: "executor_generator"
