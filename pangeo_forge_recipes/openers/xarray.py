@@ -39,8 +39,9 @@ class XarrayFsspecOpener(XarrayOpener, FsspecOpener, BaseOpener[str, xr.Dataset]
 
     @contextmanager
     def open(self, input: str) -> Generator[xr.Dataset, None, None]:
-        with super(FsspecOpener, self).open(input) as f_obj:
-            with super(XarrayOpener, self).open(f_obj) as ds:
+        # could not get super() to work right here
+        with FsspecOpener.open(self, input) as f_obj:
+            with XarrayOpener.open(self, f_obj) as ds:
                 yield ds
 
 
@@ -52,8 +53,8 @@ class XarrayFsspecLocalCopyOpener(XarrayOpener, FsspecLocalCopyOpener, BaseOpene
 
     @contextmanager
     def open(self, input: str) -> Generator[xr.Dataset, None, None]:
-        with super(FsspecLocalCopyOpener, self).open(input) as path:
-            with super(XarrayOpener, self).open(path) as ds:
+        with FsspecLocalCopyOpener.open(self, input) as path:
+            with XarrayOpener.open(self, path) as ds:
                 yield ds
 
 
@@ -64,9 +65,12 @@ def _input_reference_fname(input: str) -> str:
 
 # not sure if frozen is a good choice--we might want to dynamically set metadata_cache
 @dataclass(frozen=True)
-class XarrayFsspecReferenceOpener(XarrayOpener, FsspecOpener, BaseOpener[str, xr.Dataset]):
-    """Open an input as an Xarray Dataset via fsspec."""
+class XarrayKerchunkOpener(XarrayOpener, FsspecOpener, BaseOpener[str, xr.Dataset]):
+    """Open an input as an Xarray Dataset via Kerchunk + Zarr."""
 
+    # Can't make this a required argument because parent classes have default arugments 😖
+    # (This changes in Python 3.10 - https://stackoverflow.com/a/69822584/3266235)
+    # The fact that it is optional leads to typing errors, which we ignore below
     metadata_cache: Optional[MetadataTarget] = None
 
     def cache_input_metadata(self, input: str) -> None:
@@ -75,16 +79,16 @@ class XarrayFsspecReferenceOpener(XarrayOpener, FsspecOpener, BaseOpener[str, xr
             url = unstrip_protocol(input, protocol)
         else:
             url = unstrip_protocol(self.cache._full_path(input), self.cache.fs.protocol)
-        with super(FsspecOpener, self).open(input) as fp:
+        with FsspecOpener.open(self, input) as fp:
             ref_data = create_hdf5_reference(fp, url, input)
         ref_fname = _input_reference_fname(input)
-        self.metadata_cache[ref_fname] = ref_data
+        self.metadata_cache[ref_fname] = ref_data  # type: ignore
 
     @contextmanager
     def open(self, input: str) -> Generator[xr.Dataset, None, None]:
         from fsspec.implementations.reference import ReferenceFileSystem
 
-        reference_data = self.metadata_cache[_input_reference_fname(input)]
+        reference_data = self.metadata_cache[_input_reference_fname(input)]  # type: ignore
 
         # TODO: figure out how to set this for the cache target
         remote_protocol = fsspec.utils.get_protocol(input)

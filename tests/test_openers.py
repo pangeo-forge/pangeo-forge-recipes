@@ -5,7 +5,12 @@ import xarray as xr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.openers.fsspec import FsspecLocalCopyOpener, FsspecOpener
-from pangeo_forge_recipes.openers.xarray import XarrayOpener
+from pangeo_forge_recipes.openers.xarray import (
+    XarrayFsspecLocalCopyOpener,
+    XarrayFsspecOpener,
+    XarrayKerchunkOpener,
+    XarrayOpener,
+)
 
 EXPECTED_FILE_SIZE = {1: 19000, 2: 29376}  # hard coded expected value
 
@@ -96,16 +101,50 @@ def test_fsspec_local_copy_opener(netcdf_path_expected_size_and_kwargs, cache_an
     assert len(data) == expected_size
 
 
+# TODO: parametrize load and xarray_open_kwargs
 def test_xarray_opener(netcdf_local_path_expected_size_and_kwargs):
     path, _, _ = netcdf_local_path_expected_size_and_kwargs
     opener = XarrayOpener()
-    print(path, type(path))
     with opener.open(path) as ds:
         assert isinstance(ds, xr.Dataset)
 
 
-#     if use_cache and not cache_first:
-#         with pytest.raises(FileNotFoundError):
-#             with opener.open(path) as fp:
-#                 pass
-#         return
+def test_xarray_fsspec_opener(netcdf_path_expected_size_and_kwargs, cache_and_cache_checker):
+    path, expected_size, kwargs = netcdf_path_expected_size_and_kwargs
+    cache, cache_checker = cache_and_cache_checker
+    opener = XarrayFsspecOpener(
+        cache=cache,
+        secrets=kwargs["query_string_secrets"],
+        fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
+    )
+    cache_checker(opener, cache, path)
+    with opener.open(path) as ds:
+        assert isinstance(ds, xr.Dataset)
+
+
+def test_xarray_fsspec_local_copy_opener(
+    netcdf_path_expected_size_and_kwargs, cache_and_cache_checker
+):
+    path, expected_size, kwargs = netcdf_path_expected_size_and_kwargs
+    cache, cache_checker = cache_and_cache_checker
+    opener = XarrayFsspecLocalCopyOpener(
+        cache=cache,
+        secrets=kwargs["query_string_secrets"],
+        fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
+    )
+    cache_checker(opener, cache, path)
+    with opener.open(path) as ds:
+        assert isinstance(ds, xr.Dataset)
+
+
+def test_xarray_kerchunk_opener(netcdf_path_expected_size_and_kwargs, tmp_metadata_target):
+    path, expected_size, kwargs = netcdf_path_expected_size_and_kwargs
+    opener = XarrayKerchunkOpener(
+        metadata_cache=tmp_metadata_target,
+        secrets=kwargs["query_string_secrets"],
+        fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
+    )
+
+    opener.cache_input_metadata(path)
+    with opener.open(path) as ds:
+        assert isinstance(ds, xr.Dataset)
