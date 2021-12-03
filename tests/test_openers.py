@@ -137,14 +137,18 @@ def test_xarray_fsspec_local_copy_opener(
         assert isinstance(ds, xr.Dataset)
 
 
-def test_xarray_kerchunk_opener(netcdf_path_expected_size_and_kwargs, tmp_metadata_target):
+def test_xarray_kerchunk_opener(
+    netcdf_path_expected_size_and_kwargs, cache_and_cache_checker, tmp_metadata_target
+):
     path, expected_size, kwargs = netcdf_path_expected_size_and_kwargs
+    cache, cache_checker = cache_and_cache_checker
     opener = XarrayKerchunkOpener(
         metadata_cache=tmp_metadata_target,
+        cache=cache,
         secrets=kwargs["query_string_secrets"],
         fsspec_open_kwargs=kwargs["fsspec_open_kwargs"],
     )
-
+    cache_checker(opener, cache, path)
     opener.cache_input_metadata(path)
     with opener.open(path) as ds:
         assert isinstance(ds, xr.Dataset)
