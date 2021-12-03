@@ -716,15 +716,15 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
                 self.cache_inputs = False
             if self.open_input_with_fsspec_reference:
                 raise ValueError("Can't generate references on opendap inputs")
-            if "engine" in self.xarray_open_kwargs:
-                if self.xarray_open_kwargs["engine"] != "netcdf4":
-                    raise ValueError(
-                        "Opendap inputs only work with `xarray_open_kwargs['engine'] == 'netcdf4'`"
-                    )
-            else:
-                new_kw = self.xarray_open_kwargs.copy()
-                new_kw["engine"] = "netcdf4"
-                self.xarray_open_kwargs = new_kw
+            # if "engine" in self.xarray_open_kwargs:
+            # if self.xarray_open_kwargs["engine"] != "netcdf4":
+            #    raise ValueError(
+            #        "Opendap inputs only work with `xarray_open_kwargs['engine'] == 'netcdf4'`"
+            #    )
+            # else:
+            #    new_kw = self.xarray_open_kwargs.copy()
+            #    new_kw["engine"] = "netcdf4"
+            #    self.xarray_open_kwargs = new_kw
         elif self.cache_inputs is None:
             self.cache_inputs = True  # old defult
 

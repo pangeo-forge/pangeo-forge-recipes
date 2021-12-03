@@ -151,11 +151,11 @@ class FilePattern:
         self.fsspec_open_kwargs = fsspec_open_kwargs if fsspec_open_kwargs else {}
         self.query_string_secrets = query_string_secrets if query_string_secrets else {}
         self.is_opendap = is_opendap
-        if self.fsspec_open_kwargs and self.is_opendap:
-            raise ValueError(
-                "OPeNDAP inputs are not opened with `fsspec`. "
-                "`is_opendap` must be `False` when passing `fsspec_open_kwargs`."
-            )
+        # if self.fsspec_open_kwargs and self.is_opendap:
+        #    raise ValueError(
+        #        "OPeNDAP inputs are not opened with `fsspec`. "
+        #        "`is_opendap` must be `False` when passing `fsspec_open_kwargs`."
+        #    )
 
     def __repr__(self):
         return f"<FilePattern {self.dims}>"
