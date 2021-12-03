@@ -315,7 +315,7 @@ def do_actual_chunks_test(
 @pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
 def test_chunks(
     recipe_fixture,
-    execute_recipe_python,
+    execute_recipe_function,
     inputs_per_chunk,
     target_chunks,
     error_expectation,
@@ -324,7 +324,7 @@ def test_chunks(
 ):
     do_actual_chunks_test(
         recipe_fixture,
-        execute_recipe_python,
+        execute_recipe_function,
         inputs_per_chunk,
         target_chunks,
         error_expectation,

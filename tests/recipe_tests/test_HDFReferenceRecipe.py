@@ -13,7 +13,7 @@ HDFReferenceRecipe = reference_hdf_zarr.HDFReferenceRecipe
 
 
 @pytest.mark.parametrize("with_intake", [True, False])
-def test_single(netcdf_local_file_pattern_sequential, tmpdir, with_intake):
+def test_single(netcdf_local_file_pattern_sequential, tmpdir, with_intake, execute_recipe):
     file_pattern = netcdf_local_file_pattern_sequential
     path = list(file_pattern.items())[0][1]
     expected = xr.open_dataset(path, engine="h5netcdf")
@@ -25,7 +25,7 @@ def test_single(netcdf_local_file_pattern_sequential, tmpdir, with_intake):
     recipe.target = out_target
     recipe.metadata_cache = metadata_cache
 
-    recipe.to_dask().compute(scheduler="sync")
+    execute_recipe(recipe)
 
     assert out_target.exists("reference.json")
     assert out_target.exists("reference.yaml")
@@ -43,7 +43,7 @@ def test_single(netcdf_local_file_pattern_sequential, tmpdir, with_intake):
 
 
 @pytest.mark.parametrize("with_intake", [True, False])
-def test_multi(netcdf_local_file_pattern_sequential, tmpdir, with_intake):
+def test_multi(netcdf_local_file_pattern_sequential, tmpdir, with_intake, execute_recipe):
     file_pattern = netcdf_local_file_pattern_sequential
     paths = [f for _, f in list(file_pattern.items())]
     expected = xr.open_mfdataset(paths, engine="h5netcdf")
@@ -55,7 +55,7 @@ def test_multi(netcdf_local_file_pattern_sequential, tmpdir, with_intake):
     recipe.target = out_target
     recipe.metadata_cache = metadata_cache
 
-    recipe.to_dask().compute(scheduler="sync")
+    execute_recipe(recipe)
 
     assert out_target.exists("reference.json")
     assert out_target.exists("reference.yaml")

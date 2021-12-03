@@ -106,11 +106,6 @@ def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: 
         logger.debug(f"resizing array {v} to shape {shape}")
         arr.resize(shape)
 
-    # now explicity write the sequence coordinate to avoid missing data
-    # when reopening
-    if concat_dim in zgroup:
-        zgroup[concat_dim][:] = 0
-
 
 def open_target(target: FSSpecTarget) -> xr.Dataset:
     return xr.open_zarr(target.get_mapper())

@@ -440,10 +440,38 @@ def dask_cluster(request):
 # Based on https://github.com/pytest-dev/pytest/issues/1368#issuecomment-466339463
 
 
-@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_python)])
-def execute_recipe_python():
+@pytest.fixture(
+    scope="session",
+    params=[
+        pytest.param("FunctionPipelineExecutor", marks=pytest.mark.executor_function),
+        pytest.param("GeneratorPipelineExecutor", marks=pytest.mark.executor_generator),
+        pytest.param("DaskPipelineExecutor", marks=pytest.mark.executor_dask),
+        pytest.param("PrefectPipelineExecutor", marks=pytest.mark.executor_prefect),
+        pytest.param("BeamPipelineExecutor", marks=pytest.mark.executor_beam),
+    ],
+)
+def Executor(request):
+    try:
+        import pangeo_forge_recipes.executors as exec_module
+
+        return getattr(exec_module, request.param)
+    except AttributeError:
+        pytest.skip(f"Couldn't import {request.param}")
+
+
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_function)])
+def execute_recipe_function():
     def execute(recipe):
         return recipe.to_function()()
+
+    return execute
+
+
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_generator)])
+def execute_recipe_generator():
+    def execute(recipe):
+        for f, args, kwargs in recipe.to_generator():
+            f(*args, **kwargs)
 
     return execute
 
@@ -479,6 +507,18 @@ def execute_recipe_prefect_dask(dask_cluster):
     return execute
 
 
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_beam)])
+def execute_recipe_beam():
+    beam = pytest.importorskip("apache_beam")
+
+    def execute(recipe):
+        pcoll = recipe.to_beam()
+        with beam.Pipeline() as p:
+            p | pcoll
+
+    return execute
+
+
 # now mark all other tests with "no_executor"
 # https://stackoverflow.com/questions/39846230/how-to-run-only-unmarked-tests-in-pytest
 def pytest_collection_modifyitems(items, config):
@@ -491,7 +531,12 @@ def pytest_collection_modifyitems(items, config):
 
 
 @pytest.fixture(
-    params=[lazy_fixture("execute_recipe_python"), lazy_fixture("execute_recipe_dask")],
+    params=[
+        lazy_fixture("execute_recipe_function"),
+        lazy_fixture("execute_recipe_generator"),
+        lazy_fixture("execute_recipe_dask"),
+        lazy_fixture("execute_recipe_beam"),
+    ],
 )
 def execute_recipe_no_prefect(request):
     return request.param
@@ -505,7 +550,7 @@ def execute_recipe_with_prefect(request):
 
 
 @pytest.fixture(
-    params=[lazy_fixture("execute_recipe_python"), lazy_fixture("execute_recipe_prefect")],
+    params=[lazy_fixture("execute_recipe_function"), lazy_fixture("execute_recipe_prefect")],
 )
 def execute_recipe_no_dask(request):
     return request.param
