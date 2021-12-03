@@ -12,15 +12,15 @@ EXPECTED_FILE_SIZE = {1: 19000, 2: 29376}  # hard coded expected value
         lazy_fixture("netcdf_http_paths_sequential_1d"),
     ],
 )
-def path_expected_len_and_kwargs(request):
+def path_expected_size_and_kwargs(request):
     """Take a full set of inputs and return just a single path, plus
     the other stuff the opener needs to know.
     """
 
     all_paths, items_per_file, _, _, kwargs = request.param
-    expected_len = EXPECTED_FILE_SIZE[items_per_file]
+    expected_size = EXPECTED_FILE_SIZE[items_per_file]
     path = str(all_paths[0])
-    return path, expected_len, kwargs
+    return path, expected_size, kwargs
 
 
 def _cache_checker(opener, cache, path):
@@ -45,8 +45,8 @@ def cache_and_cache_checker(request, tmp_cache):
     return cache, checker
 
 
-def test_fsspec_opener(path_expected_len_and_kwargs, cache_and_cache_checker):
-    path, expected_len, kwargs = path_expected_len_and_kwargs
+def test_fsspec_opener(path_expected_size_and_kwargs, cache_and_cache_checker):
+    path, expected_size, kwargs = path_expected_size_and_kwargs
     cache, cache_checker = cache_and_cache_checker
     opener = FsspecOpener(
         cache=cache,
@@ -58,11 +58,11 @@ def test_fsspec_opener(path_expected_len_and_kwargs, cache_and_cache_checker):
     with opener.open(path) as fp:
         data = fp.read()
         assert hasattr(fp, "fs")  # should be true for fsspec.OpenFile objects
-    assert len(data) == expected_len
+    assert len(data) == expected_size
 
 
-def test_fsspec_local_copy_opener(path_expected_len_and_kwargs, cache_and_cache_checker):
-    path, expected_len, kwargs = path_expected_len_and_kwargs
+def test_fsspec_local_copy_opener(path_expected_size_and_kwargs, cache_and_cache_checker):
+    path, expected_size, kwargs = path_expected_size_and_kwargs
     cache, cache_checker = cache_and_cache_checker
     opener = FsspecLocalCopyOpener(
         cache=cache,
@@ -75,7 +75,7 @@ def test_fsspec_local_copy_opener(path_expected_len_and_kwargs, cache_and_cache_
         assert isinstance(fp, str)
         with open(fp, mode="rb") as fp2:
             data = fp2.read()
-    assert len(data) == expected_len
+    assert len(data) == expected_size
 
 
 #     if use_cache and not cache_first:
