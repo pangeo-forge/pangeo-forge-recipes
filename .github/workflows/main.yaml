@@ -51,6 +51,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [3.8, 3.9]
+        dependencies: ["releases-only", "upstream-dev"]
     steps:
       - uses: actions/checkout@v2
       - name: 🔁 Setup Python
@@ -76,11 +77,14 @@ jobs:
         name: 🗃 Cache environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
-          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ env.CACHE_NUMBER }}
+          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ matrix.dependencies }}-${{ env.CACHE_NUMBER }}
         id: conda-cache
       - name: 🐫 Maybe Update environment
         if: steps.conda-cache.outputs.cache-hit != 'true'
         run: mamba env update -n pangeo-forge-recipes -f ${{ env.env_file }}
+      - name: 🧑‍💻 Maybe update to upstream dev versions
+        if: matrix.dependencies == 'upstream-dev'
+        run: mamba env update -n pangeo-forge-recipes -f ci/upstream-dev.yml
       - name: 🐍 List conda env
         shell: bash -l {0}
         run: |
@@ -93,6 +97,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [3.8, 3.9]
+        dependencies: ["releases-only", "upstream-dev"]
         pytest-mark: ["no_executor", "executor_function", "executor_generator",
                       "executor_dask", "executor_prefect", "executor_prefect_dask",
                       "executor_beam"]
@@ -100,6 +105,10 @@ jobs:
           # No beam support in python 3.9
           - python-version: 3.9
             pytest-mark: "executor_beam"
+          - dependencies: "upstream-dev"
+            pytest-mark: "executor_function"
+          - dependencies: "upstream-dev"
+            pytest-mark: "executor_generator"
     steps:
       - uses: actions/checkout@v2
       - name: 🎯 Set cache number
@@ -113,7 +122,7 @@ jobs:
         name: 🗃 Loaded Cached environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
-          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ env.CACHE_NUMBER }}
+          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ matrix.dependencies }}-${{ env.CACHE_NUMBER }}
         id: conda-cache
       - name: 🤿  Bail out if no cache hit
         if: steps.conda-cache.outputs.cache-hit != 'true'
