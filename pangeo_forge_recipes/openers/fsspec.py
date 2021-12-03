@@ -141,10 +141,11 @@ class FsspecLocalCopyOpener(FsspecOpener, BaseOpener[str, str]):
             opener = self._get_opener(fname)
 
         _, suffix = os.path.splitext(fname)
-        ntf = tempfile.NamedTemporaryFile(suffix=suffix)
-        tmp_name = ntf.name
-        logger.info(f"Copying '{fname}' to local file '{tmp_name}'")
-        target_opener = open(tmp_name, mode="wb")
-        _copy_btw_filesystems(opener, target_opener)
-        yield tmp_name
-        ntf.close()  # cleans up the temporary file
+        ntf = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+        logger.info(f"Copying '{fname}' to local file '{ntf.name}'")
+        # target_opener = open(tmp_name, mode="wb")
+        with ntf as target_opener:
+            _copy_btw_filesystems(opener, target_opener)
+        yield ntf.name
+        os.unlink(ntf.name)
+        # ntf.close()  # cleans up the temporary file

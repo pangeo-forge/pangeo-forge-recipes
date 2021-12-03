@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from pytest_lazyfixture import lazy_fixture
 
@@ -71,10 +73,11 @@ def test_fsspec_local_copy_opener(path_expected_size_and_kwargs, cache_and_cache
     )
     cache_checker(opener, cache, path)
 
-    with opener.open(path) as fp:
-        assert isinstance(fp, str)
-        with open(fp, mode="rb") as fp2:
+    with opener.open(path) as fname:
+        assert isinstance(fname, str)  # shouldn't be necessary with proper type hints
+        with open(fname, mode="rb") as fp2:
             data = fp2.read()
+    assert not os.path.exists(fname)  # make sure file got cleaned up
     assert len(data) == expected_size
 
 
