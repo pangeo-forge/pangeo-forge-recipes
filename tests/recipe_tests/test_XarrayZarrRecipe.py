@@ -1,3 +1,4 @@
+import dataclasses
 from contextlib import nullcontext as does_not_raise
 from dataclasses import replace
 from unittest.mock import patch
@@ -10,7 +11,7 @@ import zarr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.patterns import FilePattern
-from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
+from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe, calculate_sequence_lens
 
 
 def make_netCDFtoZarr_recipe(
@@ -405,3 +406,55 @@ def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_das
         execute_recipe_no_dask(recipe)
 
     assert p.call_args[1]["timeout"] == 1
+
+
+@pytest.fixture()
+def calc_sequence_length_happy_path(netcdf_local_file_pattern, tmp_metadata_target):
+
+    concat_dim, *rest = netcdf_local_file_pattern.combine_dims
+    len_input = concat_dim.nitems_per_file
+
+    # Make a copy of the file pattern without `nitems_per_file` in the ConcatDim.
+    file_pattern = FilePattern(
+        netcdf_local_file_pattern.format_function,
+        dataclasses.replace(concat_dim, nitems_per_file=None),
+        *rest,
+        fsspec_open_kwargs=netcdf_local_file_pattern.fsspec_open_kwargs,
+        query_string_secrets=netcdf_local_file_pattern.query_string_secrets,
+        is_opendap=netcdf_local_file_pattern.is_opendap,
+    )
+
+    n_inputs = file_pattern.dims["time"]
+
+    return None, file_pattern, tmp_metadata_target, [len_input] * n_inputs, None, ""
+
+
+calculate_sequence_length_fixtures = [lazy_fixture("calc_sequence_length_happy_path")]
+
+
+@pytest.mark.parametrize("calc_sequence_length_fixture", calculate_sequence_length_fixtures)
+def test_calculate_sequence_length(calc_sequence_length_fixture):
+    (
+        nitems_per_input,
+        file_pattern,
+        metadata_cache,
+        expected,
+        error,
+        error_match,
+    ) = calc_sequence_length_fixture
+
+    # Only cache metadata
+    recipe = XarrayZarrRecipe(
+        file_pattern, target_chunks={"time": 1}, cache_inputs=False, metadata_cache=metadata_cache
+    )
+    for input_key in recipe.iter_inputs():
+        recipe.cache_input(input_key)
+
+    if error:
+        with pytest.raises(error, match=error_match):
+            calculate_sequence_lens(nitems_per_input, file_pattern, metadata_cache)
+        return
+
+    actual = calculate_sequence_lens(nitems_per_input, file_pattern, metadata_cache)
+
+    assert actual == expected
