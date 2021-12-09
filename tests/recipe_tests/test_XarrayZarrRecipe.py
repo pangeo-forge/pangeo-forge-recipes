@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 from contextlib import nullcontext as does_not_raise
 from dataclasses import replace
 from unittest.mock import patch
@@ -10,8 +11,9 @@ import zarr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.patterns import FilePattern
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim
 from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe, calculate_sequence_lens
+from pangeo_forge_recipes.storage import MetadataTarget
 
 
 def make_netCDFtoZarr_recipe(
@@ -408,53 +410,80 @@ def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_das
     assert p.call_args[1]["timeout"] == 1
 
 
-@pytest.fixture()
-def calc_sequence_length_happy_path(netcdf_local_file_pattern, tmp_metadata_target):
+@pytest.fixture(params=[True, False])
+def nitems_exists(request):
+    return request.param
 
+
+@pytest.fixture()
+def calc_sequence_length_fixture(netcdf_local_file_pattern, tmp_metadata_target, nitems_exists):
     concat_dim, *rest = netcdf_local_file_pattern.combine_dims
     len_input = concat_dim.nitems_per_file
 
-    # Make a copy of the file pattern without `nitems_per_file` in the ConcatDim.
-    file_pattern = FilePattern(
-        netcdf_local_file_pattern.format_function,
-        dataclasses.replace(concat_dim, nitems_per_file=None),
-        *rest,
-        fsspec_open_kwargs=netcdf_local_file_pattern.fsspec_open_kwargs,
-        query_string_secrets=netcdf_local_file_pattern.query_string_secrets,
-        is_opendap=netcdf_local_file_pattern.is_opendap,
-    )
+    file_pattern = netcdf_local_file_pattern
+    if not nitems_exists:
+        # Make a copy of the file pattern without `nitems_per_file` in the ConcatDim.
+        file_pattern = FilePattern(
+            netcdf_local_file_pattern.format_function,
+            dataclasses.replace(concat_dim, nitems_per_file=None),
+            *rest,
+            fsspec_open_kwargs=netcdf_local_file_pattern.fsspec_open_kwargs,
+            query_string_secrets=netcdf_local_file_pattern.query_string_secrets,
+            is_opendap=netcdf_local_file_pattern.is_opendap,
+        )
 
-    n_inputs = file_pattern.dims["time"]
+    n_inputs = file_pattern.dims[concat_dim.name]
 
-    return None, file_pattern, tmp_metadata_target, [len_input] * n_inputs, None, ""
+    nitems_per_file = None
+    if nitems_exists:
+        nitems_per_file = len_input
+
+    return nitems_per_file, file_pattern, tmp_metadata_target, [len_input] * n_inputs
 
 
-calculate_sequence_length_fixtures = [lazy_fixture("calc_sequence_length_happy_path")]
-
-
-@pytest.mark.parametrize("calc_sequence_length_fixture", calculate_sequence_length_fixtures)
 def test_calculate_sequence_length(calc_sequence_length_fixture):
-    (
-        nitems_per_input,
-        file_pattern,
-        metadata_cache,
-        expected,
-        error,
-        error_match,
-    ) = calc_sequence_length_fixture
+    (nitems_per_input, file_pattern, metadata_cache, expected) = calc_sequence_length_fixture
 
-    # Only cache metadata
-    recipe = XarrayZarrRecipe(
-        file_pattern, target_chunks={"time": 1}, cache_inputs=False, metadata_cache=metadata_cache
-    )
-    for input_key in recipe.iter_inputs():
-        recipe.cache_input(input_key)
-
-    if error:
-        with pytest.raises(error, match=error_match):
-            calculate_sequence_lens(nitems_per_input, file_pattern, metadata_cache)
-        return
+    # Cache metadata, if necessary.
+    if not nitems_per_input:
+        recipe = XarrayZarrRecipe(
+            file_pattern,
+            target_chunks={"time": 1},
+            cache_inputs=False,
+            metadata_cache=metadata_cache,
+        )
+        for input_key in recipe.iter_inputs():
+            recipe.cache_input(input_key)
 
     actual = calculate_sequence_lens(nitems_per_input, file_pattern, metadata_cache)
 
     assert actual == expected
+
+
+def test_calc_sequence_length_errors_no_metadata():
+    file_pattern = FilePattern(
+        lambda time, var: f"tmp/{time.date()!s}_{var}",
+        ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 11)]),
+        MergeDim("variable", ["foo", "bar"]),
+    )
+    with pytest.raises(ValueError, match="metadata_cache is not set"):
+        calculate_sequence_lens(None, file_pattern, None)
+
+
+def test_calc_sequence_length_errors_inconsistent_lengths(tmp_metadata_target, monkeypatch):
+    file_pattern = FilePattern(
+        lambda time, var: f"tmp/{time.date()!s}_{var}",
+        ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 11)]),
+        MergeDim("variable", ["foo", "bar"]),
+    )
+
+    def mock_getitems(*args):
+        return {
+            "a": {"dims": {"time": [2] * 10}},
+            "b": {"dims": {"time": [3] + [2] * 9}},  # Inconsistent sequence length
+        }
+
+    monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
+
+    with pytest.raises(ValueError, match="Inconsistent sequence lengths found: "):
+        calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
