@@ -6,7 +6,6 @@ from __future__ import annotations
 import itertools
 import logging
 import os
-import statistics
 import warnings
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
