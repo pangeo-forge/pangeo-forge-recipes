@@ -487,15 +487,12 @@ def test_calc_sequence_length_errors_inconsistent_lengths(tmp_metadata_target, m
 
     monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
 
-    with pytest.raises(
-        ValueError, match="Inconsistent sequence lengths between indicies"
-    ) as execinfo:
+    with pytest.raises(ValueError) as execinfo:
         calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
 
     msg = execinfo.value.args[0]
-    assert "[1 0]" in msg
-    assert "[7]" in msg
-    assert "[(0, 2)]" in msg
+    assert "Inconsistent sequence lengths between indicies [1 0] of the concat dim." in msg
+    assert "Value(s) [7] at position(s) [(0, 2)] are different from the rest." in msg
 
 
 def test_calc_sequence_length_errors_multiple_inconsistent_lengths(
@@ -517,15 +514,12 @@ def test_calc_sequence_length_errors_multiple_inconsistent_lengths(
 
     monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
 
-    with pytest.raises(
-        ValueError, match="Inconsistent sequence lengths between indicies"
-    ) as execinfo:
+    with pytest.raises(ValueError) as execinfo:
         calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
 
     msg = execinfo.value.args[0]
-    assert "[1 2 0]" in msg
-    assert "[ 7 10]" in msg
-    assert "[(0, 2), (2, 3)]" in msg
+    assert "Inconsistent sequence lengths between indicies [1 2 0] of the concat dim." in msg
+    assert "Value(s) [ 7 10] at position(s) [(0, 2), (2, 3)] are different from the rest." in msg
 
 
 def test_calc_sequence_length_errors_inconsistent_lengths_reverse_combine_dim_order(
@@ -546,12 +540,9 @@ def test_calc_sequence_length_errors_inconsistent_lengths_reverse_combine_dim_or
 
     monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
 
-    with pytest.raises(
-        ValueError, match="Inconsistent sequence lengths between indicies"
-    ) as execinfo:
+    with pytest.raises(ValueError) as execinfo:
         calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
 
     msg = execinfo.value.args[0]
-    assert "[0 3]" in msg
-    assert "[5]" in msg
-    assert "[(3, 1)]" in msg
+    assert "Inconsistent sequence lengths between indicies [0 3] of the concat dim." in msg
+    assert "Value(s) [5] at position(s) [(3, 1)] are different from the rest." in msg
