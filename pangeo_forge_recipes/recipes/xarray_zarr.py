@@ -393,7 +393,9 @@ def calculate_sequence_lens(
     if len(all_lens.shape) == 1:
         all_lens = np.expand_dims(all_lens, 1)
 
+    # check that all lens are the same along the concat dim
     unique_vec, unique_idx = np.unique(all_lens, axis=1, return_index=True)
+
     if len(unique_idx) > 1:
         correct_col = all_lens[:, unique_idx[0]]
         err_idx = np.where(np.expand_dims(correct_col, 1) != all_lens)
