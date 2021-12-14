@@ -396,8 +396,8 @@ def calculate_sequence_lens(
 
     unique_vec, unique_idx = np.unique(all_lens, axis=1, return_index=True)
     if len(unique_idx) > 1:
-        modes = np.apply_along_axis(statistics.mode, 1, all_lens)
-        err_idx = np.where(np.expand_dims(modes, 1) != all_lens)
+        correct_col = all_lens[:, unique_idx[0]]
+        err_idx = np.where(np.expand_dims(correct_col, 1) != all_lens)
         err_pos = list(zip(*err_idx[::-1]))
         raise ValueError(
             f"Inconsistent sequence lengths between indicies {unique_idx} of the concat dim."
