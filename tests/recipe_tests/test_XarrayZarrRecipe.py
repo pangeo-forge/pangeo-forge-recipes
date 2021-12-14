@@ -473,17 +473,85 @@ def test_calc_sequence_length_errors_no_metadata():
 def test_calc_sequence_length_errors_inconsistent_lengths(tmp_metadata_target, monkeypatch):
     file_pattern = FilePattern(
         lambda time, var: f"tmp/{time.date()!s}_{var}",
-        ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 11)]),
-        MergeDim("variable", ["foo", "bar"]),
+        ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 5)]),
+        MergeDim("variable", ["foo", "bar", "baz"]),
     )
 
     def mock_getitems(*args):
         return {
-            "a": {"dims": {"time": [2] * 10}},
-            "b": {"dims": {"time": [3] + [2] * 9}},  # Inconsistent sequence length
+            "a": {"dims": {"time": [1] * 3, "variables": []}},
+            "b": {"dims": {"time": [2] * 3, "variables": []}},
+            "c": {"dims": {"time": [7] + [3] * 2, "variables": []}},  # Inconsistent sequence length
+            "d": {"dims": {"time": [4] * 3, "variables": []}},
         }
 
     monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
 
-    with pytest.raises(ValueError, match="Inconsistent sequence lengths found: "):
+    with pytest.raises(
+        ValueError, match="Inconsistent sequence lengths between indicies"
+    ) as execinfo:
         calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
+
+    msg = execinfo.value.args[0]
+    assert "[1 0]" in msg
+    assert "[7]" in msg
+    assert "[(0, 2)]" in msg
+
+
+def test_calc_sequence_length_errors_multiple_inconsistent_lengths(
+    tmp_metadata_target, monkeypatch
+):
+    file_pattern = FilePattern(
+        lambda time, var: f"tmp/{time.date()!s}_{var}",
+        ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 5)]),
+        MergeDim("variable", ["foo", "bar", "baz"]),
+    )
+
+    def mock_getitems(*args):
+        return {
+            "a": {"dims": {"time": [1] * 3, "variables": []}},
+            "b": {"dims": {"time": [2] * 3, "variables": []}},
+            "c": {"dims": {"time": [7] + [3] * 2, "variables": []}},  # Inconsistent sequence length
+            "d": {"dims": {"time": [4] * 2 + [10], "variables": []}},
+        }
+
+    monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
+
+    with pytest.raises(
+        ValueError, match="Inconsistent sequence lengths between indicies"
+    ) as execinfo:
+        calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
+
+    msg = execinfo.value.args[0]
+    assert "[1 2 0]" in msg
+    assert "[ 7 10]" in msg
+    assert "[(0, 2), (2, 3)]" in msg
+
+
+def test_calc_sequence_length_errors_inconsistent_lengths_reverse_combine_dim_order(
+    tmp_metadata_target, monkeypatch
+):
+    file_pattern = FilePattern(
+        lambda var, time: f"tmp/{time.date()!s}_{var}",
+        MergeDim("variable", ["foo", "bar", "baz"]),
+        ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 5)]),
+    )
+
+    def mock_getitems(*args):
+        return {
+            "a": {"dims": {"variables": [], "time": [1] * 4}},
+            "b": {"dims": {"variables": [], "time": [2] * 3 + [5]}},  # Inconsistent sequence length
+            "c": {"dims": {"variables": [], "time": [3] * 4}},
+        }
+
+    monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
+
+    with pytest.raises(
+        ValueError, match="Inconsistent sequence lengths between indicies"
+    ) as execinfo:
+        calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
+
+    msg = execinfo.value.args[0]
+    assert "[0 3]" in msg
+    assert "[5]" in msg
+    assert "[(3, 1)]" in msg

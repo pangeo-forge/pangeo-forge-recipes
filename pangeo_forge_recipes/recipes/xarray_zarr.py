@@ -16,6 +16,8 @@ from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, Tupl
 import dask
 import fsspec
 import numpy as np
+import scipy
+import scipy.stats
 import xarray as xr
 import zarr
 
@@ -390,14 +392,19 @@ def calculate_sequence_lens(
     all_lens = np.array([m["dims"][concat_dim] for m in input_meta.values()])
     all_lens.shape = list(file_pattern.dims.values())
 
-    # check that all lens are the same along the concat dim
-    concat_dim_axis = list(file_pattern.dims).index(concat_dim)
-    selector = [slice(0, 1)] * len(file_pattern.dims)
-    selector[concat_dim_axis] = slice(None)  # this should broadcast correctly agains all_lens
-    sequence_lens = all_lens[tuple(selector)]
-    if not (all_lens == sequence_lens).all():
-        raise ValueError(f"Inconsistent sequence lengths found: f{all_lens}")
-    return np.atleast_1d(sequence_lens.squeeze()).tolist()
+    if len(all_lens.shape) == 1:
+        all_lens = all_lens.reshape((all_lens.shape[0], 1))
+
+    unique_vec, unique_idx = np.unique(all_lens, axis=1, return_index=True)
+    if len(unique_idx) > 1:
+        err_idx = np.where(scipy.stats.mode(all_lens, axis=1)[0] != all_lens)
+        err_pos = list(zip(*err_idx[::-1]))
+        raise ValueError(
+            f"Inconsistent sequence lengths between indicies {unique_idx} of the concat dim."
+            f"\nValue(s) {all_lens[err_idx]} at position(s) {err_pos} are different from the rest."
+            f"\n{all_lens}"
+        )
+    return np.atleast_1d(unique_vec.squeeze()).tolist()
 
 
 def prepare_target(*, config: XarrayZarrRecipe) -> None:
