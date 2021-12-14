@@ -491,7 +491,7 @@ def test_calc_sequence_length_errors_inconsistent_lengths(tmp_metadata_target, m
         calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
 
     msg = execinfo.value.args[0]
-    assert "Inconsistent sequence lengths between indicies [1 0] of the concat dim." in msg
+    assert "Inconsistent sequence lengths between indices [1 0] of the concat dim." in msg
     assert "Value(s) [7] at position(s) [(0, 2)] are different from the rest." in msg
 
 
@@ -518,7 +518,7 @@ def test_calc_sequence_length_errors_multiple_inconsistent_lengths(
         calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
 
     msg = execinfo.value.args[0]
-    assert "Inconsistent sequence lengths between indicies [1 2 0] of the concat dim." in msg
+    assert "Inconsistent sequence lengths between indices [1 2 0] of the concat dim." in msg
     assert "Value(s) [ 7 10] at position(s) [(0, 2), (2, 3)] are different from the rest." in msg
 
 
@@ -544,5 +544,5 @@ def test_calc_sequence_length_errors_inconsistent_lengths_reverse_combine_dim_or
         calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
 
     msg = execinfo.value.args[0]
-    assert "Inconsistent sequence lengths between indicies [0 3] of the concat dim." in msg
+    assert "Inconsistent sequence lengths between indices [0 3] of the concat dim." in msg
     assert "Value(s) [5] at position(s) [(3, 1)] are different from the rest." in msg

@@ -401,7 +401,7 @@ def calculate_sequence_lens(
         err_idx = np.where(np.expand_dims(correct_col, 1) != all_lens)
         err_pos = list(zip(*err_idx[::-1]))
         raise ValueError(
-            f"Inconsistent sequence lengths between indicies {unique_idx} of the concat dim."
+            f"Inconsistent sequence lengths between indices {unique_idx} of the concat dim."
             f"\nValue(s) {all_lens[err_idx]} at position(s) {err_pos} are different from the rest."
             f"\n{all_lens}"
         )
