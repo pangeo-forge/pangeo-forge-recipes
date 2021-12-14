@@ -6,6 +6,7 @@ from __future__ import annotations
 import itertools
 import logging
 import os
+import statistics
 import warnings
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
@@ -16,8 +17,6 @@ from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, Tupl
 import dask
 import fsspec
 import numpy as np
-import scipy
-import scipy.stats
 import xarray as xr
 import zarr
 
@@ -393,11 +392,12 @@ def calculate_sequence_lens(
     all_lens.shape = list(file_pattern.dims.values())
 
     if len(all_lens.shape) == 1:
-        all_lens = all_lens.reshape((all_lens.shape[0], 1))
+        all_lens = np.expand_dims(all_lens, 1)
 
     unique_vec, unique_idx = np.unique(all_lens, axis=1, return_index=True)
     if len(unique_idx) > 1:
-        err_idx = np.where(scipy.stats.mode(all_lens, axis=1)[0] != all_lens)
+        modes = np.apply_along_axis(statistics.mode, 1, all_lens)
+        err_idx = np.where(np.expand_dims(modes, 1) != all_lens)
         err_pos = list(zip(*err_idx[::-1]))
         raise ValueError(
             f"Inconsistent sequence lengths between indicies {unique_idx} of the concat dim."
