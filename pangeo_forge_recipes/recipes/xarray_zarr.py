@@ -369,6 +369,15 @@ def get_input_meta(metadata_cache: Optional[MetadataTarget], file_pattern: FileP
     return metadata_cache.getitems([_input_metadata_fname(k) for k in file_pattern])
 
 
+def _get_fname_from_error_pos(pos: Tuple[int, int], file_pattern: FilePattern) -> str:
+    kwargs = {}
+    for idx, p in enumerate(pos):
+        dim = file_pattern.combine_dims[idx]
+        kwargs.update({dim.name: dim.keys[p]})
+
+    return file_pattern.format_function(**kwargs)
+
+
 def calculate_sequence_lens(
     nitems_per_input: Optional[int],
     file_pattern: FilePattern,
@@ -398,10 +407,14 @@ def calculate_sequence_lens(
     if len(unique_idx) > 1:
         correct_col = all_lens[:, unique_idx[np.argmax(unique_counts)]]
         err_idx = np.where(np.expand_dims(correct_col, 1) != all_lens)
-        err_pos = list(zip(*err_idx[::-1]))
+        err_pos = list(zip(*err_idx))
+        # present a list of problematic files to the user, given the file pattern.
+        file_list = '\n'.join([f"- {_get_fname_from_error_pos(epos, file_pattern)!r}" for epos in err_pos])
         raise ValueError(
             f"Inconsistent sequence lengths between indices {unique_idx} of the concat dim."
             f"\nValue(s) {all_lens[err_idx]} at position(s) {err_pos} are different from the rest."
+            f"\nPlease check the following file(s) for data errors:"
+            f"\n{file_list}"
             f"\n{all_lens}"
         )
     return np.atleast_1d(unique_vec.squeeze()).tolist()

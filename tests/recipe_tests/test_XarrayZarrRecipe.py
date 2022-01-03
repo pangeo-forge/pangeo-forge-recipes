@@ -462,7 +462,7 @@ def test_calculate_sequence_length(calc_sequence_length_fixture):
 
 def test_calc_sequence_length_errors_no_metadata():
     file_pattern = FilePattern(
-        lambda time, var: f"tmp/{time.date()!s}_{var}",
+        lambda time, variable: f"tmp/{time.date()!s}_{variable}",
         ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 11)]),
         MergeDim("variable", ["foo", "bar"]),
     )
@@ -472,7 +472,7 @@ def test_calc_sequence_length_errors_no_metadata():
 
 def test_calc_sequence_length_errors_inconsistent_lengths(tmp_metadata_target, monkeypatch):
     file_pattern = FilePattern(
-        lambda time, var: f"tmp/{time.date()!s}_{var}",
+        lambda time, variable: f"tmp/{time.date()!s}_{variable}",
         ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 5)]),
         MergeDim("variable", ["foo", "bar", "baz"]),
     )
@@ -492,14 +492,15 @@ def test_calc_sequence_length_errors_inconsistent_lengths(tmp_metadata_target, m
 
     msg = execinfo.value.args[0]
     assert "Inconsistent sequence lengths between indices [1 0] of the concat dim." in msg
-    assert "Value(s) [7] at position(s) [(0, 2)] are different from the rest." in msg
+    assert "Value(s) [7] at position(s) [(2, 0)] are different from the rest." in msg
+    assert "- 'tmp/2021-01-03_foo'" in msg
 
 
 def test_calc_sequence_length_errors_multiple_inconsistent_lengths(
     tmp_metadata_target, monkeypatch
 ):
     file_pattern = FilePattern(
-        lambda time, var: f"tmp/{time.date()!s}_{var}",
+        lambda time, variable: f"tmp/{time.date()!s}_{variable}",
         ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 5)]),
         MergeDim("variable", ["foo", "bar", "baz"]),
     )
@@ -519,14 +520,16 @@ def test_calc_sequence_length_errors_multiple_inconsistent_lengths(
 
     msg = execinfo.value.args[0]
     assert "Inconsistent sequence lengths between indices [1 2 0] of the concat dim." in msg
-    assert "Value(s) [ 7 10] at position(s) [(0, 2), (2, 3)] are different from the rest." in msg
+    assert "Value(s) [ 7 10] at position(s) [(2, 0), (3, 2)] are different from the rest." in msg
+    assert "- 'tmp/2021-01-03_foo'" in msg
+    assert "- 'tmp/2021-01-04_baz'" in msg
 
 
 def test_calc_sequence_length_errors_inconsistent_lengths_reverse_combine_dim_order(
     tmp_metadata_target, monkeypatch
 ):
     file_pattern = FilePattern(
-        lambda var, time: f"tmp/{time.date()!s}_{var}",
+        lambda variable, time: f"tmp/{time.date()!s}_{variable}",
         MergeDim("variable", ["foo", "bar", "baz"]),
         ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 5)]),
     )
@@ -545,4 +548,5 @@ def test_calc_sequence_length_errors_inconsistent_lengths_reverse_combine_dim_or
 
     msg = execinfo.value.args[0]
     assert "Inconsistent sequence lengths between indices [0 3] of the concat dim." in msg
-    assert "Value(s) [5] at position(s) [(3, 1)] are different from the rest." in msg
+    assert "Value(s) [5] at position(s) [(1, 3)] are different from the rest." in msg
+    assert "- 'tmp/2021-01-04_bar'" in msg
