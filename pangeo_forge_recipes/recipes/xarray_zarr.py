@@ -402,14 +402,18 @@ def calculate_sequence_lens(
         all_lens = np.expand_dims(all_lens, 1)
 
     # check that all lens are the same along the concat dim
-    unique_vec, unique_idx, unique_counts = np.unique(all_lens, axis=1, return_index=True, return_counts=True)
+    unique_vec, unique_idx, unique_counts = np.unique(
+        all_lens, axis=1, return_index=True, return_counts=True
+    )
 
     if len(unique_idx) > 1:
         correct_col = all_lens[:, unique_idx[np.argmax(unique_counts)]]
         err_idx = np.where(np.expand_dims(correct_col, 1) != all_lens)
         err_pos = list(zip(*err_idx))
         # present a list of problematic files to the user, given the file pattern.
-        file_list = '\n'.join([f"- {_get_fname_from_error_pos(epos, file_pattern)!r}" for epos in err_pos])
+        file_list = "\n".join(
+            [f"- {_get_fname_from_error_pos(epos, file_pattern)!r}" for epos in err_pos]
+        )
         raise ValueError(
             f"Inconsistent sequence lengths between indices {unique_idx} of the concat dim."
             f"\nValue(s) {all_lens[err_idx]} at position(s) {err_pos} are different from the rest."

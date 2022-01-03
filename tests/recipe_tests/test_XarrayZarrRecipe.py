@@ -509,8 +509,10 @@ def test_calc_sequence_length_errors_multiple_inconsistent_lengths(
         return {
             "a": {"dims": {"time": [1] * 3, "variables": []}},
             "b": {"dims": {"time": [2] * 3, "variables": []}},
-            "c": {"dims": {"time": [7] + [3] * 2, "variables": []}},   # Inconsistent sequence length
-            "d": {"dims": {"time": [4] * 2 + [10], "variables": []}},  # Inconsistent sequence length
+            "c": {"dims": {"time": [7] + [3] * 2, "variables": []}},  # Inconsistent sequence length
+            "d": {
+                "dims": {"time": [4] * 2 + [10], "variables": []}
+            },  # Inconsistent sequence length
         }
 
     monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
