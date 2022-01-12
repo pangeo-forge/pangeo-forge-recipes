@@ -67,12 +67,13 @@ class DaskPipelineExecutor(PipelineExecutor[Delayed]):
                 checkpoint_key = f"{stage.name}-checkpoint-{token}"
                 stage_graph[checkpoint_key] = (checkpoint, *checkpoint_args)
                 prev_token = (checkpoint_key,)
-            layers[stage.name] = stage_graph
-            dependencies[stage.name] = {prev_task}
+            layer_name = prev_token[0]
+            layers[layer_name] = stage_graph
+            dependencies[layer_name] = {prev_task}
             prev_task = stage.name
 
         hlg = HighLevelGraph(layers, dependencies)
-        delayed = Delayed(prev_token[0], hlg)
+        delayed = Delayed(layer_name, hlg)
         return delayed
 
     @staticmethod
