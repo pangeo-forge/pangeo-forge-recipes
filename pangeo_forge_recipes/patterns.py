@@ -1,14 +1,11 @@
 """
 Filename / URL patterns.
 """
-from __future__ import annotations
-
 import inspect
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from itertools import product
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
@@ -94,13 +91,8 @@ class DimIndex:
         assert self.index < self.sequence_len
 
 
-if TYPE_CHECKING:
-    # If we just do this, we can't initialize an Index by just writing
-    # Index(list_of_dims)
-    Index = FrozenSet[DimIndex]
-else:
-    # But if we just do this, it won't pass mypy 😖
-    Index = frozenset[DimIndex]
+class Index(FrozenSet[DimIndex]):
+    pass
 
 
 CombineDim = Union[MergeDim, ConcatDim]
