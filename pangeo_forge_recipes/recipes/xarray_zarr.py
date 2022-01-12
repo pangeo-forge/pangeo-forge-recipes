@@ -49,12 +49,12 @@ SubsetSpec = Dict[str, int]
 
 
 def _input_metadata_fname(input_key: InputKey) -> str:
-    key_str = "-".join([f"{k.name}_{k.index}" for k in input_key])
+    key_str = "-".join([f"{k.name}_{k.index}" for k in sorted(input_key)])
     return "input-meta-" + key_str + ".json"
 
 
 def _input_reference_fname(input_key: InputKey) -> str:
-    key_str = "-".join([f"{k.name}_{k.index}" for k in input_key])
+    key_str = "-".join([f"{k.name}_{k.index}" for k in sorted(input_key)])
     return "input-reference-" + key_str + ".json"
 
 

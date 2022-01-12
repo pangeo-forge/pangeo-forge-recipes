@@ -79,7 +79,7 @@ def test_pattern_from_file_sequence():
     assert fp.nitems_per_input == {"time": None}
     assert fp.concat_sequence_lens == {"time": None}
     for key in fp:
-        assert fp[key] == file_sequence[key[0].index]
+        assert fp[key] == file_sequence[sorted(key)[0].index]
 
 
 @pytest.mark.parametrize("pickle", [False, True])
@@ -115,17 +115,17 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
     assert fp.concat_sequence_lens == {"time": None}
     assert len(list(fp)) == 6
     for key in fp:
-        expected_fname = format_function(time=times[key[1].index], variable=varnames[key[0].index])
         for k in key:
             if k.name == "time":
                 assert k.operation == CombineOp.CONCAT
                 assert k.sequence_len == 3
+                time_val = times[k.index]
             if k.name == "variable":
                 assert k.operation == CombineOp.MERGE
                 assert k.sequence_len == 2
+                variable_val = varnames[k.index]
+        expected_fname = format_function(time=time_val, variable=variable_val)
         assert fp[key] == expected_fname
-        # make sure key order doesn't matter
-        assert fp[key[::-1]] == expected_fname
 
     if "fsspec_open_kwargs" in kwargs.keys():
         assert fp.is_opendap is False
