@@ -29,6 +29,8 @@ def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
     ref_fname = os.path.basename(fname + ".json")
     with file_opener(fname, **config.netcdf_storage_options) as fp:
         protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
+        if protocol is None:
+            raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
         config.metadata_cache[ref_fname] = create_hdf5_reference(fp, target_url, fname)
 
