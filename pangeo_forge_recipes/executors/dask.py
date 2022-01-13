@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from typing import Any, Dict, Set, Tuple, Union
 
 import dask
 from dask.delayed import Delayed
 from dask.highlevelgraph import HighLevelGraph
+from dask.blockwise import blockwise, BlockwiseDepDict
 
 from .base import Pipeline, PipelineExecutor
 
@@ -47,26 +50,35 @@ class DaskPipelineExecutor(PipelineExecutor[Delayed]):
         layers[config_key] = {config_key: pipeline.config}
         dependencies[config_key] = set()
 
-        prev_key = config_key
-        prev_dependency = ()  # type: Union[Tuple[()], Tuple[str]]
+        prev_key: str = config_key
         for stage in pipeline.stages:
-            stage_graph = {}  # type: Dict[Union[str, Tuple[str, int]], Any]
             if stage.mappable is None:
                 stage_key = append_token(stage.name, token)
                 func = wrap_standalone_task(stage.function)
-                stage_graph[stage_key] = (func, config_key) + prev_dependency
+                layers[stage_key] = {stage_key: (func, config_key, prev_key)}
+                dependencies[stage_key] = {config_key, prev_key}
             else:
                 func = wrap_map_task(stage.function)
-                checkpoint_args = []
-                for i, m in enumerate(stage.mappable):
-                    key = (append_token(stage.name, token), i)
-                    stage_graph[key] = (func, m, config_key) + prev_dependency
-                    checkpoint_args.append(key)
+                map_key = append_token(stage.name, token)
+                layers[map_key] = map_layer = blockwise(
+                    func,
+                    map_key,
+                    "x",  # <-- dimension name doesn't matter
+                    BlockwiseDepDict({(i,): x for i, x in enumerate(stage.mappable)}),
+                    # ^ this is extra annoying. `BlockwiseDepList` at least would be nice.
+                    "x",
+                    config_key,
+                    None,
+                    prev_key,
+                    None,
+                    numblocks={},
+                    # ^ also annoying; the default of None breaks Blockwise
+                )
+                dependencies[map_key] = {config_key, prev_key}
+
                 stage_key = f"{stage.name}-checkpoint-{token}"
-                stage_graph[stage_key] = (checkpoint, *checkpoint_args)
-            layers[stage_key] = stage_graph
-            dependencies[stage_key] = {config_key} | {prev_key}
-            prev_dependency = (stage_key,)
+                layers[stage_key] = {stage_key: (checkpoint, *map_layer.get_output_keys())}
+                dependencies[stage_key] = {map_key}
             prev_key = stage_key
 
         hlg = HighLevelGraph(layers, dependencies)
