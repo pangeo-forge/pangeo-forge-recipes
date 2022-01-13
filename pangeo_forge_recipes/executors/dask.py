@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Any, Dict, Set, Tuple, Union
 
 import dask
+from dask.blockwise import BlockwiseDepDict, blockwise
 from dask.delayed import Delayed
 from dask.highlevelgraph import HighLevelGraph
-from dask.blockwise import blockwise, BlockwiseDepDict
 
 from .base import Pipeline, PipelineExecutor
 
