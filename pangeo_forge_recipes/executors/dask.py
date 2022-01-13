@@ -51,7 +51,6 @@ class DaskPipelineExecutor(PipelineExecutor[Delayed]):
         prev_dependency = ()  # type: Union[Tuple[()], Tuple[str]]
         for stage in pipeline.stages:
             stage_graph = {}  # type: Dict[Union[str, Tuple[str, int]], Any]
-            # each block should
             if stage.mappable is None:
                 stage_key = append_token(stage.name, token)
                 func = wrap_standalone_task(stage.function)
