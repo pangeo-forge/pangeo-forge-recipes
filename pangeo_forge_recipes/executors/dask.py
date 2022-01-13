@@ -48,7 +48,7 @@ class DaskPipelineExecutor(PipelineExecutor[Delayed]):
         dependencies[config_key] = set()
 
         prev_key = config_key
-        prev_dependency = ()  # type: Union[Tuple, Tuple[str]]
+        prev_dependency = ()  # type: Union[Tuple[()], Tuple[str]]
         for stage in pipeline.stages:
             stage_graph = {}  # type: Dict[Union[str, Tuple[str, int]], Any]
             # each block should
