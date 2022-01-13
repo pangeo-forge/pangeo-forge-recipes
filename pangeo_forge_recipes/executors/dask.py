@@ -43,36 +43,34 @@ class DaskPipelineExecutor(PipelineExecutor[Delayed]):
 
         # start with just the config as a standalone layer
         # create a custom delayed object for the config
-        config_task = "config"
-        config_token = append_token(config_task, token)
-        layers[config_task] = {config_token: pipeline.config}
-        dependencies[config_task] = set()
+        config_key = append_token("config", token)
+        layers[config_key] = {config_key: pipeline.config}
+        dependencies[config_key] = set()
 
-        prev_token = ()  # type: Tuple[str, ...]
-        prev_task = config_task
+        prev_key = config_key
+        prev_dependency = ()  # type: Union[Tuple[()], Tuple[str]]
         for stage in pipeline.stages:
-            stage_token = append_token(stage.name, token)
             stage_graph = {}  # type: Dict[Union[str, Tuple[str, int]], Any]
             if stage.mappable is None:
+                stage_key = append_token(stage.name, token)
                 func = wrap_standalone_task(stage.function)
-                stage_graph[stage_token] = (func, config_token) + prev_token
-                prev_token = (stage_token,)
+                stage_graph[stage_key] = (func, config_key) + prev_dependency
             else:
                 func = wrap_map_task(stage.function)
                 checkpoint_args = []
                 for i, m in enumerate(stage.mappable):
-                    key = (stage.name, i)
-                    stage_graph[key] = (func, m, config_token) + prev_token
+                    key = (append_token(stage.name, token), i)
+                    stage_graph[key] = (func, m, config_key) + prev_dependency
                     checkpoint_args.append(key)
-                checkpoint_key = f"{stage.name}-checkpoint-{token}"
-                stage_graph[checkpoint_key] = (checkpoint, *checkpoint_args)
-                prev_token = (checkpoint_key,)
-            layers[stage.name] = stage_graph
-            dependencies[stage.name] = {prev_task}
-            prev_task = stage.name
+                stage_key = f"{stage.name}-checkpoint-{token}"
+                stage_graph[stage_key] = (checkpoint, *checkpoint_args)
+            layers[stage_key] = stage_graph
+            dependencies[stage_key] = {config_key} | {prev_key}
+            prev_dependency = (stage_key,)
+            prev_key = stage_key
 
         hlg = HighLevelGraph(layers, dependencies)
-        delayed = Delayed(prev_token[0], hlg)
+        delayed = Delayed(prev_key, hlg)
         return delayed
 
     @staticmethod
