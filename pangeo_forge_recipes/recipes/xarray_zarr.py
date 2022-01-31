@@ -157,10 +157,14 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
     if config.cache_metadata:
         if config.metadata_cache is None:
             raise ValueError("metadata_cache is not set.")
-        logger.info(f"Caching metadata for input '{input_key!s}'")
-        with open_input(input_key, config=config) as ds:
-            input_metadata = ds.to_dict(data=False)
-            config.metadata_cache[_input_metadata_fname(input_key)] = input_metadata
+
+        if not _input_metadata_fname(input_key) in config.metadata_cache:
+            with open_input(input_key, config=config) as ds:
+                logger.info(f"Caching metadata for input '{input_key!s}'")
+                input_metadata = ds.to_dict(data=False)
+                config.metadata_cache[_input_metadata_fname(input_key)] = input_metadata
+        else:
+            logger.info(f"Metadata already ached for input '{input_key!s}'")
 
     if config.open_input_with_fsspec_reference:
         if config.file_pattern.is_opendap:
@@ -168,6 +172,13 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
         if config.metadata_cache is None:
             raise ValueError("Can't make references; no metadata_cache assigned")
         fname = config.file_pattern[input_key]
+
+        ref_fname = _input_reference_fname(input_key)
+
+        if ref_fname in config.metadata_cache:
+            logger.info("Metadata is already cached with fsspec_reference.")
+            return
+
         if config.input_cache is None:
             protocol = fsspec.utils.get_protocol(fname)
             url = unstrip_protocol(fname, protocol)
@@ -184,7 +195,6 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             **config.file_pattern.fsspec_open_kwargs,
         ) as fp:
             ref_data = create_hdf5_reference(fp, url, fname)
-        ref_fname = _input_reference_fname(input_key)
         config.metadata_cache[ref_fname] = ref_data
 
 
