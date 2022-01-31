@@ -49,12 +49,12 @@ SubsetSpec = Dict[str, int]
 
 
 def _input_metadata_fname(input_key: InputKey) -> str:
-    key_str = "-".join([f"{k.name}_{k.index}" for k in input_key])
+    key_str = "-".join([f"{k.name}_{k.index}" for k in sorted(input_key)])
     return "input-meta-" + key_str + ".json"
 
 
 def _input_reference_fname(input_key: InputKey) -> str:
-    key_str = "-".join([f"{k.name}_{k.index}" for k in input_key])
+    key_str = "-".join([f"{k.name}_{k.index}" for k in sorted(input_key)])
     return "input-reference-" + key_str + ".json"
 
 
@@ -157,10 +157,14 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
     if config.cache_metadata:
         if config.metadata_cache is None:
             raise ValueError("metadata_cache is not set.")
-        logger.info(f"Caching metadata for input '{input_key!s}'")
-        with open_input(input_key, config=config) as ds:
-            input_metadata = ds.to_dict(data=False)
-            config.metadata_cache[_input_metadata_fname(input_key)] = input_metadata
+
+        if not _input_metadata_fname(input_key) in config.metadata_cache:
+            with open_input(input_key, config=config) as ds:
+                logger.info(f"Caching metadata for input '{input_key!s}'")
+                input_metadata = ds.to_dict(data=False)
+                config.metadata_cache[_input_metadata_fname(input_key)] = input_metadata
+        else:
+            logger.info(f"Metadata already ached for input '{input_key!s}'")
 
     if config.open_input_with_fsspec_reference:
         if config.file_pattern.is_opendap:
@@ -168,6 +172,13 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
         if config.metadata_cache is None:
             raise ValueError("Can't make references; no metadata_cache assigned")
         fname = config.file_pattern[input_key]
+
+        ref_fname = _input_reference_fname(input_key)
+
+        if ref_fname in config.metadata_cache:
+            logger.info("Metadata is already cached with fsspec_reference.")
+            return
+
         if config.input_cache is None:
             protocol = fsspec.utils.get_protocol(fname)
             url = unstrip_protocol(fname, protocol)
@@ -184,7 +195,6 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             **config.file_pattern.fsspec_open_kwargs,
         ) as fp:
             ref_data = create_hdf5_reference(fp, url, fname)
-        ref_fname = _input_reference_fname(input_key)
         config.metadata_cache[ref_fname] = ref_data
 
 
@@ -577,9 +587,9 @@ def finalize_target(*, config: XarrayZarrRecipe) -> None:
         target_mapper = config.target.get_mapper()
         group = zarr.open(target_mapper, mode="a")
         # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/214
-        # intersect the dims from the array metadata with the Zarr group
+        # filter out the dims from the array metadata not in the Zarr group
         # to handle coordinateless dimensions.
-        dims = set(_gather_coordinate_dimensions(group)) & set(group)
+        dims = (dim for dim in _gather_coordinate_dimensions(group) if dim in group)
         for dim in dims:
             arr = group[dim]
             attrs = dict(arr.attrs)

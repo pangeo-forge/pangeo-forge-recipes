@@ -1,7 +1,6 @@
 """
 Filename / URL patterns.
 """
-
 import inspect
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -11,7 +10,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
-    Iterable,
+    FrozenSet,
     Iterator,
     List,
     Optional,
@@ -68,7 +67,7 @@ class MergeDim:
     operation: ClassVar[CombineOp] = CombineOp.MERGE
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class DimIndex:
     """Object used to index a single dimension of a FilePattern or Recipe Chunks.
 
@@ -92,27 +91,8 @@ class DimIndex:
         assert self.index < self.sequence_len
 
 
-class Index(tuple):
-    """A tuple of ``DimIndex`` objects.
-    The order of the indexes doesn't matter for comparision."""
-
-    def __new__(self, args: Iterable[DimIndex]):
-        # This validation really slows things down because we call Index a lot!
-        # if not all((isinstance(a, DimIndex) for a in args)):
-        #     raise ValueError("All arguments must be DimIndex.")
-        # args_set = set(args)
-        # if len(set(args_set)) < len(tuple(args)):
-        #     raise ValueError("Duplicate argument detected.")
-        return tuple.__new__(Index, args)
-
-    def __str__(self):
-        return ",".join(str(dim) for dim in self)
-
-    def __eq__(self, other):
-        return (set(self) == set(other)) and (len(self) == len(other))
-
-    def __hash__(self):
-        return hash(frozenset(self))
+class Index(FrozenSet[DimIndex]):
+    pass
 
 
 CombineDim = Union[MergeDim, ConcatDim]
