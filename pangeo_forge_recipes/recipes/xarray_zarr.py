@@ -553,9 +553,9 @@ def finalize_target(*, config: XarrayZarrRecipe) -> None:
         target_mapper = config.target.get_mapper()
         group = zarr.open(target_mapper, mode="a")
         # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/214
-        # intersect the dims from the array metadata with the Zarr group
+        # filter out the dims from the array metadata not in the Zarr group
         # to handle coordinateless dimensions.
-        dims = set(_gather_coordinate_dimensions(group)) & set(group)
+        dims = (dim for dim in _gather_coordinate_dimensions(group) if dim in group)
         for dim in dims:
             arr = group[dim]
             attrs = dict(arr.attrs)
