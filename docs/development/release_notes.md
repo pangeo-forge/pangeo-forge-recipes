@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.7.0 - 2022-02-03
+## v0.7.0 - 2022-02-14 ❤️
 
 - Apache Beam executor added. {issue}`169`. By [Alex Merose](https://github.com/alxmrs).
 - Dask executor updates. {pull}`260` {pull}`261`
