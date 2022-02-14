@@ -203,10 +203,54 @@ When we print `pattern` we see that it is a `FilePattern` object with 32 timeste
 
 
 ```python
-print(pattern)
+pattern.items
 ```
 
-    <FilePattern {'time': 32}>
+
+
+
+    <bound method FilePattern.items of <FilePattern {'time': 32}>>
+
+
+
+
+```python
+for key in pattern:
+    print(key)
+```
+
+    Index({DimIndex(name='time', index=0, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=1, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=2, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=3, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=4, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=5, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=6, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=7, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=8, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=9, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=10, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=11, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=12, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=13, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=14, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=15, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=16, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=17, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=18, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=19, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=20, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=21, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=22, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=23, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=24, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=25, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=26, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=27, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=28, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=29, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=30, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
+    Index({DimIndex(name='time', index=31, sequence_len=32, operation=<CombineOp.CONCAT: 2>)})
 
 
 ## Defining a Recipe Class object
@@ -234,4 +278,32 @@ And there you have it - your first recipe object! Inside that object is all the 
 
 In part 2 of the tutorial, we will use our recipe object, `recipe` to convert some data locally.
 
+### Code Summary
+The code written in part 1 could all be written together as:
 
+
+```python
+import pandas as pd
+
+from pangeo_forge_recipes.patterns import pattern_from_file_sequence
+from pangeo_forge_recipes.recipes import XarrayZarrRecipe
+```
+
+
+```python
+input_url_pattern = (
+    'https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/'
+    'v2.1/access/avhrr/{yyyymm}/oisst-avhrr-v02r01.{yyyymmdd}.nc'
+    )
+
+dates = pd.date_range('1982-01-01', '1982-02-01', freq='D')
+input_urls = [
+    input_url_pattern.format(
+        yyyymm=day.strftime('%Y%m'), yyyymmdd=day.strftime('%Y%m%d')
+    )
+    for day in dates
+]
+
+pattern = pattern_from_file_sequence(input_urls, 'time', nitems_per_file=1)
+recipe = XarrayZarrRecipe(pattern, inputs_per_chunk=10)
+```
