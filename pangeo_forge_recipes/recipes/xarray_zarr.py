@@ -25,7 +25,7 @@ from ..patterns import CombineOp, DimIndex, FilePattern, Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
-from .base import BaseRecipe, FilePatternMixin
+from .base import BaseRecipe, FilePatternMixin, TemporaryStorageMixin
 
 # use this filename to store global recipe metadata in the metadata_cache
 # it will be written once (by prepare_target) and read many times (by store_chunk)
@@ -610,7 +610,7 @@ _deprecation_message = (
 
 
 @dataclass
-class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
+class XarrayZarrRecipe(BaseRecipe, FilePatternMixin, TemporaryStorageMixin):
     """This configuration represents a dataset composed of many individual NetCDF files.
     This class uses Xarray to read and write data and writes its output to Zarr.
     The organization of the source files is described by the ``file_pattern``.

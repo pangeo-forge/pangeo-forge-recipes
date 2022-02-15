@@ -13,7 +13,7 @@ from ..executors.base import Pipeline, Stage
 from ..patterns import Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
-from .base import BaseRecipe, FilePatternMixin
+from .base import BaseRecipe, FilePatternMixin, TemporaryStorageMixin
 
 ChunkKey = Index
 
@@ -101,7 +101,7 @@ def hdf_reference_recipe_compiler(recipe: HDFReferenceRecipe) -> Pipeline:
 
 
 @dataclass
-class HDFReferenceRecipe(BaseRecipe, FilePatternMixin):
+class HDFReferenceRecipe(BaseRecipe, FilePatternMixin, TemporaryStorageMixin):
     """
     Generates reference files for each input netCDF, then combines
     into one ensemble output

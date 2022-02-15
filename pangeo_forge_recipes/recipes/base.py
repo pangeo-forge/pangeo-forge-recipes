@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import tempfile
 from abc import ABC
 from dataclasses import dataclass, replace
 from typing import Callable, ClassVar
 
+from fsspec.implementations.local import LocalFileSystem
+
 from ..executors.base import Pipeline
 from ..patterns import FilePattern, prune_pattern
+from ..storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
 
 
 @dataclass
@@ -53,3 +57,21 @@ class FilePatternMixin:
 
         new_pattern = prune_pattern(self.file_pattern, nkeep=nkeep)
         return replace(self, file_pattern=new_pattern)
+
+
+@dataclass
+class TemporaryStorageMixin:
+    def assign_temporary_storage(self):
+        """Assign temporary storage targets to a recipe instance for local testing and debugging.
+        """
+
+        fs_local = LocalFileSystem()
+
+        for target, storage_cls in {
+            "target": FSSpecTarget,
+            "input_cache": CacheFSSpecTarget,
+            "metadata_cache": MetadataTarget,
+        }.items():
+            if hasattr(self, target):
+                temp_dir = tempfile.TemporaryDirectory()
+                setattr(self, target, storage_cls(fs_local, temp_dir.name))
