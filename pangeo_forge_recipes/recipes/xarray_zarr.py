@@ -641,10 +641,12 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
        mapping dimension names to chunk size. When using a :class:`patterns.FilePattern` with
        a :class:`patterns.ConcatDim` that specifies ``n_items_per_file``, then you don't need
        to include the concat dim in ``target_chunks``.
-    :param target: A location in which to put the dataset. Can also be assigned at run time.
-    :param input_cache: A location in which to cache temporary data.
-    :param metadata_cache: A location in which to cache metadata for inputs and chunks.
-      Required if ``nitems_per_file=None`` on concat dim in file pattern.
+    :param storage_config: Defines locations for writing the output dataset, caching temporary data,
+      and for caching metadata for inputs and chunks. All three locations default to
+      ``tempdir.TemporaryDirectory``; this default config can be used for testing and debugging the
+      recipe. In an actual execution context, the default config is re-assigned to point to the
+      destination(s) of choice, which can be any combination of ``fsspec``-compatible storage
+      backends.
     :param cache_inputs: If ``True``, inputs are copied to ``input_cache`` before
       opening. If ``False``, try to open inputs directly from their source location.
     :param copy_input_to_local_file: Whether to copy the inputs to a temporary

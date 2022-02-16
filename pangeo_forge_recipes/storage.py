@@ -192,6 +192,7 @@ class StorageConfig:
     :param target: The destination to which to write the output data.
     :param cache: A location for caching source files.
     :param metadata: A location for recipes to cache metadata about source files.
+      Required if ``nitems_per_file=None`` on concat dim in file pattern.
     """
 
     target: FSSpecTarget
