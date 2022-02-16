@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import re
+import secrets
+import string
 import tempfile
 import time
 import unicodedata
@@ -13,6 +15,7 @@ from typing import Any, Iterator, Optional, Sequence, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
+from fsspec.implementations.local import LocalFileSystem
 
 logger = logging.getLogger(__name__)
 
@@ -196,26 +199,29 @@ class StorageConfig:
     metadata: Optional[MetadataTarget] = None
 
 
+tmpdir = tempfile.TemporaryDirectory()
+
+
+def _make_tmp_subdir() -> str:
+    # https://docs.python.org/3/library/secrets.html#recipes-and-best-practices
+    alphabet = string.ascii_letters + string.digits
+    subdir = "".join(secrets.choice(alphabet) for i in range(8))
+    path = os.path.join(tmpdir.name, subdir)
+    os.mkdir(path)
+    return path
+
+
 def temporary_storage_config():
     """A factory function for setting a default storage config on
     ``pangeo_forge_recipes.recipes.base.StorageMixin``.
     """
 
-    import tempfile
-
-    from fsspec.implementations.local import LocalFileSystem
-
     fs_local = LocalFileSystem()
 
-    global _target_dir, _cache_dir, _metadata_dir
-    _target_dir = tempfile.TemporaryDirectory()
-    _cache_dir = tempfile.TemporaryDirectory()
-    _metadata_dir = tempfile.TemporaryDirectory()
-
     return StorageConfig(
-        target=FSSpecTarget(fs_local, _target_dir.name),
-        cache=CacheFSSpecTarget(fs_local, _cache_dir.name),
-        metadata=MetadataTarget(fs_local, _metadata_dir.name),
+        target=FSSpecTarget(fs_local, _make_tmp_subdir()),
+        cache=CacheFSSpecTarget(fs_local, _make_tmp_subdir()),
+        metadata=MetadataTarget(fs_local, _make_tmp_subdir()),
     )
 
 
