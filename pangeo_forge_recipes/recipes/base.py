@@ -64,3 +64,11 @@ class StorageMixin:
     """
 
     storage_config: StorageConfig = field(default_factory=temporary_storage_config)
+
+    @property
+    def target(self):
+        return f"{self.storage_config.target.fs.protocol}://{self.storage_config.target.root_path}"
+
+    @property
+    def target_mapper(self):
+        return self.storage_config.target.get_mapper()

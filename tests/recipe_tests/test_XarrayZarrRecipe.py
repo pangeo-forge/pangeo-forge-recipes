@@ -2,6 +2,7 @@ from contextlib import nullcontext as does_not_raise
 from dataclasses import replace
 from unittest.mock import patch
 
+import fsspec
 import pytest
 import xarray as xr
 import zarr
@@ -116,15 +117,22 @@ def test_recipe(recipe_fixture, execute_recipe):
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
+@pytest.mark.parametrize("get_mapper_from", ["storage_config", "target", "target_mapper"])
 @pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
-def test_recipe_default_storage(recipe_fixture, execute_recipe):
+def test_recipe_default_storage(recipe_fixture, execute_recipe, get_mapper_from):
     """Test recipe default storage."""
 
     RecipeClass, file_pattern, kwargs, ds_expected, _ = recipe_fixture
     kwargs.pop("storage_config")
     rec = RecipeClass(file_pattern, **kwargs)
     execute_recipe(rec)
-    ds_actual = xr.open_zarr(rec.storage_config.target.get_mapper()).load()
+    if get_mapper_from == "storage_config":
+        mapper = rec.storage_config.target.get_mapper()
+    elif get_mapper_from == "target":
+        mapper = fsspec.get_mapper(rec.target)
+    elif get_mapper_from == "target_mapper":
+        mapper = rec.target_mapper
+    ds_actual = xr.open_zarr(mapper).load()
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
