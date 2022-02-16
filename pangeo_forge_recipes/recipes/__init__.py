@@ -11,15 +11,15 @@ def setup_logging(level: str = "INFO"):
     :param level: One of (in decreasing level of detail) ``"DEBUG"``, ``"INFO"``, or ``"WARNING"``.
       Defaults to ``"INFO"``.
     """
-
     import logging
-    import sys
 
-    formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
+    from rich.logging import RichHandler
+
     logger = logging.getLogger("pangeo_forge_recipes")
     if logger.hasHandlers():
         logger.handlers.clear()
     logger.setLevel(getattr(logging, level))
-    sh = logging.StreamHandler(stream=sys.stdout)
-    sh.setFormatter(formatter)
-    logger.addHandler(sh)
+    handler = RichHandler()
+    formatter = logging.Formatter("%(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
