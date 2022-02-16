@@ -249,7 +249,7 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
 
     if config.file_pattern.is_opendap:
-        if config.storage_config.cache:
+        if config.cache_inputs:
             raise ValueError("Can't cache opendap inputs")
         if config.copy_input_to_local_file:
             raise ValueError("Can't copy opendap inputs to local file")
