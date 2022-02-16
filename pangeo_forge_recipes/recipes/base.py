@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Callable, ClassVar
 
 from ..executors.base import Pipeline
 from ..patterns import FilePattern, prune_pattern
+from ..storage import StorageConfig, temporary_storage_config
 
 
 @dataclass
@@ -53,3 +54,13 @@ class FilePatternMixin:
 
         new_pattern = prune_pattern(self.file_pattern, nkeep=nkeep)
         return replace(self, file_pattern=new_pattern)
+
+
+@dataclass
+class StorageMixin:
+    """Provides the storage configuration for Pangeo Forge recipe classes.
+
+    :param storage_config: The storage configuration.
+    """
+
+    storage_config: StorageConfig = field(default_factory=temporary_storage_config)

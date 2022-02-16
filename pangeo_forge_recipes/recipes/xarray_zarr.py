@@ -23,9 +23,9 @@ from ..chunk_grid import ChunkGrid
 from ..executors.base import Pipeline, Stage
 from ..patterns import CombineOp, DimIndex, FilePattern, Index
 from ..reference import create_hdf5_reference, unstrip_protocol
-from ..storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget, file_opener
+from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
-from .base import BaseRecipe, FilePatternMixin
+from .base import BaseRecipe, FilePatternMixin, StorageMixin
 
 # use this filename to store global recipe metadata in the metadata_cache
 # it will be written once (by prepare_target) and read many times (by store_chunk)
@@ -144,58 +144,59 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
     if config.cache_inputs:
         if config.file_pattern.is_opendap:
             raise ValueError("Can't cache opendap inputs")
-        if config.input_cache is None:
+        if config.storage_config.cache is None:
             raise ValueError("input_cache is not set.")
         logger.info(f"Caching input '{input_key!s}'")
         fname = config.file_pattern[input_key]
-        config.input_cache.cache_file(
+        config.storage_config.cache.cache_file(
             fname,
             config.file_pattern.query_string_secrets,
             **config.file_pattern.fsspec_open_kwargs,
         )
 
     if config.cache_metadata:
-        if config.metadata_cache is None:
+        if config.storage_config.metadata is None:
             raise ValueError("metadata_cache is not set.")
 
-        if not _input_metadata_fname(input_key) in config.metadata_cache:
+        if not _input_metadata_fname(input_key) in config.storage_config.metadata:
             with open_input(input_key, config=config) as ds:
                 logger.info(f"Caching metadata for input '{input_key!s}'")
                 input_metadata = ds.to_dict(data=False)
-                config.metadata_cache[_input_metadata_fname(input_key)] = input_metadata
+                config.storage_config.metadata[_input_metadata_fname(input_key)] = input_metadata
         else:
             logger.info(f"Metadata already ached for input '{input_key!s}'")
 
     if config.open_input_with_fsspec_reference:
         if config.file_pattern.is_opendap:
             raise ValueError("Can't make references for opendap inputs")
-        if config.metadata_cache is None:
-            raise ValueError("Can't make references; no metadata_cache assigned")
+        if config.storage_config.metadata is None:
+            raise ValueError("Can't make references; no metadata cache assigned")
         fname = config.file_pattern[input_key]
 
         ref_fname = _input_reference_fname(input_key)
 
-        if ref_fname in config.metadata_cache:
+        if ref_fname in config.storage_config.metadata:
             logger.info("Metadata is already cached with fsspec_reference.")
             return
 
-        if config.input_cache is None:
+        if config.storage_config.cache is None:
             protocol = fsspec.utils.get_protocol(fname)
             url = unstrip_protocol(fname, protocol)
         else:
             url = unstrip_protocol(
-                config.input_cache._full_path(fname), config.input_cache.fs.protocol
+                config.storage_config.cache._full_path(fname),
+                config.storage_config.cache.fs.protocol,
             )
         with file_opener(
             fname,
-            cache=config.input_cache,
+            cache=config.storage_config.cache,
             copy_to_local=config.copy_input_to_local_file,
             bypass_open=False,
             secrets=config.file_pattern.query_string_secrets,
             **config.file_pattern.fsspec_open_kwargs,
         ) as fp:
             ref_data = create_hdf5_reference(fp, url, fname)
-        config.metadata_cache[ref_fname] = ref_data
+        config.storage_config.metadata[ref_fname] = ref_data
 
 
 def region_and_conflicts_for_chunk(
@@ -210,8 +211,8 @@ def region_and_conflicts_for_chunk(
             config.concat_dim
         ]  # type: ignore
     else:
-        assert config.metadata_cache is not None  # for mypy
-        global_metadata = config.metadata_cache[_GLOBAL_METADATA_KEY]
+        assert config.storage_config.metadata is not None  # for mypy
+        global_metadata = config.storage_config.metadata[_GLOBAL_METADATA_KEY]
         input_sequence_lens = global_metadata["input_sequence_lens"]
     total_len = sum(input_sequence_lens)
 
@@ -248,7 +249,7 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
 
     if config.file_pattern.is_opendap:
-        if config.input_cache:
+        if config.storage_config.cache:
             raise ValueError("Can't cache opendap inputs")
         if config.copy_input_to_local_file:
             raise ValueError("Can't copy opendap inputs to local file")
@@ -256,11 +257,11 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
             raise ValueError("Can't open opendap inputs with fsspec-reference-maker")
 
     if config.open_input_with_fsspec_reference:
-        if config.metadata_cache is None:
+        if config.storage_config.metadata is None:
             raise ValueError("metadata_cache is not set.")
         from fsspec.implementations.reference import ReferenceFileSystem
 
-        reference_data = config.metadata_cache[_input_reference_fname(input_key)]
+        reference_data = config.storage_config.metadata[_input_reference_fname(input_key)]
         # TODO: figure out how to set this for the cache target
         remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
         ref_fs = ReferenceFileSystem(
@@ -284,7 +285,7 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
 
     else:
 
-        cache = config.input_cache if config.cache_inputs else None
+        cache = config.storage_config.cache if config.cache_inputs else None
 
         with file_opener(
             fname,
@@ -411,10 +412,10 @@ def calculate_sequence_lens(
 
 
 def prepare_target(*, config: XarrayZarrRecipe) -> None:
-    if config.target is None:
+    if config.storage_config.target is None:
         raise ValueError("Cannot proceed without a target")
     try:
-        ds = open_target(config.target)
+        ds = open_target(config.storage_config.target)
         logger.info("Found an existing dataset in target")
         logger.debug(f"{ds}")
 
@@ -464,8 +465,8 @@ def prepare_target(*, config: XarrayZarrRecipe) -> None:
                     if config.concat_dim not in ds[v].dims:
                         ds[v].load()
 
-                target_mapper = config.target.get_mapper()
-                logger.info(f"Storing dataset in {config.target.root_path}")
+                target_mapper = config.storage_config.target.get_mapper()
+                logger.info(f"Storing dataset in {config.storage_config.target.root_path}")
                 logger.debug(f"{ds}")
                 with warnings.catch_warnings():
                     warnings.simplefilter(
@@ -476,23 +477,23 @@ def prepare_target(*, config: XarrayZarrRecipe) -> None:
     # Regardless of whether there is an existing dataset or we are creating a new one,
     # we need to expand the concat_dim to hold the entire expected size of the data
     input_sequence_lens = calculate_sequence_lens(
-        config.nitems_per_input, config.file_pattern, config.metadata_cache,
+        config.nitems_per_input, config.file_pattern, config.storage_config.metadata,
     )
     n_sequence = sum(input_sequence_lens)
     logger.info(f"Expanding target concat dim '{config.concat_dim}' to size {n_sequence}")
-    expand_target_dim(config.target, config.concat_dim, n_sequence)
+    expand_target_dim(config.storage_config.target, config.concat_dim, n_sequence)
     # TODO: handle possible subsetting
     # The init chunks might not cover the whole dataset along multiple dimensions!
 
     if config.cache_metadata:
         # if nitems_per_input is not constant, we need to cache this info
-        assert config.metadata_cache is not None  # for mypy
+        assert config.storage_config.metadata is not None  # for mypy
         recipe_meta = {"input_sequence_lens": input_sequence_lens}
-        config.metadata_cache[_GLOBAL_METADATA_KEY] = recipe_meta
+        config.storage_config.metadata[_GLOBAL_METADATA_KEY] = recipe_meta
 
 
 def store_chunk(chunk_key: ChunkKey, *, config: XarrayZarrRecipe) -> None:
-    if config.target is None:
+    if config.storage_config.target is None:
         raise ValueError("target has not been set.")
 
     with open_chunk(chunk_key, config=config) as ds_chunk:
@@ -500,7 +501,7 @@ def store_chunk(chunk_key: ChunkKey, *, config: XarrayZarrRecipe) -> None:
         to_drop = [v for v in ds_chunk.variables if config.concat_dim not in ds_chunk[v].dims]
         ds_chunk = ds_chunk.drop_vars(to_drop)
 
-        target_mapper = config.target.get_mapper()
+        target_mapper = config.storage_config.target.get_mapper()
         write_region, conflicts = region_and_conflicts_for_chunk(config, chunk_key)
 
         zgroup = zarr.open_group(target_mapper)
@@ -555,12 +556,12 @@ def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
 
 
 def finalize_target(*, config: XarrayZarrRecipe) -> None:
-    if config.target is None:
+    if config.storage_config.target is None:
         raise ValueError("target has not been set.")
 
     if config.consolidate_dimension_coordinates:
         logger.info("Consolidating dimension coordinate arrays")
-        target_mapper = config.target.get_mapper()
+        target_mapper = config.storage_config.target.get_mapper()
         group = zarr.open(target_mapper, mode="a")
         # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/214
         # filter out the dims from the array metadata not in the Zarr group
@@ -584,7 +585,7 @@ def finalize_target(*, config: XarrayZarrRecipe) -> None:
 
     if config.consolidate_zarr:
         logger.info("Consolidating Zarr metadata")
-        target_mapper = config.target.get_mapper()
+        target_mapper = config.storage_config.target.get_mapper()
         zarr.consolidate_metadata(target_mapper)
 
 
@@ -610,7 +611,7 @@ _deprecation_message = (
 
 
 @dataclass
-class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
+class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     """This configuration represents a dataset composed of many individual NetCDF files.
     This class uses Xarray to read and write data and writes its output to Zarr.
     The organization of the source files is described by the ``file_pattern``.
@@ -677,9 +678,6 @@ class XarrayZarrRecipe(BaseRecipe, FilePatternMixin):
 
     inputs_per_chunk: int = 1
     target_chunks: Dict[str, int] = field(default_factory=dict)
-    target: Optional[FSSpecTarget] = None
-    input_cache: Optional[CacheFSSpecTarget] = None
-    metadata_cache: Optional[MetadataTarget] = None
     cache_inputs: Optional[bool] = None
     copy_input_to_local_file: bool = False
     consolidate_zarr: bool = True

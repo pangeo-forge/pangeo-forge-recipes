@@ -182,6 +182,42 @@ class MetadataTarget(FSSpecTarget):
         return {k: json.loads(raw_bytes) for k, raw_bytes in all_meta_raw.items()}
 
 
+@dataclass
+class StorageConfig:
+    """A storage configuration container for recipe classes.
+
+    :param target: The destination to which to write the output data.
+    :param cache: A location for caching source files.
+    :param metadata: A location for recipes to cache metadata about source files.
+    """
+
+    target: FSSpecTarget
+    cache: Optional[CacheFSSpecTarget] = None
+    metadata: Optional[MetadataTarget] = None
+
+
+def temporary_storage_config():
+    """A factory function for setting a default storage config on
+    ``pangeo_forge_recipes.recipes.base.StorageMixin``.
+    """
+
+    import tempfile
+
+    from fsspec.implementations.local import LocalFileSystem
+
+    fs_local = LocalFileSystem()
+
+    target_dir = tempfile.TemporaryDirectory()
+    cache_dir = tempfile.TemporaryDirectory()
+    metadata_dir = tempfile.TemporaryDirectory()
+
+    return StorageConfig(
+        target=FSSpecTarget(fs_local, target_dir.name),
+        cache=CacheFSSpecTarget(fs_local, cache_dir.name),
+        metadata=MetadataTarget(fs_local, metadata_dir.name),
+    )
+
+
 @contextmanager
 def file_opener(
     fname: str,

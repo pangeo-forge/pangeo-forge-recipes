@@ -11,14 +11,13 @@ from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
+from pangeo_forge_recipes.storage import StorageConfig
 
 
 def make_netCDFtoZarr_recipe(
-    file_pattern, xarray_dataset, target, cache, metadata_target, extra_kwargs=None
+    file_pattern, xarray_dataset, target, cache, metadata, extra_kwargs=None
 ):
-    kwargs = dict(
-        inputs_per_chunk=1, target=target, input_cache=cache, metadata_cache=metadata_target,
-    )
+    kwargs = dict(inputs_per_chunk=1, storage_config=StorageConfig(target, cache, metadata))
     if extra_kwargs:
         kwargs.update(extra_kwargs)
     return XarrayZarrRecipe, file_pattern, kwargs, xarray_dataset, target
@@ -176,7 +175,7 @@ def test_recipe_caching_copying(recipe, execute_recipe, cache_inputs, copy_input
     RecipeClass, file_pattern, kwargs, ds_expected, target = recipe
 
     if not cache_inputs:
-        kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
+        kwargs["storage_config"].cache = None  # make sure recipe doesn't require input_cache
     rec = RecipeClass(
         file_pattern,
         **kwargs,
@@ -242,7 +241,7 @@ def do_actual_chunks_test(
     kwargs["inputs_per_chunk"] = inputs_per_chunk
     kwargs["subset_inputs"] = subset_inputs
     if specify_nitems_per_input:
-        kwargs["metadata_cache"] = None
+        kwargs["storage_config"].metadata = None
     else:
         # modify file_pattern in place to remove nitems_per_file; a bit hacky
         new_combine_dims = []
