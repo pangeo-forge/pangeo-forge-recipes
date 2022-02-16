@@ -116,6 +116,18 @@ def test_recipe(recipe_fixture, execute_recipe):
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
+@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
+def test_recipe_default_storage(recipe_fixture, execute_recipe):
+    """Test recipe default storage."""
+
+    RecipeClass, file_pattern, kwargs, ds_expected, _ = recipe_fixture
+    kwargs.pop("storage_config")
+    rec = RecipeClass(file_pattern, **kwargs)
+    execute_recipe(rec)
+    ds_actual = xr.open_zarr(rec.storage_config.target.get_mapper()).load()
+    xr.testing.assert_identical(ds_actual, ds_expected)
+
+
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
 def test_recipe_manual_execution(recipe_fixture):
     """The basic recipe test. Use this as a template for other tests."""
