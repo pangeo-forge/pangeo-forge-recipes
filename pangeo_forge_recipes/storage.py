@@ -207,14 +207,15 @@ def temporary_storage_config():
 
     fs_local = LocalFileSystem()
 
-    target_dir = tempfile.TemporaryDirectory()
-    cache_dir = tempfile.TemporaryDirectory()
-    metadata_dir = tempfile.TemporaryDirectory()
+    global _target_dir, _cache_dir, _metadata_dir
+    _target_dir = tempfile.TemporaryDirectory()
+    _cache_dir = tempfile.TemporaryDirectory()
+    _metadata_dir = tempfile.TemporaryDirectory()
 
     return StorageConfig(
-        target=FSSpecTarget(fs_local, target_dir.name),
-        cache=CacheFSSpecTarget(fs_local, cache_dir.name),
-        metadata=MetadataTarget(fs_local, metadata_dir.name),
+        target=FSSpecTarget(fs_local, _target_dir.name),
+        cache=CacheFSSpecTarget(fs_local, _cache_dir.name),
+        metadata=MetadataTarget(fs_local, _metadata_dir.name),
     )
 
 
