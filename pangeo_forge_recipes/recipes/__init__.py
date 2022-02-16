@@ -13,13 +13,19 @@ def setup_logging(level: str = "INFO"):
     """
     import logging
 
-    from rich.logging import RichHandler
+    try:
+        from rich.logging import RichHandler
+
+        handler = RichHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+    except ImportError:
+        import sys
+
+        handler = logging.StreamHandler(stream=sys.stdout)
+        handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
 
     logger = logging.getLogger("pangeo_forge_recipes")
     if logger.hasHandlers():
         logger.handlers.clear()
     logger.setLevel(getattr(logging, level))
-    handler = RichHandler()
-    formatter = logging.Formatter("%(message)s")
-    handler.setFormatter(formatter)
     logger.addHandler(handler)
