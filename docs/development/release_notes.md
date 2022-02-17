@@ -1,5 +1,10 @@
 # Release Notes
 
+## v0.8.0 - 2022-02-17
+
+- **Breaking change:** Replace recipe classes' storage attibutes with `.storage_config` of type {class}`pangeo_forge_recipes.storage.StorageConfig`. {pull}`288`
+- Add `setup_logging` convenience function. {pull}`287`
+
 ## v0.7.0 - 2022-02-14 ❤️
 
 - Apache Beam executor added. {issue}`169`. By [Alex Merose](https://github.com/alxmrs).
