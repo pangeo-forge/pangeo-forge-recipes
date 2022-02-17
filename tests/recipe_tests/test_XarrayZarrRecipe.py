@@ -14,7 +14,7 @@ from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim
 from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe, calculate_sequence_lens
-from pangeo_forge_recipes.storage import StorageConfig
+from pangeo_forge_recipes.storage import MetadataTarget, StorageConfig
 
 
 def make_netCDFtoZarr_recipe(
@@ -464,12 +464,8 @@ def test_calculate_sequence_length(calc_sequence_length_fixture):
 
     # Cache metadata, if necessary.
     if not nitems_per_input:
-        recipe = XarrayZarrRecipe(
-            file_pattern,
-            target_chunks={"time": 1},
-            cache_inputs=False,
-            metadata_cache=metadata_cache,
-        )
+        recipe = XarrayZarrRecipe(file_pattern, target_chunks={"time": 1}, cache_inputs=False,)
+        recipe.storage_config.metadata = metadata_cache
         for input_key in recipe.iter_inputs():
             recipe.cache_input(input_key)
 
