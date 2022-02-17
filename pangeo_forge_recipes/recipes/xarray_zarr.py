@@ -372,11 +372,20 @@ def open_chunk(chunk_key: ChunkKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
         yield ds
 
 
-def get_input_meta(metadata_cache: Optional[MetadataTarget], *input_keys: InputKey,) -> Dict:
+def get_input_meta(metadata_cache: Optional[MetadataTarget], file_pattern: FilePattern,) -> Dict:
     # getitems should be async; much faster than serial calls
     if metadata_cache is None:
         raise ValueError("metadata_cache is not set.")
-    return metadata_cache.getitems([_input_metadata_fname(k) for k in input_keys])
+    return metadata_cache.getitems([_input_metadata_fname(k) for k in file_pattern])
+
+
+def _get_fname_from_error_pos(pos: Tuple[int, int], file_pattern: FilePattern) -> str:
+    kwargs = {}
+    for idx, p in enumerate(pos):
+        dim = file_pattern.combine_dims[idx]
+        kwargs.update({dim.name: dim.keys[p]})
+
+    return file_pattern.format_function(**kwargs)
 
 
 def calculate_sequence_lens(
@@ -394,20 +403,35 @@ def calculate_sequence_lens(
 
     # read per-input metadata; this is distinct from global metadata
     # get the sequence length of every file
-    # this line could become problematic for large (> 10_000) lists of files
-    input_meta = get_input_meta(metadata_cache, *file_pattern)
+    input_meta = get_input_meta(metadata_cache, file_pattern)
     # use a numpy array to allow reshaping
     all_lens = np.array([m["dims"][concat_dim] for m in input_meta.values()])
     all_lens.shape = list(file_pattern.dims.values())
 
+    if len(all_lens.shape) == 1:
+        all_lens = np.expand_dims(all_lens, 1)
+
     # check that all lens are the same along the concat dim
-    concat_dim_axis = list(file_pattern.dims).index(concat_dim)
-    selector = [slice(0, 1)] * len(file_pattern.dims)
-    selector[concat_dim_axis] = slice(None)  # this should broadcast correctly agains all_lens
-    sequence_lens = all_lens[tuple(selector)]
-    if not (all_lens == sequence_lens).all():
-        raise ValueError(f"Inconsistent sequence lengths found: f{all_lens}")
-    return np.atleast_1d(sequence_lens.squeeze()).tolist()
+    unique_vec, unique_idx, unique_counts = np.unique(
+        all_lens, axis=1, return_index=True, return_counts=True
+    )
+
+    if len(unique_idx) > 1:
+        correct_col = all_lens[:, unique_idx[np.argmax(unique_counts)]]
+        err_idx = np.where(np.expand_dims(correct_col, 1) != all_lens)
+        err_pos = list(zip(*err_idx))
+        # present a list of problematic files to the user, given the file pattern.
+        file_list = "\n".join(
+            [f"- {_get_fname_from_error_pos(epos, file_pattern)!r}" for epos in err_pos]
+        )
+        raise ValueError(
+            f"Inconsistent sequence lengths between indices {unique_idx} of the concat dim."
+            f"\nValue(s) {all_lens[err_idx]} at position(s) {err_pos} are different from the rest."
+            f"\nPlease check the following file(s) for data errors:"
+            f"\n{file_list}"
+            f"\n{all_lens}"
+        )
+    return np.atleast_1d(unique_vec.squeeze()).tolist()
 
 
 def prepare_target(*, config: XarrayZarrRecipe) -> None:
