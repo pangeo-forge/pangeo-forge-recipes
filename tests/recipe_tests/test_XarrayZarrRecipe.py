@@ -1,3 +1,5 @@
+import dataclasses
+import datetime
 from contextlib import nullcontext as does_not_raise
 from dataclasses import replace
 from unittest.mock import patch
@@ -10,8 +12,8 @@ import zarr
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.patterns import FilePattern
-from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim
+from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe, calculate_sequence_lens
 from pangeo_forge_recipes.storage import StorageConfig
 
 
@@ -424,3 +426,147 @@ def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_das
         execute_recipe_no_dask(recipe)
 
     assert p.call_args[1]["timeout"] == 1
+
+
+@pytest.fixture(params=[True, False])
+def nitems_exists(request):
+    return request.param
+
+
+@pytest.fixture()
+def calc_sequence_length_fixture(netcdf_local_file_pattern, tmp_metadata_target, nitems_exists):
+    concat_dim, *rest = netcdf_local_file_pattern.combine_dims
+    len_input = concat_dim.nitems_per_file
+
+    file_pattern = netcdf_local_file_pattern
+    if not nitems_exists:
+        # Make a copy of the file pattern without `nitems_per_file` in the ConcatDim.
+        file_pattern = FilePattern(
+            netcdf_local_file_pattern.format_function,
+            dataclasses.replace(concat_dim, nitems_per_file=None),
+            *rest,
+            fsspec_open_kwargs=netcdf_local_file_pattern.fsspec_open_kwargs,
+            query_string_secrets=netcdf_local_file_pattern.query_string_secrets,
+            is_opendap=netcdf_local_file_pattern.is_opendap,
+        )
+
+    n_inputs = file_pattern.dims[concat_dim.name]
+
+    nitems_per_file = None
+    if nitems_exists:
+        nitems_per_file = len_input
+
+    return nitems_per_file, file_pattern, tmp_metadata_target, [len_input] * n_inputs
+
+
+def test_calculate_sequence_length(calc_sequence_length_fixture):
+    (nitems_per_input, file_pattern, metadata_cache, expected) = calc_sequence_length_fixture
+
+    # Cache metadata, if necessary.
+    if not nitems_per_input:
+        recipe = XarrayZarrRecipe(
+            file_pattern,
+            target_chunks={"time": 1},
+            cache_inputs=False,
+            metadata_cache=metadata_cache,
+        )
+        for input_key in recipe.iter_inputs():
+            recipe.cache_input(input_key)
+
+    actual = calculate_sequence_lens(nitems_per_input, file_pattern, metadata_cache)
+
+    assert actual == expected
+
+
+def test_calc_sequence_length_errors_no_metadata():
+    file_pattern = FilePattern(
+        lambda time, variable: f"tmp/{time.date()!s}_{variable}",
+        ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 11)]),
+        MergeDim("variable", ["foo", "bar"]),
+    )
+    with pytest.raises(ValueError, match="metadata_cache is not set"):
+        calculate_sequence_lens(None, file_pattern, None)
+
+
+def test_calc_sequence_length_errors_inconsistent_lengths(tmp_metadata_target, monkeypatch):
+    file_pattern = FilePattern(
+        lambda time, variable: f"tmp/{time.date()!s}_{variable}",
+        ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 5)]),
+        MergeDim("variable", ["foo", "bar", "baz"]),
+    )
+
+    def mock_getitems(*args):
+        return {
+            "a": {"dims": {"time": [1] * 3, "variables": []}},
+            "b": {"dims": {"time": [2] * 3, "variables": []}},
+            "c": {"dims": {"time": [7] + [3] * 2, "variables": []}},  # Inconsistent sequence length
+            "d": {"dims": {"time": [4] * 3, "variables": []}},
+        }
+
+    monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
+
+    with pytest.raises(ValueError) as execinfo:
+        calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
+
+    msg = execinfo.value.args[0]
+    assert "Inconsistent sequence lengths between indices [1 0] of the concat dim." in msg
+    assert "Value(s) [7] at position(s) [(2, 0)] are different from the rest." in msg
+    assert "- 'tmp/2021-01-03_foo'" in msg
+
+
+def test_calc_sequence_length_errors_multiple_inconsistent_lengths(
+    tmp_metadata_target, monkeypatch
+):
+    file_pattern = FilePattern(
+        lambda time, variable: f"tmp/{time.date()!s}_{variable}",
+        ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 5)]),
+        MergeDim("variable", ["foo", "bar", "baz"]),
+    )
+
+    def mock_getitems(*args):
+        return {
+            "a": {"dims": {"time": [1] * 3, "variables": []}},
+            "b": {"dims": {"time": [2] * 3, "variables": []}},
+            "c": {"dims": {"time": [7] + [3] * 2, "variables": []}},  # Inconsistent sequence length
+            "d": {
+                "dims": {"time": [4] * 2 + [10], "variables": []}
+            },  # Inconsistent sequence length
+        }
+
+    monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
+
+    with pytest.raises(ValueError) as execinfo:
+        calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
+
+    msg = execinfo.value.args[0]
+    assert "Inconsistent sequence lengths between indices [1 2 0] of the concat dim." in msg
+    assert "Value(s) [ 7 10] at position(s) [(2, 0), (3, 2)] are different from the rest." in msg
+    assert "- 'tmp/2021-01-03_foo'" in msg
+    assert "- 'tmp/2021-01-04_baz'" in msg
+
+
+def test_calc_sequence_length_errors_inconsistent_lengths_reverse_combine_dim_order(
+    tmp_metadata_target, monkeypatch
+):
+    file_pattern = FilePattern(
+        lambda variable, time: f"tmp/{time.date()!s}_{variable}",
+        MergeDim("variable", ["foo", "bar", "baz"]),
+        ConcatDim("time", [datetime.datetime(year=2021, month=1, day=d) for d in range(1, 5)]),
+    )
+
+    def mock_getitems(*args):
+        return {
+            "a": {"dims": {"variables": [], "time": [1] * 4}},
+            "b": {"dims": {"variables": [], "time": [2] * 3 + [5]}},  # Inconsistent sequence length
+            "c": {"dims": {"variables": [], "time": [3] * 4}},
+        }
+
+    monkeypatch.setattr(MetadataTarget, "getitems", mock_getitems)
+
+    with pytest.raises(ValueError) as execinfo:
+        calculate_sequence_lens(None, file_pattern, tmp_metadata_target)
+
+    msg = execinfo.value.args[0]
+    assert "Inconsistent sequence lengths between indices [0 3] of the concat dim." in msg
+    assert "Value(s) [5] at position(s) [(1, 3)] are different from the rest." in msg
+    assert "- 'tmp/2021-01-04_bar'" in msg
