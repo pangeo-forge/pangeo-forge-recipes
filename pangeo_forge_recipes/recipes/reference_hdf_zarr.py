@@ -12,8 +12,8 @@ from fsspec_reference_maker.combine import MultiZarrToZarr
 from ..executors.base import Pipeline, Stage
 from ..patterns import Index
 from ..reference import create_hdf5_reference, unstrip_protocol
-from ..storage import FSSpecTarget, MetadataTarget, file_opener
-from .base import BaseRecipe, FilePatternMixin
+from ..storage import file_opener
+from .base import BaseRecipe, FilePatternMixin, StorageMixin
 
 ChunkKey = Index
 
@@ -24,7 +24,7 @@ def no_op(*_, **__) -> None:
 
 
 def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
-    assert config.metadata_cache is not None, "metadata_cache is required"
+    assert config.storage_config.metadata is not None, "metadata_cache is required"
     fname = config.file_pattern[chunk_key]
     ref_fname = os.path.basename(fname + ".json")
     with file_opener(fname, **config.netcdf_storage_options) as fp:
@@ -32,12 +32,12 @@ def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
         if protocol is None:
             raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
-        config.metadata_cache[ref_fname] = create_hdf5_reference(fp, target_url, fname)
+        config.storage_config.metadata[ref_fname] = create_hdf5_reference(fp, target_url, fname)
 
 
 def finalize(config: HDFReferenceRecipe):
-    assert config.target is not None, "target is required"
-    assert config.metadata_cache is not None, "metadata_cache is required"
+    assert config.storage_config.target is not None, "target is required"
+    assert config.storage_config.metadata is not None, "metadata_cache is required"
     remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
     concat_args = config.xarray_concat_args.copy()
     if "dim" in concat_args:
@@ -48,7 +48,9 @@ def finalize(config: HDFReferenceRecipe):
     concat_args["dim"] = config.file_pattern.concat_dims[0]  # there should only be one
 
     files = list(
-        config.metadata_cache.getitems(list(config.metadata_cache.get_mapper())).values()
+        config.storage_config.metadata.getitems(
+            list(config.storage_config.metadata.get_mapper())
+        ).values()
     )  # returns dicts from remote
     if len(files) == 1:
         out = files[0]
@@ -63,9 +65,9 @@ def finalize(config: HDFReferenceRecipe):
         # mzz does not support directly writing to remote yet
         # get dict version and push it
         out = mzz.translate(None, template_count=config.template_count)
-    fs = config.target.fs
+    fs = config.storage_config.target.fs
     protocol = fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0]
-    with config.target.open(config.output_json_fname, mode="wt") as f:
+    with config.storage_config.target.open(config.output_json_fname, mode="wt") as f:
         f.write(json.dumps(out))
     spec = {
         "sources": {
@@ -75,7 +77,7 @@ def finalize(config: HDFReferenceRecipe):
                 "args": {
                     "urlpath": "reference://",
                     "storage_options": {
-                        "fo": config.target._full_path(config.output_json_fname),
+                        "fo": config.storage_config.target._full_path(config.output_json_fname),
                         "target_protocol": protocol,
                         "target_options": config.output_storage_options,
                         "remote_protocol": remote_protocol,
@@ -88,7 +90,7 @@ def finalize(config: HDFReferenceRecipe):
             }
         }
     }
-    with config.target.open(config.output_intake_yaml_fname, mode="wt") as f:
+    with config.storage_config.target.open(config.output_intake_yaml_fname, mode="wt") as f:
         yaml.dump(spec, f, default_flow_style=False)
 
 
@@ -101,7 +103,7 @@ def hdf_reference_recipe_compiler(recipe: HDFReferenceRecipe) -> Pipeline:
 
 
 @dataclass
-class HDFReferenceRecipe(BaseRecipe, FilePatternMixin):
+class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     """
     Generates reference files for each input netCDF, then combines
     into one ensemble output
@@ -120,9 +122,11 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternMixin):
         Paths should include protocol specifier, e.g. `https://`
     :param output_json_fname: The name of the json file in which to store the reference filesystem.
     :param output_intake_yaml_fname: The name of the generated intake catalog file.
-    :param target: Final storage location in which to put the reference dataset files
-        (json and yaml).
-    :param metadata_cache: A location in which to cache metadata for files.
+    :param storage_config: Defines locations for writing the reference dataset files (json and yaml)
+      and for caching metadata for files. Both locations default to ``tempdir.TemporaryDirectory``;
+      this default config can be used for testing and debugging the recipe. In an actual execution
+      context, the default config is re-assigned to point to the destination(s) of choice, which can
+      be any combination of ``fsspec``-compatible storage backends.
     :param netcdf_storage_options: dict of kwargs for creating fsspec
         instance to read original data files
     :param inline_threshold: blocks with fewer bytes than this will be
@@ -148,8 +152,6 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternMixin):
     #  also supports TIFF and grib2 (and more coming)
     output_json_fname: str = "reference.json"
     output_intake_yaml_fname: str = "reference.yaml"
-    target: Optional[FSSpecTarget] = None
-    metadata_cache: Optional[MetadataTarget] = None
     netcdf_storage_options: dict = field(default_factory=dict)
     inline_threshold: int = 500
     output_storage_options: dict = field(default_factory=dict)

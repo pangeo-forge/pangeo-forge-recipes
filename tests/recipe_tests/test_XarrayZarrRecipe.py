@@ -4,6 +4,7 @@ from contextlib import nullcontext as does_not_raise
 from dataclasses import replace
 from unittest.mock import patch
 
+import fsspec
 import pytest
 import xarray as xr
 import zarr
@@ -13,15 +14,13 @@ from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim
 from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe, calculate_sequence_lens
-from pangeo_forge_recipes.storage import MetadataTarget
+from pangeo_forge_recipes.storage import MetadataTarget, StorageConfig
 
 
 def make_netCDFtoZarr_recipe(
-    file_pattern, xarray_dataset, target, cache, metadata_target, extra_kwargs=None
+    file_pattern, xarray_dataset, target, cache, metadata, extra_kwargs=None
 ):
-    kwargs = dict(
-        inputs_per_chunk=1, target=target, input_cache=cache, metadata_cache=metadata_target,
-    )
+    kwargs = dict(inputs_per_chunk=1, storage_config=StorageConfig(target, cache, metadata))
     if extra_kwargs:
         kwargs.update(extra_kwargs)
     return XarrayZarrRecipe, file_pattern, kwargs, xarray_dataset, target
@@ -120,6 +119,25 @@ def test_recipe(recipe_fixture, execute_recipe):
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
+@pytest.mark.parametrize("get_mapper_from", ["storage_config", "target", "target_mapper"])
+@pytest.mark.parametrize("recipe_fixture", recipes_no_subset)
+def test_recipe_default_storage(recipe_fixture, execute_recipe, get_mapper_from):
+    """Test recipe default storage."""
+
+    RecipeClass, file_pattern, kwargs, ds_expected, _ = recipe_fixture
+    kwargs.pop("storage_config")
+    rec = RecipeClass(file_pattern, **kwargs)
+    execute_recipe(rec)
+    if get_mapper_from == "storage_config":
+        mapper = rec.storage_config.target.get_mapper()
+    elif get_mapper_from == "target":
+        mapper = fsspec.get_mapper(rec.target)
+    elif get_mapper_from == "target_mapper":
+        mapper = rec.target_mapper
+    ds_actual = xr.open_zarr(mapper).load()
+    xr.testing.assert_identical(ds_actual, ds_expected)
+
+
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
 def test_recipe_manual_execution(recipe_fixture):
     """The basic recipe test. Use this as a template for other tests."""
@@ -179,7 +197,7 @@ def test_recipe_caching_copying(recipe, execute_recipe, cache_inputs, copy_input
     RecipeClass, file_pattern, kwargs, ds_expected, target = recipe
 
     if not cache_inputs:
-        kwargs.pop("input_cache")  # make sure recipe doesn't require input_cache
+        kwargs["storage_config"].cache = None  # make sure recipe doesn't require input_cache
     rec = RecipeClass(
         file_pattern,
         **kwargs,
@@ -245,7 +263,7 @@ def do_actual_chunks_test(
     kwargs["inputs_per_chunk"] = inputs_per_chunk
     kwargs["subset_inputs"] = subset_inputs
     if specify_nitems_per_input:
-        kwargs["metadata_cache"] = None
+        kwargs["storage_config"].metadata = None
     else:
         # modify file_pattern in place to remove nitems_per_file; a bit hacky
         new_combine_dims = []
@@ -446,12 +464,8 @@ def test_calculate_sequence_length(calc_sequence_length_fixture):
 
     # Cache metadata, if necessary.
     if not nitems_per_input:
-        recipe = XarrayZarrRecipe(
-            file_pattern,
-            target_chunks={"time": 1},
-            cache_inputs=False,
-            metadata_cache=metadata_cache,
-        )
+        recipe = XarrayZarrRecipe(file_pattern, target_chunks={"time": 1}, cache_inputs=False,)
+        recipe.storage_config.metadata = metadata_cache
         for input_key in recipe.iter_inputs():
             recipe.cache_input(input_key)
 
