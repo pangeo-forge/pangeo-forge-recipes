@@ -1,8 +1,16 @@
 # Release Notes
 
-## v0.7.0 - unreleased
+## v0.8.0 - 2022-02-17
+
+- **Breaking change:** Replace recipe classes' storage attibutes with `.storage_config` of type {class}`pangeo_forge_recipes.storage.StorageConfig`. {pull}`288`
+- Add `setup_logging` convenience function. {pull}`287`
+
+## v0.7.0 - 2022-02-14 ❤️
 
 - Apache Beam executor added. {issue}`169`. By [Alex Merose](https://github.com/alxmrs).
+- Dask executor updates. {pull}`260` {pull}`261`
+- Index type update. {pull}`257`
+- Fix incompatibility with `fsspec>=2021.11.1`. {pull}`247`
 
 ## v0.6.1 - 2021-10-25
 

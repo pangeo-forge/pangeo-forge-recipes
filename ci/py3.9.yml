@@ -11,8 +11,8 @@ dependencies:
   - codecov
   - dask
   - distributed
-  - fsspec>=2021.6.0
-  - gcsfs
+  - fsspec>=2022.1.0
+  - gcsfs>=2022.1.0
   - graphviz  # needed for building tutorial notebooks
   - h5netcdf
   - h5py>=3.3.0
@@ -38,7 +38,7 @@ dependencies:
   - requests
   - rechunker>=0.4.2
   - scipy
-  - s3fs
+  - s3fs>=2022.1.0
   - setuptools
   - toolz
   - xarray>=0.18.0
