@@ -15,7 +15,7 @@ The introduction tutorial assumes that you already have `pangeo-forge-recipes` i
 
 ```{toctree}
 :maxdepth: 1
-:glob:
 
 intro_tutorial_part1
+intro_tutorial_part2
 ```
