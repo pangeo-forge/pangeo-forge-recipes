@@ -25,7 +25,7 @@ master_doc = "index"
 
 # we always have to manually run the notebooks because they are slow / expensive
 jupyter_execute_notebooks = "auto"
-execution_excludepatterns = ["tutorials/xarray_zarr/*", "tutorials/hdf_reference/*"]
+execution_excludepatterns = ["tutorials/xarray_zarr/*", "tutorials/hdf_reference/*", "introduction_tutorial/*"]
 
 # -- Options for HTML output -------------------------------------------------
 
