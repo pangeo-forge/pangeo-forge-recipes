@@ -54,7 +54,7 @@ If you are new to Pangeo Forge and looking to get involved, we suggest getting s
 :maxdepth: 2
 
 what_is_pangeo_forge
-intro_tutorial
+introduction_tutorial/index
 recipe_user_guide/index
 cloud_automation_user_guide/index
 tutorials/index
