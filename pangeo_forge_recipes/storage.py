@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import re
+import secrets
+import string
 import tempfile
 import time
 import unicodedata
@@ -13,6 +15,7 @@ from typing import Any, Iterator, Optional, Sequence, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
+from fsspec.implementations.local import LocalFileSystem
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +183,47 @@ class MetadataTarget(FSSpecTarget):
         mapper = self.get_mapper()
         all_meta_raw = mapper.getitems(keys)
         return {k: json.loads(raw_bytes) for k, raw_bytes in all_meta_raw.items()}
+
+
+@dataclass
+class StorageConfig:
+    """A storage configuration container for recipe classes.
+
+    :param target: The destination to which to write the output data.
+    :param cache: A location for caching source files.
+    :param metadata: A location for recipes to cache metadata about source files.
+      Required if ``nitems_per_file=None`` on concat dim in file pattern.
+    """
+
+    target: FSSpecTarget
+    cache: Optional[CacheFSSpecTarget] = None
+    metadata: Optional[MetadataTarget] = None
+
+
+tmpdir = tempfile.TemporaryDirectory()
+
+
+def _make_tmp_subdir() -> str:
+    # https://docs.python.org/3/library/secrets.html#recipes-and-best-practices
+    alphabet = string.ascii_letters + string.digits
+    subdir = "".join(secrets.choice(alphabet) for i in range(8))
+    path = os.path.join(tmpdir.name, subdir)
+    os.mkdir(path)
+    return path
+
+
+def temporary_storage_config():
+    """A factory function for setting a default storage config on
+    ``pangeo_forge_recipes.recipes.base.StorageMixin``.
+    """
+
+    fs_local = LocalFileSystem()
+
+    return StorageConfig(
+        target=FSSpecTarget(fs_local, _make_tmp_subdir()),
+        cache=CacheFSSpecTarget(fs_local, _make_tmp_subdir()),
+        metadata=MetadataTarget(fs_local, _make_tmp_subdir()),
+    )
 
 
 @contextmanager
