@@ -1,4 +1,4 @@
-# Installing Pangeo Forge
+# Installing Pangeo Forge Recipes
 
 To get set up Pangeo Forge you'll need to install the `pangeo-forge-recipes` library. The recommended way to do that is with `pip`.
 
