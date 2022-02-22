@@ -90,6 +90,12 @@ def test_chunk_grid_from_uniform_grid():
     cg2 = ChunkGrid.from_uniform_grid({"x": (2, 4), "y": (3, 10)})
     assert cg1 == cg2
 
+    # test for https://github.com/pangeo-forge/pangeo-forge-recipes/issues/279
+    # create a chunksize greater than dimsize
+    cga = ChunkGrid.from_uniform_grid({"x": (999, 2)})
+    cgb = ChunkGrid({"x": (2,)})  # should be only one chunk
+    assert cga == cgb
+
 
 def test_chunk_grid_consolidate_subset():
     cg = ChunkGrid({"x": (2, 4, 3), "time": (7, 8)})
