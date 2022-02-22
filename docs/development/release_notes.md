@@ -1,5 +1,10 @@
 # Release Notes
 
+## v0.8.1 - Unreleased
+
+- Fixed bug where recipes would fail if the target chunks exceeded the full
+  array length. {issue}`279`
+
 ## v0.8.0 - 2022-02-17
 
 - **Breaking change:** Replace recipe classes' storage attibutes with `.storage_config` of type {class}`pangeo_forge_recipes.storage.StorageConfig`. {pull}`288`
