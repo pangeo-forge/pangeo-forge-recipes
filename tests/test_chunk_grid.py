@@ -96,6 +96,11 @@ def test_chunk_grid_from_uniform_grid():
     cgb = ChunkGrid({"x": (2,)})  # should be only one chunk
     assert cga == cgb
 
+    with pytest.raises(ValueError):
+        _ = ChunkGrid.from_uniform_grid({"x": (0, 2)})
+    with pytest.raises(ValueError):
+        _ = ChunkGrid.from_uniform_grid({"x": (2, 0)})
+
 
 def test_chunk_grid_consolidate_subset():
     cg = ChunkGrid({"x": (2, 4, 3), "time": (7, 8)})
