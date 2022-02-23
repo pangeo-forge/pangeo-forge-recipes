@@ -1,5 +1,9 @@
 # Release Notes
 
+## v0.8.2 - 2022-02-23
+
+- Removed click from dependencies and removed cli entrypoint.
+
 ## v0.8.1 - 2022-02-23
 
 - Fixed dependency issue with pip installation.
