@@ -1,7 +1,8 @@
 # Release Notes
 
-## v0.8.1 - Unreleased
+## v0.8.1 - 2022-02-23
 
+- Fixed dependency issue with pip installation.
 - Fixed bug where recipes would fail if the target chunks exceeded the full
   array length. {issue}`279`
 

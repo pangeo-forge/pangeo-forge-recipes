@@ -1,7 +1,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "Pangeo Forge"
-copyright = "2020, Pangeo Community"
+copyright = "2021, Pangeo Community"
 author = "Pangeo Community"
 
 # -- General configuration ---------------------------------------------------
