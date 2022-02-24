@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.8.2 - 2022-02-23
+
+- Removed click from dependencies and removed cli entrypoint.
+
+## v0.8.1 - 2022-02-23
+
+- Fixed dependency issue with pip installation.
+- Fixed bug where recipes would fail if the target chunks exceeded the full
+  array length. {issue}`279`
+
 ## v0.8.0 - 2022-02-17
 
 - **Breaking change:** Replace recipe classes' storage attibutes with `.storage_config` of type {class}`pangeo_forge_recipes.storage.StorageConfig`. {pull}`288`

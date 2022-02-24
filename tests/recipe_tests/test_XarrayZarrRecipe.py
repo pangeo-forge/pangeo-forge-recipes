@@ -168,11 +168,14 @@ def test_recipe_with_references(recipe_fixture, execute_recipe):
 
 
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
-@pytest.mark.parametrize("nkeep", [1, 2])
-def test_prune_recipe(recipe_fixture, execute_recipe, nkeep):
+@pytest.mark.parametrize("nkeep,target_chunks", [(1, None), (2, None), (2, 10)])
+def test_prune_recipe(recipe_fixture, execute_recipe, nkeep, target_chunks):
     """Check that recipe.copy_pruned works as expected."""
 
     RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
+    if target_chunks:
+        # integration test for https://github.com/pangeo-forge/pangeo-forge-recipes/issues/279
+        kwargs["target_chunks"] = {"time": target_chunks}
     rec = RecipeClass(file_pattern, **kwargs)
     rec_pruned = rec.copy_pruned(nkeep=nkeep)
     assert len(list(rec.iter_inputs())) > len(list(rec_pruned.iter_inputs()))

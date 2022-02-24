@@ -3,6 +3,7 @@ Abstract representation of ND chunked arrays
 """
 from __future__ import annotations
 
+import warnings
 from itertools import chain, groupby
 from typing import Dict, FrozenSet, Set, Tuple
 
@@ -41,10 +42,17 @@ class ChunkGrid:
         """
         all_chunks = {}
         for name, (chunksize, dimsize) in chunksize_and_dimsize.items():
-            assert dimsize > 0
-            assert (
-                chunksize > 0 and chunksize <= dimsize
-            ), f"invalid chunksize {chunksize} and dimsize {dimsize}"
+            if dimsize <= 0:
+                raise ValueError("dimsize must be greater than 0")
+            if chunksize <= 0:
+                raise ValueError("chunksize must be greater than 0")
+            if chunksize > dimsize:
+                # TODO: make sure this path is more thoroughly tested
+                warnings.warn(
+                    f"chunksize ({chunksize}) > dimsize ({dimsize}). "
+                    f"Decreasing chunksize to {dimsize}"
+                )
+                chunksize = dimsize
             chunks = (dimsize // chunksize) * (chunksize,)
             if dimsize % chunksize > 0:
                 chunks = chunks + (dimsize % chunksize,)
