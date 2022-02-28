@@ -1,14 +1,15 @@
 # Installing Pangeo Forge Recipes
 
-## Getting Started - Binder
+## Local installation
 
-To begin experimenting with `pangeo-forge-recipes` the recommendation is to use Binder. There are links to open a Binder environment with JupyterLab in each tutorial.
+To get set up Pangeo Forge you'll need to install the `pangeo-forge-recipes` library. The recommended way to do that is with `pip`.
 
-## Local Installation
+`pip install pangeo-forge-recipes`
 
-To install `pangeo-forge-recipes` on another machine the recommendation is to install using the CI environment. To do this:
-1. `git clone -b 0.8.0 https://github.com/pangeo-forge/pangeo-forge-recipes.git`
-1. `cd pangeo-forge-recipes`
-2. `conda env create -n pangeo-forge-recipes python=3.9 --file=ci/py3.9.yml`
+In the near future `pangeo-forge-recipes` will also be available via conda.
 
-This will create a conda environment called `pangeo-forge-recipes` with the dependencies and a dev installation of the library `pangeo-forge-recipes` installed.
+## Remote access
+
+Pangeo Forge also has a [code sandbox](https://github.com/pangeo-forge/sandbox) which has `pangeo-forge-recipes` installed and template documents for creatig a recipe. To launch the sandbox click the "launch binder" link in the readme of that repository.
+
+You'll also notice that the tutorials have binder links. The binder links can be used to explore `pangeo-forge-recipes` without setting up a local environment.
