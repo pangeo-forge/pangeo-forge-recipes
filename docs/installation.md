@@ -19,4 +19,4 @@ Pangeo Forge also has a [code sandbox](https://github.com/pangeo-forge/sandbox) 
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/pangeo-forge/sandbox/binder)
 
-You'll also notice that the tutorials have binder links. The binder links can be used to explore `pangeo-forge-recipes` without setting up a local environment.
+You'll also notice that the tutorials have Binder links. The binder links can be used to explore `pangeo-forge-recipes` without setting up a local environment.
