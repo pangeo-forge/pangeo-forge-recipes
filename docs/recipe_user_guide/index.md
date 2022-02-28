@@ -31,7 +31,7 @@ See {doc}`execution` for details.
 :glob:
 
 file_patterns
-storage
 recipes
+storage
 execution
 ```

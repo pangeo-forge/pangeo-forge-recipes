@@ -47,3 +47,5 @@ html_logo = "_static/pangeo-forge-logo-blue.png"
 html_static_path = ["_static"]
 
 myst_heading_anchors = 2
+
+autodoc_mock_imports = ["apache_beam"]

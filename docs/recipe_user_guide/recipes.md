@@ -12,7 +12,7 @@ you are reading matches your installed version of pangeo_forge_recipes.
 
 A Recipe is a Python object which encapsulates a workflow for transforming data.
 A Recipe knows how to take a {class}`file pattern <pangeo_forge_recipes.patterns.FilePattern>`,
-which descibes a collection of source files ("inputs"),
+which describes a collection of source files ("inputs"),
 and turn it into a single analysis-ready, cloud-optimized dataset.
 Creating a recipe does not actually cause any data to be read or written; the
 recipe is just the _description_ of the transformation.
@@ -26,9 +26,17 @@ to the public Pangeo Forge {doc}`../cloud_automation_user_guide/recipe_box`, whe
 
 To write a recipe, you must start from one of the existing recipe classes.
 Recipe classes are based on a specific data model for the input files and target dataset format.
-Right now, there is only one recipe class implemented:
+Right now, there are two distinct recipe classes implemented.
+In the future, we may add more.
+
+TODO add rubric for choosing a recipe class.
 
 ### XarrayZarr Recipe
+
+```{note}
+The full API Reference documentation for this recipe class can be found at
+{class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe`
+```
 
 The {class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe` recipe class uses
 [Xarray](http://xarray.pydata.org/) to read the input files and
@@ -85,13 +93,13 @@ move on to {doc}`execution`.
 The API documentation below explains all of the possible options for `XarrayZarrRecipe`.
 Many of these options are explored further in the {doc}`../tutorials/index`.
 
-#### API Documentation
-
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.recipes.XarrayZarrRecipe
-```
 
 ### HDF Reference Recipe
+
+```{note}
+The full API Reference documentation for this recipe class can be found at
+{class}`pangeo_forge_recipes.recipes.HDFReferenceRecipe`
+```
 
 Like the `XarrayZarrRecipe`, this recipe allows us to more efficiently access data from a bunch of NetCDF / HDF files.
 However, this recipe does not actually copy the original source data.
@@ -100,11 +108,4 @@ For more background, see [this blog post](https://medium.com/pangeo/fake-it-unti
 
 There is currently one tutorial for this recipe:
 
-- - {doc}`../tutorials/hdf_reference/reference_cmip6`
-
-#### API Documentation
-
-
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.recipes.HDFReferenceRecipe
-```
+- {doc}`../tutorials/hdf_reference/reference_cmip6`

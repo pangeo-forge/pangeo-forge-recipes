@@ -16,9 +16,9 @@ xarray_zarr/terraclimate
 xarray_zarr/opendap_subset_recipe
 ```
 
-## ReferenceHDFRecipe
+## HDFReferenceRecipe
 
-These tutorials all use the {class}`pangeo_forge_recipes.recipes.ReferenceHDFRecipe` class:
+These tutorials all use the {class}`pangeo_forge_recipes.recipes.HDFReferenceRecipe` class:
 
 ```{toctree}
 :maxdepth: 1
