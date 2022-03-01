@@ -1,6 +1,6 @@
 # Introduction Tutorial
 
-Welcome to the Pangeo Forge introduction tutorial!
+Welcome back to the Pangeo Forge introduction tutorial!
 
 This tutorial is split into three parts:
 
