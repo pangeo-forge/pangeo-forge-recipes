@@ -6,7 +6,7 @@ Resources for understanding and using Pangeo Forge
 
 New to Pangeo Forge? You are in the right spot!
 
-- {doc}`what_is_pangeo_forge` - Read more about Pangeo Forge and how it works!
+- {doc}`what_is_pangeo_forge` - Read more about Pangeo Forge and how it works.
 - {doc}`introduction_tutorial/index` - Ready to code? Walk through creating, running, and staging your first Recipe.
 
 ## How the documentation is organized
@@ -20,9 +20,9 @@ There are a number of resources available when working with Pangeo Forge:
     power Pangeo Forge Cloud.
   - {doc}`development/index` - For developers seeking to contribute to Pangeo Forge core functionality.
 - **{doc}`tutorials/index`** walk through examples of using Pangeo Forge Recipes. They are a good second step after the Introduction Tutorial.
-- The **API Reference** is the complete technical documentation of all Pangeo Forge features.
+- The **{doc}`api_reference`** is the complete technical documentation of all Pangeo Forge features.
   They are useful when you want to review a particular functionality in depth,
-  but assume you already have a working knowledge of the code base
+  but assumes you already have a working knowledge of the framework.
 
 ## Connecting with the Community
 
@@ -41,7 +41,7 @@ If you are new to Pangeo Forge and looking to get involved, we suggest starting 
 ## Site Contents
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 3
 
 what_is_pangeo_forge
 installation
