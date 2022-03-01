@@ -1,14 +1,25 @@
 # Storage
 
 Recipes need a place to store data. This information is provided to the recipe by its `.storage_config` attribute, which is an object of type {class}`pangeo_forge_recipes.storage.StorageConfig`.
+The `StorageConfig` object looks like this
+
+```{eval-rst}
+.. autoclass:: pangeo_forge_recipes.storage.StorageConfig
+    :noindex:
+```
+
+As shown above, the storage configuration includes three distinct parts: `target`, `cache`, and `metadata`.
 
 ## Default storage
 
-By default, `.storage_config` points to a local [`tempfile.TemporaryDirectory`](https://docs.python.org/3/library/tempfile.html#tempfile.TemporaryDirectory). This allows you to write data to temporary local storage during the recipe development and debugging process.
+When you create a new recipe, a default `StorageConfig` will automatically be created pointing at a local a local [`tempfile.TemporaryDirectory`](https://docs.python.org/3/library/tempfile.html#tempfile.TemporaryDirectory).
+This allows you to write data to temporary local storage during the recipe development and debugging process.
+This means that any recipe can immediately be executed with minimal configuration.
+However, in a realistic "production" scenario, you will want to customize your storage locations.
 
 ## Customizing storage: the `target`
 
-To write a recipe's full dataset to a persistant storage location, simply re-assign `.storage_config` to be a {class}`pangeo_forge_recipes.storage.StorageConfig` pointing to the location(s) of your choice. The minimal requirement for instantiating `StorageConfig` is a location in which to store the final dataset produced by the recipe. This is called the ``target``. Pangeo Forge has a special class for this: {class}`pangeo_forge_recipes.storage.FSSpecTarget`.
+To write a recipe's full dataset to a persistant storage location, re-assign `.storage_config` to be a {class}`pangeo_forge_recipes.storage.StorageConfig` pointing to the location(s) of your choice. The minimal requirement for instantiating `StorageConfig` is a location in which to store the final dataset produced by the recipe. This is called the ``target``. Pangeo Forge has a special class for this: {class}`pangeo_forge_recipes.storage.FSSpecTarget`.
 
 Creating a ``target`` requires two arguments:
 - The ``fs`` argument is an [fsspec](https://filesystem-spec.readthedocs.io/en/latest/)
@@ -58,28 +69,4 @@ cache = CacheFSSpecTarget(fs=<fsspec-filesystem-for-cache>, root_path="<path-for
 metadata = MetadataTarget(fs=<fsspec-filesystem-for-metadata>, root_path="<path-for-metadata>")
 
 recipe.storage_config = StorageConfig(target, cache, metadata)
-```
-
-## API
-
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.storage.StorageConfig
-    :members:
-```
-
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.storage.FSSpecTarget
-    :members:
-```
-
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.storage.CacheFSSpecTarget
-    :members:
-    :show-inheritance:
-```
-
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.storage.MetadataTarget
-    :members:
-    :show-inheritance:
 ```
