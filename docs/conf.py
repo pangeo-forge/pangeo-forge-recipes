@@ -13,6 +13,7 @@ extensions = [
     # "numpydoc",
     "sphinx_autodoc_typehints",
     "sphinx_copybutton",
+    "sphinx_togglebutton",
 ]
 
 extlinks = {
