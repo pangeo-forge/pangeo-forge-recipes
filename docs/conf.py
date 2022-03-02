@@ -14,6 +14,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "sphinx_copybutton",
     "sphinx_togglebutton",
+    "sphinxext.opengraph",
 ]
 
 extlinks = {
@@ -50,3 +51,8 @@ html_static_path = ["_static"]
 myst_heading_anchors = 2
 
 autodoc_mock_imports = ["apache_beam"]
+
+# should be set automatically on RTD based on html_baseurl
+# ogp_site_url = "https://pangeo-forge.readthedocs.io/"
+ogp_image = "_static/pangeo-forge-logo-blue.png"
+ogp_use_first_image = True
