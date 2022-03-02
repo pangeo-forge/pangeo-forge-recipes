@@ -13,6 +13,7 @@ extensions = [
     # "numpydoc",
     "sphinx_autodoc_typehints",
     "sphinx_copybutton",
+    "sphinxext.opengraph",
 ]
 
 extlinks = {
@@ -49,3 +50,7 @@ html_static_path = ["_static"]
 myst_heading_anchors = 2
 
 autodoc_mock_imports = ["apache_beam"]
+
+ogp_site_url = "https://pangeo-forge.readthedocs.io/"
+ogp_image = "https://pangeo-forge.readthedocs.io/en/latest/_static/pangeo-forge-logo-blue.png"
+ogp_use_first_image = True
