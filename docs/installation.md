@@ -15,21 +15,6 @@ If those steps are complete you can install the library with `conda install pang
 
 ## Pangeo Forge Sandbox
 
-Pangeo Forge also has a [code sandbox](https://github.com/pangeo-forge/sandbox) accessible online. The sandbox is an environment with `pangeo-forge-recipes` installed and template documents for creating a recipe. There are two versions of this environment:
-1. A Template Workspace
-The template workspace contains template files for creating and submitting a recipe.
-Click the button below to launch the template workspace using Binder:
-
-Note: incorrect link
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/pangeo-forge/sandbox/binder)
-
-2. A Blank Environment
-The blank environment is a JupyterLab environment with a blank notebook.
-Click the button below to launch the blank environment using Binder:
-
-Note: incorrect link
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/pangeo-forge/sandbox/binder)
-
-Either can be used to start building recipes!
+Pangeo Forge also has a [code sandbox](https://github.com/pangeo-forge/sandbox) accessible online! The sandbox is an environment with `pangeo-forge-recipes` installed and template documents for creating a recipe. Links to both a Template work environment and a blank work environment with `pangeo-forge-recipes` installed are available in the [sandbox README](https://github.com/pangeo-forge/sandbox/blob/main/README.md).
 
 You'll also notice that the {doc}`tutorials/index` have Binder links. The binder links can be used to explore the recipe tutorials without setting up a local environment.
