@@ -15,7 +15,7 @@ The first two parts use **`pangeo_forge_recipes`**, the Python library for defin
 Throughout this tutorial we are going to convert NOAA OISST stored in netCDF to Zarr. OISST is a global, gridded ocean sea surface temperature dataset at daily 1/4 degree resolution. By the end of this tutorial sequence you will have converted some OISST data to zarr, be able to access a sample on your computer, and see how to propose the recipe for cloud deployment!
 
 ## The Setup
-The introduction tutorial assumes that you already have `pangeo-forge-recipes` installed (See {doc}`/installation`). Alternately, you can run these tutorials in [the Pangeo Forge Sandbox](https://mybinder.org/v2/gh/pangeo-forge/sandbox/binder?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252Fpangeo-forge%252Fsandbox%26urlpath%3Dlab%252Ftree%252Fsandbox%252Fscratch.ipynb%26branch%3Dmaster).
+The introduction tutorial assumes that you already have `pangeo-forge-recipes` installed (See {doc}`/installation`). Alternately, you can run these tutorials in [the Pangeo Forge Sandbox](https://mybinder.org/v2/gh/pangeo-forge/sandbox/binder?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252Fpangeo-forge%252Fsandbox%26urlpath%3Dlab%252Ftree%252Fsandbox%252Fscratch.ipynb%26branch%3Dmain).
 
 There are pros and cons to both the local development environment and the sandbox environment. The sandbox is quick to setup (just click the link!) but the files created there have to be downloaded if you want to save them forever. Local development takes longer to setup, but once its set up you have a permanent place to build recipes.
 
