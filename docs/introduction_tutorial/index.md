@@ -1,6 +1,6 @@
 # Introduction Tutorial
 
-Welcome to the Pangeo Forge introduction tutorial!
+Welcome back to the Pangeo Forge introduction tutorial!
 
 This tutorial is split into three parts:
 
@@ -19,4 +19,5 @@ The introduction tutorial assumes that you already have `pangeo-forge-recipes` i
 
 intro_tutorial_part1
 intro_tutorial_part2
+intro_tutorial_part3
 ```
