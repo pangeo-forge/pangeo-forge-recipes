@@ -14,6 +14,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "sphinx_copybutton",
     "sphinxext.opengraph",
+    "sphinx_panels",
 ]
 
 extlinks = {
