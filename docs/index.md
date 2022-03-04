@@ -46,6 +46,7 @@ If you are new to Pangeo Forge and looking to get involved, we suggest starting 
 what_is_pangeo_forge
 installation
 introduction_tutorial/index
+introduction_tutorial_ocean_sciences
 recipe_user_guide/index
 cloud_automation_user_guide/index
 tutorials/index
