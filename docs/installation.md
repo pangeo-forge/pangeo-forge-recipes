@@ -13,10 +13,8 @@ If you have not added the conda forge channel or set it as your default channel 
 
 If those steps are complete you can install the library with `conda install pangeo-forge-recipes`.
 
-## Remote access
+## Pangeo Forge Sandbox
 
-Pangeo Forge also has a [code sandbox](https://github.com/pangeo-forge/sandbox) which has `pangeo-forge-recipes` installed and template documents for creatig a recipe. Click the button below to launch the sandbox using Binder:
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/pangeo-forge/sandbox/binder)
+Pangeo Forge also has a [code sandbox](https://github.com/pangeo-forge/sandbox) accessible online! The sandbox is an environment with `pangeo-forge-recipes` installed and template documents for creating a recipe. Links to both a Template workspace and a blank workspace with `pangeo-forge-recipes` installed are available in the [sandbox README](https://github.com/pangeo-forge/sandbox/blob/main/README.md).
 
 You'll also notice that the tutorials have Binder links. The binder links can be used to explore `pangeo-forge-recipes` without setting up a local environment.
