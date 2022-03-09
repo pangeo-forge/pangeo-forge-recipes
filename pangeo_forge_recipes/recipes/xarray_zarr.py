@@ -298,22 +298,73 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
         ) as f:
             with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
                 kw = config.xarray_open_kwargs.copy()
-                if "engine" not in kw:
-                    kw.update(OPENER_MAP[config.file_pattern.file_type])
+                file_type = config.file_pattern.file_type
+                if "engine" in kw and file_type in OPENER_MAP:
+                    engine_message_base = (
+                        "pangeo-forge-recipes will automatically set the xarray backend for "
+                        f"files of type '{file_type.value}' to '{OPENER_MAP[file_type]}', "
+                    )
+                    warn_matching_msg = engine_message_base + (
+                        "which is the same value you have passed via `xarray_open_kwargs`. "
+                        f"If this input file is actually of type '{file_type.value}', you can "
+                        f"remove `{{'engine': '{kw['engine']}'}}` from `xarray_open_kwargs`. "
+                    )
+                    error_mismatched_msg = engine_message_base + (
+                        f"which is different from the value you have passed via "
+                        "`xarray_open_kwargs`. If this input file is actually of type "
+                        f"'{file_type.value}', please remove `{{'engine': '{kw['engine']}'}}` "
+                        "from `xarray_open_kwargs`. "
+                    )
+                    engine_message_tail = (
+                        f"If this input file is not of type '{file_type.value}', please update "
+                        "this recipe by passing a different value to `FilePattern.file_type`."
+                    )
+                    warn_matching_msg += engine_message_tail
+                    error_mismatched_msg += engine_message_tail
+
+                    if kw["engine"] == OPENER_MAP[file_type]["engine"]:
+                        warnings.warn(warn_matching_msg)
+                    elif kw["engine"] != OPENER_MAP[file_type]["engine"]:
+                        raise ValueError(error_mismatched_msg)
+                else:
+                    kw.update(OPENER_MAP[file_type])
                 logger.debug(f"about to enter xr.open_dataset context on {f}")
-                with xr.open_dataset(f, **kw) as ds:
-                    logger.debug("successfully opened dataset")
-                    ds = fix_scalar_attr_encoding(ds)
+                try:
+                    with xr.open_dataset(f, **kw) as ds:
+                        logger.debug("successfully opened dataset")
+                        ds = fix_scalar_attr_encoding(ds)
 
-                    if config.delete_input_encoding:
-                        for var in ds.variables:
-                            ds[var].encoding = {}
+                        if config.delete_input_encoding:
+                            for var in ds.variables:
+                                ds[var].encoding = {}
 
-                    if config.process_input is not None:
-                        ds = config.process_input(ds, str(fname))
+                        if config.process_input is not None:
+                            ds = config.process_input(ds, str(fname))
 
-                    logger.debug(f"{ds}")
-                    yield ds
+                        logger.debug(f"{ds}")
+                        yield ds
+                except OSError as e:
+                    if "unable to open file (file signature not found)" in str(e).lower():
+                        oserror_message_base = (
+                            f"Unable to open file {f.path} "  # type: ignore
+                            f"with `{{engine: {kw.get('engine')}}}`, "
+                        )
+                        if "engine" in config.xarray_open_kwargs:
+                            oserror_message = oserror_message_base + (
+                                "which was set explicitly via `xarray_open_kwargs`. Please remove "
+                                f"`{{engine: {kw.get('engine')}}}` from `xarray_open_kwargs`."
+                            )
+                        elif file_type == FileType.netcdf4:
+                            oserror_message = oserror_message_base + (
+                                "which was set automatically based on the fact that "
+                                "`FilePattern.file_type` is using the default value of 'netcdf4'. "
+                                "It seems likely that this input file is in NetCDF3 format. If "
+                                "that is the case, please re-instantiate your `FilePattern` with "
+                                '`FilePattern(..., file_type="netcdf3")`.'
+                            )
+                        raise OSError(oserror_message) from e
+                    else:
+                        raise e
 
 
 def subset_dataset(ds: xr.Dataset, subset_spec: DimIndex) -> xr.Dataset:
