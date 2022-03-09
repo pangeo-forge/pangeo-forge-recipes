@@ -3,7 +3,7 @@ Filename / URL patterns.
 """
 import inspect
 from dataclasses import dataclass, field, replace
-from enum import Enum
+from enum import Enum, auto
 from itertools import product
 from typing import (
     Any,
@@ -99,6 +99,27 @@ CombineDim = Union[MergeDim, ConcatDim]
 FilePatternIndex = Index
 
 
+class AutoName(Enum):
+    # Recommended by official Python docs for auto naming:
+    # https://docs.python.org/3/library/enum.html#using-automatic-values
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+
+class FileType(AutoName):
+    unknown = auto()
+    netcdf3 = auto()
+    netcdf4 = auto()
+    grib = auto()
+    opendap = auto()
+
+
+OPENER_MAP = {
+    FileType.netcdf3: dict(engine="scipy"),
+    FileType.netcdf4: dict(engine="h5netcdf"),
+}
+
+
 class FilePattern:
     """Represents an n-dimensional matrix of individual files to be combined
     through a combination of merge and concat operations. Each operation generates
@@ -114,8 +135,9 @@ class FilePattern:
       May include ``block_size``, ``username``, ``password``, etc.
     :param query_string_secrets: If provided, these key/value pairs are appended to
       the query string of each ``file_pattern`` url at runtime.
-    :param is_opendap: If True, assume all input fnames represent opendap endpoints.
-      Cannot be used with caching.
+    :param file_type: The file format of the source files for this pattern. Must be one of
+      the options defined by ``pangeo_forge_recipes.patterns.FileType``.
+      Note: ``FileType.opendap`` cannot be used with caching.
     """
 
     def __init__(
@@ -124,17 +146,17 @@ class FilePattern:
         *combine_dims: CombineDim,
         fsspec_open_kwargs: Optional[Dict[str, Any]] = None,
         query_string_secrets: Optional[Dict[str, str]] = None,
-        is_opendap: bool = False,
+        file_type: str = "netcdf4",
     ):
         self.format_function = format_function
         self.combine_dims = combine_dims
         self.fsspec_open_kwargs = fsspec_open_kwargs if fsspec_open_kwargs else {}
         self.query_string_secrets = query_string_secrets if query_string_secrets else {}
-        self.is_opendap = is_opendap
-        if self.fsspec_open_kwargs and self.is_opendap:
+        self.file_type = FileType(file_type)
+        if self.fsspec_open_kwargs and self.file_type == FileType.opendap:
             raise ValueError(
                 "OPeNDAP inputs are not opened with `fsspec`. "
-                "`is_opendap` must be `False` when passing `fsspec_open_kwargs`."
+                "When passing `fsspec_open_kwargs`, `file_type` cannot be `opendap`."
             )
 
     def __repr__(self):

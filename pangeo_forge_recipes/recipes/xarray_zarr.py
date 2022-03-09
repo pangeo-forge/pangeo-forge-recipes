@@ -21,7 +21,7 @@ import zarr
 
 from ..chunk_grid import ChunkGrid
 from ..executors.base import Pipeline, Stage
-from ..patterns import CombineOp, DimIndex, FilePattern, Index
+from ..patterns import OPENER_MAP, CombineOp, DimIndex, FilePattern, FileType, Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
@@ -142,7 +142,7 @@ def chunk_position(chunk_key: ChunkKey) -> int:
 
 def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
     if config.cache_inputs:
-        if config.file_pattern.is_opendap:
+        if config.file_pattern.file_type == FileType.opendap:
             raise ValueError("Can't cache opendap inputs")
         if config.storage_config.cache is None:
             raise ValueError("input_cache is not set.")
@@ -167,7 +167,7 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             logger.info(f"Metadata already ached for input '{input_key!s}'")
 
     if config.open_input_with_fsspec_reference:
-        if config.file_pattern.is_opendap:
+        if config.file_pattern.file_type == FileType.opendap:
             raise ValueError("Can't make references for opendap inputs")
         if config.storage_config.metadata is None:
             raise ValueError("Can't make references; no metadata cache assigned")
@@ -248,7 +248,7 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
     fname = config.file_pattern[input_key]
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
 
-    if config.file_pattern.is_opendap:
+    if config.file_pattern.file_type == FileType.opendap:
         if config.cache_inputs:
             raise ValueError("Can't cache opendap inputs")
         if config.copy_input_to_local_file:
@@ -286,19 +286,20 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
     else:
 
         cache = config.storage_config.cache if config.cache_inputs else None
+        bypass_open = True if config.file_pattern.file_type == FileType.opendap else False
 
         with file_opener(
             fname,
             cache=cache,
             copy_to_local=config.copy_input_to_local_file,
-            bypass_open=config.file_pattern.is_opendap,
+            bypass_open=bypass_open,
             secrets=config.file_pattern.query_string_secrets,
             **config.file_pattern.fsspec_open_kwargs,
         ) as f:
             with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
                 kw = config.xarray_open_kwargs.copy()
                 if "engine" not in kw:
-                    kw["engine"] = "h5netcdf"
+                    kw.update(OPENER_MAP[config.file_pattern.file_type])
                 logger.debug(f"about to enter xr.open_dataset context on {f}")
                 with xr.open_dataset(f, **kw) as ds:
                     logger.debug("successfully opened dataset")
@@ -743,7 +744,7 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         )
         self.nitems_per_input = self.file_pattern.nitems_per_input[self.concat_dim]
 
-        if self.file_pattern.is_opendap:
+        if self.file_pattern.file_type == FileType.opendap:
             if self.cache_inputs:
                 raise ValueError("Can't cache opendap inputs.")
             else:
