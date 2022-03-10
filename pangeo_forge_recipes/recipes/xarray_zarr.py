@@ -299,35 +299,36 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
             with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
                 kw = config.xarray_open_kwargs.copy()
                 file_type = config.file_pattern.file_type
-                if "engine" in kw and file_type in OPENER_MAP:
-                    engine_message_base = (
-                        "pangeo-forge-recipes will automatically set the xarray backend for "
-                        f"files of type '{file_type.value}' to '{OPENER_MAP[file_type]}', "
-                    )
-                    warn_matching_msg = engine_message_base + (
-                        "which is the same value you have passed via `xarray_open_kwargs`. "
-                        f"If this input file is actually of type '{file_type.value}', you can "
-                        f"remove `{{'engine': '{kw['engine']}'}}` from `xarray_open_kwargs`. "
-                    )
-                    error_mismatched_msg = engine_message_base + (
-                        f"which is different from the value you have passed via "
-                        "`xarray_open_kwargs`. If this input file is actually of type "
-                        f"'{file_type.value}', please remove `{{'engine': '{kw['engine']}'}}` "
-                        "from `xarray_open_kwargs`. "
-                    )
-                    engine_message_tail = (
-                        f"If this input file is not of type '{file_type.value}', please update "
-                        "this recipe by passing a different value to `FilePattern.file_type`."
-                    )
-                    warn_matching_msg += engine_message_tail
-                    error_mismatched_msg += engine_message_tail
+                if file_type in OPENER_MAP:
+                    if "engine" in kw:
+                        engine_message_base = (
+                            "pangeo-forge-recipes will automatically set the xarray backend for "
+                            f"files of type '{file_type.value}' to '{OPENER_MAP[file_type]}', "
+                        )
+                        warn_matching_msg = engine_message_base + (
+                            "which is the same value you have passed via `xarray_open_kwargs`. "
+                            f"If this input file is actually of type '{file_type.value}', you can "
+                            f"remove `{{'engine': '{kw['engine']}'}}` from `xarray_open_kwargs`. "
+                        )
+                        error_mismatched_msg = engine_message_base + (
+                            f"which is different from the value you have passed via "
+                            "`xarray_open_kwargs`. If this input file is actually of type "
+                            f"'{file_type.value}', please remove `{{'engine': '{kw['engine']}'}}` "
+                            "from `xarray_open_kwargs`. "
+                        )
+                        engine_message_tail = (
+                            f"If this input file is not of type '{file_type.value}', please update"
+                            " this recipe by passing a different value to `FilePattern.file_type`."
+                        )
+                        warn_matching_msg += engine_message_tail
+                        error_mismatched_msg += engine_message_tail
 
-                    if kw["engine"] == OPENER_MAP[file_type]["engine"]:
-                        warnings.warn(warn_matching_msg)
-                    elif kw["engine"] != OPENER_MAP[file_type]["engine"]:
-                        raise ValueError(error_mismatched_msg)
-                else:
-                    kw.update(OPENER_MAP[file_type])
+                        if kw["engine"] == OPENER_MAP[file_type]["engine"]:
+                            warnings.warn(warn_matching_msg)
+                        elif kw["engine"] != OPENER_MAP[file_type]["engine"]:
+                            raise ValueError(error_mismatched_msg)
+                    else:
+                        kw.update(OPENER_MAP[file_type])
                 logger.debug(f"about to enter xr.open_dataset context on {f}")
                 try:
                     with xr.open_dataset(f, **kw) as ds:
