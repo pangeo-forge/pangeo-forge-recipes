@@ -19,6 +19,7 @@ dependencies:
   # - h5py>=3.3.0  - hdf5
   - intake
   - intake-xarray
+  - kerchunk>=0.0.4
   - lxml
   - netcdf4
   - numcodecs
@@ -45,4 +46,3 @@ dependencies:
   - pip:
     - h5py>=3.3.0
     - pytest-timeout
-    - fsspec-reference-maker>=0.0.4
