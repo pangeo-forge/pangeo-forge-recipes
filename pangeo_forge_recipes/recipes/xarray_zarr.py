@@ -21,7 +21,7 @@ import zarr
 
 from ..chunk_grid import ChunkGrid
 from ..executors.base import Pipeline, Stage
-from ..patterns import OPENER_MAP, CombineOp, DimIndex, FilePattern, FileType, Index
+from ..patterns import CombineOp, DimIndex, FilePattern, FileType, Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
@@ -36,6 +36,10 @@ MAX_MEMORY = (
     if os.getenv("PANGEO_FORGE_MAX_MEMORY")
     else 500_000_000
 )
+OPENER_MAP = {
+    FileType.netcdf3: dict(engine="scipy"),
+    FileType.netcdf4: dict(engine="h5netcdf"),
+}
 
 logger = logging.getLogger(__name__)
 

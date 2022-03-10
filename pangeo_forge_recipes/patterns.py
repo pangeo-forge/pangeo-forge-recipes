@@ -115,12 +115,6 @@ class FileType(AutoName):
     opendap = auto()
 
 
-OPENER_MAP = {
-    FileType.netcdf3: dict(engine="scipy"),
-    FileType.netcdf4: dict(engine="h5netcdf"),
-}
-
-
 class FilePattern:
     """Represents an n-dimensional matrix of individual files to be combined
     through a combination of merge and concat operations. Each operation generates
