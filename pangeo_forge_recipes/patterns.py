@@ -2,6 +2,7 @@
 Filename / URL patterns.
 """
 import inspect
+import warnings
 from dataclasses import dataclass, field, replace
 from enum import Enum, auto
 from itertools import product
@@ -147,12 +148,20 @@ class FilePattern:
         fsspec_open_kwargs: Optional[Dict[str, Any]] = None,
         query_string_secrets: Optional[Dict[str, str]] = None,
         file_type: str = "netcdf4",
+        is_opendap: Optional[bool] = None,
     ):
         self.format_function = format_function
         self.combine_dims = combine_dims
         self.fsspec_open_kwargs = fsspec_open_kwargs if fsspec_open_kwargs else {}
         self.query_string_secrets = query_string_secrets if query_string_secrets else {}
         self.file_type = FileType(file_type)
+        if is_opendap:
+            _deprecation_message = (
+                "`FilePattern(..., is_opendap=True)` will be deprecated in v0.9.0. "
+                "Please use `FilePattern(..., file_type='opendap')` instead."
+            )
+            warnings.warn(_deprecation_message, DeprecationWarning)
+            self.file_type = FileType("opendap")
         if self.fsspec_open_kwargs and self.file_type == FileType.opendap:
             raise ValueError(
                 "OPeNDAP inputs are not opened with `fsspec`. "
