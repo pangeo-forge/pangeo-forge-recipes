@@ -180,3 +180,17 @@ def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
         return kwargs
 
     assert get_kwargs(fp) == get_kwargs(fp_pruned)
+
+
+@pytest.mark.parametrize("file_type_value", [ft.value for ft in list(FileType)] + ["unsupported"])
+def test_setting_file_types(file_type_value):
+
+    file_type_kwargs = {"file_type": file_type_value}
+
+    if not file_type_value == "unsupported":
+        fp = make_concat_merge_pattern(**file_type_kwargs)[0]
+        assert fp.file_type == FileType(file_type_value)
+    else:
+        with pytest.raises(ValueError) as excinfo:
+            fp = make_concat_merge_pattern(**file_type_kwargs)[0]
+            assert f"'{file_type_value}' is not a valid FileType" in str(excinfo.value)
