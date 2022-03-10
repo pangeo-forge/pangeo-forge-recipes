@@ -191,6 +191,5 @@ def test_setting_file_types(file_type_value):
         fp = make_concat_merge_pattern(**file_type_kwargs)[0]
         assert fp.file_type == FileType(file_type_value)
     else:
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError, match=fr"'{file_type_value}' is not a valid FileType"):
             fp = make_concat_merge_pattern(**file_type_kwargs)[0]
-            assert f"'{file_type_value}' is not a valid FileType" in str(excinfo.value)
