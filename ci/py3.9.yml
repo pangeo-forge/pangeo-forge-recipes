@@ -19,7 +19,6 @@ dependencies:
   - hdf5
   - intake
   - intake-xarray
-  - kerchunk>=0.0.4
   - lxml    # Optional dep of pydap
   - matplotlib  # needed for building tutorial notebooks
   - netcdf4
@@ -47,3 +46,4 @@ dependencies:
   - pip:
     - nbmake  # used in tutorial nb worklow
     - pytest-timeout
+    - kerchunk>=0.0.4
