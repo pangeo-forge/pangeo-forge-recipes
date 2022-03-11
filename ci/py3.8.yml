@@ -45,4 +45,4 @@ dependencies:
   - pip:
     - h5py>=3.3.0
     - pytest-timeout
-    - fsspec-reference-maker>=0.0.4
+    - kerchunk>=0.0.4

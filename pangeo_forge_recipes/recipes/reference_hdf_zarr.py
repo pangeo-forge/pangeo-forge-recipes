@@ -7,7 +7,7 @@ from typing import Callable, Hashable, Iterable, Optional
 
 import fsspec
 import yaml
-from fsspec_reference_maker.combine import MultiZarrToZarr
+from kerchunk.combine import MultiZarrToZarr
 
 from ..executors.base import Pipeline, Stage
 from ..patterns import Index
@@ -107,8 +107,8 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
 
     Currently supports concat or merge along a single dimension.
 
-    See fsspec-reference-maker and fsspec's ReferenceFileSystem.
-    To use this class, you must have fsspec-reference-maker, ujson,
+    See kerchunk and fsspec's ReferenceFileSystem.
+    To use this class, you must have kerchunk, ujson,
     xarray, fsspec, zarr, h5py and ujson in your recipe's requirements.
 
     This class will also produce an Intake catalog stub in YAML format
@@ -152,7 +152,7 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     #  a master merge in finalise. This would maybe map to iter_chunk,
     #  store_chunk, finalize_target. The strategy was used for NWM's 370k files.
 
-    # TODO: as written, this recipe is specific to HDF5 files. fsspec-reference-maker
+    # TODO: as written, this recipe is specific to HDF5 files. kerchunk
     #  also supports TIFF, FITS, netCDF3 and grib2 (and more coming)
     output_json_fname: str = "reference.json"
     output_intake_yaml_fname: str = "reference.yaml"
