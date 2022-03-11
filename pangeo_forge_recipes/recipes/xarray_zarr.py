@@ -21,7 +21,7 @@ import zarr
 
 from ..chunk_grid import ChunkGrid
 from ..executors.base import Pipeline, Stage
-from ..patterns import CombineOp, DimIndex, FilePattern, Index
+from ..patterns import CombineOp, DimIndex, FilePattern, FileType, Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
@@ -36,6 +36,10 @@ MAX_MEMORY = (
     if os.getenv("PANGEO_FORGE_MAX_MEMORY")
     else 500_000_000
 )
+OPENER_MAP = {
+    FileType.netcdf3: dict(engine="scipy"),
+    FileType.netcdf4: dict(engine="h5netcdf"),
+}
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +146,7 @@ def chunk_position(chunk_key: ChunkKey) -> int:
 
 def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
     if config.cache_inputs:
-        if config.file_pattern.is_opendap:
+        if config.file_pattern.file_type == FileType.opendap:
             raise ValueError("Can't cache opendap inputs")
         if config.storage_config.cache is None:
             raise ValueError("input_cache is not set.")
@@ -167,7 +171,7 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             logger.info(f"Metadata already ached for input '{input_key!s}'")
 
     if config.open_input_with_kerchunk:
-        if config.file_pattern.is_opendap:
+        if config.file_pattern.file_type == FileType.opendap:
             raise ValueError("Can't make references for opendap inputs")
         if config.storage_config.metadata is None:
             raise ValueError("Can't make references; no metadata cache assigned")
@@ -248,7 +252,7 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
     fname = config.file_pattern[input_key]
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
 
-    if config.file_pattern.is_opendap:
+    if config.file_pattern.file_type == FileType.opendap:
         if config.cache_inputs:
             raise ValueError("Can't cache opendap inputs")
         if config.copy_input_to_local_file:
@@ -286,33 +290,86 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
     else:
 
         cache = config.storage_config.cache if config.cache_inputs else None
+        bypass_open = True if config.file_pattern.file_type == FileType.opendap else False
 
         with file_opener(
             fname,
             cache=cache,
             copy_to_local=config.copy_input_to_local_file,
-            bypass_open=config.file_pattern.is_opendap,
+            bypass_open=bypass_open,
             secrets=config.file_pattern.query_string_secrets,
             **config.file_pattern.fsspec_open_kwargs,
         ) as f:
             with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
                 kw = config.xarray_open_kwargs.copy()
-                if "engine" not in kw:
-                    kw["engine"] = "h5netcdf"
+                file_type = config.file_pattern.file_type
+                if file_type in OPENER_MAP:
+                    if "engine" in kw:
+                        engine_message_base = (
+                            "pangeo-forge-recipes will automatically set the xarray backend for "
+                            f"files of type '{file_type.value}' to '{OPENER_MAP[file_type]}', "
+                        )
+                        warn_matching_msg = engine_message_base + (
+                            "which is the same value you have passed via `xarray_open_kwargs`. "
+                            f"If this input file is actually of type '{file_type.value}', you can "
+                            f"remove `{{'engine': '{kw['engine']}'}}` from `xarray_open_kwargs`. "
+                        )
+                        error_mismatched_msg = engine_message_base + (
+                            f"which is different from the value you have passed via "
+                            "`xarray_open_kwargs`. If this input file is actually of type "
+                            f"'{file_type.value}', please remove `{{'engine': '{kw['engine']}'}}` "
+                            "from `xarray_open_kwargs`. "
+                        )
+                        engine_message_tail = (
+                            f"If this input file is not of type '{file_type.value}', please update"
+                            " this recipe by passing a different value to `FilePattern.file_type`."
+                        )
+                        warn_matching_msg += engine_message_tail
+                        error_mismatched_msg += engine_message_tail
+
+                        if kw["engine"] == OPENER_MAP[file_type]["engine"]:
+                            warnings.warn(warn_matching_msg)
+                        elif kw["engine"] != OPENER_MAP[file_type]["engine"]:
+                            raise ValueError(error_mismatched_msg)
+                    else:
+                        kw.update(OPENER_MAP[file_type])
                 logger.debug(f"about to enter xr.open_dataset context on {f}")
-                with xr.open_dataset(f, **kw) as ds:
-                    logger.debug("successfully opened dataset")
-                    ds = fix_scalar_attr_encoding(ds)
+                try:
+                    with xr.open_dataset(f, **kw) as ds:
+                        logger.debug("successfully opened dataset")
+                        ds = fix_scalar_attr_encoding(ds)
 
-                    if config.delete_input_encoding:
-                        for var in ds.variables:
-                            ds[var].encoding = {}
+                        if config.delete_input_encoding:
+                            for var in ds.variables:
+                                ds[var].encoding = {}
 
-                    if config.process_input is not None:
-                        ds = config.process_input(ds, str(fname))
+                        if config.process_input is not None:
+                            ds = config.process_input(ds, str(fname))
 
-                    logger.debug(f"{ds}")
-                    yield ds
+                        logger.debug(f"{ds}")
+                        yield ds
+                except OSError as e:
+                    if "unable to open file (file signature not found)" in str(e).lower():
+                        oserror_message_base = (
+                            f"Unable to open file {f.path} "  # type: ignore
+                            f"with `{{engine: {kw.get('engine')}}}`, "
+                        )
+                        if "engine" in config.xarray_open_kwargs:
+                            oserror_message = oserror_message_base + (
+                                "which was set explicitly via `xarray_open_kwargs`. Please remove "
+                                f"`{{engine: {kw.get('engine')}}}` from `xarray_open_kwargs`."
+                            )
+                        elif file_type == FileType.netcdf4:
+                            oserror_message = oserror_message_base + (
+                                "which was set automatically based on the fact that "
+                                "`FilePattern.file_type` is using the default value of 'netcdf4'. "
+                                "It seems likely that this input file is in NetCDF3 format. If "
+                                "that is the case, please re-instantiate your `FilePattern` with "
+                                '`FilePattern(..., file_type="netcdf3")`.'
+                            )
+                        raise OSError(oserror_message) from e
+                    else:
+                        raise e
 
 
 def subset_dataset(ds: xr.Dataset, subset_spec: DimIndex) -> xr.Dataset:
@@ -743,7 +800,7 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         )
         self.nitems_per_input = self.file_pattern.nitems_per_input[self.concat_dim]
 
-        if self.file_pattern.is_opendap:
+        if self.file_pattern.file_type == FileType.opendap:
             if self.cache_inputs:
                 raise ValueError("Can't cache opendap inputs.")
             else:

@@ -450,7 +450,7 @@ def calc_sequence_length_fixture(netcdf_local_file_pattern, tmp_metadata_target,
             *rest,
             fsspec_open_kwargs=netcdf_local_file_pattern.fsspec_open_kwargs,
             query_string_secrets=netcdf_local_file_pattern.query_string_secrets,
-            is_opendap=netcdf_local_file_pattern.is_opendap,
+            file_type=netcdf_local_file_pattern.file_type,
         )
 
     n_inputs = file_pattern.dims[concat_dim.name]
