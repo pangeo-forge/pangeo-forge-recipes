@@ -19,6 +19,7 @@ dependencies:
   - hdf5
   - intake
   - intake-xarray
+  - kerchunk>=0.0.4
   - lxml    # Optional dep of pydap
   - matplotlib  # needed for building tutorial notebooks
   - netcdf4
@@ -51,4 +52,3 @@ dependencies:
     # or similar is merged to resolve https://github.com/treebeardtech/nbmake/issues/63
     - "git+https://github.com/cisaacstern/nbmake.git@bump-nbclient"
     - pytest-timeout
-    - kerchunk>=0.0.4

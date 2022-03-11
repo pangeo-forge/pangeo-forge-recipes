@@ -19,8 +19,8 @@ dependencies:
   # - h5py>=3.3.0  - hdf5
   - intake
   - intake-xarray
-  - lxml
   - kerchunk>=0.0.4
+  - lxml
   - netcdf4
   - numcodecs
   - numpy
