@@ -13,7 +13,7 @@ HDFReferenceRecipe = reference_hdf_zarr.HDFReferenceRecipe
 
 
 @pytest.mark.parametrize("default_storage", [True, False])
-@pytest.mark.parametrize("with_intake", [True, False])
+@pytest.mark.parametrize("with_intake", [False, True])
 def test_single(
     netcdf_local_file_pattern_sequential, tmpdir, with_intake, default_storage, execute_recipe,
 ):
@@ -21,6 +21,7 @@ def test_single(
     path = list(file_pattern.items())[0][1]
     expected = xr.open_dataset(path, engine="h5netcdf")
     recipe = HDFReferenceRecipe(file_pattern)
+    recipe.coo_map = {"time": "cf:time"}  # ensure cftime encoding end-to-end
 
     if default_storage:
         out_target = recipe.storage_config.target
@@ -44,8 +45,9 @@ def test_single(
             "reference", fo=out_target._full_path("reference.json"), remote_protocol="file"
         )
         m = fs.get_mapper("")
-        ds = xr.open_dataset(m, engine="zarr", chunks={}, consolidated=False)
-    assert (ds.foo == expected.foo).all()
+        ds = xr.open_dataset(m, engine="zarr", chunks={}, backend_kwargs=dict(consolidated=False))
+
+    assert (expected.foo.values == ds.foo.values[: 1 * len(expected.time)]).all()
 
 
 @pytest.mark.parametrize("with_intake", [True, False])
@@ -54,6 +56,7 @@ def test_multi(netcdf_local_file_pattern_sequential, tmpdir, with_intake, execut
     paths = [f for _, f in list(file_pattern.items())]
     expected = xr.open_mfdataset(paths, engine="h5netcdf")
     recipe = HDFReferenceRecipe(file_pattern)
+    recipe.coo_map = {"time": "cf:time"}  # ensure cftime encoding end-to-end
 
     # make sure assigning storage later works
     out_target = FSSpecTarget(fs=fsspec.filesystem("file"), root_path=str(tmpdir))
