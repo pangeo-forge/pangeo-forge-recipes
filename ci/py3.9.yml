@@ -28,8 +28,10 @@ dependencies:
   - pip
   - prefect
   - pydap
-# bring back eventually once pynio conda-forge package supports py3.9
-#  - pynio
+  # bring back eventually once pynio conda-forge package supports py3.9 and does not
+  # conflict with ujson, which is a depencency of kerchunk's conda-forge feedstock.
+  # See: https://github.com/conda-forge/pynio-feedstock/issues/114
+  #  - pynio
   - pytest
   - pytest-cov
   - pytest-lazy-fixture
