@@ -44,6 +44,9 @@ dependencies:
   - xarray>=0.18.0
   - zarr>=2.6.0
   - pip:
-    - nbmake  # used in tutorial nb worklow
+    # - nbmake  # used in tutorial nb worklow
+    # Installing nbmake from feature branch until https://github.com/treebeardtech/nbmake/pull/65
+    # or similar is merged to resolve https://github.com/treebeardtech/nbmake/issues/63
+    - "git+https://github.com/cisaacstern/nbmake.git@bump-nbclient"
     - pytest-timeout
-    - fsspec-reference-maker>=0.0.4
+    - kerchunk>=0.0.4
