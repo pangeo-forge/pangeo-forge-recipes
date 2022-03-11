@@ -166,7 +166,7 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
         else:
             logger.info(f"Metadata already ached for input '{input_key!s}'")
 
-    if config.open_input_with_fsspec_reference:
+    if config.open_input_with_kerchunk:
         if config.file_pattern.is_opendap:
             raise ValueError("Can't make references for opendap inputs")
         if config.storage_config.metadata is None:
@@ -176,7 +176,7 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
         ref_fname = _input_reference_fname(input_key)
 
         if ref_fname in config.storage_config.metadata:
-            logger.info("Metadata is already cached with fsspec_reference.")
+            logger.info("Metadata is already cached with kerchunk.")
             return
 
         if config.storage_config.cache is None:
@@ -253,10 +253,10 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
             raise ValueError("Can't cache opendap inputs")
         if config.copy_input_to_local_file:
             raise ValueError("Can't copy opendap inputs to local file")
-        if config.open_input_with_fsspec_reference:
-            raise ValueError("Can't open opendap inputs with fsspec-reference-maker")
+        if config.open_input_with_kerchunk:
+            raise ValueError("Can't open opendap inputs with kerchunk")
 
-    if config.open_input_with_fsspec_reference:
+    if config.open_input_with_kerchunk:
         if config.storage_config.metadata is None:
             raise ValueError("metadata_cache is not set.")
         from fsspec.implementations.reference import ReferenceFileSystem
@@ -695,7 +695,7 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
       along dimension according to the specified mapping. For example,
       ``{'time': 5}`` would split each input file into 5 chunks along the
       time dimension. Multiple dimensions are allowed.
-    :param open_input_with_fsspec_reference: If True, use fsspec-reference-maker
+    :param open_input_with_kerchunk: If True, use kerchunk
       to generate a reference filesystem for each input, to be used when opening
       the file with Xarray as a virtual Zarr dataset.
     """
@@ -715,7 +715,7 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     process_chunk: Optional[Callable[[xr.Dataset], xr.Dataset]] = None
     lock_timeout: Optional[int] = None
     subset_inputs: SubsetSpec = field(default_factory=dict)
-    open_input_with_fsspec_reference: bool = False
+    open_input_with_kerchunk: bool = False
 
     # internal attributes not meant to be seen or accessed by user
     concat_dim: str = field(default_factory=str, repr=False, init=False)
@@ -748,7 +748,7 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
                 raise ValueError("Can't cache opendap inputs.")
             else:
                 self.cache_inputs = False
-            if self.open_input_with_fsspec_reference:
+            if self.open_input_with_kerchunk:
                 raise ValueError("Can't generate references on opendap inputs")
             if "engine" in self.xarray_open_kwargs:
                 if self.xarray_open_kwargs["engine"] != "netcdf4":

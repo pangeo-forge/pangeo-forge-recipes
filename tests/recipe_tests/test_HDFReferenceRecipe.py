@@ -6,7 +6,7 @@ import xarray as xr
 
 from pangeo_forge_recipes.storage import FSSpecTarget, MetadataTarget
 
-pytest.importorskip("fsspec_reference_maker")
+pytest.importorskip("kerchunk")
 intake = pytest.importorskip("intake")
 reference_hdf_zarr = pytest.importorskip("pangeo_forge_recipes.recipes.reference_hdf_zarr")
 HDFReferenceRecipe = reference_hdf_zarr.HDFReferenceRecipe

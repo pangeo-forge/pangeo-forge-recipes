@@ -4,7 +4,7 @@ Functions related to creating fsspec references.
 
 from typing import Dict, Tuple, Union
 
-from fsspec_reference_maker.hdf import SingleHdf5ToZarr
+from kerchunk.hdf import SingleHdf5ToZarr
 
 
 def create_hdf5_reference(
