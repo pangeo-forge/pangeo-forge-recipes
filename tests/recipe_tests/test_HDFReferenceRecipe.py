@@ -21,6 +21,7 @@ def test_single(
     path = list(file_pattern.items())[0][1]
     expected = xr.open_dataset(path, engine="h5netcdf")
     recipe = HDFReferenceRecipe(file_pattern)
+    recipe = recipe.copy_pruned(nkeep=1)
     recipe.coo_map = {"time": "cf:time"}  # ensure cftime encoding end-to-end
 
     if default_storage:
@@ -47,7 +48,7 @@ def test_single(
         m = fs.get_mapper("")
         ds = xr.open_dataset(m, engine="zarr", chunks={}, backend_kwargs=dict(consolidated=False))
 
-    assert (expected.foo.values == ds.foo.values[: 1 * len(expected.time)]).all()
+    assert (expected.foo.values == ds.foo.values).all()
 
 
 @pytest.mark.parametrize("with_intake", [True, False])
