@@ -22,3 +22,27 @@ The basic steps for adding you recipe are
 
 At this point the pangeo-forge maintainers / bots will verify that your recipe
 is shipshape and ready for inclusion in the Recipe Box.
+
+## Steps
+
+### 1. Automated checks by `@pangeo-forge-bot`:
+
+- [ ] Presence of a `meta.yaml` and `recipe.py` in your PR
+- [ ] That these files exist within the correct directory structure
+- [ ] That `meta.yaml` contains the required fields
+
+If all of these criteria are met, a new recipe run will be created, and you will see a message like this:
+
+```
+TODO: add example message
+```
+
+### 2. Running a recipe test
+
+TODO: describe iterative process
+
+### 3. Merge PR
+
+Automatically creates feedstock and production run of your recipe
+
+### 4. Maintaining your feedstock
