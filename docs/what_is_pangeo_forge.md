@@ -8,9 +8,9 @@ archives and deposit in cloud object storage in [analysis-ready, cloud-optimized
 
 Pangeo Forge is made of two main components:
 
-- **Pangeo Forge Recipes** - an open source Python package, which allows you
+- [**Pangeo Forge Recipes**](/recipe_user_guide/index.md) - an open source Python package, which allows you
   to create and run ETL pipelines ("recipes") and run them from your own computers.
-- **Pangeo Forge Cloud** - a cloud-based automation framework with runs these
+- [**Pangeo Forge Cloud**](/cloud_automation_user_guide/index.md) - a cloud-based automation framework with runs these
   recipes in the cloud from code stored in GitHub.
 
 Pangeo Forge is inspired directly by [Conda Forge](https://conda-forge.org/), a

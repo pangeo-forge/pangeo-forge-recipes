@@ -1,8 +1,8 @@
-# Recipe User Guide
+# **Pangeo Forge Recipes** User Guide
 
-Welcome to the User Guide for the `pangeo_forge_recipes` Python package.
+Welcome to the User Guide for the `pangeo-forge-recipes` Python package.
 This package is an important part of the broader Pangeo Forge infrastructure.
-The python package can be used on its own or as part of an automated recipe.
+The python package can be used on its own or as part of [Pangeo Forge Cloud](/cloud_automation_user_guide/index.md).
 
 ## File Patterns
 

@@ -19,7 +19,7 @@ recipe is just the _description_ of the transformation.
 To actually do the work, the recipe must be {doc}`executed <execution>`.
 Recipe authors (i.e. data users or data managers) can either execute their recipes
 on their own computers and infrastructure, in private, or contribute their recipe
-to the public Pangeo Forge {doc}`../cloud_automation_user_guide/recipe_box`, where it can be executed in the cloud via
+to the public Pangeo Forge {doc}`../cloud_automation_user_guide/recipes`, where it can be executed in the cloud via
 {doc}`../cloud_automation_user_guide/bakeries`.
 
 ## Recipe Classes

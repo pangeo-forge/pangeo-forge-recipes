@@ -1,17 +1,10 @@
-# The Recipe Box
+# Recipe Contribution
 
 You are free to use Pangeo Forge Recipes in private, {doc}`executing <../recipe_user_guide/execution>`
-them on your own computers / infrastructure however you wish.
+them on your own system / infrastructure however you wish.
 However, the real point of Pangeo Forge is to create a crowdsourced database
 of public recipes, which are executed automatically in the cloud via {doc}`bakeries`.
 This database is called the Pangeo Forge **Recipe Box**.
-
-```{note}
-The Recipe Box is under heavy development, and many details are still being worked out.
-The process of contributing a recipe will likely evolve and change over time.
-```
-
-## Contributing a Recipe
 
 To contribute a recipe, you will need to understand the basics of Pangeo Forge {doc}`../recipe_user_guide/recipes`.
 Working through the {doc}`../tutorials/index` is the best way to develop your understanding.

@@ -5,11 +5,11 @@ Welcome to the Pangeo Forge introduction tutorial!
 ### The Structure
 This tutorial is split into three parts:
 
-1. Defining a `FilePattern`
-2. Defining a recipe and running it locally
-3. Setting up a recipe to run in the cloud
+1. {doc}`intro_tutorial_part1`
+2. {doc}`intro_tutorial_part2`
+3. {doc}`intro_tutorial_part3`
 
-The first two parts use **`pangeo_forge_recipes`**, the Python library for defining dataset conversions. In the third part we switch to utilize **Pangeo Forge Cloud**, and organize our code for using scaled cloud infrastructure. These two pieces - **`pangeo_forge_recipes`** and **Pangeo Forge Cloud** can be used seperately, but are highly related.
+The first two parts use [**Pangeo Forge Recipes**](../recipe_user_guide/index.md), the Python library for defining dataset conversions. In the third part we switch to utilize [**Pangeo Forge Cloud**](../cloud_automation_user_guide/index.md), and organize our code for using scaled cloud infrastructure. These two pieces can be used seperately, but are highly related.
 
 ## The Goal
 Throughout this tutorial we are going to convert NOAA OISST stored in netCDF to Zarr. OISST is a global, gridded ocean sea surface temperature dataset at daily 1/4 degree resolution. By the end of this tutorial sequence you will have converted some OISST data to zarr, be able to access a sample on your computer, and see how to propose the recipe for cloud deployment!

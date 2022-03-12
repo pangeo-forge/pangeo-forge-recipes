@@ -1,8 +1,8 @@
-# Cloud Automation User Guide
+# **Pangeo Forge Cloud** User Guide
 
-## Recipe Box
+## Recipes
 
-The {doc}`./recipe_box` is a public database of Pangeo Forge Recipes.
+The {doc}`./recipes` is a public database of Pangeo Forge Recipes.
 Recipes are stored in Github repos.
 
 ## Bakeries
@@ -19,6 +19,6 @@ of the recipe. For more information, see {doc}`./bakeries`.
 :maxdepth: 1
 :glob:
 
-recipe_box
+recipes
 bakeries
 ```
