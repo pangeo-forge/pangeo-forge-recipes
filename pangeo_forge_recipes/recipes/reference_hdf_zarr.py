@@ -10,7 +10,7 @@ import yaml
 from kerchunk.combine import MultiZarrToZarr
 
 from ..executors.base import Pipeline, Stage
-from ..patterns import Index
+from ..patterns import FilePattern, Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import file_opener
 from .base import BaseRecipe, FilePatternMixin, StorageMixin
@@ -170,6 +170,8 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         self._validate_file_pattern()
 
     def _validate_file_pattern(self):
+        if self.file_pattern.file_type != FilePattern.netcdf4:
+            raise ValueError("This recipe works on netcdf4 input only")
         if len(self.file_pattern.merge_dims) > 1:
             raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
         if len(self.file_pattern.concat_dims) > 1:
