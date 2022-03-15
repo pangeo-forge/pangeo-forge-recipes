@@ -47,7 +47,7 @@ what_is_pangeo_forge
 installation
 introduction_tutorial/index
 recipe_user_guide/index
-cloud_automation_user_guide/index
+cloud_user_guide/index
 tutorials/index
 api_reference
 development/index

@@ -1,16 +1,21 @@
 # Recipe Contribution
 
-You are free to use Pangeo Forge Recipes in private, {doc}`executing <../recipe_user_guide/execution>`
-them on your own system / infrastructure however you wish.
-However, the real point of Pangeo Forge is to create a crowdsourced database
-of public recipes, which are executed automatically in the cloud via {doc}`bakeries`.
-This database is called the Pangeo Forge **Recipe Box**.
+To contribute a recipe, you will need to understand the basics of [Pangeo Forge Recipes](../recipe_user_guide/index).
+The {doc}`../introduction_tutorial/index` is a great place to start, and working through the {doc}`../tutorials/index` can help develop your understanding.
 
-To contribute a recipe, you will need to understand the basics of Pangeo Forge {doc}`../recipe_user_guide/recipes`.
-Working through the {doc}`../tutorials/index` is the best way to develop your understanding.
 You will also need a thorough understanding of the source dataset you wish to ingest,
 and a vision for the desired target dataset (desired format, chunk structure, etc.)
 and any cleaning / processing steps needed along the way.
+
+## Required files
+
+### `meta.yaml`
+
+
+### Recipe module
+
+
+## Making a Pull Request (PR)
 
 Once you are ready to begin, head over to <https://github.com/pangeo-forge/staged-recipes>.
 This repo is used to triage all new recipes for including in the Recipe Box.
@@ -23,7 +28,7 @@ The basic steps for adding you recipe are
 At this point the pangeo-forge maintainers / bots will verify that your recipe
 is shipshape and ready for inclusion in the Recipe Box.
 
-## Steps
+## After opening your PR
 
 ### 1. Automated checks by `@pangeo-forge-bot`:
 
@@ -33,8 +38,23 @@ is shipshape and ready for inclusion in the Recipe Box.
 
 If all of these criteria are met, a new recipe run will be created, and you will see a message like this:
 
+```{panels}
+:column: col-lg-12 p-2
+
+{{ pangeo_forge_bot_header }}
+^^^^^^^^^^^^^^
+🎉 New recipe runs created for the following recipes at sha `ce059a4`:
+ - `woa18-1deg-monthly`: https://pangeo-forge.org/dashboard/recipe-run/11
 ```
-TODO: add example message
+
+```{panels}
+:column: col-lg-12 p-2
+
+**recipe-contributor**
+^^^^^^^^^^^^^^
+
+content
+
 ```
 
 ### 2. Running a recipe test

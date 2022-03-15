@@ -49,7 +49,28 @@ html_theme_options = {
 html_logo = "_static/pangeo-forge-logo-blue.png"
 html_static_path = ["_static"]
 
-myst_heading_anchors = 2
+myst_heading_anchors = 3
+myst_enable_extensions = ["substitution"]
+
+github_comment_header = (
+    "<img "
+    'style="background: white; border: 1px solid rgba(0,0,0,0.25); border-radius: 50%; width:2em" '
+    'src="../_static/{username}.png" '
+    'alt="{username}"/> '
+    "<span "
+    'style="font-size: 1.1em; font-weight: 600">'
+    "{username}"
+    "</span>"
+    "<span "
+    'style="font-size: 1.1em; font-weight: 400; color: rgba(0,0,0,0.5)">'
+    " commented"
+    "</span>"
+)
+myst_substitutions = {
+    "pangeo_forge_bot_header": github_comment_header.format(username="pangeo-forge-bot"),
+    "human_maintainer_header": github_comment_header.format(username="human-maintainer"),
+    "recipe_contributor_header": github_comment_header.format(username="recipe-contributor"),
+}
 
 autodoc_mock_imports = ["apache_beam"]
 
