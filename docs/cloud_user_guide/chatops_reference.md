@@ -1,91 +1,118 @@
 # ChatOps Reference
 
 Once you've opened a Pull Request (PR) with your [Recipe Contribution](./recipe_contribution.md), a series of
-automated checks is performed to ensure that the submitted files conform to the expected format.
-
-If any changes are necessary, [`@pangeo-forge-bot`](https://github.com/pangeo-forge-bot) will report back with a comment.
-
-## Overview
-
-The checks on this page are listed sequentially according to the order in which they are performed.
-
-All checks up to and including [Recipe run(s) created](chatops_reference.md#recipe-runs-created) are automatically run against the latest commit of your PR _**each time you push**_ to the PR branch.
-
-If any required changes are identified by [`@pangeo-forge-bot`](https://github.com/pangeo-forge-bot),
-all checks will be re-run as soon as you push new commit(s) to the PR branch.
+automated checks is performed to ensure that the submitted files conform to the expected format. These checks fall into four sequential categories:
 
 ```{graphviz}
 
 digraph chatops {
-    newrank=true;
-    graph [splines=ortho];
+    graph [rankdir="LR"];
 
-    subgraph cluster_pr_structure {
-        color = "#003B71";
-        shape=rect;
-        style=rounded;
+    node [shape=rect, style=rounded, color="#003B71"];
+    a [label = "PR Structure"];
+    b [label = "meta.yaml"];
+    c [label = "Recipe: static"];
+    d [label = "Recipe: execution"];
 
-        label="PR Structure";
-        href="./chatops_reference.html#pr-structure";
-
-        node [shape=rect, style=rounded, color="#5eb130"];
-        a [label = "All changes in recipes/ subdir"];
-        b [label = "Single layer of subdirectories"];
-        c [label = "Only one subdirectory"];
-    }
-
-    subgraph cluster_meta_yaml {
-        color = "#003B71";
-        shape=rect;
-        style=rounded;
-
-        label="meta.yaml";
-        labelloc="b";
-        href="./chatops_reference.html#meta-yaml";
-
-        node [shape=rect, style=rounded, color="#5eb130"];
-        d [label = "Presence"];
-        e [label = "Loadability"];
-        f [label = "Completeness"];
-    }
-
-    subgraph cluster_recipe_module {
-        color = "#003B71";
-        shape=rect;
-        style=rounded;
-
-        label="Recipe module";
-        href="./chatops_reference.html#recipe-module";
-
-        node [shape=rect, style=rounded, color="#5eb130"];
-        g [label = "Presence"];
-        h [label = "Recipe run(s) created"];
-        i [label = "/run recipe-test"];
-        j [label = "Importability"];
-        k [label = "Test status: in_progress"];
-        l [label = "Test status: failed"];
-        m [label = "Test status: success"];
-    }
-
-    {rank = same; a; g;}
-    {rank = same; b; h;}
-    {rank = same; c; i;}
-    {rank = same; d; j;}
-    {rank = same; e; k;}
-
-    a -> b -> c -> d -> e -> f;
-    f:e -> g:w;
-    g -> h -> i -> j -> k;
-    k:s -> l;
-    k:s -> m;
-
+    a -> b -> c -> d;
 
 }
 
 ```
+<br>
 
-The following is a listing of the automated checks performed on your PR, along with examples of the comments that
-[`@pangeo-forge-bot`](https://github.com/pangeo-forge-bot) makes in response to various check results.
+The specific checks performed within each of these categories are as follows:
+
+````{panels}
+:container: container-lg pb-3
+:column: col-lg-6 col-lg-6 p-2
+
+PR Structure
+^^^^^^^^^^^^
+
+```{link-button} ./chatops_reference.html#all-changes-in-recipes-subdir
+:text: All changes in recipes/ subdir
+:classes: btn-outline-primary btn-block
+```
+
+```{link-button} ./chatops_reference.html#single-layer-of-subdirectories
+:text: Single layter of subdirectories
+:classes: btn-outline-primary btn-block
+```
+
+```{link-button} ./chatops_reference.html#only-one-subdirectory
+:text: Only one subdirectory
+:classes: btn-outline-primary btn-block
+```
+---
+`meta.yaml`
+^^^^^^^^^^^
+
+```{link-button} ./chatops_reference.html#presence
+:text: Presence
+:classes: btn-outline-primary btn-block
+```
+
+```{link-button} ./chatops_reference.html#loadability
+:text: Loadability
+:classes: btn-outline-primary btn-block
+```
+
+```{link-button} ./chatops_reference.html#completeness
+:text: Completeness
+:classes: btn-outline-primary btn-block
+```
+---
+:column: col-lg-6 col-lg-6 p-2
+
+Recipe: static
+^^^^^^^^^^^^^^
+
+```{link-button} ./chatops_reference.html#presence-1
+:text: Presence
+:classes: btn-outline-primary btn-block
+```
+
+```{link-button} ./chatops_reference.html#recipe-runs-created
+:text: Recipe run(s) created
+:classes: btn-outline-primary btn-block
+```
+
+```{link-button} ./chatops_reference.html#run-recipe-test
+:text: /run recipe-test
+:classes: btn-outline-primary btn-block
+```
+
+---
+
+Recipe: execution
+^^^^^^^^^^^^^^^^^
+
+```{link-button} ./chatops_reference.html#importability
+:text: Importability
+:classes: btn-outline-primary btn-block
+```
+
+```{link-button} ./chatops_reference.html#test-status-in-progress
+:text: "Test status: in_progress"
+:classes: btn-outline-primary btn-block
+```
+
+```{link-button} ./chatops_reference.html#test-status-failed
+:text: "Test status: failed"
+:classes: btn-outline-primary btn-block
+```
+
+```{link-button} ./chatops_reference.html#test-status-success
+:text: "Test status: success"
+:classes: btn-outline-primary btn-block
+```
+````
+
+All checks up to and including [Recipe run(s) created](chatops_reference.md#recipe-runs-created) are automatically run against the latest commit of your PR _**each time you push**_ to the PR branch. Once [Recipe run(s) created](chatops_reference.md#recipe-runs-created) succeeds, a human maintainer will initiate the transition from static recipe checks to the recipe execution test by issuing the [/run recipe-test](chatops_reference.md#run-recipe-test) command.
+
+Check results (including status and error messages) are reported via comments by [`@pangeo-forge-bot`](https://github.com/pangeo-forge-bot). This page lists examples of the types of comments you may receive
+based on various check results; navigate to them by following the links in the table above, the contents section of this page, or by simply scrolling down from here.
 
 ## PR Structure
 
@@ -245,7 +272,7 @@ In this example, the `meta.yaml` was found to be missing the `pangeo_notebook_ve
 
 For a complete reference of required fields for the `meta.yaml`, see [Required files](./recipe_contribution.md#required-files).
 
-## Recipe module
+## Recipe: static
 
 Once the `meta.yaml` is found to be [present, loadable, and complete](./chatops_reference.md#metayaml), checks of the recipe module begin.
 
@@ -339,6 +366,8 @@ special chatops command, as follows:
 ````
 in this example, `{recipe_run_id}` would be replaced with the integer id
 number of the recipe run to be run.
+
+## Recipe: execution
 
 ### Importability
 
