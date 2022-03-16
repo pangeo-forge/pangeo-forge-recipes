@@ -1,4 +1,4 @@
-# **Pangeo Forge Cloud** User Guide
+# Pangeo Forge Cloud
 
 Welcome to the User Guide for Pangeo Forge Cloud. While [Pangeo Forge Recipes](../recipe_user_guide/index.md) may be
 {doc}`executed <../recipe_user_guide/execution>` on private infrastructure, the ultimate aim of Pangeo Forge

@@ -21,7 +21,7 @@ digraph g {
 ```
 <br>
 
-The specific checks performed within each of these categories are as follows:
+The specific checks and status updates within each of these categories are as follows:
 
 ````{panels}
 :container: container-lg pb-3

@@ -1,4 +1,4 @@
-# Installing Pangeo Forge Recipes
+# Installation
 
 ## Local installation
 

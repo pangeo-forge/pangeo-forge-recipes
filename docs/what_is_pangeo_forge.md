@@ -8,10 +8,9 @@ archives and deposit in cloud object storage in [analysis-ready, cloud-optimized
 
 Pangeo Forge is made of two main components:
 
-- [**Pangeo Forge Recipes**](/recipe_user_guide/index.md) - an open source Python package, which allows you
+- {doc}`pangeo_forge_recipes/index` - an open source Python package, which allows you
   to create and run ETL pipelines ("recipes") and run them from your own computers.
-- [**Pangeo Forge Cloud**](/cloud_automation_user_guide/index.md) - a cloud-based automation framework with runs these
-  recipes in the cloud from code stored in GitHub.
+- {doc}`pangeo_forge_cloud/index` - a cloud-based automation framework with runs these recipes in the cloud from code stored in GitHub.
 
 Pangeo Forge is inspired directly by [Conda Forge](https://conda-forge.org/), a
 community-led collection of recipes for building conda packages.
@@ -70,7 +69,7 @@ Pangeo Forge is _not_ currently focused on tabular data
 This data model and these formats are very well supported by other ETL tools in the modern data stack.
 
 So if you want to do ETL on multidimensional array data, Pangeo Forge is for you!
-For more feedback, [open an issue](https://github.com/conda-forge/staged-recipes/issues) in staged recipes.
+For more feedback, [open an issue](https://github.com/pangeo-forge/staged-recipes/issues) in staged recipes.
 
 ### How is Pangeo Forge funded?
 
@@ -84,4 +83,4 @@ Please reach out if you're interested in helping with this effort.
 
 ### How can I help with development?
 
-Check out our {doc}`development/development_guide` for how to get started!
+Check out our {doc}`pangeo_forge_recipes/development/development_guide` for how to get started!
