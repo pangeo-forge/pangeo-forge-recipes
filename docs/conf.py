@@ -10,6 +10,7 @@ extensions = [
     "myst_nb",
     "sphinx.ext.autodoc",
     "sphinx.ext.extlinks",
+    "sphinx.ext.graphviz",
     # "numpydoc",
     "sphinx_autodoc_typehints",
     "sphinx_copybutton",

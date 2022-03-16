@@ -5,12 +5,83 @@ automated checks is performed to ensure that the submitted files conform to the 
 
 If any changes are necessary, [`@pangeo-forge-bot`](https://github.com/pangeo-forge-bot) will report back with a comment.
 
+## Overview
 
-```{note}
+The checks on this page are listed sequentially according to the order in which they are performed.
+
 All checks up to and including [Recipe run(s) created](chatops_reference.md#recipe-runs-created) are automatically run against the latest commit of your PR _**each time you push**_ to the PR branch.
 
 If any required changes are identified by [`@pangeo-forge-bot`](https://github.com/pangeo-forge-bot),
 all checks will be re-run as soon as you push new commit(s) to the PR branch.
+
+```{graphviz}
+
+digraph chatops {
+    newrank=true;
+    graph [splines=ortho];
+
+    subgraph cluster_pr_structure {
+        color = "#003B71";
+        shape=rect;
+        style=rounded;
+
+        label="PR Structure";
+        href="./chatops_reference.html#pr-structure";
+
+        node [shape=rect, style=rounded, color="#5eb130"];
+        a [label = "All changes in recipes/ subdir"];
+        b [label = "Single layer of subdirectories"];
+        c [label = "Only one subdirectory"];
+    }
+
+    subgraph cluster_meta_yaml {
+        color = "#003B71";
+        shape=rect;
+        style=rounded;
+
+        label="meta.yaml";
+        labelloc="b";
+        href="./chatops_reference.html#meta-yaml";
+
+        node [shape=rect, style=rounded, color="#5eb130"];
+        d [label = "Presence"];
+        e [label = "Loadability"];
+        f [label = "Completeness"];
+    }
+
+    subgraph cluster_recipe_module {
+        color = "#003B71";
+        shape=rect;
+        style=rounded;
+
+        label="Recipe module";
+        href="./chatops_reference.html#recipe-module";
+
+        node [shape=rect, style=rounded, color="#5eb130"];
+        g [label = "Presence"];
+        h [label = "Recipe run(s) created"];
+        i [label = "/run recipe-test"];
+        j [label = "Importability"];
+        k [label = "Test status: in_progress"];
+        l [label = "Test status: failed"];
+        m [label = "Test status: success"];
+    }
+
+    {rank = same; a; g;}
+    {rank = same; b; h;}
+    {rank = same; c; i;}
+    {rank = same; d; j;}
+    {rank = same; e; k;}
+
+    a -> b -> c -> d -> e -> f;
+    f:e -> g:w;
+    g -> h -> i -> j -> k;
+    k:s -> l;
+    k:s -> m;
+
+
+}
+
 ```
 
 The following is a listing of the automated checks performed on your PR, along with examples of the comments that
@@ -223,7 +294,13 @@ will resolve the error.
 
 ### Recipe run(s) created
 
-Once the recipe module's presence is confirmed, a new [Recipe Run](./core_concepts.md#recipe-runs) is registered with Pangeo Forge Cloud for every recipe included in this PR. When this is complete, you will receive a comment notification such as:
+```{note}
+The checks on this page are listed sequentially according to the order in which they are performed.
+
+All checks up to and including [Recipe run(s) created](chatops_reference.md#recipe-runs-created) are automatically run against the latest commit of your PR _**each time you push**_ to the PR branch.
+```
+
+Once the recipe module's presence is confirmed, a new [Recipe Run](./core_concepts.md#recipe-runs) is registered with Pangeo Forge Cloud for every recipe included in the PR. When this is complete, you will receive a comment notification such as:
 
 ````{panels}
 :column: col-lg-12 p-2
@@ -236,17 +313,13 @@ Once the recipe module's presence is confirmed, a new [Recipe Run](./core_concep
 
 ````
 
-where `{recipe_run_id}` will be replaced with an integer value corresponding to this particular recipe run.
+where `{recipe_run_id}` will be replaced with an integer value corresponding to this particular recipe run. If your PR defines more than one recipe, the comment notification will include additional bullet points, one for each recipe in the PR.
 
-> If your PR defines more than one recipe, the comment notification will include a bullet for each recipe in the PR.
-
-```{note}
 The link in the above example comment does not resolve to a real webpage, because it does not have a `{recipe_run_id}` assigned to it. Please refer to
 
-<https://pangeo-forge.org/dashboard/recipe-runs/>
+> <https://pangeo-forge.org/dashboard/recipe-runs/>
 
 for a listing of real [Recipe Runs](./core_concepts.md#recipe-runs).
-```
 
 ### `/run recipe-test`
 
