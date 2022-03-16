@@ -1,15 +1,15 @@
-# ChatOps Reference
+# PR Checks Reference
 
 Once you've opened a Pull Request (PR) with your [Recipe Contribution](./recipe_contribution.md), a series of
 automated checks is performed to ensure that the submitted files conform to the expected format. These checks fall into four sequential categories:
 
 ```{graphviz}
 
-digraph chatops {
+digraph g {
     graph [rankdir="LR"];
 
     node [shape=rect, style=rounded, color="#003B71"];
-    a [label = "PR Structure"];
+    a [label = "Structure"];
     b [label = "meta.yaml"];
     c [label = "Recipe: static"];
     d [label = "Recipe: execution"];
@@ -27,20 +27,20 @@ The specific checks performed within each of these categories are as follows:
 :container: container-lg pb-3
 :column: col-lg-6 col-lg-6 p-2
 
-PR Structure
-^^^^^^^^^^^^
+Structure
+^^^^^^^^^
 
-```{link-button} ./chatops_reference.html#all-changes-in-recipes-subdir
+```{link-button} ./pr_checks_reference.html#all-changes-in-recipes-subdir
 :text: All changes in recipes/ subdir
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./chatops_reference.html#single-layer-of-subdirectories
+```{link-button} ./pr_checks_reference.html#single-layer-of-subdirectories
 :text: Single layter of subdirectories
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./chatops_reference.html#only-one-subdirectory
+```{link-button} ./pr_checks_reference.html#only-one-subdirectory
 :text: Only one subdirectory
 :classes: btn-outline-primary btn-block
 ```
@@ -48,17 +48,17 @@ PR Structure
 `meta.yaml`
 ^^^^^^^^^^^
 
-```{link-button} ./chatops_reference.html#presence
+```{link-button} ./pr_checks_reference.html#presence
 :text: Presence
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./chatops_reference.html#loadability
+```{link-button} ./pr_checks_reference.html#loadability
 :text: Loadability
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./chatops_reference.html#completeness
+```{link-button} ./pr_checks_reference.html#completeness
 :text: Completeness
 :classes: btn-outline-primary btn-block
 ```
@@ -68,17 +68,17 @@ PR Structure
 Recipe: static
 ^^^^^^^^^^^^^^
 
-```{link-button} ./chatops_reference.html#presence-1
+```{link-button} ./pr_checks_reference.html#presence-1
 :text: Presence
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./chatops_reference.html#recipe-runs-created
+```{link-button} ./pr_checks_reference.html#recipe-runs-created
 :text: Recipe run(s) created
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./chatops_reference.html#run-recipe-test
+```{link-button} ./pr_checks_reference.html#run-recipe-test
 :text: /run recipe-test
 :classes: btn-outline-primary btn-block
 ```
@@ -88,33 +88,33 @@ Recipe: static
 Recipe: execution
 ^^^^^^^^^^^^^^^^^
 
-```{link-button} ./chatops_reference.html#importability
+```{link-button} ./pr_checks_reference.html#importability
 :text: Importability
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./chatops_reference.html#test-status-in-progress
+```{link-button} ./pr_checks_reference.html#test-status-in-progress
 :text: "Test status: in_progress"
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./chatops_reference.html#test-status-failed
+```{link-button} ./pr_checks_reference.html#test-status-failed
 :text: "Test status: failed"
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./chatops_reference.html#test-status-success
+```{link-button} ./pr_checks_reference.html#test-status-success
 :text: "Test status: success"
 :classes: btn-outline-primary btn-block
 ```
 ````
 
-All checks up to and including [Recipe run(s) created](chatops_reference.md#recipe-runs-created) are automatically run against the latest commit of your PR _**each time you push**_ to the PR branch. Once [Recipe run(s) created](chatops_reference.md#recipe-runs-created) succeeds, a human maintainer will initiate the transition from static recipe checks to the recipe execution test by issuing the [/run recipe-test](chatops_reference.md#run-recipe-test) command.
+All checks up to and including [Recipe run(s) created](pr_checks_reference.md#recipe-runs-created) are automatically run against the latest commit of your PR _**each time you push**_ to the PR branch. Once [Recipe run(s) created](pr_checks_reference.md#recipe-runs-created) succeeds, a human maintainer will initiate the transition from static recipe checks to the recipe execution test by issuing the [/run recipe-test](pr_checks_reference.md#run-recipe-test) command.
 
 Check results (including status and error messages) are reported via comments by [`@pangeo-forge-bot`](https://github.com/pangeo-forge-bot). This page lists examples of the types of comments you may receive
 based on various check results; navigate to them by following the links in the table above, the contents section of this page, or by simply scrolling down from here.
 
-## PR Structure
+## Structure
 
 As described in [Recipe Contribution](./recipe_contribution.md) and [Introduction Tutorial Part 3](../introduction_tutorial/intro_tutorial_part3.ipynb#add-the-recipe-files), your PR to the [`pangeo-forge/staged-recipes`](https://github.com/pangeo-forge/staged-recipes) repository should add a single new directory within the `recipes/` subdirectory:
 
@@ -180,11 +180,7 @@ Removing all but one subdirectory of `recipes/` from your PR will resolve this e
 
 ## `meta.yaml`
 
-Once the content of your PR is found to [adhere to the expected structure](./chatops_reference.md#pr-structure), the next aspect that is checked is the `meta.yaml` file.
-
-```{note}
-In what follows, we will assume that your dataset name is `woa-1deg-monthly` and therefore your submitted files should all exist within the directory `recipes/woa-1deg-monthly/`.
-```
+Once the content of your PR is found to [adhere to the expected structure](./pr_checks_reference.md#structure), the next aspect that is checked is the `meta.yaml` file.
 
 ### Presence
 
@@ -198,7 +194,7 @@ The first `meta.yaml` check is simply to confirm that a file named _**exactly**_
 
 I don't see a `meta.yaml` in this PR, only these files:
 ```python
-['recipes/woa-1deg-monthly/meta.yml', 'recipes/woa-1deg-monthly/recipe.py']
+['recipes/great-dataset/meta.yml', 'recipes/great-dataset/recipe.py']
 ```
 Please commit a `meta.yaml` that follows this [template](https://github.com/pangeo-forge/sandbox/blob/main/recipe/meta.yaml).
 > _**Sorry, I only recognize the longform `.yaml` extension!**_
@@ -216,7 +212,7 @@ will resolve the error.
 
 ### Loadability
 
-Pangeo Forge Cloud uses [PyYAML](https://pyyaml.org/wiki/PyYAML)'s `yaml.safe_load` to load the `meta.yaml`. If your `meta.yaml` cannot be loaded with this function, you may receive a comment notification such as:
+Pangeo Forge Cloud uses [PyYAML](https://pyyaml.org/wiki/PyYAML)'s `yaml.safe_load` to load the `meta.yaml`. If your `meta.yaml` cannot be loaded with this function, you will receive a comment notification such as:
 
 ````{panels}
 :column: col-lg-12 p-2
@@ -224,14 +220,14 @@ Pangeo Forge Cloud uses [PyYAML](https://pyyaml.org/wiki/PyYAML)'s `yaml.safe_lo
 {{ pangeo_forge_bot_header }}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When I tried to load `'recipes/woa-1deg-monthly/meta.yaml'`, I got a `ScannerError`.
+When I tried to load `'recipes/great-dataset/meta.yaml'`, I got a `ScannerError`.
 You should be able to replicate this error yourself.
 
 First make sure you're in the root of your cloned `staged-recipes` repo. Then run this code in a Python interpreter:
 ```python
 import yaml  # note: `pip install PyYAML` first
 
-with open("recipes/woa-1deg-monthly/meta.yaml", "r") as f:
+with open("recipes/great-dataset/meta.yaml", "r") as f:
     yaml.safe_load(f)
 ```
 Please correct `meta.yaml` so that you're able to run this code without error, then commit the corrected `meta.yaml`.
@@ -274,7 +270,7 @@ For a complete reference of required fields for the `meta.yaml`, see [Required f
 
 ## Recipe: static
 
-Once the `meta.yaml` is found to be [present, loadable, and complete](./chatops_reference.md#metayaml), checks of the recipe module begin.
+Once the `meta.yaml` is found to be [present, loadable, and complete](./pr_checks_reference.md#metayaml), checks of the recipe module begin.
 
 ### Presence
 
@@ -294,14 +290,14 @@ I'm having trouble finding your recipe module (i.e. Python file) in this PR.
 
 Your `meta.yaml` recipes section currently includes a recipe declared as:
 ```yaml
-- id: woa18
-  object: recipe:woa18_recipe
+- id: great-recipe-id
+  object: recipe:great_recipe
 ```
 The `object` here should conform to the format `{recipe-module-name}:{recipe-object-name}`.
 
 In your PR I only see the following files:
 ```python
-['recipes/woa-1deg-monthly/meta.yaml', 'recipes/woa-1deg-monthly/recipy.py']
+['recipes/great-dataset/meta.yaml', 'recipes/great-dataset/recipy.py']
 ```
 ...none of which end with `/recipe.py`, which is unexpected given the `object` shown above.
 
@@ -321,12 +317,6 @@ will resolve the error.
 
 ### Recipe run(s) created
 
-```{note}
-The checks on this page are listed sequentially according to the order in which they are performed.
-
-All checks up to and including [Recipe run(s) created](chatops_reference.md#recipe-runs-created) are automatically run against the latest commit of your PR _**each time you push**_ to the PR branch.
-```
-
 Once the recipe module's presence is confirmed, a new [Recipe Run](./core_concepts.md#recipe-runs) is registered with Pangeo Forge Cloud for every recipe included in the PR. When this is complete, you will receive a comment notification such as:
 
 ````{panels}
@@ -335,25 +325,27 @@ Once the recipe module's presence is confirmed, a new [Recipe Run](./core_concep
 {{ pangeo_forge_bot_header }}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-🎉 New recipe runs created for the following recipes at sha `6a1e73e`:
- - `woa18`: <https://pangeo-forge.org/dashboard/recipe-run/>`{recipe_run_id}`
+🎉 New recipe runs created for the following recipes at sha `abcdefg`:
+ - `great-recipe-id`: <https://pangeo-forge.org/dashboard/recipe-run/>`{recipe_run_id}`
 
 ````
 
-where `{recipe_run_id}` will be replaced with an integer value corresponding to this particular recipe run. If your PR defines more than one recipe, the comment notification will include additional bullet points, one for each recipe in the PR.
+where `abcdefg` will be replaced with the actual SHA of your PR's latest commit, and `{recipe_run_id}` will be replaced with an integer value uniquely idenfying the newly created recipe run. If your PR defines more than one recipe, the comment notification will include additional bullet points, one for each recipe in the PR.
 
+```{note}
 The link in the above example comment does not resolve to a real webpage, because it does not have a `{recipe_run_id}` assigned to it. Please refer to
 
-> <https://pangeo-forge.org/dashboard/recipe-runs/>
+<https://pangeo-forge.org/dashboard/recipe-runs/>
 
 for a listing of real [Recipe Runs](./core_concepts.md#recipe-runs).
+```
 
 ### `/run recipe-test`
 
 Automatically created recipe runs all start with a status of `queued`. To move
 the status of a recipe run to `in_progress` (thereby beginning the actual test
 execution of the recipe), a human maintainer of Pangeo Forge must issue a
-special chatops command, as follows:
+special command, as follows:
 
 ````{panels}
 :column: col-lg-12 p-2
@@ -402,7 +394,7 @@ Please correct your recipe module so that it's importable.
 {{ pangeo_forge_bot_header }}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-✨ A test of your recipe `woa18` is now running on Pangeo Forge Cloud!
+✨ A test of your recipe `great-recipe-id` is now running on Pangeo Forge Cloud!
 
 I'll notify you with a comment on this thread when this test is complete. (This could be a little while...)
 
@@ -417,9 +409,9 @@ In the meantime, you can follow the logs for this recipe run at <https://pangeo-
 {{ pangeo_forge_bot_header }}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Pangeo Forge Cloud told me that our test of your recipe `woa18-1deg-monthly` failed. But don't worry, I'm sure we can fix this!
+Pangeo Forge Cloud told me that our test of your recipe `great-recipe-id` failed. But don't worry, I'm sure we can fix this!
 
-To see what error caused the failure, please review the logs at <https://pangeo-forge.org/dashboard/recipe-run/10>
+To see what error caused the failure, please review the logs at <https://pangeo-forge.org/dashboard/recipe-run/>`{recipe_run_id}`
 
 If you haven't yet tried [pruning and running your recipe locally](../introduction_tutorial/intro_tutorial_part2.ipynb#prune-the-recipe), I suggest trying that now.
 
@@ -435,7 +427,7 @@ Please report back on the results of your local testing in a new comment below, 
 {{ pangeo_forge_bot_header }}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-🥳 **Hooray!**  The test execution of your recipe `woa18-1deg-monthly` succeeded.
+🥳 **Hooray!**  The test execution of your recipe `great-recipe-id` succeeded.
 
 Here is a static representation of the dataset built by this recipe:
 

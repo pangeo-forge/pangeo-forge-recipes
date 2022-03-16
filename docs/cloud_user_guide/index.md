@@ -16,7 +16,7 @@ Recipes which have been run in {doc}`./bakeries` are listed on <https://pangeo-f
  how you can is a public database of Pangeo Forge Recipes.
 Recipes are stored in Github repos, see {doc}`./recipes`.
 
-## ChatOps Reference
+## PR Checks Reference
 
 , which are executed automatically in the cloud via {doc}`bakeries`.
 Bakeries are cloud-based environments for executing recipes contributed by the community.
@@ -33,5 +33,5 @@ of the recipe. For more information, see {doc}`./bakeries`.
 
 core_concepts
 recipe_contribution
-chatops_reference
+pr_checks_reference
 ```
