@@ -1,36 +1,52 @@
 # Core Concepts
 
+When making a {doc}`../../pangeo_forge_cloud/recipe_contribution` to {doc}`../../pangeo_forge_cloud/index`, familiarity with the following core concepts is recommended.
+
 ## Catalog
 
-[Pangeo Forge Recipes](../recipe_user_guide/index.md) produce [analysis-ready, cloud optimized (ARCO)](https://ieeexplore.ieee.org/abstract/document/9354557) datasets.
-Recipes which have been run in {doc}`./bakeries` are listed on <https://pangeo-forge.org/catalog>. The {doc}`./recipes` page explains how to contribute recipes to this public catalog.
+The [analysis-ready, cloud optimized (ARCO)](https://ieeexplore.ieee.org/abstract/document/9354557) datasets produced by {doc}`../../pangeo_forge_recipes/recipe_user_guide/recipes`  executed on {doc}`../../pangeo_forge_cloud/index` are registered in the Pangeo Forge Catalog:
+
+> <https://pangeo-forge.org/catalog>
+
+Datasets in this catalog are built from recipes stored in [Feedstocks](#feedstocks).
 
 ## Feedstocks
 
+Once a {doc}`../../pangeo_forge_cloud/recipe_contribution` passes the required [checks](../pangeo_forge_cloud/recipe_contribution.md#pr-checks), it is automatically moved into a new standalone GitHub repository within the [`pangeo-forge` org](https://github.com/orgs/pangeo-forge/repositories). These repositories, which store recipes, are known as **Feedstocks** (a concept [borrowed directly from Conda Forge](https://conda-forge.org/feedstock-outputs/)).
 
+A current listing of all Pangeo Forge Feedstocks is available at:
+
+> <https://pangeo-forge.org/dashboard/feedstocks>
+
+All datasets in the [Catalog](#catalog) are built from recipes stored in a Feedstock repo. As such, Feedstocks serve as a record of the exact provenance of all ARCO data produced by {doc}`../../pangeo_forge_cloud/index`.
+
+If corrections or improvements are required on a dataset in the [Catalog](#catalog), these can be implementeded via Pull Requests for the associated Feedstock repo. Each time a Pull Request is merged into the default branch of a Feedstock repo, a new production build of the recipes in that Feedstock is initiated.
+
+Each build of the recipes in a Feedstock repo is tracked by a [Recipe Run](#recipe-runs).
 
 ## Recipe Runs
 
+Recipe Runs are simple metadata objects used by {doc}`../../pangeo_forge_cloud/index` to track information about a particular recipe build.
+
+A current listing of all Recipe Runs is available at:
+
+> <https://pangeo-forge.org/dashboard/recipe-runs>
+
+Every Recipe Run records metadata about a specific recipe execution job on a [Bakery](#bakeries).
 
 ## Bakeries
 
-As described in {doc}`../recipe_user_guide/execution`, you can define and execute recipes on your
-own computers using the executor of your choice.
-However, you can also contribute your recipe to the Pangeo Forge {doc}`recipes`.
-and have it executed automatically in the cloud.
-Cloud based execution is provided by Bakeries.
+Bakeries are the cloud compute infrastructure that execute recipes contributed to
+{doc}`../../pangeo_forge_cloud/index`. Bakeries use [Prefect](https://prefect.io/) to orchestrate the various stages of recipe execution. Each Bakery is coupled to one or more cloud storage buckets where the ARCO data produced by recipes is stored.
 
-<https://pangeo-forge.org/dashboard/bakeries>
+A listing of current Bakery deployments is available at:
 
-There are currently three types of Bakeries implemented:
+> <https://pangeo-forge.org/dashboard/bakeries>
 
-- <https://github.com/pangeo-forge/pangeo-forge-aws-bakery> -
-  Bakery for Amazon Web Services cloud
-- <https://github.com/pangeo-forge/pangeo-forge-azure-bakery> -
-  Bakery for Microsoft Azure cloud
-- <https://github.com/pangeo-forge/pangeo-forge-gcs-bakery> -
-  Bakery for Google cloud
+Bakery implementation templates are availble for all three major cloud providers:
 
+- <https://github.com/pangeo-forge/pangeo-forge-aws-bakery>
+- <https://github.com/pangeo-forge/pangeo-forge-azure-bakery>
+- <https://github.com/pangeo-forge/pangeo-forge-gcs-bakery>
 
-If you are interested in deploying your own bakery, please consult those repos
-for more information.
+Bakery operation entails non-trivial financial and maintenance cost, and is therefore typically undertaken by businesses, organizations, and/or institutions with dedicated funding for this purpose. If you are interested in deploying your own bakery, please consult the above-listed repos for more information.
