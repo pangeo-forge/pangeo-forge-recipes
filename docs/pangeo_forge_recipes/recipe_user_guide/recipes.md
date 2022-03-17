@@ -18,9 +18,8 @@ Creating a recipe does not actually cause any data to be read or written; the
 recipe is just the _description_ of the transformation.
 To actually do the work, the recipe must be {doc}`executed <execution>`.
 Recipe authors (i.e. data users or data managers) can either execute their recipes
-on their own computers and infrastructure, in private, or make a {doc}`../cloud_automation_user_guide/recipes`
-to [Pangeo Forge Cloud](../cloud_automation_user_guide/index.md), which allows the recipe to be automatically by via
-{doc}`../cloud_automation_user_guide/bakeries`.
+on their own computers and infrastructure, in private, or make a {doc}`../../pangeo_forge_cloud/recipe_contribution`
+to {doc}`../../pangeo_forge_cloud/index`, which allows the recipe to be automatically by via [Bakeries](../../pangeo_forge_cloud/core_concepts.md).
 
 ## Recipe Classes
 

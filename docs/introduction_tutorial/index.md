@@ -2,7 +2,7 @@
 
 Welcome to the Pangeo Forge introduction tutorial!
 
-### The Structure
+## The Structure
 This tutorial is split into three parts:
 
 1. {doc}`intro_tutorial_part1`
