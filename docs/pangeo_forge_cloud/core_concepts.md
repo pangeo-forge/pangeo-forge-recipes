@@ -20,7 +20,7 @@ A current listing of all Pangeo Forge Feedstocks is available at:
 
 All datasets in the [Catalog](#catalog) are built from recipes stored in a Feedstock repo. As such, Feedstocks serve as a record of the exact provenance of all ARCO data produced by {doc}`../../pangeo_forge_cloud/index`.
 
-If corrections or improvements are required on a dataset in the [Catalog](#catalog), these can be implementeded via Pull Requests for the associated Feedstock repo. Each time a Pull Request is merged into the default branch of a Feedstock repo, a new production build of the recipes in that Feedstock is initiated.
+If corrections or improvements are required on a dataset in the [Catalog](#catalog), these can be implementeded via Pull Requests against the associated Feedstock repo. Each time a Pull Request is merged into the default branch of a Feedstock repo, a new production build of the recipes in that Feedstock is initiated.
 
 Each build of the recipes in a Feedstock repo is tracked by a [Recipe Run](#recipe-runs).
 
