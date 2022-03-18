@@ -251,7 +251,7 @@ expected fields are included in the file. If any fields are found to be missing,
 
 It looks like your `meta.yaml` does not conform to the specification.
 
-```
+```sh
             2 validation errors for MetaYaml
 pangeo_notebook_version
   field required (type=value_error.missing)
@@ -307,7 +307,7 @@ Please help me find your recipe module by either:
 
 ````
 
-This error may occur due to the recipe module truly being missing, or perhaps due to an inconsistency between the recipe module name indicated in `meta.yaml` and the name of the actual file in the PR. In the case of the example above, a simple typo is causing the error. Changing the recipe module name in the PR as follows:
+This error may occur due to the recipe module truly being missing, or perhaps due to an inconsistency between the recipe module name indicated in `meta.yaml` and the name of the actual file in the PR. In the case of the example above, a simple typo is causing the error; **recip-E** ending in E is accidently spelled as **recip-Y** ending in Y. Changing the recipe module name in the PR as follows:
 
 ```diff
 - recipy.py
@@ -340,6 +340,8 @@ The link in the above example comment does not resolve to a real webpage, becaus
 for a listing of real [Recipe Runs](./core_concepts.md#recipe-runs).
 ```
 
+## Recipe: execution
+
 ### `/run recipe-test`
 
 Automatically created recipe runs all start with a status of `queued`. To move
@@ -359,7 +361,6 @@ special command, as follows:
 in this example, `{recipe_run_id}` would be replaced with the integer id
 number of the recipe run to be run.
 
-## Recipe: execution
 
 ### Importability
 
@@ -388,6 +389,8 @@ Please correct your recipe module so that it's importable.
 
 ### Test status: `in_progress`
 
+Assuming your recipe module is importable, a test execution of the recipe will begin, and you will receive a status update comment such as:
+
 ````{panels}
 :column: col-lg-12 p-2
 
@@ -402,6 +405,8 @@ In the meantime, you can follow the logs for this recipe run at <https://pangeo-
 ````
 
 ### Test status: `failed`
+
+If the test fails for any reason, you will receive a comment notification such as:
 
 ````{panels}
 :column: col-lg-12 p-2
@@ -420,6 +425,8 @@ Please report back on the results of your local testing in a new comment below, 
 
 
 ### Test status: `success`
+
+Once your recipe test succeeds (which may happen the first time, or after iterative improvements following prior failures), you will receive a long status report comment such as:
 
 ````{panels}
 :column: col-lg-12 p-2
@@ -507,6 +514,12 @@ Please copy-and-paste the list below into a new comment on this thread, and chec
 
 ````
 
+```{note}
+For illustrative purpose, the example comment above uses a dataset from:
+> <https://github.com/pangeo-forge/staged-recipes/pull/122>
+```
+
+At this point, Pangeo Forge maintainers will keep an eye out for your response comment:
 
 ````{panels}
 :column: col-lg-12 p-2
@@ -520,3 +533,5 @@ Please copy-and-paste the list below into a new comment on this thread, and chec
 - ☑️ Can you run a simple computation/reduction on the data and produce a plausible result?
 
 ````
+
+based on the assessment you make of the test data. Once you've approved the test data with this comment, the PR will be merged by a Pangeo Forge maintainer.
