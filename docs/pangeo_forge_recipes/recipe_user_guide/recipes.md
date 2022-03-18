@@ -3,16 +3,14 @@
 A recipe defines how to transform data in one format / location into another format / location.
 The primary way people contribute to Pangeo Forge is by writing / maintaining recipes.
 
-```{warning}
-The Recipe API is still in flux and may change. Make sure the version of the documentation
-you are reading matches your installed version of pangeo_forge_recipes.
+```{note}
+The Recipe API is under active development and may change. Make sure the version of the documentation you are reading matches your installed version of `pangeo-forge-recipes`. All released versions of `pangeo-forge-recipes` are supported in {doc}`../../pangeo_forge_cloud/index`. If you are starting a new recipe development cycle, it is recommend that you use the latest released version.
 ```
 
 ## The Recipe Object
 
 A Recipe is a Python object which encapsulates a workflow for transforming data.
-A Recipe knows how to take a {class}`file pattern <pangeo_forge_recipes.patterns.FilePattern>`,
-which describes a collection of source files ("inputs"),
+A Recipe knows how to take a {doc}`file pattern <file_patterns>`, which describes a collection of source files ("inputs"),
 and turn it into a single analysis-ready, cloud-optimized dataset.
 Creating a recipe does not actually cause any data to be read or written; the
 recipe is just the _description_ of the transformation.
