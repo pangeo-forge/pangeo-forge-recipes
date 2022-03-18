@@ -264,7 +264,7 @@ Please correct your `meta.yaml` and commit the corrections to this PR.
 
 ````
 
-In this example, the `meta.yaml` was found to be missing the `pangeo_notebook_version` field and the `orchid` ID for one of the recipe maintainers. Adding the missing fields will resolve this error.
+In this example, the `meta.yaml` was found to be missing the `pangeo_notebook_version` field and the `orcid` ID for one of the recipe maintainers. Adding the missing fields will resolve this error.
 
 For a complete reference of required fields, see links provided in the `meta.yaml` section of [Required files](./recipe_contribution.md#required-files).
 
@@ -330,7 +330,7 @@ Once the recipe module's presence is confirmed, a new [Recipe Run](./core_concep
 
 ````
 
-where `abcdefg` will be replaced with the actual SHA of your PR's latest commit, and `{recipe_run_id}` will be replaced with an integer value uniquely idenfying the newly created recipe run. If your PR defines more than one recipe, the comment notification will include additional bullet points, one for each recipe in the PR.
+where `abcdefg` will be replaced with the actual SHA of your PR's latest commit, and `{recipe_run_id}` will be replaced with an integer value uniquely identifying the newly created recipe run. If your PR defines more than one recipe, the comment notification will include additional bullet points, one for each recipe in the PR.
 
 ```{note}
 The link in the above example comment does not resolve to a real webpage, because it does not have a `{recipe_run_id}` assigned to it. Please refer to

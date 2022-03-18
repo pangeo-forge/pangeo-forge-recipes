@@ -34,7 +34,7 @@ The **`meta.yaml`** is a file which contains metadata and configuration your rec
 
 - The version of {doc}`../pangeo_forge_recipes/index` used to develop your recipe(s)
 - The source data provider's information and license under which the source data is distributed
-- Your name, GitHub username, and Orchid ID
+- Your name, GitHub username, and Orcid ID
 - The [Bakery](./core_concepts.md) on which to run your recipe(s)
 
 Please refer to [this template](https://github.com/pangeo-forge/sandbox/blob/main/recipe/meta.yaml) and/or the **Create a `meta.yaml` file** section of the {doc}`../introduction_tutorial/intro_tutorial_part3` tutorial for further details on how to create this file.
