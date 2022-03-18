@@ -30,17 +30,17 @@ The specific checks and status updates within each of these categories are as fo
 Structure
 ^^^^^^^^^
 
-```{link-button} ./pr_checks_reference.html#all-changes-in-recipes-subdir
+```{link-button} #all-changes-in-recipes-subdir
 :text: All changes in recipes/ subdir
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./pr_checks_reference.html#single-layer-of-subdirectories
+```{link-button} #single-layer-of-subdirectories
 :text: Single layter of subdirectories
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./pr_checks_reference.html#only-one-subdirectory
+```{link-button} #only-one-subdirectory
 :text: Only one subdirectory
 :classes: btn-outline-primary btn-block
 ```
@@ -48,17 +48,17 @@ Structure
 `meta.yaml`
 ^^^^^^^^^^^
 
-```{link-button} ./pr_checks_reference.html#presence
+```{link-button} #presence
 :text: Presence
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./pr_checks_reference.html#loadability
+```{link-button} #loadability
 :text: Loadability
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./pr_checks_reference.html#completeness
+```{link-button} #completeness
 :text: Completeness
 :classes: btn-outline-primary btn-block
 ```
@@ -68,18 +68,13 @@ Structure
 Recipe: static
 ^^^^^^^^^^^^^^
 
-```{link-button} ./pr_checks_reference.html#presence-1
+```{link-button} #id1
 :text: Presence
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./pr_checks_reference.html#recipe-runs-created
+```{link-button} #recipe-run-s-created
 :text: Recipe run(s) created
-:classes: btn-outline-primary btn-block
-```
-
-```{link-button} ./pr_checks_reference.html#run-recipe-test
-:text: /run recipe-test
 :classes: btn-outline-primary btn-block
 ```
 
@@ -88,22 +83,27 @@ Recipe: static
 Recipe: execution
 ^^^^^^^^^^^^^^^^^
 
-```{link-button} ./pr_checks_reference.html#importability
+```{link-button} #run-recipe-test
+:text: /run recipe-test
+:classes: btn-outline-primary btn-block
+```
+
+```{link-button} #importability
 :text: Importability
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./pr_checks_reference.html#test-status-in-progress
+```{link-button} #test-status-in-progress
 :text: "Test status: in_progress"
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./pr_checks_reference.html#test-status-failed
+```{link-button} #test-status-failed
 :text: "Test status: failed"
 :classes: btn-outline-primary btn-block
 ```
 
-```{link-button} ./pr_checks_reference.html#test-status-success
+```{link-button} #test-status-success
 :text: "Test status: success"
 :classes: btn-outline-primary btn-block
 ```
@@ -251,7 +251,7 @@ expected fields are included in the file. If any fields are found to be missing,
 
 It looks like your `meta.yaml` does not conform to the specification.
 
-```python-traceback
+```
             2 validation errors for MetaYaml
 pangeo_notebook_version
   field required (type=value_error.missing)
@@ -266,11 +266,11 @@ Please correct your `meta.yaml` and commit the corrections to this PR.
 
 In this example, the `meta.yaml` was found to be missing the `pangeo_notebook_version` field and the `orchid` ID for one of the recipe maintainers. Adding the missing fields will resolve this error.
 
-For a complete reference of required fields for the `meta.yaml`, see [Required files](./recipe_contribution.md#required-files).
+For a complete reference of required fields, see links provided in the `meta.yaml` section of [Required files](./recipe_contribution.md#required-files).
 
 ## Recipe: static
 
-Once the `meta.yaml` is found to be [present, loadable, and complete](./pr_checks_reference.md#metayaml), checks of the recipe module begin.
+Once the `meta.yaml` is found to be [present, loadable, and complete](./pr_checks_reference.md#metayaml), static checks of the recipe module begin.
 
 ### Presence
 
@@ -375,7 +375,7 @@ receive a comment notification such as:
 
 When I tried to import your recipe module, I encountered this error
 
-```python-traceback
+```
 line 43, in <module>
     pattern = patterns.FilePattern(format_function, variable_merge_dim, month_concat_dim)
 NameError: name 'format_function' is not defined

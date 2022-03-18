@@ -26,7 +26,12 @@ During the development process, it is recommended to [run subsets of your datase
 
 The **`meta.yaml`** is a file which contains metadata and configuration your recipe contribution, including:
 
-- Identifying name(s) for your submitted recipe(s)
+- Identifying name(s) for your submitted recipe object(s) along with the name of the **Recipe module** in which they can be found.
+
+    ```{note}
+    No specific name for the recipe module is required. Instead, the name of the recipe module is defined in the `meta.yaml`.
+    ```
+
 - The version of {doc}`../pangeo_forge_recipes/index` used to develop your recipe(s)
 - The source data provider's information and license under which the source data is distributed
 - Your name, GitHub username, and Orchid ID
@@ -49,7 +54,15 @@ To make a PR with your contribution:
     [Feedstock](./core_concepts.md) repo generated from your PR.
     ```
 
-3. Add your [Required files](#required-files) (**Recipe module** and `meta.yaml`) to this new subdirectory of your fork.
+3. Add your [Required files](#required-files) (**Recipe module** and `meta.yaml`) to this new subdirectory of your fork, so that your directory tree now looks like this:
+
+    ```
+    staged-recipes/recipes/
+                    └──{dataset-name}/
+                            ├──meta.yaml
+                            └──{recipe-module-name}.py
+    ```
+
 3. Open a Pull Request against [`pangeo-forge/staged-recipes`](https://github.com/pangeo-forge/staged-recipes) from your fork.
 
 
