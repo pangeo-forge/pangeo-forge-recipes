@@ -10,7 +10,7 @@ import yaml
 from kerchunk.combine import MultiZarrToZarr
 
 from ..executors.base import Pipeline, Stage
-from ..patterns import FilePattern, Index
+from ..patterns import FileType, Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import file_opener
 from .base import BaseRecipe, FilePatternMixin, StorageMixin
