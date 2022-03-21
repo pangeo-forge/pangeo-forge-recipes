@@ -12,7 +12,7 @@ Datasets in this catalog are built from recipes stored in [Feedstocks](#feedstoc
 
 ## Feedstocks
 
-Once a {doc}`../../pangeo_forge_cloud/recipe_contribution` passes the required [checks](../pangeo_forge_cloud/recipe_contribution.md#pr-checks), it is automatically moved into a new standalone GitHub repository within the [`pangeo-forge` Github organization](https://github.com/orgs/pangeo-forge/repositories). These repositories, which store approved recipes, are known as **Feedstocks** (a concept [borrowed directly from Conda Forge](https://conda-forge.org/feedstock-outputs/)).
+Once a {doc}`../../pangeo_forge_cloud/recipe_contribution` passes the required [checks](../pangeo_forge_cloud/recipe_contribution.md#pr-checks), it is automatically moved into a new standalone GitHub repository within the [`pangeo-forge` Github organization](https://github.com/orgs/pangeo-forge/repositories). These repositories, which store production recipes, are known as **Feedstocks** (a concept [borrowed directly from Conda Forge](https://conda-forge.org/feedstock-outputs/)).
 
 A current listing of all Pangeo Forge Feedstocks is available at:
 

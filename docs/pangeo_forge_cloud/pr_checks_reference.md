@@ -404,6 +404,17 @@ I'll notify you with a comment on this thread when this test is complete. (This 
 In the meantime, you can follow the logs for this recipe run at <https://pangeo-forge.org/dashboard/recipe-run/>`{recipe_run_id}`
 ````
 
+The logs link provided in this comment notification can be used to follow the build progress of your recipe in real time. Any errors that arise, along with associated stack traces, are viewable in these logs.
+
+```{note}
+The link in the above example comment does not resolve to a real webpage, because it does not have a `{recipe_run_id}` assigned to it. Please refer to
+
+<https://pangeo-forge.org/dashboard/recipe-runs/>
+
+for a listing of real [Recipe Runs](./core_concepts.md#recipe-runs), from which example logs are available.
+```
+
+
 ### Test status: `failed`
 
 If the test fails for any reason, you will receive a comment notification such as:
