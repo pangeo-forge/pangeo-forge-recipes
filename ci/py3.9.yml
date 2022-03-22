@@ -19,6 +19,7 @@ dependencies:
   - hdf5
   - intake
   - intake-xarray
+  - kerchunk>=0.0.4
   - lxml    # Optional dep of pydap
   - matplotlib  # needed for building tutorial notebooks
   - netcdf4
@@ -28,8 +29,10 @@ dependencies:
   - pip
   - prefect
   - pydap
-# bring back eventually once pynio conda-forge package supports py3.9
-#  - pynio
+  # bring back eventually once pynio conda-forge package supports py3.9 and does not
+  # conflict with ujson, which is a depencency of kerchunk's conda-forge feedstock.
+  # See: https://github.com/conda-forge/pynio-feedstock/issues/114
+  #  - pynio
   - pytest
   - pytest-cov
   - pytest-lazy-fixture
@@ -46,4 +49,3 @@ dependencies:
   - pip:
     - nbmake>=1.3.0  # used in tutorial nb worklow
     - pytest-timeout
-    - kerchunk>=0.0.4
