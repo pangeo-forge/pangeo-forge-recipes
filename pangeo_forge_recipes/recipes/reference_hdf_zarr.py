@@ -170,7 +170,7 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         self._validate_file_pattern()
 
     def _validate_file_pattern(self):
-        if self.file_pattern.file_type != FilePattern.netcdf4:
+        if self.file_pattern.file_type != FileType.netcdf4:
             raise ValueError("This recipe works on netcdf4 input only")
         if len(self.file_pattern.merge_dims) > 1:
             raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
