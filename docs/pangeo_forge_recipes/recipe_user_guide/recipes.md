@@ -3,24 +3,21 @@
 A recipe defines how to transform data in one format / location into another format / location.
 The primary way people contribute to Pangeo Forge is by writing / maintaining recipes.
 
-```{warning}
-The Recipe API is still in flux and may change. Make sure the version of the documentation
-you are reading matches your installed version of pangeo_forge_recipes.
+```{note}
+The Recipe API is under active development and may change. Make sure the version of the documentation you are reading matches your installed version of `pangeo-forge-recipes`. All released versions of `pangeo-forge-recipes` are supported in {doc}`../../pangeo_forge_cloud/index`. If you are starting a new recipe development cycle, it is recommend that you use the latest released version.
 ```
 
 ## The Recipe Object
 
 A Recipe is a Python object which encapsulates a workflow for transforming data.
-A Recipe knows how to take a {class}`file pattern <pangeo_forge_recipes.patterns.FilePattern>`,
-which describes a collection of source files ("inputs"),
+A Recipe knows how to take a {doc}`file pattern <file_patterns>`, which describes a collection of source files ("inputs"),
 and turn it into a single analysis-ready, cloud-optimized dataset.
 Creating a recipe does not actually cause any data to be read or written; the
 recipe is just the _description_ of the transformation.
 To actually do the work, the recipe must be {doc}`executed <execution>`.
 Recipe authors (i.e. data users or data managers) can either execute their recipes
-on their own computers and infrastructure, in private, or contribute their recipe
-to the public Pangeo Forge {doc}`../cloud_automation_user_guide/recipe_box`, where it can be executed in the cloud via
-{doc}`../cloud_automation_user_guide/bakeries`.
+on their own computers and infrastructure, in private, or make a {doc}`../../pangeo_forge_cloud/recipe_contribution`
+to {doc}`../../pangeo_forge_cloud/index`, which allows the recipe to be automatically by via [Bakeries](../../pangeo_forge_cloud/core_concepts.md).
 
 ## Recipe Classes
 
@@ -62,37 +59,19 @@ tutorials for this recipe class. These are, in order of increasing complexity
 Below we give a very basic overview of how this recipe is used.
 
 First you must define a {doc}`file pattern <file_patterns>`.
-Once you have a {class}`file pattern <pangeo_forge_recipes.patterns.FilePattern>` object,
+Once you have a {class}`file_pattern <pangeo_forge_recipes.patterns.FilePattern>` object,
 initializing an `XarrayZarrRecipe` can be as simple as this.
 
 ```{code-block} python
 recipe = XarrayZarrRecipe(file_pattern)
 ```
 
-There are many other options we could pass, all covered in the API documentation
-{class}`below <pangeo_forge_recipes.recipes.XarrayZarrRecipe>`.
+There are many other options we could pass, all covered in the {class}`API documentation <pangeo_forge_recipes.recipes.XarrayZarrRecipe>`. Many of these options are explored further in the {doc}`../tutorials/index`.
 
-All recipes need {doc}`storage <storage>` for the target dataset.
-If you have already defined a {class}`pangeo_forge_recipes.storage.FSSpecTarget` object,
-then you can either assign it when you initialize the recipe or later, e.g.
+All recipes need a place to store the target dataset. Refer to {doc}`storage` for how to assign this and any other required storage targets.
 
-```{code-block} python
-recipe.target = FSSpecTarget(fs=fs, root_path=target_path)
-```
-
-This recipe may also requires a cache, a place to store temporary
-files. We can create one as follows.
-
-```{code-block} python
-recipe.input_cache = CacheFSSpecTarget(fs=fs, root_path=cache_path)
-```
-
-Once your recipe is defined and has its targets assigned, you're ready to
+Once your recipe is defined and has its storage targets assigned, you're ready to
 move on to {doc}`execution`.
-
-The API documentation below explains all of the possible options for `XarrayZarrRecipe`.
-Many of these options are explored further in the {doc}`../tutorials/index`.
-
 
 ### HDF Reference Recipe
 
