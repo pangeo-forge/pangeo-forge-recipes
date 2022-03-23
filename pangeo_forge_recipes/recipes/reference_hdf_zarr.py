@@ -3,14 +3,14 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Hashable, Iterable, Optional
+from typing import Callable, Hashable, Iterable, Optional
 
 import fsspec
 import yaml
 from kerchunk.combine import MultiZarrToZarr
 
 from ..executors.base import Pipeline, Stage
-from ..patterns import Index
+from ..patterns import FileType, Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import file_opener
 from .base import BaseRecipe, FilePatternMixin, StorageMixin
@@ -39,13 +39,6 @@ def finalize(config: HDFReferenceRecipe):
     assert config.storage_config.target is not None, "target is required"
     assert config.storage_config.metadata is not None, "metadata_cache is required"
     remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
-    concat_args = config.xarray_concat_args.copy()
-    if "dim" in concat_args:
-        raise ValueError(
-            "Please do not set 'dim' in xarray_concat_args. "
-            "It is determined automatically from the File Pattern."
-        )
-    concat_args["dim"] = config.file_pattern.concat_dims[0]  # there should only be one
 
     files = list(
         config.storage_config.metadata.getitems(
@@ -59,12 +52,16 @@ def finalize(config: HDFReferenceRecipe):
             files,
             remote_protocol=remote_protocol,
             remote_options=config.netcdf_storage_options,
-            xarray_open_kwargs=config.xarray_open_kwargs,
-            xarray_concat_args=concat_args,
+            coo_dtypes=config.coo_dtypes,
+            coo_map=config.coo_map,
+            identical_dims=config.identical_dims,
+            concat_dims=config.file_pattern.concat_dims,
+            preprocess=config.preprocess,
+            postprocess=config.postprocess,
         )
         # mzz does not support directly writing to remote yet
         # get dict version and push it
-        out = mzz.translate(None, template_count=config.template_count)
+        out = mzz.translate()
     fs = config.storage_config.target.fs
     protocol = fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0]
     with config.storage_config.target.open(config.output_json_fname, mode="wt") as f:
@@ -133,12 +130,19 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         inlined into the output reference file
     :param output_storage_options: dict of kwargs for creating fsspec
         instance when writing final output
-    :param template_count: the number of occurrences of a URL before it
-        gets made a template. ``None`` to disable templating
-    :param xarray_open_kwargs: kwargs passed to xarray.open_dataset.
-        Only used if `file_pattern` has more than one file.
-    :param xarray_concat_args: kwargs passed to xarray.concat
-        Only used if `file_pattern` has more than one file.
+    :param identical_dims: coordiate-like variables that are assumed to be the
+        same in every input, and so do not need any concatenation
+    :param coo_map: set of "selectors" defining how to fetch the dimension coordinates
+        of any given chunk for each of the concat dimes. By default, this is the variable
+        in the dataset with the same name as the given concat dim, except for "var",
+        where the default is the name of each input variable. See the doc of
+        MultiZarrToZarr for more details on possibilities.
+    :param coo_dtyes: optional coercion of coordinate values before write
+        Note that, if using cftime to read coordinate values, output will also be
+        encoded with cftime (i.e., ints and special attributes) unless you specify
+        an "M8[*]" as the output type.
+    :param preprocess: a function applied to each HDF file's references before combine
+    :param postprocess: a function applied to the global combined references before write
     """
 
     _compiler = hdf_reference_recipe_compiler
@@ -149,20 +153,25 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     #  store_chunk, finalize_target. The strategy was used for NWM's 370k files.
 
     # TODO: as written, this recipe is specific to HDF5 files. kerchunk
-    #  also supports TIFF and grib2 (and more coming)
+    #  also supports TIFF, FITS, netCDF3 and grib2 (and more coming)
     output_json_fname: str = "reference.json"
     output_intake_yaml_fname: str = "reference.yaml"
     netcdf_storage_options: dict = field(default_factory=dict)
     inline_threshold: int = 500
     output_storage_options: dict = field(default_factory=dict)
-    template_count: Optional[int] = 20
-    xarray_open_kwargs: dict = field(default_factory=dict)
-    xarray_concat_args: dict = field(default_factory=dict)
+    concat_dims: list = field(default_factory=list)
+    identical_dims: Optional[list] = field(default_factory=list)
+    coo_map: Optional[dict] = field(default_factory=dict)
+    coo_dtypes: Optional[dict] = field(default_factory=dict)
+    preprocess: Optional[Callable] = None
+    postprocess: Optional[Callable] = None
 
     def __post_init__(self):
         self._validate_file_pattern()
 
     def _validate_file_pattern(self):
+        if self.file_pattern.file_type != FileType.netcdf4:
+            raise ValueError("This recipe works on netcdf4 input only")
         if len(self.file_pattern.merge_dims) > 1:
             raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
         if len(self.file_pattern.concat_dims) > 1:
