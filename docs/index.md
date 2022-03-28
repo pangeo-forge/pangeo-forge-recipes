@@ -1,6 +1,6 @@
 # Pangeo Forge Documentation
 
-Pangeo Forge is an open source framework for data Extraction, Transformation, and Loading (ETL) of scientific data. 
+Pangeo Forge is an open source framework for Extraction, Transformation, and Loading (ETL) of scientific data. 
 
 ## First Steps
 
