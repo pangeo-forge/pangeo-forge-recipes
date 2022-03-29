@@ -7,4 +7,6 @@ sphinx-togglebutton==0.2.2
 sphinx-autodoc-typehints==1.12.0
 sphinx-panels==0.6.0
 git+https://github.com/ItayZiv/sphinxext-opengraph@fix-first-image
+# https://github.com/sphinx-doc/sphinx/issues/10291#issuecomment-1078046986
+jinja2<3.1
 -e .
