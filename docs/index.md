@@ -1,6 +1,6 @@
 # Pangeo Forge Documentation
 
-Resources for understanding and using Pangeo Forge
+Pangeo Forge is an open source framework for Extraction, Transformation, and Loading (ETL) of scientific data.
 
 ## First Steps
 
@@ -13,12 +13,13 @@ New to Pangeo Forge? You are in the right spot!
 
 There are a number of resources available when working with Pangeo Forge:
 
+- **Introduction Tutorial**: {doc}`introduction_tutorial/index`
 - **User Guides** explain core Pangeo Forge concepts in detail. They provide
   background information to aid in gaining a depth of understanding:
   - {doc}`pangeo_forge_recipes/recipe_user_guide/index` - For learning about how to create Recipes.
   - {doc}`pangeo_forge_cloud/recipe_contribution` - For learning how to contribute recipes to Pangeo Forge Cloud.
   - {doc}`pangeo_forge_recipes/development/development_guide` - For developers seeking to contribute to Pangeo Forge core functionality.
-- **Tutorials** walk through examples of using Pangeo Forge Recipes:
+- **Advanced Examples** walk through examples of using Pangeo Forge Recipes:
   - {doc}`introduction_tutorial/index` - Walks you through creating, running, and staging your first Recipe.
   - {doc}`pangeo_forge_recipes/tutorials/index` - Are in-depth demonstrations of using Pangeo Forge Recipes with real world datasets. They are a good next step after the Introduction Tutorial.
 - **References** are the complete technical documentation of Pangeo Forge features.  They are useful when you want to review a particular functionality in depth,
