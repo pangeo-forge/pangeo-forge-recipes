@@ -12,13 +12,14 @@ dependencies:
   - codecov
   - dask
   - distributed
-  - fsspec>=2021.6.0
-  - gcsfs
+  - fsspec>=2022.1.0
+  - gcsfs>=2022.1.0
   - h5netcdf
   # can't solve environment; moved to pip
   # - h5py>=3.3.0  - hdf5
   - intake
   - intake-xarray
+  - kerchunk>=0.0.6
   - lxml
   - netcdf4
   - numcodecs
@@ -27,14 +28,17 @@ dependencies:
   - pip
   - prefect
   - pydap
-  - pynio
+  # bring back eventually once pynio conda-forge package does not conflict
+  # with ujson, which is a depencency of kerchunk's conda-forge feedstock.
+  # See: https://github.com/conda-forge/pynio-feedstock/issues/114
+  # - pynio
   - pytest
   - pytest-cov
   - pytest-lazy-fixture
   - rasterio
   - requests
   - rechunker>=0.4.2
-  - s3fs
+  - s3fs>=2022.1.0
   - scipy
   - setuptools
   - toolz
@@ -45,4 +49,3 @@ dependencies:
   - pip:
     - h5py>=3.3.0
     - pytest-timeout
-    - fsspec-reference-maker>=0.0.4

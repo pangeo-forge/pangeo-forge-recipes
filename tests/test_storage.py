@@ -35,6 +35,8 @@ def test_cache(tmp_cache):
 def test_metadata_target(tmp_metadata_target):
     data = {"foo": 1, "bar": "baz"}
     tmp_metadata_target["key1"] = data
+    assert "key1" in tmp_metadata_target
+    assert "key2" not in tmp_metadata_target
     assert tmp_metadata_target["key1"] == data
     assert tmp_metadata_target.getitems(["key1"]) == {"key1": data}
 

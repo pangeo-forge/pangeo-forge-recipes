@@ -6,6 +6,7 @@ from pangeo_forge_recipes.patterns import (
     CombineOp,
     ConcatDim,
     FilePattern,
+    FileType,
     MergeDim,
     pattern_from_file_sequence,
     prune_pattern,
@@ -40,7 +41,7 @@ def concat_merge_pattern():
     return make_concat_merge_pattern()
 
 
-@pytest.fixture(params=[dict(fsspec_open_kwargs={"block_size": "foo"}), dict(is_opendap=True)])
+@pytest.fixture(params=[dict(fsspec_open_kwargs={"block_size": "foo"}), dict(file_type="opendap")])
 def concat_merge_pattern_with_kwargs(request):
     return make_concat_merge_pattern(**request.param)
 
@@ -89,12 +90,12 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
 
     if runtime_secrets:
         if "fsspec_open_kwargs" in runtime_secrets.keys():
-            if not fp.is_opendap:
+            if not fp.file_type == FileType.opendap:
                 fp.fsspec_open_kwargs.update(runtime_secrets["fsspec_open_kwargs"])
             else:
                 pytest.skip(
-                    "`fsspec_open_kwargs` should never be used in combination with `is_opendap`. "
-                    "This is checked in `FilePattern.__init__` but not when updating attributes. "
+                    "`fsspec_open_kwargs` should never be used in combination with `opendap`."
+                    " This is checked in `FilePattern.__init__` but not when updating attributes. "
                     "Proposed changes to secret handling will obviate the need for runtime updates"
                     " to attributes in favor of encryption. So for now, we'll just skip this."
                 )
@@ -128,20 +129,19 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
         assert fp[key] == expected_fname
 
     if "fsspec_open_kwargs" in kwargs.keys():
-        assert fp.is_opendap is False
+        assert fp.file_type != FileType.opendap
         if "fsspec_open_kwargs" in runtime_secrets.keys():
             kwargs["fsspec_open_kwargs"].update(runtime_secrets["fsspec_open_kwargs"])
         assert fp.fsspec_open_kwargs == kwargs["fsspec_open_kwargs"]
     if "query_string_secrets" in runtime_secrets.keys():
         assert fp.query_string_secrets == runtime_secrets["query_string_secrets"]
-    if "is_opendap" in kwargs.keys():
-        assert fp.is_opendap == kwargs["is_opendap"]
-        assert fp.is_opendap is True
+    if kwargs.get("file_type", None) == "opendap":
+        assert fp.file_type == FileType.opendap
         assert fp.fsspec_open_kwargs == {}
 
 
 def test_incompatible_kwargs():
-    kwargs = dict(fsspec_open_kwargs={"block_size": "foo"}, is_opendap=True)
+    kwargs = dict(fsspec_open_kwargs={"block_size": "foo"}, file_type="opendap")
     with pytest.raises(ValueError):
         make_concat_merge_pattern(**kwargs)
         return
@@ -154,12 +154,12 @@ def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
 
     if runtime_secrets:
         if "fsspec_open_kwargs" in runtime_secrets.keys():
-            if not fp.is_opendap:
+            if fp.file_type != FileType.opendap:
                 fp.fsspec_open_kwargs.update(runtime_secrets["fsspec_open_kwargs"])
             else:
                 pytest.skip(
-                    "`fsspec_open_kwargs` should never be used in combination with `is_opendap`. "
-                    "This is checked in `FilePattern.__init__` but not when updating attributes. "
+                    "`fsspec_open_kwargs` should never be used in combination with `opendap`."
+                    " This is checked in `FilePattern.__init__` but not when updating attributes. "
                     "Proposed changes to secret handling will obviate the need for runtime updates"
                     " to attributes in favor of encryption. So for now, we'll just skip this."
                 )
@@ -180,3 +180,16 @@ def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
         return kwargs
 
     assert get_kwargs(fp) == get_kwargs(fp_pruned)
+
+
+@pytest.mark.parametrize("file_type_value", [ft.value for ft in list(FileType)] + ["unsupported"])
+def test_setting_file_types(file_type_value):
+
+    file_type_kwargs = {"file_type": file_type_value}
+
+    if not file_type_value == "unsupported":
+        fp = make_concat_merge_pattern(**file_type_kwargs)[0]
+        assert fp.file_type == FileType(file_type_value)
+    else:
+        with pytest.raises(ValueError, match=fr"'{file_type_value}' is not a valid FileType"):
+            fp = make_concat_merge_pattern(**file_type_kwargs)[0]

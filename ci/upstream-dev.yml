@@ -7,3 +7,4 @@ dependencies:
     - "git+https://github.com/fsspec/filesystem_spec.git"
     - "git+https://github.com/PrefectHQ/prefect.git"
     - "git+https://github.com/pydata/xarray.git"
+    - "git+https://github.com/fsspec/kerchunk.git"
