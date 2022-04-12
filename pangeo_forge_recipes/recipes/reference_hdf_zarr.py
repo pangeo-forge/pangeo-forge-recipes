@@ -3,17 +3,18 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Hashable, Iterable, Optional
+from typing import Hashable, Iterable, Optional, Dict, List
 
+import apache_beam as beam
 import fsspec
 import yaml
 from fsspec_reference_maker.combine import MultiZarrToZarr
 
+from .base import BaseRecipe, FilePatternMixin
 from ..executors.base import Pipeline, Stage
-from ..patterns import Index
+from ..patterns import Index, OpenPattern, FileNames
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
-from .base import BaseRecipe, FilePatternMixin
 
 ChunkKey = Index
 
@@ -26,18 +27,30 @@ def no_op(*_, **__) -> None:
 def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
     assert config.metadata_cache is not None, "metadata_cache is required"
     fname = config.file_pattern[chunk_key]
+    reference = scan_file_pure(fname, config)
     ref_fname = os.path.basename(fname + ".json")
+    config.metadata_cache[ref_fname] = reference
+
+
+def scan_file_pure(fname: str, config: HDFReferenceRecipe) -> Dict:
     with file_opener(fname, **config.netcdf_storage_options) as fp:
         protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
         if protocol is None:
             raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
-        config.metadata_cache[ref_fname] = create_hdf5_reference(fp, target_url, fname)
+        return create_hdf5_reference(fp, url=target_url, fname=fname)
 
 
 def finalize(config: HDFReferenceRecipe):
-    assert config.target is not None, "target is required"
     assert config.metadata_cache is not None, "metadata_cache is required"
+    files = list(
+        config.metadata_cache.getitems(list(config.metadata_cache.get_mapper())).values()
+    )  # returns dicts from remote
+    finalize_pure(files, config)
+
+
+def finalize_pure(files: List[Dict], config: HDFReferenceRecipe) -> None:
+    assert config.target is not None, "target is required"
     remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
     concat_args = config.xarray_concat_args.copy()
     if "dim" in concat_args:
@@ -47,9 +60,6 @@ def finalize(config: HDFReferenceRecipe):
         )
     concat_args["dim"] = config.file_pattern.concat_dims[0]  # there should only be one
 
-    files = list(
-        config.metadata_cache.getitems(list(config.metadata_cache.get_mapper())).values()
-    )  # returns dicts from remote
     if len(files) == 1:
         out = files[0]
     else:
@@ -98,6 +108,26 @@ def hdf_reference_recipe_compiler(recipe: HDFReferenceRecipe) -> Pipeline:
         Stage(name="finalize", function=finalize),
     ]
     return Pipeline(stages=stages, config=recipe)
+
+
+@dataclass
+class ScanFiles(beam.PTransform):
+    config: BaseRecipe
+
+    def expand(self, pcoll):
+        return pcoll | beam.Map(scan_file_pure, config=self.config)
+
+
+@dataclass
+class WriteZarrReference(beam.PTransform):
+    config: BaseRecipe
+
+    def expand(self, pcoll):
+        return (
+                pcoll
+                | beam.combiners.ToList()
+                | beam.Map(finalize_pure, config=self.config)
+        )
 
 
 @dataclass
@@ -168,3 +198,6 @@ class HDFReferenceRecipe(BaseRecipe, FilePatternMixin):
 
     def iter_inputs(self) -> Iterable[Hashable]:
         yield from self.file_pattern
+
+    def to_beam(self):
+        return OpenPattern(self.file_pattern) | FileNames() | ScanFiles(self) | WriteZarrReference(self)

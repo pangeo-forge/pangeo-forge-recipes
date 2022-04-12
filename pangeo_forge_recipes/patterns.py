@@ -1,6 +1,9 @@
 """
 Filename / URL patterns.
 """
+import dataclasses
+
+import apache_beam as beam
 import inspect
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -214,6 +217,27 @@ class FilePattern:
         """Iterate over key, filename pairs."""
         for key in self:
             yield key, self[key]
+
+
+@dataclasses.dataclass
+class OpenPattern(beam.PTransform):
+
+    file_pattern: FilePattern
+
+    def expand(self, pcoll):
+        return pcoll | beam.Create(self.file_pattern.items())
+
+
+@dataclasses.dataclass
+class ChunkKeys(beam.PTransform):
+    def expand(self, pcoll):
+        return pcoll | beam.MapTuple(lambda key, fname: key)
+
+
+@dataclasses.dataclass
+class FileNames(beam.PTransform):
+    def expand(self, pcoll):
+        return pcoll | beam.MapTuple(lambda key, fname: fname)
 
 
 def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None, **kwargs):
