@@ -15,7 +15,11 @@ HDFReferenceRecipe = reference_hdf_zarr.HDFReferenceRecipe
 @pytest.mark.parametrize("default_storage", [True, False])
 @pytest.mark.parametrize("with_intake", [False, True])
 def test_single(
-    netcdf_local_file_pattern_sequential, tmpdir, with_intake, default_storage, execute_recipe,
+    netcdf_local_file_pattern_sequential,
+    tmpdir,
+    with_intake,
+    default_storage,
+    execute_recipe,
 ):
     file_pattern = netcdf_local_file_pattern_sequential
     path = list(file_pattern.items())[0][1]

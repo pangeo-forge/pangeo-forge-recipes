@@ -46,7 +46,9 @@ from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, Metada
 # $ pytest --redirect-dask-worker-logs-to-stdout=DEBUG
 def pytest_addoption(parser):
     parser.addoption(
-        "--redirect-dask-worker-logs-to-stdout", action="store", default="NOTSET",
+        "--redirect-dask-worker-logs-to-stdout",
+        action="store",
+        default="NOTSET",
     )
 
 
@@ -226,7 +228,10 @@ def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_2d(daily_xarray_dataset, tmpdir_factory):
     return make_netcdf_local_paths(
-        daily_xarray_dataset, tmpdir_factory, "2D", split_up_files_by_day,
+        daily_xarray_dataset,
+        tmpdir_factory,
+        "2D",
+        split_up_files_by_day,
     )
 
 
@@ -244,14 +249,20 @@ def netcdf_local_paths_sequential(request):
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_multivariable_1d(daily_xarray_dataset, tmpdir_factory):
     return make_netcdf_local_paths(
-        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_variable_and_day,
+        daily_xarray_dataset,
+        tmpdir_factory,
+        "D",
+        split_up_files_by_variable_and_day,
     )
 
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_multivariable_2d(daily_xarray_dataset, tmpdir_factory):
     return make_netcdf_local_paths(
-        daily_xarray_dataset, tmpdir_factory, "2D", split_up_files_by_variable_and_day,
+        daily_xarray_dataset,
+        tmpdir_factory,
+        "2D",
+        split_up_files_by_variable_and_day,
     )
 
 
@@ -266,7 +277,9 @@ def netcdf_local_paths_sequential_multivariable(request):
     return request.param
 
 
-@pytest.fixture(scope="session",)
+@pytest.fixture(
+    scope="session",
+)
 def netcdf_local_paths_sequential_multivariable_with_coordinateless_dimension(
     daily_xarray_dataset_with_coordinateless_dimension, tmpdir_factory
 ):

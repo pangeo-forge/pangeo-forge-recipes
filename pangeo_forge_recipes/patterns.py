@@ -22,8 +22,7 @@ from typing import (
 
 
 class CombineOp(Enum):
-    """Used to uniquely identify different combine operations across Pangeo Forge Recipes.
-    """
+    """Used to uniquely identify different combine operations across Pangeo Forge Recipes."""
 
     MERGE = 1
     CONCAT = 2
@@ -217,7 +216,7 @@ class FilePattern:
         }
 
     def __getitem__(self, indexer: FilePatternIndex) -> str:
-        """Get a filename path for a particular key. """
+        """Get a filename path for a particular key."""
         assert len(indexer) == len(self.combine_dims)
         format_function_kwargs = {}
         for idx in indexer:
@@ -234,7 +233,7 @@ class FilePattern:
         return fname
 
     def __iter__(self) -> Iterator[FilePatternIndex]:
-        """Iterate over all keys in the pattern. """
+        """Iterate over all keys in the pattern."""
         for val in product(*[range(n) for n in self.shape]):
             index = Index(
                 (
