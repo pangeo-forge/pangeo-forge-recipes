@@ -40,10 +40,15 @@ def test_memory_usage():
 
     dates = pd.date_range("2020-05-31T00:00:00", "2021-05-31T23:59:59", freq="30min")
     time_concat_dim = ConcatDim("time", dates, nitems_per_file=1)
-    pattern = FilePattern(_make_filename_for_memory_usage_test, time_concat_dim,)
+    pattern = FilePattern(
+        _make_filename_for_memory_usage_test,
+        time_concat_dim,
+    )
 
     recipe = XarrayZarrRecipe(
-        pattern, xarray_open_kwargs={"group": "Grid", "decode_coords": "all"}, inputs_per_chunk=1,
+        pattern,
+        xarray_open_kwargs={"group": "Grid", "decode_coords": "all"},
+        inputs_per_chunk=1,
     )
 
     delayed = recipe.to_dask()
