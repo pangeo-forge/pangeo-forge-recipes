@@ -109,7 +109,10 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
         fp = loads(dumps(fp))
 
     assert fp.dims == {"variable": 2, "time": 3}
-    assert fp.shape == (2, 3,)
+    assert fp.shape == (
+        2,
+        3,
+    )
     assert fp.merge_dims == ["variable"]
     assert fp.concat_dims == ["time"]
     assert fp.nitems_per_input == {"time": None}
@@ -191,5 +194,5 @@ def test_setting_file_types(file_type_value):
         fp = make_concat_merge_pattern(**file_type_kwargs)[0]
         assert fp.file_type == FileType(file_type_value)
     else:
-        with pytest.raises(ValueError, match=fr"'{file_type_value}' is not a valid FileType"):
+        with pytest.raises(ValueError, match=rf"'{file_type_value}' is not a valid FileType"):
             fp = make_concat_merge_pattern(**file_type_kwargs)[0]

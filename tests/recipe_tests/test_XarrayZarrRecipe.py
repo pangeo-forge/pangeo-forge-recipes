@@ -467,7 +467,11 @@ def test_calculate_sequence_length(calc_sequence_length_fixture):
 
     # Cache metadata, if necessary.
     if not nitems_per_input:
-        recipe = XarrayZarrRecipe(file_pattern, target_chunks={"time": 1}, cache_inputs=False,)
+        recipe = XarrayZarrRecipe(
+            file_pattern,
+            target_chunks={"time": 1},
+            cache_inputs=False,
+        )
         recipe.storage_config.metadata = metadata_cache
         for input_key in recipe.iter_inputs():
             recipe.cache_input(input_key)
