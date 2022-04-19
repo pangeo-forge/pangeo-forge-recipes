@@ -96,7 +96,7 @@ jobs:
       - name: 🏗 Build Notebook
         shell: bash -l {0}
         run: >
-          pytest --timeout=3000 --nbmake docs/tutorials/${{ matrix.nb-path }}
+          pytest --timeout=3000 --nbmake docs/pangeo_forge_recipes/tutorials/${{ matrix.nb-path }}
 
       # finish the check
       # this won't work if we are not inside a repository_dispatch event,
