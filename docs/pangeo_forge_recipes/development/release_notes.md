@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.8.3 -
+## v0.8.3 - 2022-04-19
 
 - Added `.file_type` attribute to {class}`pangeo_forge_recipes.patterns.FilePattern`. This attribute will eventually supercede
 `.is_opendap`, which will be deprecated in `0.9.0`. Until then, `FilePattern(..., is_opendap=True)` is supported as equivalent
