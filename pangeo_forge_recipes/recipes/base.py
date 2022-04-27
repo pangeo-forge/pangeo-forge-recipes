@@ -12,7 +12,7 @@ from ..storage import StorageConfig, temporary_storage_config
 @dataclass
 class BaseRecipe(ABC):
     _compiler: ClassVar[RecipeCompiler]
-    _hash_exclude_ = ["file_pattern", "storage_config"]
+    _hash_exclude_ = ["storage_config"]
 
     def to_function(self):
         from ..executors import FunctionPipelineExecutor

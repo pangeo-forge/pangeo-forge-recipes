@@ -4,11 +4,14 @@ from hashlib import sha256
 from json import dumps
 from typing import List
 
+from .patterns import FilePattern
+
 
 def json_default(thing):
-    # custom serializer for FileType, CombineOp, etc.
-    if isinstance(thing, Enum):
+    if isinstance(thing, Enum):  # custom serializer for FileType, CombineOp, etc.
         return thing.value
+    elif isinstance(thing, FilePattern):
+        return thing.sha256().hex()
     raise TypeError(f"object of type {type(thing).__name__} not serializable")
 
 
