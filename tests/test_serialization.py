@@ -24,7 +24,7 @@ def make_file_pattern(dates, nitems_per_file):
 
 @pytest.fixture
 def end_date():
-    return "2022-02-01"
+    return "1981-10-01"
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def get_new_pattern_with_next_url(end_date, nitems_per_file):
         return datetime.strptime(end_date, fmt) + timedelta(days=ndays)
 
     next_day = increment_end_date(ndays=1)
-    new_end_date = increment_end_date(ndays=90).strftime(fmt)
+    new_end_date = increment_end_date(ndays=10).strftime(fmt)
     new_dates = pd.date_range("1981-09-01", new_end_date, freq="D")
     new_pattern = make_file_pattern(new_dates, nitems_per_file=nitems_per_file)
     return new_pattern, URL_FORMAT.format(time=next_day)
