@@ -60,5 +60,4 @@ def match_pattern_blockchain(old_pattern_last_hash, new_pattern):
     new_chain = pattern_blockchain(new_pattern)
     for k, h in zip(new_pattern, new_chain):
         if h == old_pattern_last_hash:
-            print(f"Found a match for {h.hex()}!")
-            return h
+            return k
