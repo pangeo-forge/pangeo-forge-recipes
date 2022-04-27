@@ -2,6 +2,7 @@ from dataclasses import asdict
 from enum import Enum
 from hashlib import sha256
 from json import dumps
+from typing import List
 
 
 def json_default(thing):
@@ -24,9 +25,10 @@ def dict_to_sha256(thing):
     return sha256(b.encode("utf-8")).digest()
 
 
-def dimindex_to_sha256(di):
-    d = asdict(di)
-    del d["sequence_len"]  # don't want this in the hash; could change
+def dataclass_sha256(dclass: type, ignore_keys: List[str]) -> bytes:
+    d = asdict(dclass)
+    for k in ignore_keys:
+        del d[k]
     return dict_to_sha256(d)
 
 
@@ -46,7 +48,9 @@ def pattern_blockchain(pattern):
 
     blockchain = [root_sha256]
     for k, v in pattern.items():
-        key_hash = b"".join(sorted([dimindex_to_sha256(dimindex) for dimindex in k]))
+        key_hash = b"".join(
+            sorted([dataclass_sha256(dimindex, ignore_keys=["sequence_len"]) for dimindex in k])
+        )
         value_hash = sha256(v.encode("utf-8")).digest()
         new_hash = key_hash + value_hash
         new_block = sha256(blockchain[-1] + new_hash).digest()

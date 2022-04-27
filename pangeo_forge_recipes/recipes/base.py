@@ -12,6 +12,7 @@ from ..storage import StorageConfig, temporary_storage_config
 @dataclass
 class BaseRecipe(ABC):
     _compiler: ClassVar[RecipeCompiler]
+    _hash_exclude_ = ["file_pattern", "storage_config"]
 
     def to_function(self):
         from ..executors import FunctionPipelineExecutor
@@ -37,6 +38,11 @@ class BaseRecipe(ABC):
         from pangeo_forge_recipes.executors import BeamPipelineExecutor
 
         return BeamPipelineExecutor.compile(self._compiler())
+
+    def sha256(self):
+        from ..serialization import dataclass_sha256
+
+        return dataclass_sha256(self, ignore_keys=self._hash_exclude_)
 
 
 RecipeCompiler = Callable[[BaseRecipe], Pipeline]

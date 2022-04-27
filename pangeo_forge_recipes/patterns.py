@@ -248,6 +248,12 @@ class FilePattern:
         for key in self:
             yield key, self[key]
 
+    def sha256(self):
+        """Compute a sha256 hash for the instance."""
+        from .serialization import pattern_blockchain
+
+        return pattern_blockchain(self).pop(-1)
+
 
 def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None, **kwargs):
     """Convenience function for creating a FilePattern from a list of files."""

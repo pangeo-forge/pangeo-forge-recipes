@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.serialization import match_pattern_blockchain, pattern_blockchain
+from pangeo_forge_recipes.serialization import match_pattern_blockchain
 
 URL_FORMAT = (
     "https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/"
@@ -31,8 +31,7 @@ def end_date():
 def old_pattern_with_last_hash(end_date):
     dates = pd.date_range("1981-09-01", end_date, freq="D")
     pattern = make_file_pattern(dates)
-    chain = pattern_blockchain(pattern)
-    last_hash = chain[-1]
+    last_hash = pattern.sha256()
     return pattern, last_hash
 
 
