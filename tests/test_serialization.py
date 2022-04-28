@@ -82,6 +82,45 @@ def test_recipe_sha256_hash_exclude(base_pattern, recipe_cls, tmpdir_factory):
     assert recipe_0.sha256() == recipe_1.sha256()
 
 
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        ({}, {}),
+        ({}, dict(target_chunks={"time": 1})),
+        (dict(target_chunks={"time": 1}), dict(target_chunks={"time": 1})),
+        (dict(target_chunks={"time": 1}), dict(target_chunks={"time": 2})),
+        (dict(subset_inputs={"time": 2}), dict(target_chunks={"time": 2})),
+    ],
+)
+def test_xarray_zarr_sha265(base_pattern, kwargs):
+    recipe_0 = XarrayZarrRecipe(base_pattern, **kwargs[0])
+    recipe_1 = XarrayZarrRecipe(base_pattern, **kwargs[1])
+
+    if kwargs[0] == kwargs[1]:
+        assert recipe_0.sha256() == recipe_1.sha256()
+    else:
+        assert recipe_0.sha256() != recipe_1.sha256()
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        ({}, {}),
+        ({}, dict(output_json_fname="custom_name.json")),
+        (dict(output_json_fname="custom_name.json"), dict(output_json_fname="custom_name.json")),
+        (dict(netcdf_storage_options={"anon": True}), dict(output_json_fname="custom_name.json")),
+    ],
+)
+def test_kerchunk_sha265(base_pattern, kwargs):
+    recipe_0 = HDFReferenceRecipe(base_pattern, **kwargs[0])
+    recipe_1 = HDFReferenceRecipe(base_pattern, **kwargs[1])
+
+    if kwargs[0] == kwargs[1]:
+        assert recipe_0.sha256() == recipe_1.sha256()
+    else:
+        assert recipe_0.sha256() != recipe_1.sha256()
+
+
 @pytest.mark.parametrize("recipe_cls", [XarrayZarrRecipe, HDFReferenceRecipe])
 @pytest.mark.parametrize(
     "kwargs",
