@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from dataclasses import asdict
 from enum import Enum
 from hashlib import sha256
@@ -28,8 +29,13 @@ def dict_to_sha256(thing):
     return sha256(b.encode("utf-8")).digest()
 
 
+def dict_drop_empty(pairs):
+    # https://death.andgravity.com/stable-hashing#problem-we-need-to-ignore-empty-values
+    return dict((k, v) for k, v in pairs if not (v is None or not v and isinstance(v, Collection)))
+
+
 def dataclass_sha256(dclass: type, ignore_keys: List[str]) -> bytes:
-    d = asdict(dclass)
+    d = asdict(dclass, dict_factory=dict_drop_empty)
     for k in ignore_keys:
         del d[k]
     return dict_to_sha256(d)

@@ -1,4 +1,6 @@
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import Optional
 
 import pandas as pd
 import pytest
@@ -76,5 +78,19 @@ def test_recipe_sha256_hash_exclude(base_pattern, recipe_cls, tmpdir_factory):
     custom_target_path = tmpdir_factory.mktemp("custom_target")
     custom_storage_config = StorageConfig(target=FSSpecTarget(local_fs, custom_target_path))
     recipe_1.storage_config = custom_storage_config
+
+    assert recipe_0.sha256() == recipe_1.sha256()
+
+
+@pytest.mark.parametrize("recipe_cls", [XarrayZarrRecipe, HDFReferenceRecipe])
+def test_add_empty_fields(base_pattern, recipe_cls):
+    @dataclass
+    class UpdatedRecipe(recipe_cls):
+        new_optional: Optional[str] = None
+        new_empty_dict: dict = field(default_factory=dict)
+        new_empty_list: list = field(default_factory=list)
+
+    recipe_0 = recipe_cls(base_pattern)
+    recipe_1 = UpdatedRecipe(base_pattern)
 
     assert recipe_0.sha256() == recipe_1.sha256()
