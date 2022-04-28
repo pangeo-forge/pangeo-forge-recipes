@@ -10,9 +10,9 @@ except ImportError:
     pass
 
 try:
-    from .prefect import PrefectPipelineExecutor
+    from .prefect import PrefectDaskWrapperExecutor, PrefectPipelineExecutor
 
-    __all__ += ["PrefectPipelineExecutor"]
+    __all__ += ["PrefectDaskWrapperExecutor", "PrefectPipelineExecutor"]
 except ImportError:
     pass
 

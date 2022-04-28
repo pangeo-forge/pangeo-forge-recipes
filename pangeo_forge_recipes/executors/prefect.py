@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from prefect import Flow, task, unmapped
 
 from .base import Pipeline, PipelineExecutor, StageAnnotations, StageAnnotationType
+from .dask import DaskPipelineExecutor
 
 
 def annotations_to_task_kwargs(annotations: Optional[StageAnnotations]) -> Dict[str, Any]:
@@ -38,6 +39,25 @@ class PrefectPipelineExecutor(PipelineExecutor[Flow]):
                     )
                 upstream_tasks = [stage_task_called]
 
+        return flow
+
+    @staticmethod
+    def execute(flow: Flow):
+        return flow.run()
+
+
+@task
+def run_pipeline_with_dask(pipeline):
+    delayed = DaskPipelineExecutor.compile(pipeline)
+    # how do we make sure this uses the right dask cluster?
+    delayed.compute()
+
+
+class PrefectDaskWrapperExecutor(PipelineExecutor[Flow]):
+    @staticmethod
+    def compile(pipeline: Pipeline):
+        with Flow("pangeo-forge-recipe-dask-wrapper") as flow:
+            run_pipeline_with_dask(pipeline)
         return flow
 
     @staticmethod

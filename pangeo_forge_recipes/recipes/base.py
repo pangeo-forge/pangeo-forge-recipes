@@ -28,10 +28,17 @@ class BaseRecipe(ABC):
 
         return DaskPipelineExecutor.compile(self._compiler())
 
-    def to_prefect(self):
-        from pangeo_forge_recipes.executors import PrefectPipelineExecutor
+    def to_prefect(self, wrap_dask=False):
+        from pangeo_forge_recipes.executors import (
+            PrefectDaskWrapperExecutor,
+            PrefectPipelineExecutor,
+        )
 
-        return PrefectPipelineExecutor.compile(self._compiler())
+        compiler = self._compiler()
+        if wrap_dask:
+            return PrefectDaskWrapperExecutor.compile(compiler)
+        else:
+            return PrefectPipelineExecutor.compile(compiler)
 
     def to_beam(self):
         from pangeo_forge_recipes.executors import BeamPipelineExecutor

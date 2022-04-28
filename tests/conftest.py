@@ -520,6 +520,17 @@ def execute_recipe_prefect_dask(dask_cluster):
     return execute
 
 
+@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_prefect_wrapper)])
+def execute_recipe_prefect_wrapper():
+    def execute(recipe):
+        flow = recipe.to_prefect(wrap_dask=True)
+        state = flow.run()
+        if state.is_failed():
+            raise ValueError(f"Prefect flow run failed with message {state.message}")
+
+    return execute
+
+
 @pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_beam)])
 def execute_recipe_beam():
     beam = pytest.importorskip("apache_beam")
@@ -556,7 +567,11 @@ def execute_recipe_no_prefect(request):
 
 
 @pytest.fixture(
-    params=[lazy_fixture("execute_recipe_prefect"), lazy_fixture("execute_recipe_prefect_dask")],
+    params=[
+        lazy_fixture("execute_recipe_prefect"),
+        lazy_fixture("execute_recipe_prefect_dask"),
+        lazy_fixture("execute_recipe_prefect_wrapper"),
+    ],
 )
 def execute_recipe_with_prefect(request):
     return request.param
