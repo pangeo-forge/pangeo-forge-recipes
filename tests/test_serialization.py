@@ -5,7 +5,7 @@ import pytest
 from fsspec.implementations.local import LocalFileSystem
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.recipes import XarrayZarrRecipe
+from pangeo_forge_recipes.recipes import HDFReferenceRecipe, XarrayZarrRecipe
 from pangeo_forge_recipes.serialization import match_pattern_blockchain
 from pangeo_forge_recipes.storage import FSSpecTarget, StorageConfig
 
@@ -65,9 +65,10 @@ def test_match_pattern_blockchain(
         assert matching_key is None
 
 
-def test_xarray_zarr_sha256_hash_exclude(base_pattern, tmpdir_factory):
-    recipe_0 = XarrayZarrRecipe(base_pattern)
-    recipe_1 = XarrayZarrRecipe(base_pattern)
+@pytest.mark.parametrize("recipe_cls", [XarrayZarrRecipe, HDFReferenceRecipe])
+def test_recipe_sha256_hash_exclude(base_pattern, recipe_cls, tmpdir_factory):
+    recipe_0 = recipe_cls(base_pattern)
+    recipe_1 = recipe_cls(base_pattern)
 
     assert recipe_0.sha256() == recipe_1.sha256()
 
