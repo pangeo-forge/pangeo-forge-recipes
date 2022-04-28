@@ -83,14 +83,28 @@ def test_recipe_sha256_hash_exclude(base_pattern, recipe_cls, tmpdir_factory):
 
 
 @pytest.mark.parametrize("recipe_cls", [XarrayZarrRecipe, HDFReferenceRecipe])
-def test_add_empty_fields(base_pattern, recipe_cls):
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"new_optional_str": "hello"},
+        {"new_dict": dict(a=1)},
+        {"new_list": [1, 2, 3]},
+    ],
+)
+def test_additional_fields(base_pattern, recipe_cls, kwargs):
+    # simulates a new release in which recipe class fields are added
+
     @dataclass
     class UpdatedRecipe(recipe_cls):
-        new_optional: Optional[str] = None
-        new_empty_dict: dict = field(default_factory=dict)
-        new_empty_list: list = field(default_factory=list)
+        new_optional_str: Optional[str] = None
+        new_dict: dict = field(default_factory=dict)
+        new_list: list = field(default_factory=list)
 
     recipe_0 = recipe_cls(base_pattern)
-    recipe_1 = UpdatedRecipe(base_pattern)
+    recipe_1 = UpdatedRecipe(base_pattern, **kwargs)
 
-    assert recipe_0.sha256() == recipe_1.sha256()
+    if not kwargs:
+        assert recipe_0.sha256() == recipe_1.sha256()
+    else:
+        assert recipe_0.sha256() != recipe_1.sha256()
