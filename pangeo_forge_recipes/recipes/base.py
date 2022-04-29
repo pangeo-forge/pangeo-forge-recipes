@@ -6,6 +6,7 @@ from typing import Callable, ClassVar
 
 from ..executors.base import Pipeline
 from ..patterns import FilePattern, prune_pattern
+from ..serialization import dataclass_sha256
 from ..storage import StorageConfig, temporary_storage_config
 
 
@@ -40,8 +41,6 @@ class BaseRecipe(ABC):
         return BeamPipelineExecutor.compile(self._compiler())
 
     def sha256(self):
-        from ..serialization import dataclass_sha256
-
         return dataclass_sha256(self, ignore_keys=self._hash_exclude_)
 
 

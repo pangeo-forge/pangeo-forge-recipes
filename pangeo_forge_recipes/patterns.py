@@ -20,6 +20,8 @@ from typing import (
     Union,
 )
 
+from .serialization import pattern_blockchain
+
 
 class CombineOp(Enum):
     """Used to uniquely identify different combine operations across Pangeo Forge Recipes."""
@@ -250,7 +252,6 @@ class FilePattern:
 
     def sha256(self):
         """Compute a sha256 hash for the instance."""
-        from .serialization import pattern_blockchain
 
         return pattern_blockchain(self).pop(-1)
 
