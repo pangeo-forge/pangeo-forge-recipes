@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from fsspec.implementations.local import LocalFileSystem
 
-from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType
 from pangeo_forge_recipes.recipes import HDFReferenceRecipe, XarrayZarrRecipe
 from pangeo_forge_recipes.serialization import match_pattern_blockchain
 from pangeo_forge_recipes.storage import FSSpecTarget, StorageConfig
@@ -62,17 +62,28 @@ def pattern_pair(base_pattern, end_date, request):
 
 
 @pytest.mark.parametrize("new_pattern_nitems_per_file", [1, 2])
-def test_match_pattern_blockchain(
-    base_pattern,
-    end_date,
-    new_pattern_nitems_per_file,
-):
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        ({}, {}),
+        ({}, dict(fsspec_open_kwargs={"block_size": 0})),
+        (dict(fsspec_open_kwargs={"block_size": 0}), dict(fsspec_open_kwargs={"block_size": 0})),
+        (dict(file_type=FileType.opendap), dict(fsspec_open_kwargs={"block_size": 0})),
+        (dict(file_type=FileType.opendap), dict(file_type=FileType.opendap)),
+    ],
+)
+def test_match_pattern_blockchain(base_pattern, end_date, new_pattern_nitems_per_file, kwargs):
     new_pattern, next_url = get_new_pattern_with_next_url(end_date, new_pattern_nitems_per_file)
+
+    for i, pattern in enumerate((base_pattern, new_pattern)):
+        for k, v in kwargs[i].items():
+            setattr(pattern, k, v)
+
     matching_key = match_pattern_blockchain(base_pattern.sha256(), new_pattern)
 
-    if new_pattern_nitems_per_file == 1:
+    if kwargs[0] == kwargs[1] and new_pattern_nitems_per_file == 1:
         assert new_pattern[matching_key] == next_url
-    elif new_pattern_nitems_per_file == 2:
+    elif kwargs[0] != kwargs[1] or new_pattern_nitems_per_file == 2:
         assert matching_key is None
 
 
