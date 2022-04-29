@@ -141,7 +141,7 @@ def test_kerchunk_sha265(pattern_pair, kwargs):
         assert recipe_0.sha256() != recipe_1.sha256()
 
 
-@pytest.mark.parametrize("recipe_cls", [XarrayZarrRecipe, HDFReferenceRecipe])
+@pytest.mark.parametrize("cls", [XarrayZarrRecipe, HDFReferenceRecipe])
 @pytest.mark.parametrize(
     "kwargs",
     [
@@ -151,19 +151,20 @@ def test_kerchunk_sha265(pattern_pair, kwargs):
         {"new_list": [1, 2, 3]},
     ],
 )
-def test_additional_fields(base_pattern, recipe_cls, kwargs):
-    # simulates a new release in which recipe class fields are added
+def test_additional_fields(base_pattern, cls, kwargs):
+    # simulates a new release in which new fields are added; because we drop empty fields from
+    # the hash calculation, backwards compatibility is preserved as long as new fields are unset
 
     @dataclass
-    class UpdatedRecipe(recipe_cls):
+    class NewRelease(cls):
         new_optional_str: Optional[str] = None
         new_dict: dict = field(default_factory=dict)
         new_list: list = field(default_factory=list)
 
-    recipe_0 = recipe_cls(base_pattern)
-    recipe_1 = UpdatedRecipe(base_pattern, **kwargs)
+    old_release_obj = cls(base_pattern)
+    new_release_obj = NewRelease(base_pattern, **kwargs)
 
     if not kwargs:
-        assert recipe_0.sha256() == recipe_1.sha256()
+        assert old_release_obj.sha256() == new_release_obj.sha256()
     else:
-        assert recipe_0.sha256() != recipe_1.sha256()
+        assert old_release_obj.sha256() != new_release_obj.sha256()
