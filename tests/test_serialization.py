@@ -52,6 +52,15 @@ def get_new_pattern_with_next_url(end_date, nitems_per_file):
     return new_pattern, URL_FORMAT.format(time=next_day)
 
 
+@pytest.fixture(params=["matching", "not_matching"])
+def pattern_pair(base_pattern, end_date, request):
+    if request.param == "matching":
+        return (base_pattern, base_pattern)
+    elif request.param == "not_matching":
+        new_pattern, _ = get_new_pattern_with_next_url(end_date, nitems_per_file=1)
+        return (base_pattern, new_pattern)
+
+
 @pytest.mark.parametrize("new_pattern_nitems_per_file", [1, 2])
 def test_match_pattern_blockchain(
     base_pattern,
@@ -92,11 +101,11 @@ def test_recipe_sha256_hash_exclude(base_pattern, recipe_cls, tmpdir_factory):
         (dict(subset_inputs={"time": 2}), dict(target_chunks={"time": 2})),
     ],
 )
-def test_xarray_zarr_sha265(base_pattern, kwargs):
-    recipe_0 = XarrayZarrRecipe(base_pattern, **kwargs[0])
-    recipe_1 = XarrayZarrRecipe(base_pattern, **kwargs[1])
+def test_xarray_zarr_sha265(pattern_pair, kwargs):
+    recipe_0 = XarrayZarrRecipe(pattern_pair[0], **kwargs[0])
+    recipe_1 = XarrayZarrRecipe(pattern_pair[1], **kwargs[1])
 
-    if kwargs[0] == kwargs[1]:
+    if pattern_pair[0] == pattern_pair[1] and kwargs[0] == kwargs[1]:
         assert recipe_0.sha256() == recipe_1.sha256()
     else:
         assert recipe_0.sha256() != recipe_1.sha256()
@@ -111,11 +120,11 @@ def test_xarray_zarr_sha265(base_pattern, kwargs):
         (dict(netcdf_storage_options={"anon": True}), dict(output_json_fname="custom_name.json")),
     ],
 )
-def test_kerchunk_sha265(base_pattern, kwargs):
-    recipe_0 = HDFReferenceRecipe(base_pattern, **kwargs[0])
-    recipe_1 = HDFReferenceRecipe(base_pattern, **kwargs[1])
+def test_kerchunk_sha265(pattern_pair, kwargs):
+    recipe_0 = HDFReferenceRecipe(pattern_pair[0], **kwargs[0])
+    recipe_1 = HDFReferenceRecipe(pattern_pair[1], **kwargs[1])
 
-    if kwargs[0] == kwargs[1]:
+    if pattern_pair[0] == pattern_pair[1] and kwargs[0] == kwargs[1]:
         assert recipe_0.sha256() == recipe_1.sha256()
     else:
         assert recipe_0.sha256() != recipe_1.sha256()
