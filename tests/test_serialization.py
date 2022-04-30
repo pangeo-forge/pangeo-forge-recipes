@@ -6,9 +6,8 @@ import pandas as pd
 import pytest
 from fsspec.implementations.local import LocalFileSystem
 
-from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, match_pattern_blockchain
 from pangeo_forge_recipes.recipes import HDFReferenceRecipe, XarrayZarrRecipe
-from pangeo_forge_recipes.serialization import match_pattern_blockchain
 from pangeo_forge_recipes.storage import FSSpecTarget, StorageConfig
 
 URL_FORMAT = (
