@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.8.4
+## v0.9 - Unreleased
 
 - Added `serialization` module along with `BaseRecipe.sha256` and `FilePattern.sha256` methods.
 Collectively, this provides for generation of deterministic hashes for both recipe and file
@@ -12,6 +12,10 @@ from all of the index:filepath pairs yielded by the pattern's `self.items()` met
 cases where a new pattern is intended to append to an existing dataset which was built from a
 prior version of that pattern, the pattern hash can be used to determine the index from which to
 begin appending. This is demonstrated in the tests. {pull}`349`
+- Created new Prefect executor which wraps the Dask executor in a single Task.
+This should mitigate problems related to large numbers of Prefect Tasks ({issue}`347`).
+See {doc}`../recipe_user_guide/execution` for details.
+
 
 ## v0.8.3 - 2022-04-19
 
