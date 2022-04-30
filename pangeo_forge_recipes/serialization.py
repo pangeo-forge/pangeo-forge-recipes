@@ -17,7 +17,7 @@ def json_default(obj: Any):
 
     if isinstance(obj, Enum):  # custom serializer for FileType, CombineOp, etc.
         return obj.value
-    elif isinstance(obj, FilePattern):
+    elif hasattr(obj, "sha256"):
         return obj.sha256().hex()
     raise TypeError(f"object of type {type(obj).__name__} not serializable")
 
