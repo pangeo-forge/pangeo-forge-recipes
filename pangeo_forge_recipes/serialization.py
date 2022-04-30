@@ -17,7 +17,7 @@ def json_default(obj: Any):
 
     if isinstance(obj, Enum):  # custom serializer for FileType, CombineOp, etc.
         return obj.value
-    elif isinstance(obj, FilePattern):
+    elif hasattr(obj, "sha256"):
         return obj.sha256().hex()
     raise TypeError(f"object of type {type(obj).__name__} not serializable")
 
@@ -120,7 +120,7 @@ def match_pattern_blockchain(  # type: ignore
 ) -> Index:
     """Given the last hash of the blockchain for a previous pattern, and a new pattern, determine
     which (if any) ``Index`` key of the new pattern to begin processing data from, in order to
-    append to a dataset build using the previous pattern.
+    append to a dataset built using the previous pattern.
 
     :param old_pattern_last_hash: The last hash of the blockchain for the ``FilePattern`` instance
       which was used to build the existing dataset.
