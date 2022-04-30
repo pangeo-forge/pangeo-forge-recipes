@@ -100,7 +100,7 @@ jobs:
         dependencies: ["releases-only", "upstream-dev"]
         pytest-mark: ["no_executor", "executor_function", "executor_generator",
                       "executor_dask", "executor_prefect", "executor_prefect_dask",
-                      "executor_beam"]
+                      "executor_prefect_wrapper", "executor_beam"]
         exclude:
           # No beam support in python 3.9
           - python-version: 3.9

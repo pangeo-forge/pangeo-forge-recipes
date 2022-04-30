@@ -9,7 +9,7 @@ options for executing it. In the subsequent code, we will assume that a
 recipe has already been initialized in the variable `recipe`.
 
 
-## Recipes Executors
+## Recipe Executors
 
 ```{note}
 API reference documentation for execution can be found in {mod}`pangeo_forge_recipes.executors`.
@@ -49,7 +49,16 @@ cloud and HPC distributed schedulers.
 ### Prefect Flow
 
 You can compile your recipe to a [Prefect Flow](https://docs.prefect.io/core/concepts/flows.html) using
-the :meth:`BaseRecipe.to_prefect()` method. For example
+the :meth:`BaseRecipe.to_prefect()` method.
+
+There are two modes of Prefect execution.
+In the default, every individual step in the recipe is explicitly represented
+as a distinct Prefect Task within a Flow.
+
+```{warning}
+For large recipes, this default can lead to Prefect Flows with >10000 Tasks.
+In our experience, Prefect can struggle with this volume.
+```
 
 ```{code-block} python
 flow = recipe.to_prefect()
@@ -57,6 +66,15 @@ flow.run()
 ```
 
 By default the flow is run using Prefect's [LocalExecutor](https://docs.prefect.io/orchestration/flow_config/executors.html#localexecutor). See [executors](https://docs.prefect.io/orchestration/flow_config/executors.html) for more.
+
+An alternative is to create _a single Prefect Task_ for the entire Recipe.
+This task wraps a Dask Delayed graph, which can then be scheduled on
+a Dask cluster. To use this mode, pass the option `wrap_dask=True`:
+
+```{code-block} python
+flow = recipe.to_prefect(wrap_dask=True)
+flow.run()
+```
 
 ### Beam PTransform
 
