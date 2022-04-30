@@ -1,6 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Callable, Optional
 
 import pandas as pd
 import pytest
@@ -8,6 +8,7 @@ from fsspec.implementations.local import LocalFileSystem
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, match_pattern_blockchain
 from pangeo_forge_recipes.recipes import HDFReferenceRecipe, XarrayZarrRecipe
+from pangeo_forge_recipes.serialization import dict_to_sha256, either_encode_or_hash
 from pangeo_forge_recipes.storage import FSSpecTarget, StorageConfig
 
 URL_FORMAT = (
@@ -167,3 +168,22 @@ def test_additional_fields(base_pattern, cls, kwargs):
         assert old_release_obj.sha256() == new_release_obj.sha256()
     else:
         assert old_release_obj.sha256() != new_release_obj.sha256()
+
+
+def test_either_encode_or_hash_raises():
+    def f():
+        pass
+
+    @dataclass
+    class HasUnserializableField:
+        unserializable_field: Callable = f
+
+    expected_msg = f"object of type {type(f).__name__} not serializable"
+
+    with pytest.raises(TypeError, match=expected_msg):
+        either_encode_or_hash(f)
+
+    with pytest.raises(TypeError, match=expected_msg):
+        # in practice, we never actually call ``either_encode_or_hash`` directly.
+        # it's actually called from within ``dict_to_sha256``.
+        dict_to_sha256(asdict(HasUnserializableField()))
