@@ -9,7 +9,7 @@ options for executing it. In the subsequent code, we will assume that a
 recipe has already been initialized in the variable `recipe`.
 
 
-## Recipes Executors
+## Recipe Executors
 
 ```{note}
 API reference documentation for execution can be found in {mod}`pangeo_forge_recipes.executors`.
@@ -55,10 +55,10 @@ There are two modes of Prefect execution.
 In the default, every individual step in the recipe is explicitly represented
 as a distinct Prefect Task within a Flow.
 
-:::{warning}
+```{warning}
 For large recipes, this default can lead to Prefect Flows with >10000 Tasks.
 In our experience, Prefect can struggle with this volume.
-:::
+```
 
 ```{code-block} python
 flow = recipe.to_prefect()
