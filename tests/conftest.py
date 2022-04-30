@@ -521,10 +521,11 @@ def execute_recipe_prefect_dask(dask_cluster):
 
 
 @pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_prefect_wrapper)])
-def execute_recipe_prefect_wrapper():
+def execute_recipe_prefect_wrapper(dask_cluster):
     def execute(recipe):
         flow = recipe.to_prefect(wrap_dask=True)
-        state = flow.run()
+        executor = DaskExecutor(address=dask_cluster.scheduler_address)
+        state = flow.run(executor=executor)
         if state.is_failed():
             raise ValueError(f"Prefect flow run failed with message {state.message}")
 
