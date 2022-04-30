@@ -315,11 +315,11 @@ def pattern_blockchain(pattern: FilePattern) -> List[bytes]:
         "fsspec_open_kwargs": pattern.fsspec_open_kwargs,
         "query_string_secrets": pattern.query_string_secrets,
         "file_type": pattern.file_type,
-        "nitems_per_file": [
-            op.nitems_per_file  # type: ignore
+        "nitems_per_file": {
+            op.name: op.nitems_per_file  # type: ignore
             for op in pattern.combine_dims
             if op.name in pattern.concat_dims
-        ],
+        },
     }
     # by dropping empty values from ``root``, we allow for the attributes of ``FilePattern`` to
     # change while allowing for backwards-compatibility between hashes of patterns which do not
