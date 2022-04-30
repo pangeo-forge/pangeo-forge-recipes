@@ -6,9 +6,9 @@ from json import dumps
 from typing import Any, List, Sequence
 
 
-def json_default(obj: Any):
+def either_encode_or_hash(obj: Any):
     """For objects which are not serializable with ``json.dumps``, this function defines
-    type-specific handlers which extract a serializable value from the object.
+    type-specific handlers which extract either a serializable value or a hash from the object.
 
     :param obj: Any object which is not serializable to ``json``.
     """
@@ -30,7 +30,7 @@ def dict_to_sha256(dictionary: dict) -> bytes:
 
     b = dumps(
         dictionary,
-        default=json_default,
+        default=either_encode_or_hash,
         ensure_ascii=False,
         sort_keys=True,
         indent=None,
