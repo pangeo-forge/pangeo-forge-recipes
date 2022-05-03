@@ -1,3 +1,5 @@
+import hashlib
+import os
 import re
 
 import pytest
@@ -7,7 +9,7 @@ from dask.distributed import Client
 from fsspec.implementations.local import LocalFileSystem
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.storage import CacheFSSpecTarget, file_opener
+from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, file_opener
 
 
 def test_target(tmp_target):
@@ -114,35 +116,30 @@ def test_file_opener(
         do_actual_test()
 
 
-@pytest.mark.parametrize("cached_fname_length", [255, 256])
-@pytest.mark.parametrize("cache_fs_cls", [LocalFileSystem])
-def test_caching_local_fname_length_not_greater_than_255_bytes(
-    cached_fname_length,
-    cache_fs_cls,
-    tmpdir_factory,
-):
-    # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/346
-
+def test_caching_local_fname_length_not_greater_than_255_bytes(tmpdir_factory):
+    POSIX_MAX_FNAME_LENGTH = 255
+    extension = ".nc"
     tmp_path = tmpdir_factory.mktemp("fname-length-tempdir")
 
-    cache = CacheFSSpecTarget(cache_fs_cls(), tmp_path)
+    fname = "".join(["a" for i in range(POSIX_MAX_FNAME_LENGTH + 1 - len(extension))]) + extension
+    assert len(fname) > POSIX_MAX_FNAME_LENGTH
 
-    MD5_DIGEST_LENGTH = 32 + len("-")
-    extension = ".nc"
-
-    fname = (
-        "".join(["a" for i in range(cached_fname_length - MD5_DIGEST_LENGTH - len(extension))])
-        + extension
+    obj_without_fname_len_control = FSSpecTarget(LocalFileSystem(), tmp_path)
+    _, uncontrolled_fname = os.path.split(obj_without_fname_len_control._full_path(fname))
+    assert len(uncontrolled_fname) > POSIX_MAX_FNAME_LENGTH
+    expected_error_msg = (
+        f"[Errno 63] File name too long: '{obj_without_fname_len_control._full_path(fname)}'"
     )
-
-    if cached_fname_length > 255 and cache_fs_cls == LocalFileSystem:
-
-        with pytest.raises(
-            OSError, match=re.escape(f"[Errno 63] File name too long: '{cache._full_path(fname)}'")
-        ):
-            with cache.open(fname, mode="w"):
-                pass
-
-    else:
-        with cache.open(fname, mode="w"):
+    with pytest.raises(OSError, match=re.escape(expected_error_msg)):
+        with obj_without_fname_len_control.open(fname, mode="w"):
             pass
+
+    cache_with_fname_len_control = CacheFSSpecTarget(LocalFileSystem(), tmp_path)
+    _, controlled_fname = os.path.split(cache_with_fname_len_control._full_path(fname))
+    # assert len(controlled_fname) == POSIX_MAX_FNAME_LENGTH
+    _, actual_extension = os.path.splitext(cache_with_fname_len_control._full_path(fname))
+    assert actual_extension == extension
+    expected_prefix = hashlib.md5(fname.encode()).hexdigest()
+    assert controlled_fname.startswith(expected_prefix)
+    with cache_with_fname_len_control.open(fname, mode="w"):
+        pass
