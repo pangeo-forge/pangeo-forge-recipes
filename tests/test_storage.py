@@ -1,6 +1,5 @@
 import hashlib
 import os
-import re
 
 import pytest
 import xarray as xr
@@ -137,10 +136,7 @@ def test_caching_local_fname_length_not_greater_than_255_bytes(
     obj_without_fname_len_control = FSSpecTarget(LocalFileSystem(), tmp_path)
     _, uncontrolled_fname = os.path.split(obj_without_fname_len_control._full_path(fname))
     assert len(uncontrolled_fname) > POSIX_MAX_FNAME_LENGTH
-    expected_error_msg = (
-        f"[Errno 63] File name too long: '{obj_without_fname_len_control._full_path(fname)}'"
-    )
-    with pytest.raises(OSError, match=re.escape(expected_error_msg)):
+    with pytest.raises(OSError, match="File name too long"):
         with obj_without_fname_len_control.open(fname, mode="w"):
             pass
 
