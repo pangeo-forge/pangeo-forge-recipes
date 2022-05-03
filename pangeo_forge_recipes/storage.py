@@ -142,6 +142,9 @@ class FlatFSSpecTarget(FSSpecTarget):
         # this is just in case _slugify(path) is non-unique
         prefix = hashlib.md5(path.encode()).hexdigest()
         slug = _slugify(path)
+        if isinstance(self.fs, LocalFileSystem) and len("-".join([prefix, slug])) > 255:
+            drop_nchars = len("-".join([prefix, slug])) - 255
+            slug = slug[drop_nchars:]
         new_path = "-".join([prefix, slug])
         return os.path.join(self.root_path, new_path)
 

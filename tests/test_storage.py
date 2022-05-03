@@ -136,7 +136,7 @@ def test_caching_local_fname_length_not_greater_than_255_bytes(tmpdir_factory):
 
     cache_with_fname_len_control = CacheFSSpecTarget(LocalFileSystem(), tmp_path)
     _, controlled_fname = os.path.split(cache_with_fname_len_control._full_path(fname))
-    # assert len(controlled_fname) == POSIX_MAX_FNAME_LENGTH
+    assert len(controlled_fname) == POSIX_MAX_FNAME_LENGTH
     _, actual_extension = os.path.splitext(cache_with_fname_len_control._full_path(fname))
     assert actual_extension == extension
     expected_prefix = hashlib.md5(fname.encode()).hexdigest()
