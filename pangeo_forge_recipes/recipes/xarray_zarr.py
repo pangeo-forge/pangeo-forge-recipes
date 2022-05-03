@@ -168,7 +168,7 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
                 input_metadata = ds.to_dict(data=False)
                 config.storage_config.metadata[_input_metadata_fname(input_key)] = input_metadata
         else:
-            logger.info(f"Metadata already ached for input '{input_key!s}'")
+            logger.info(f"Metadata already cached for input '{input_key!s}'")
 
     if config.open_input_with_kerchunk:
         if config.file_pattern.file_type == FileType.opendap:
