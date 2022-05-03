@@ -1,3 +1,5 @@
+import re
+
 import pytest
 import xarray as xr
 from dask import delayed
@@ -112,13 +114,35 @@ def test_file_opener(
         do_actual_test()
 
 
-def test_caching_local_fname_length_raises(tmpdir_factory, request):
+@pytest.mark.parametrize("cached_fname_length", [255, 256])
+@pytest.mark.parametrize("cache_fs_cls", [LocalFileSystem])
+def test_caching_local_fname_length_not_greater_than_255_bytes(
+    cached_fname_length,
+    cache_fs_cls,
+    tmpdir_factory,
+):
     # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/346
 
-    tmp_path = tmpdir_factory.mktemp("test_dir")
+    tmp_path = tmpdir_factory.mktemp("fname-length-tempdir")
 
-    fs_local = LocalFileSystem()
+    cache = CacheFSSpecTarget(cache_fs_cls(), tmp_path)
 
-    cache = CacheFSSpecTarget(fs_local, tmp_path)
+    MD5_DIGEST_LENGTH = 32 + len("-")
+    extension = ".nc"
 
-    print("\n", cache._full_path("hi.txt"))
+    fname = (
+        "".join(["a" for i in range(cached_fname_length - MD5_DIGEST_LENGTH - len(extension))])
+        + extension
+    )
+
+    if cached_fname_length > 255 and cache_fs_cls == LocalFileSystem:
+
+        with pytest.raises(
+            OSError, match=re.escape(f"[Errno 63] File name too long: '{cache._full_path(fname)}'")
+        ):
+            with cache.open(fname, mode="w"):
+                pass
+
+    else:
+        with cache.open(fname, mode="w"):
+            pass
