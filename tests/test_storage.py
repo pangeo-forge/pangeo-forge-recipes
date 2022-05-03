@@ -2,9 +2,10 @@ import pytest
 import xarray as xr
 from dask import delayed
 from dask.distributed import Client
+from fsspec.implementations.local import LocalFileSystem
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.storage import file_opener
+from pangeo_forge_recipes.storage import CacheFSSpecTarget, file_opener
 
 
 def test_target(tmp_target):
@@ -109,3 +110,15 @@ def test_file_opener(
             client.close()
     else:
         do_actual_test()
+
+
+def test_caching_local_fname_length_raises(tmpdir_factory, request):
+    # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/346
+
+    tmp_path = tmpdir_factory.mktemp("test_dir")
+
+    fs_local = LocalFileSystem()
+
+    cache = CacheFSSpecTarget(fs_local, tmp_path)
+
+    print("\n", cache._full_path("hi.txt"))
