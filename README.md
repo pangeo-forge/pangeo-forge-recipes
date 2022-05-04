@@ -19,7 +19,7 @@ More can be learned about pangeo-forge, its progress, and related subprojects in
 
 pangeo-forge is still early in development - there are several ways to contribute:
 
-1. [Create a recipe](https://pangeo-forge.readthedocs.io/en/latest/recipe_user_guide/index.html) for a dataset you are interested in
+1. [Create a recipe](https://pangeo-forge.readthedocs.io/en/latest/pangeo_forge_recipes/recipe_user_guide/index.html) for a dataset you are interested in
 2. Open an issue or pull request here or in any of the related subprojects ([pangeo-smithy](https://github.com/pangeo-forge/pangeo-smithy), [staged-recipes](https://github.com/pangeo-forge/staged-recipes))
 3. Check out the project [roadmap](https://github.com/pangeo-forge/roadmap)
 
