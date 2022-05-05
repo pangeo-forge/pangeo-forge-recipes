@@ -145,6 +145,10 @@ class FlatFSSpecTarget(FSSpecTarget):
         if isinstance(self.fs, LocalFileSystem) and len("-".join([prefix, slug])) > 255:
             drop_nchars = len("-".join([prefix, slug])) - 255
             slug = slug[drop_nchars:]
+            logger.warning(
+                "POSIX filesystems don't allow filenames to exceed 255 bytes in length. "
+                f"Truncating the filename slug for path '{path}' to '{slug}' to accommodate this."
+            )
         new_path = "-".join([prefix, slug])
         return os.path.join(self.root_path, new_path)
 
