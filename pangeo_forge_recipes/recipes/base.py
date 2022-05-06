@@ -4,6 +4,8 @@ from abc import ABC
 from dataclasses import dataclass, field, replace
 from typing import Callable, ClassVar
 
+import pkg_resources  # type: ignore
+
 from ..executors.base import Pipeline
 from ..patterns import FilePattern, prune_pattern
 from ..serialization import dataclass_sha256
@@ -49,6 +51,14 @@ class BaseRecipe(ABC):
 
     def sha256(self):
         return dataclass_sha256(self, ignore_keys=self._hash_exclude_)
+
+    def get_execution_context(self):
+        return dict(
+            # See https://stackoverflow.com/a/2073599 re: version
+            version=pkg_resources.require("registrar")[0].version,
+            recipe_hash=self.sha256(),
+            inputs_hash=self.file_pattern.sha256(),
+        )
 
 
 RecipeCompiler = Callable[[BaseRecipe], Pipeline]
