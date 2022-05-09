@@ -1,10 +1,17 @@
+import hashlib
+import os
+
 import pytest
 import xarray as xr
 from dask import delayed
 from dask.distributed import Client
+from fsspec.implementations.http import HTTPFileSystem
+from fsspec.implementations.local import LocalFileSystem
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.storage import file_opener
+from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, file_opener
+
+POSIX_MAX_FNAME_LENGTH = 255
 
 
 def test_target(tmp_target):
@@ -109,3 +116,49 @@ def test_file_opener(
             client.close()
     else:
         do_actual_test()
+
+
+@pytest.fixture
+def fname_longer_than_posix_max():
+    extension = ".nc"
+    fname = "".join(["a" for i in range(POSIX_MAX_FNAME_LENGTH + 1 - len(extension))]) + extension
+    assert len(fname) > POSIX_MAX_FNAME_LENGTH
+    return fname, extension
+
+
+def test_caching_local_fname_length_not_greater_than_255_bytes(
+    tmpdir_factory,
+    fname_longer_than_posix_max,
+):
+    tmp_path = tmpdir_factory.mktemp("fname-length-tempdir")
+    fname, extension = fname_longer_than_posix_max
+
+    obj_without_fname_len_control = FSSpecTarget(LocalFileSystem(), tmp_path)
+    _, uncontrolled_fname = os.path.split(obj_without_fname_len_control._full_path(fname))
+    assert len(uncontrolled_fname) > POSIX_MAX_FNAME_LENGTH
+    with pytest.raises(OSError, match="File name too long"):
+        with obj_without_fname_len_control.open(fname, mode="w"):
+            pass
+
+    cache_with_fname_len_control = CacheFSSpecTarget(LocalFileSystem(), tmp_path)
+    _, controlled_fname = os.path.split(cache_with_fname_len_control._full_path(fname))
+    assert len(controlled_fname) == POSIX_MAX_FNAME_LENGTH
+    _, actual_extension = os.path.splitext(cache_with_fname_len_control._full_path(fname))
+    assert actual_extension == extension
+    expected_prefix = hashlib.md5(fname.encode()).hexdigest()
+    assert controlled_fname.startswith(expected_prefix)
+    with cache_with_fname_len_control.open(fname, mode="w"):
+        pass
+
+
+@pytest.mark.parametrize("fs_cls", [LocalFileSystem, HTTPFileSystem])
+def test_caching_only_truncates_long_fnames_for_local_fs(fs_cls, fname_longer_than_posix_max):
+    cache = CacheFSSpecTarget(fs_cls(), "root_path")
+    fname, _ = fname_longer_than_posix_max
+
+    _, fname_in_full_path = os.path.split(cache._full_path(fname))
+
+    if fs_cls is LocalFileSystem:
+        assert len(fname_in_full_path) == POSIX_MAX_FNAME_LENGTH
+    else:
+        assert len(fname_in_full_path) > POSIX_MAX_FNAME_LENGTH
