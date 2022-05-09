@@ -56,8 +56,8 @@ class BaseRecipe(ABC):
         return dict(
             # See https://stackoverflow.com/a/2073599 re: version
             version=pkg_resources.require("pangeo-forge-recipes")[0].version,
-            recipe_hash=self.sha256(),
-            inputs_hash=self.file_pattern.sha256(),
+            recipe_hash=self.sha256().hex(),
+            inputs_hash=self.file_pattern.sha256().hex(),
         )
 
 
