@@ -13,7 +13,11 @@ import zarr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim
-from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe, calculate_sequence_lens
+from pangeo_forge_recipes.recipes.xarray_zarr import (
+    XarrayZarrRecipe,
+    cache_input,
+    calculate_sequence_lens,
+)
 from pangeo_forge_recipes.storage import MetadataTarget, StorageConfig
 
 
@@ -455,8 +459,9 @@ def test_calculate_sequence_length(calc_sequence_length_fixture):
             cache_inputs=False,
         )
         recipe.storage_config.metadata = metadata_cache
+
         for input_key in recipe.iter_inputs():
-            recipe.cache_input(input_key)
+            cache_input(input_key, config=recipe)
 
     actual = calculate_sequence_lens(nitems_per_input, file_pattern, metadata_cache)
 
