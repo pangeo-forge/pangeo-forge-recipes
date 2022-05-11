@@ -704,22 +704,6 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     Currently this recipe supports at most one ``MergeDim`` and one ``ConcatDim``
     in the File Pattern.
 
-    Manual Execution
-    ----------------
-
-    To manually execute a this recipe, run the following steps:
-
-    .. highlight:: python
-    .. code-block:: python
-
-        for input_key in recipe.iter_inputs():
-            recipe.cache_input(input_key)
-        recipe.prepare_target()
-        for chunk_key in recipe.iter_chunks():
-            recipe.store_chunk(chunk_key)
-        recipe.finalize_target()
-
-
     :param file_pattern: An object which describes the organization of the input files.
     :param inputs_per_chunk: The number of inputs to use in each chunk along the concat dim.
        Must be an integer >= 1.
