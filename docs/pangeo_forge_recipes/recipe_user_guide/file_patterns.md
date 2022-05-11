@@ -131,8 +131,9 @@ two formats:
 
 - **`query_string_secrets`**: A dictionary of key:value pairs to append to each source file url query at runtime. Query
 parameters which are not secrets should instead be included in the `format_function`.
-- **`is_opendap`**: Boolean value to specify whether or not the source files are served via OPeNDAP. Incompatible with caching,
-and mutually exclusive with `fsspec_open_kwargs`. Defaults to `False`.
+- **`file_type`**: String value to specify the format of the input files. Can be one of `"netcdf3"`, `"netcdf4"`,
+`"grib"`, `"opendap"`. `file_type="opendap"` is incompatible with caching, and mutually exclusive with
+`fsspec_open_kwargs`. Defaults to `"netcdf4"`.
 
 ```{warning}
 Secrets including login credentials and API tokens should never be committed to a public repository. As such,

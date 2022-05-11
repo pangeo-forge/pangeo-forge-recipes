@@ -13,7 +13,11 @@ import zarr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim
-from pangeo_forge_recipes.recipes.xarray_zarr import XarrayZarrRecipe, calculate_sequence_lens
+from pangeo_forge_recipes.recipes.xarray_zarr import (
+    XarrayZarrRecipe,
+    cache_input,
+    calculate_sequence_lens,
+)
 from pangeo_forge_recipes.storage import MetadataTarget, StorageConfig
 
 
@@ -135,24 +139,6 @@ def test_recipe_default_storage(recipe_fixture, execute_recipe, get_mapper_from)
     elif get_mapper_from == "target_mapper":
         mapper = rec.target_mapper
     ds_actual = xr.open_zarr(mapper).load()
-    xr.testing.assert_identical(ds_actual, ds_expected)
-
-
-@pytest.mark.parametrize("recipe_fixture", all_recipes)
-def test_recipe_manual_execution(recipe_fixture):
-    """The basic recipe test. Use this as a template for other tests."""
-
-    RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
-    rec = RecipeClass(file_pattern, **kwargs)
-
-    for input_key in rec.iter_inputs():
-        rec.cache_input(input_key)
-    rec.prepare_target()
-    for chunk_key in rec.iter_chunks():
-        rec.store_chunk(chunk_key)
-    rec.finalize_target()
-
-    ds_actual = xr.open_zarr(target.get_mapper()).load()
     xr.testing.assert_identical(ds_actual, ds_expected)
 
 
@@ -473,8 +459,9 @@ def test_calculate_sequence_length(calc_sequence_length_fixture):
             cache_inputs=False,
         )
         recipe.storage_config.metadata = metadata_cache
+
         for input_key in recipe.iter_inputs():
-            recipe.cache_input(input_key)
+            cache_input(input_key, config=recipe)
 
     actual = calculate_sequence_lens(nitems_per_input, file_pattern, metadata_cache)
 
