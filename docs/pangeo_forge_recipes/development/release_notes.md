@@ -4,7 +4,7 @@
 
 - **Breaking changes:** Deprecated `XarrayZarrRecipe` manual stage methods. Manual execution can be
 performed with any of the executors described in {doc}`../recipe_user_guide/execution`. Also deprecated
-`FilePattern(..., is_opendap=True)` kwarg, which is superseded by  `FilePattern(..., file_type="opendap")`.
+`FilePattern(..., is_opendap=True)` kwarg, which is superseded by `FilePattern(..., file_type="opendap")`. {pull}`362`
 - Added `serialization` module along with `BaseRecipe.sha256` and `FilePattern.sha256` methods.
 Collectively, this provides for generation of deterministic hashes for both recipe and file
 pattern instances. Checking these hashes against those from a prior version of the recipe can be
