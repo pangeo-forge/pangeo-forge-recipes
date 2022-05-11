@@ -10,7 +10,7 @@ Collectively, this provides for generation of deterministic hashes for both reci
 pattern instances. Checking these hashes against those from a prior version of the recipe can be
 used to determine whether or not a particular recipe instance in a Python module (which may
 contain arbitrary numbers of recipe instances) has changed since the last time the instances in
-that module were executed. The file pattern hashes are based on blockchain built cumulatively
+that module were executed. The file pattern hashes are based on a blockchain built cumulatively
 from all of the index:filepath pairs yielded by the pattern's `self.items()` method. As such, in
 cases where a new pattern is intended to append to an existing dataset which was built from a
 prior version of that pattern, the pattern hash can be used to determine the index from which to
