@@ -21,6 +21,17 @@ from pangeo_forge_recipes.recipes.xarray_zarr import (
 from pangeo_forge_recipes.storage import MetadataTarget, StorageConfig
 
 
+def drop_execution_context_attrs(ds: xr.Dataset) -> xr.Dataset:
+    """Drop pangeo-forge execution context attrs from a dataset."""
+
+    ds_copy = ds.copy(deep=True)
+    to_drop = [k for k in ds_copy.attrs if k.startswith("pangeo-forge:")]
+    for k in to_drop:
+        del ds_copy.attrs[k]
+
+    return ds_copy
+
+
 def make_netCDFtoZarr_recipe(
     file_pattern, xarray_dataset, target, cache, metadata, extra_kwargs=None
 ):
@@ -120,7 +131,7 @@ def test_recipe(recipe_fixture, execute_recipe):
     rec = RecipeClass(file_pattern, **kwargs)
     execute_recipe(rec)
     ds_actual = xr.open_zarr(target.get_mapper()).load()
-    xr.testing.assert_identical(ds_actual, ds_expected)
+    xr.testing.assert_identical(drop_execution_context_attrs(ds_actual), ds_expected)
 
 
 @pytest.mark.parametrize("get_mapper_from", ["storage_config", "target", "target_mapper"])
@@ -139,7 +150,7 @@ def test_recipe_default_storage(recipe_fixture, execute_recipe, get_mapper_from)
     elif get_mapper_from == "target_mapper":
         mapper = rec.target_mapper
     ds_actual = xr.open_zarr(mapper).load()
-    xr.testing.assert_identical(ds_actual, ds_expected)
+    xr.testing.assert_identical(drop_execution_context_attrs(ds_actual), ds_expected)
 
 
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
@@ -150,7 +161,7 @@ def test_recipe_with_references(recipe_fixture, execute_recipe):
     rec = RecipeClass(file_pattern, open_input_with_kerchunk=True, **kwargs)
     execute_recipe(rec)
     ds_actual = xr.open_zarr(target.get_mapper()).load()
-    xr.testing.assert_identical(ds_actual, ds_expected)
+    xr.testing.assert_identical(drop_execution_context_attrs(ds_actual), ds_expected)
 
 
 @pytest.mark.parametrize("recipe_fixture", all_recipes)
@@ -195,7 +206,7 @@ def test_recipe_caching_copying(recipe, execute_recipe, cache_inputs, copy_input
     )
     execute_recipe(rec)
     ds_actual = xr.open_zarr(target.get_mapper()).load()
-    xr.testing.assert_identical(ds_actual, ds_expected)
+    xr.testing.assert_identical(drop_execution_context_attrs(ds_actual), ds_expected)
 
 
 # function passed to preprocessing
@@ -228,7 +239,7 @@ def test_process(recipe_fixture, execute_recipe, process_input, process_chunk):
         assert not ds_actual.identical(ds_expected)
         ds_expected = incr_date(ds_expected)
 
-    xr.testing.assert_identical(ds_actual, ds_expected)
+    xr.testing.assert_identical(drop_execution_context_attrs(ds_actual), ds_expected)
 
 
 def do_actual_chunks_test(
@@ -303,7 +314,7 @@ def do_actual_chunks_test(
     for dim in ds_actual.dims:
         assert store[dim].chunks == ds_actual[dim].shape
 
-    xr.testing.assert_identical(ds_actual, ds_expected)
+    xr.testing.assert_identical(drop_execution_context_attrs(ds_actual), ds_expected)
 
 
 @pytest.mark.parametrize("inputs_per_chunk,subset_inputs", [(1, {}), (1, {"time": 2}), (2, {})])
@@ -376,7 +387,7 @@ def test_no_consolidate_dimension_coordinates(netCDFtoZarr_recipe):
     rec.consolidate_dimension_coordinates = False
     rec.to_function()()
     ds_actual = xr.open_zarr(target.get_mapper()).load()
-    xr.testing.assert_identical(ds_actual, ds_expected)
+    xr.testing.assert_identical(drop_execution_context_attrs(ds_actual), ds_expected)
 
     store = zarr.open_consolidated(target.get_mapper())
     assert store["time"].chunks == (file_pattern.nitems_per_input["time"],)
@@ -399,7 +410,7 @@ def test_consolidate_dimension_coordinates_with_coordinateless_dimension(
     rec = RecipeClass(file_pattern, **kwargs)
     rec.to_function()()
     ds_actual = xr.open_zarr(target.get_mapper()).load()
-    xr.testing.assert_identical(ds_actual, ds_expected)
+    xr.testing.assert_identical(drop_execution_context_attrs(ds_actual), ds_expected)
 
 
 def test_lock_timeout(netCDFtoZarr_recipe_sequential_only, execute_recipe_no_dask):
