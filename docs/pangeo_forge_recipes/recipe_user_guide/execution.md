@@ -110,7 +110,7 @@ Each recipe class defines where to store this metadata:
 
 - `XarrayZarrRecipe`: Added to Zarr group attributes, and therefore also available via the
 `xarray.Dataset.attrs` when opening Zarr stores with xarray.
-- `HDFReferenceRecipe`:
+- `HDFReferenceRecipe`: TODO
 
 The execution context metadata which is persisted in the target dataset is used for tracking
 dataset provenance.
