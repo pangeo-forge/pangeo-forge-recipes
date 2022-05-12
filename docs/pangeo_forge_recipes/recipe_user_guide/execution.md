@@ -91,3 +91,26 @@ with beam.Pipeline() as p:
 
 By default the pipeline runs using Beam's [DirectRunner](https://beam.apache.org/documentation/runners/direct/).
 See [runners](https://beam.apache.org/documentation/#runners) for more.
+
+
+## Execution context
+
+All Pangeo Forge {doc}`recipes` contain a `.get_execution_context()` method which returns the
+following metadata:
+
+```{code-block} python
+{
+    "pangeo-forge:version": "{pangeo_forge_recipes version installed at time of execution}"
+    "pangeo-forge:recipe_hash": "{recipe hash as returned by `recipe.sha256()`}"
+    "pangeo-forge:inputs_hash": "{file pattern hash as returned by `recipe.file_pattern.sha256()`}"
+}
+```
+
+Each recipe class defines where to store this metadata:
+
+- `XarrayZarrRecipe`: Added to Zarr group attributes, and therefore also available via the
+`xarray.Dataset.attrs` when opening Zarr stores with xarray.
+- `HDFReferenceRecipe`:
+
+The execution context metadata which is persisted in the target dataset is used for tracking
+dataset provenance.
