@@ -35,7 +35,7 @@ http://data-provider.org/data/humidity/humidity_10.txt
 ```
 
 This is a relatively common way to organize data files:
-- There are two different "variables" (temperature and salinity), stored in separate files.
+- There are two different "variables" (temperature and humidity), stored in separate files.
 - There is a sequence of 10 files for each variable. We will assume that this
   represents the "time" axis of the data.
 
