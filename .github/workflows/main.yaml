@@ -102,9 +102,6 @@ jobs:
                       "executor_dask", "executor_prefect", "executor_prefect_dask",
                       "executor_prefect_wrapper", "executor_beam"]
         exclude:
-          # No beam support in python 3.9
-          - python-version: 3.9
-            pytest-mark: "executor_beam"
           - dependencies: "upstream-dev"
             pytest-mark: "executor_function"
           - dependencies: "upstream-dev"
