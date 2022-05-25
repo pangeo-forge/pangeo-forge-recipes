@@ -19,7 +19,7 @@ IndexedElement = Tuple[Index, Any]
 # This has side effects if using a cache
 @dataclass
 class OpenWithFSSpec(beam.PTransform):
-    """Write keyed chunks to a Zarr store in parallel."""
+    """Open indexed items from a FilePattern with FSSpec, optionally caching along the way."""
 
     cache: Optional[CacheFSSpecTarget] = None
     secrets: Optional[dict] = None
