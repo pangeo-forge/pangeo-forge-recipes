@@ -28,7 +28,7 @@ OpenFileType = Any
 
 
 def _get_url_size(fname, secrets, **open_kwargs):
-    with _get_opener(fname, secrets, **open_kwargs) as of:
+    with get_opener(fname, secrets, **open_kwargs) as of:
         size = of.size
     return size
 
@@ -126,6 +126,12 @@ class FSSpecTarget(AbstractTarget):
         logger.debug("FSSpecTarget.open yielded")
         of.close()
 
+    def open_file(self, path: str, **kwargs) -> OpenFileType:
+        """Returns an fsspec open file"""
+        full_path = self._full_path(path)
+        logger.debug(f"returning open file for {full_path}")
+        return self.fs.open(full_path, **kwargs)
+
     def __post_init__(self):
         if not self.fs.isdir(self.root_path):
             self.fs.mkdir(self.root_path)
@@ -167,7 +173,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
                 logger.info(f"File '{fname}' is already cached")
                 return
 
-        input_opener = _get_opener(fname, secrets, **open_kwargs)
+        input_opener = get_opener(fname, secrets, **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Copying remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
@@ -268,7 +274,7 @@ def file_opener(
         opener = cache.open(fname, mode="rb")
     else:
         logger.info(f"Opening '{fname}' directly.")
-        opener = _get_opener(fname, secrets, **open_kwargs)
+        opener = get_opener(fname, secrets, **open_kwargs)
     if copy_to_local:
         _, suffix = os.path.splitext(fname)
         ntf = tempfile.NamedTemporaryFile(suffix=suffix)
@@ -306,6 +312,6 @@ def _add_query_string_secrets(fname: str, secrets: dict) -> str:
     return urlunparse(parsed)
 
 
-def _get_opener(fname: str, secrets: Optional[dict], **open_kwargs):
+def get_opener(fname: str, secrets: Optional[dict], **open_kwargs):
     fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
     return fsspec.open(fname, mode="rb", **open_kwargs)
