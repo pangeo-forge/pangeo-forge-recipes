@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import apache_beam as beam
+import xarray as xr
+import zarr
 
 from .patterns import Index
 from .storage import CacheFSSpecTarget, OpenFileType, get_opener
@@ -40,3 +42,36 @@ class OpenWithFSSpec(beam.PTransform):
 
     def expand(self, pcoll):
         return pcoll | "Open with fsspec" >> beam.Map(self._open_with_fsspec)
+
+
+@dataclass
+class OpenWithXarray(beam.PTransform):
+
+    xarray_open_kwargs: Optional[dict] = None
+
+    def _open_with_xarray(self, element: Tuple[Index, Any]) -> Tuple[Index, xr.Dataset]:
+        pass
+
+    def expand(self, pcoll):
+        return pcoll | "Open with Xarray" >> beam.Map(self._open_with_xarray)
+
+
+@beam.typehints.with_input_types(Tuple[Index, xr.Dataset])
+@beam.typehints.with_output_types(Tuple[Index, Dict])
+@dataclass
+class GetXarraySchema(beam.PTransform):
+    def expand(self, pcoll):
+        pass
+
+
+@beam.typehints.with_input_types(Dict)
+@beam.typehints.with_output_types(zarr.Group)
+@dataclass
+class CreateZarrFromSchema(beam.PTransform):
+    def expand(self, pcoll):
+        pass
+
+
+# all_datasets = beam.Create(file_pattern) | OpenWithFSSpec() | OpenWithXarray()
+# target_zarr = all_datasets | GetXarraySchema() | CreateZarrFromSchema()
+# output = all_datasets | WriteZarrChunks(target=beam.pvalue.AsSingleton(target_zarr))
