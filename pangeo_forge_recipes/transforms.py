@@ -11,9 +11,8 @@ from .storage import CacheFSSpecTarget, OpenFileType, get_opener
 
 logger = logging.getLogger(__name__)
 
-
-IndexedElement = Tuple[Index, Any]
 # can we use a generic, e.g Indexed[xr.Dataset]?
+# Indexed[int] -> Tuple[Index, int]
 
 
 # This has side effects if using a cache
@@ -25,7 +24,7 @@ class OpenWithFSSpec(beam.PTransform):
     secrets: Optional[dict] = None
     open_kwargs: Optional[dict] = None
 
-    def _open_with_fsspec(self, element: IndexedElement) -> Tuple[Index, OpenFileType]:
+    def _open_with_fsspec(self, element: Tuple[Index, Any]) -> Tuple[Index, OpenFileType]:
         key, fname = element
         open_kwargs = self.open_kwargs or {}
         if self.cache is not None:
