@@ -1,4 +1,5 @@
 import apache_beam as beam
+import pytest
 from apache_beam.testing.test_pipeline import TestPipeline
 
 # from apache_beam.testing.util import assert_that, equal_to
@@ -17,13 +18,16 @@ def expected_len(n):
     return _expected_len
 
 
-def test_OpenWithFSSpec(netcdf_local_file_pattern_sequential):
+@pytest.fixture
+def pcoll_opened_files(netcdf_local_file_pattern_sequential):
     pattern = netcdf_local_file_pattern_sequential
+    return pattern, beam.Create(pattern.items()) | OpenWithFSSpec()
 
+
+def test_OpenWithFSSpec(pcoll_opened_files):
+    pattern, pcoll = pcoll_opened_files
     with TestPipeline() as p:
-        input = p | beam.Create(pattern.items())
-        output = input | OpenWithFSSpec()
+        output = p | pcoll
 
-        assert_that(output, is_not_empty(), label="inputs not empty")
         assert_that(output, is_not_empty(), label="ouputs not empty")
         assert_that(output, expected_len(pattern.shape[0]), label="expected len")
