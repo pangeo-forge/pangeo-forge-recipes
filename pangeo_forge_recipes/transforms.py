@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
 import apache_beam as beam
@@ -47,10 +47,12 @@ class OpenWithFSSpec(beam.PTransform):
 @dataclass
 class OpenWithXarray(beam.PTransform):
 
-    xarray_open_kwargs: Optional[dict] = None
+    xarray_open_kwargs: Optional[dict] = field(default_factory=dict)
 
     def _open_with_xarray(self, element: Tuple[Index, Any]) -> Tuple[Index, xr.Dataset]:
-        pass
+        key, open_file = element
+        ds = xr.open_dataset(open_file, **self.xarray_open_kwargs)
+        return key, ds
 
     def expand(self, pcoll):
         return pcoll | "Open with Xarray" >> beam.Map(self._open_with_xarray)
