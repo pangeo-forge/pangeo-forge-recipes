@@ -4,18 +4,41 @@ from apache_beam.testing.test_pipeline import TestPipeline
 
 # from apache_beam.testing.util import assert_that, equal_to
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
+from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.transforms import OpenWithFSSpec
 
 
+@pytest.fixture(
+    scope="module",
+    params=[
+        lazy_fixture("netcdf_local_file_pattern_sequential"),
+        lazy_fixture("netcdf_http_file_pattern_sequential_1d"),
+    ],
+)
+def pattern(request):
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
+def cache(tmp_cache, request):
+    if request.param:
+        return tmp_cache
+    else:
+        return None
+
+
 @pytest.fixture
-def pcoll_opened_files(netcdf_local_file_pattern_sequential):
-    pattern = netcdf_local_file_pattern_sequential
-    return pattern, beam.Create(pattern.items()) | OpenWithFSSpec()
+def pcoll_opened_files(pattern, cache):
+    input = beam.Create(pattern.items())
+    output = input | OpenWithFSSpec(
+        cache=cache, secrets=pattern.query_string_secrets, open_kwargs=pattern.fsspec_open_kwargs
+    )
+    return output, pattern, cache
 
 
 def test_OpenWithFSSpec(pcoll_opened_files):
-    pattern, pcoll = pcoll_opened_files
+    pcoll, pattern, cache = pcoll_opened_files
 
     def expected_len(n):
         def _expected_len(actual):
@@ -41,3 +64,7 @@ def test_OpenWithFSSpec(pcoll_opened_files):
         assert_that(output, is_not_empty(), label="ouputs not empty")
         assert_that(output, expected_len(pattern.shape[0]), label="expected len")
         assert_that(output, is_readable(), label="output is readable")
+
+    if cache:
+        for key, fname in pattern.items():
+            assert cache.exists(fname)
