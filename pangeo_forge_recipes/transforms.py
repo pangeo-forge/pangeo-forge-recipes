@@ -6,8 +6,8 @@ from typing import Any, Optional, Tuple
 
 import apache_beam as beam
 
-from ..patterns import Index
-from ..storage import CacheFSSpecTarget, OpenFileType, get_opener
+from .patterns import Index
+from .storage import CacheFSSpecTarget, OpenFileType, get_opener
 
 logger = logging.getLogger(__name__)
 

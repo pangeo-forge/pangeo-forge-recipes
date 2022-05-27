@@ -4,7 +4,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 # from apache_beam.testing.util import assert_that, equal_to
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 
-from pangeo_forge_recipes.recipes.xarray_zarr_beam import OpenWithFSSpec
+from pangeo_forge_recipes.transforms import OpenWithFSSpec
 
 
 # a beam testing assertion matcher
