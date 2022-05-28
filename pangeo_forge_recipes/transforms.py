@@ -51,13 +51,10 @@ class OpenWithXarray(beam.PTransform):
 
     def _open_with_xarray(self, element: Tuple[Index, Any]) -> Tuple[Index, xr.Dataset]:
         key, open_file = element
-        print(f"open_file is {open_file}")
         try:
             ds = xr.open_dataset(open_file, **self.xarray_open_kwargs)
         except ValueError:
             with open_file as fp:
-                print("failed, now trying with context manager")
-                print(f"fp is {fp}")
                 ds = xr.open_dataset(fp, **self.xarray_open_kwargs)
         return key, ds
 
