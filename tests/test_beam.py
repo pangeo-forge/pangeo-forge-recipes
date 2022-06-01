@@ -76,6 +76,7 @@ def is_xr_dataset():
         for _, ds in actual:
             if not isinstance(ds, xr.Dataset):
                 raise BeamAssertException(f"Object {ds} has type {type(ds)}, expected xr.Dataset.")
+            ds.load()
 
     return _is_xr_dataset
 
