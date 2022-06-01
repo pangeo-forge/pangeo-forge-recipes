@@ -2,7 +2,7 @@
 Filename / URL patterns.
 """
 import inspect
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from enum import Enum, auto
 from hashlib import sha256
 from itertools import product
@@ -77,12 +77,18 @@ class DimIndex:
     :param index: The position of the item within the sequence.
     :param sequence_len: The total length of the sequence.
     :param operation: What type of Combine Operation does this dimension represent.
+    :param start: The explicit absolute array index start location of the data in this chunk,
+      in respect to the full dataset.
+    :param stop: The explicit absolute array index stop location of the data in this chunk,
+      in respect to the full dataset.
     """
 
     name: str
     index: int
     sequence_len: int
     operation: CombineOp
+    start: Optional[int] = None
+    stop: Optional[int] = None
 
     def __str__(self):
         return f"{self.name}-{self.index}"
@@ -91,6 +97,9 @@ class DimIndex:
         assert self.sequence_len > 0
         assert self.index >= 0
         assert self.index < self.sequence_len
+        if self.start:
+            assert self.stop is not None
+            assert self.start > self.stop
 
 
 class Index(FrozenSet[DimIndex]):
@@ -99,6 +108,23 @@ class Index(FrozenSet[DimIndex]):
 
 CombineDim = Union[MergeDim, ConcatDim]
 FilePatternIndex = Index
+
+
+def augment_index_with_start_stop(index: DimIndex, sequence_lens: List[int]) -> DimIndex:
+    """Take an index _without_ start / stop and add them based on the lens defined in sequence_lens.
+
+    :param index: The ``DimIndex`` instance to augment.
+    :param sequence_lens: A list of integer sequence lengths for all inputs.
+    """
+
+    assert len(sequence_lens) == index.sequence_len
+    start = sum(sequence_lens[: index.index])
+    stop = start + sequence_lens[index.index]
+
+    kw = asdict(index)
+    kw["start"] = start
+    kw["stop"] = stop
+    return DimIndex(**kw)
 
 
 class AutoName(Enum):
