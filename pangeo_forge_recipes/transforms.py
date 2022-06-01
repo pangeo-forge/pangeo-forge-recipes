@@ -51,12 +51,9 @@ class OpenWithXarray(beam.PTransform):
 
     def _open_with_xarray(self, element: Tuple[Index, Any]) -> Tuple[Index, xr.Dataset]:
         key, open_file = element
-        try:
-            ds = xr.open_dataset(open_file, **self.xarray_open_kwargs)
-        except ValueError:
-            with open_file as fp:
-                ds = xr.open_dataset(fp, **self.xarray_open_kwargs)
-        return key, ds
+        with open_file as fp:
+            with xr.open_dataset(fp, **self.xarray_open_kwargs) as ds:
+                return key, ds
 
     def expand(self, pcoll):
         return pcoll | "Open with Xarray" >> beam.Map(self._open_with_xarray)
