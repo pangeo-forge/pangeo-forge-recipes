@@ -5,9 +5,11 @@ import pytest
 from pangeo_forge_recipes.patterns import (
     CombineOp,
     ConcatDim,
+    DimIndex,
     FilePattern,
     FileType,
     MergeDim,
+    augment_index_with_start_stop,
     pattern_from_file_sequence,
     prune_pattern,
 )
@@ -196,3 +198,27 @@ def test_setting_file_types(file_type_value):
     else:
         with pytest.raises(ValueError, match=rf"'{file_type_value}' is not a valid FileType"):
             fp = make_concat_merge_pattern(**file_type_kwargs)[0]
+
+
+@pytest.mark.parametrize(
+    "index,start,stop",
+    [(0, 0, 2), (1, 2, 4), (2, 4, 7), (3, 7, 9), (4, 9, 11)],
+)
+def test_augment_index_with_start_stop(index, start, stop):
+    kw = dict(name="time", index=index, sequence_len=5, operation=CombineOp.CONCAT)
+    di = DimIndex(**kw)
+    expected = DimIndex(start=start, stop=stop, **kw)
+    actual = augment_index_with_start_stop(di, [2, 2, 3, 2, 2])
+    assert actual == expected
+
+
+@pytest.mark.parametrize(
+    "dimindex_sequence_len, passed_sequence_lengths",
+    [(2, [1]), (2, [1, 1, 1])],
+)
+def test_augment_index_with_start_stop_raises(dimindex_sequence_len, passed_sequence_lengths):
+    kw = dict(name="time", index=0, operation=CombineOp.CONCAT)
+    di = DimIndex(sequence_len=dimindex_sequence_len, **kw)
+
+    with pytest.raises(AssertionError):
+        augment_index_with_start_stop(di, passed_sequence_lengths)

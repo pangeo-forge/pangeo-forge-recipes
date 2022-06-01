@@ -99,7 +99,7 @@ class DimIndex:
         assert self.index < self.sequence_len
         if self.start:
             assert self.stop is not None
-            assert self.start > self.stop
+            assert self.start < self.stop
 
 
 class Index(FrozenSet[DimIndex]):
