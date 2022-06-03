@@ -4,9 +4,12 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
+from cloudpickle import dumps, loads
+
 import apache_beam as beam
 import xarray as xr
 import zarr
+import fsspec
 
 from .patterns import Index
 from .storage import CacheFSSpecTarget, OpenFileType, get_opener
@@ -16,6 +19,10 @@ logger = logging.getLogger(__name__)
 # can we use a generic, e.g Indexed[xr.Dataset]?
 # Indexed[int] -> Tuple[Index, int]
 
+
+def _get_first_variable(ds):
+    vname = next(iter(ds.data_vars))
+    return ds.variables[vname]
 
 # This has side effects if using a cache
 @dataclass
@@ -51,13 +58,30 @@ class OpenWithXarray(beam.PTransform):
 
     def _open_with_xarray(self, element: Tuple[Index, Any]) -> Tuple[Index, xr.Dataset]:
         key, open_file = element
+        logger.debug(f"_open_with_xarray({key}, {open_file})")
         with open_file as fp:
-            with xr.open_dataset(fp, **self.xarray_open_kwargs) as ds:
-                return key, ds
+            logger.debug(f"fp is {fp}")
+            with xr.open_dataset(fp, cache=False, lock=False, **self.xarray_open_kwargs) as ds:
+                pass
+        ds1 = loads(dumps(ds))
+        return key, ds1
 
     def expand(self, pcoll):
         return pcoll | "Open with Xarray" >> beam.Map(self._open_with_xarray)
 
+
+class LazilyOpenDataset(beam.PTransform):
+
+    def _open_with_fsspec(self, url: str) -> xr.Dataset:
+        print(f"got {url}")
+        of = fsspec.open(url).open()
+        ds = xr.open_dataset(of, engine='h5netcdf')
+        variable = _get_first_variable(ds)
+        assert not variable._in_memory
+        return ds
+
+    def expand(self, pcoll):
+        return pcoll | "Open with fsspec" >> beam.Map(self._open_with_fsspec)
 
 @beam.typehints.with_input_types(Tuple[Index, xr.Dataset])
 @beam.typehints.with_output_types(Tuple[Index, Dict])

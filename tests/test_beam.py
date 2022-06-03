@@ -7,7 +7,9 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.transforms import OpenWithFSSpec, OpenWithXarray
+from cloudpickle import loads
+
+from pangeo_forge_recipes.transforms import OpenWithFSSpec, OpenWithXarray, LazilyOpenDataset
 
 
 @pytest.fixture(
@@ -16,12 +18,13 @@ from pangeo_forge_recipes.transforms import OpenWithFSSpec, OpenWithXarray
         lazy_fixture("netcdf_local_file_pattern_sequential"),
         lazy_fixture("netcdf_http_file_pattern_sequential_1d"),
     ],
+    ids=['local', 'http']
 )
 def pattern(request):
     return request.param
 
 
-@pytest.fixture(params=[True, False])
+@pytest.fixture(params=[True, False], ids=['with_cache', 'no_cache'])
 def cache(tmp_cache, request):
     if request.param:
         return tmp_cache
@@ -73,7 +76,7 @@ def test_OpenWithFSSpec(pcoll_opened_files):
 
 def is_xr_dataset():
     def _is_xr_dataset(actual):
-        for _, ds in actual:
+        for ds in actual:
             if not isinstance(ds, xr.Dataset):
                 raise BeamAssertException(f"Object {ds} has type {type(ds)}, expected xr.Dataset.")
             ds.load()
@@ -90,5 +93,19 @@ def pcoll_xarray_datasets(pcoll_opened_files):
 def test_OpenWithXarray(pcoll_xarray_datasets):
     with TestPipeline() as p:
         output = p | pcoll_xarray_datasets
+
+        assert_that(output, is_xr_dataset(), label="is xr.Dataset")
+
+
+def test_LazilyOpenDataset(netcdf_public_http_paths_sequential_1d):
+    urls = netcdf_public_http_paths_sequential_1d[0][:1]
+
+    def load_xarray_ds(ds):
+        return ds.load()
+
+    with TestPipeline() as p:
+        inputs = p | beam.Create(urls)
+        dsets = inputs | LazilyOpenDataset()
+        output = dsets | beam.Map(load_xarray_ds)
 
         assert_that(output, is_xr_dataset(), label="is xr.Dataset")
