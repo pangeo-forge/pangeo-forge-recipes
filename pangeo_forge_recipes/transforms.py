@@ -16,11 +16,6 @@ logger = logging.getLogger(__name__)
 # Indexed[int] -> Tuple[Index, int]
 
 
-def _get_first_variable(ds):
-    vname = next(iter(ds.data_vars))
-    return ds.variables[vname]
-
-
 # This has side effects if using a cache
 @dataclass
 class OpenWithFSSpec(beam.PTransform):
