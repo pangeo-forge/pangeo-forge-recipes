@@ -7,9 +7,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
-from cloudpickle import loads
-
-from pangeo_forge_recipes.transforms import OpenWithFSSpec, OpenWithXarray, LazilyOpenDataset
+from pangeo_forge_recipes.transforms import OpenWithFSSpec, OpenWithXarray
 
 
 @pytest.fixture(
@@ -18,13 +16,13 @@ from pangeo_forge_recipes.transforms import OpenWithFSSpec, OpenWithXarray, Lazi
         lazy_fixture("netcdf_local_file_pattern_sequential"),
         lazy_fixture("netcdf_http_file_pattern_sequential_1d"),
     ],
-    ids=['local', 'http']
+    ids=["local", "http"],
 )
 def pattern(request):
     return request.param
 
 
-@pytest.fixture(params=[True, False], ids=['with_cache', 'no_cache'])
+@pytest.fixture(params=[True, False], ids=["with_cache", "no_cache"])
 def cache(tmp_cache, request):
     if request.param:
         return tmp_cache
@@ -74,12 +72,17 @@ def test_OpenWithFSSpec(pcoll_opened_files):
             assert cache.exists(fname)
 
 
-def is_xr_dataset():
+def is_xr_dataset(in_memory=False):
     def _is_xr_dataset(actual):
-        for ds in actual:
+        for _, ds in actual:
             if not isinstance(ds, xr.Dataset):
                 raise BeamAssertException(f"Object {ds} has type {type(ds)}, expected xr.Dataset.")
-            ds.load()
+            offending_vars = [
+                vname for vname in ds.data_vars if ds[vname].variable._in_memory != in_memory
+            ]
+            if offending_vars:
+                msg = "were NOT in memory" if in_memory else "were in memory"
+                raise BeamAssertException(f"The following vars {msg}: {offending_vars}")
 
     return _is_xr_dataset
 
@@ -90,22 +93,22 @@ def pcoll_xarray_datasets(pcoll_opened_files):
     return open_files | OpenWithXarray()
 
 
-def test_OpenWithXarray(pcoll_xarray_datasets):
+@pytest.mark.parametrize("load", [False, True])
+def test_OpenWithXarray(pcoll_opened_files, load):
+    input, pattern, cache = pcoll_opened_files
     with TestPipeline() as p:
-        output = p | pcoll_xarray_datasets
+        output = p | input | OpenWithXarray(load=load)
+        assert_that(output, is_xr_dataset(in_memory=load))
 
-        assert_that(output, is_xr_dataset(), label="is xr.Dataset")
 
+def test_OpenWithXarray_downstream_load(pcoll_opened_files):
+    input, pattern, cache = pcoll_opened_files
 
-def test_LazilyOpenDataset(netcdf_public_http_paths_sequential_1d):
-    urls = netcdf_public_http_paths_sequential_1d[0][:1]
-
-    def load_xarray_ds(ds):
-        return ds.load()
+    def manually_load(item):
+        key, ds = item
+        return key, ds.load()
 
     with TestPipeline() as p:
-        inputs = p | beam.Create(urls)
-        dsets = inputs | LazilyOpenDataset()
-        output = dsets | beam.Map(load_xarray_ds)
-
-        assert_that(output, is_xr_dataset(), label="is xr.Dataset")
+        output = p | input | OpenWithXarray(load=False)
+        loaded_dsets = output | beam.Map(manually_load)
+        assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
