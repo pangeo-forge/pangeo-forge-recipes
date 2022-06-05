@@ -11,7 +11,7 @@ import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Iterator, Optional, Sequence, Union
+from typing import Any, Dict, Iterator, Optional, Sequence, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
@@ -28,7 +28,7 @@ OpenFileType = Any
 
 
 def _get_url_size(fname, secrets, **open_kwargs):
-    with get_opener(fname, secrets, **open_kwargs) as of:
+    with _get_opener(fname, secrets, **open_kwargs) as of:
         size = of.size
     return size
 
@@ -173,7 +173,7 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
                 logger.info(f"File '{fname}' is already cached")
                 return
 
-        input_opener = get_opener(fname, secrets, **open_kwargs)
+        input_opener = _get_opener(fname, secrets, **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Copying remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
@@ -274,7 +274,7 @@ def file_opener(
         opener = cache.open(fname, mode="rb")
     else:
         logger.info(f"Opening '{fname}' directly.")
-        opener = get_opener(fname, secrets, **open_kwargs)
+        opener = _get_opener(fname, secrets, **open_kwargs)
     if copy_to_local:
         _, suffix = os.path.splitext(fname)
         ntf = tempfile.NamedTemporaryFile(suffix=suffix)
@@ -312,6 +312,23 @@ def _add_query_string_secrets(fname: str, secrets: dict) -> str:
     return urlunparse(parsed)
 
 
-def get_opener(fname: str, secrets: Optional[dict], **open_kwargs):
+def _get_opener(fname, secrets, **open_kwargs):
     fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
     return fsspec.open(fname, mode="rb", **open_kwargs)
+
+
+# TODO: test this function!
+def open_file(
+    fname: str,
+    cache: Optional[CacheFSSpecTarget] = None,
+    secrets: Optional[Dict] = None,
+    open_kwargs: Optional[Dict] = None,
+) -> OpenFileType:
+    kw = open_kwargs or {}
+    if cache is not None:
+        # this has side effects
+        cache.cache_file(fname, secrets, **kw)
+        open_file = cache.open_file(fname, mode="rb")
+    else:
+        open_file = _get_opener(fname, secrets, **kw)
+    return open_file

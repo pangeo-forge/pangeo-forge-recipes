@@ -1,11 +1,11 @@
 """Standalone functions for opening sources as Dataset objects."""
 
-from typing import Union, Any, Optional, Dict
+import warnings
+from typing import Any, Dict, Optional, Union
 
 import xarray as xr
 
 from .patterns import FileType
-
 
 OpenFile = Any  # could fsspec provide a stricter type here?
 
@@ -13,8 +13,9 @@ OpenFile = Any  # could fsspec provide a stricter type here?
 OPENER_MAP = {
     FileType.netcdf3: dict(engine="scipy"),
     FileType.netcdf4: dict(engine="h5netcdf"),
-    FileType.zarr: dict(engine="zarr")
+    FileType.zarr: dict(engine="zarr"),
 }
+
 
 def _set_engine(file_type, xr_open_kwargs):
     kw = xr_open_kwargs.copy()
@@ -50,20 +51,22 @@ def _set_engine(file_type, xr_open_kwargs):
     return kw
 
 
+# TODO: unit test this function!
 def open_with_xarray(
     thing: Union[OpenFile, str],
     file_type: FileType = FileType.unknown,
     load: bool = False,
-    xarray_open_kwargs: Optional[Dict] = None
+    xarray_open_kwargs: Optional[Dict] = None,
 ) -> xr.Dataset:
     # TODO: check file type matrix
 
     kw = xarray_open_kwargs or {}
     kw = _set_engine(file_type, kw)
-    # workaround fsspec inconsistencies
-    if hasattr(thing, "open"):
+    if isinstance(thing, str):
+        pass
+    elif hasattr(thing, "open"):
+        # work around fsspec inconsistencies
         thing = thing.open()
-    print(kw)
     ds = xr.open_dataset(thing, **kw)
     if load:
         ds.load()

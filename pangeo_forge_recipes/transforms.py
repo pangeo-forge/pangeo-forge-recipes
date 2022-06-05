@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from functools import wraps
 import logging
 from dataclasses import dataclass, field
+
+# from functools import wraps
 from typing import Any, Optional, Tuple
 
 import apache_beam as beam
-import xarray as xr
 
-from .patterns import Index, FileType
 from .openers import open_with_xarray
-from .storage import CacheFSSpecTarget, OpenFileType, get_opener
+from .patterns import FileType, Index
+from .storage import CacheFSSpecTarget, open_file
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +50,17 @@ logger = logging.getLogger(__name__)
 # can we use a generic, e.g Indexed[xr.Dataset]?
 # Indexed[int] -> Tuple[Index, int]
 
+
 def _add_keys(func):
     """Convenience decorator to remove and re-add keys to items in a Map"""
-    @wraps(func)
-    def wrapper(arg, **kwargs):
+    # @wraps(func) # this causes beam type checking to fail
+    def wrapper(arg: Tuple[Index, Any], **kwargs):
         key, item = arg
         result = func(item, **kwargs)
         return key, result
+
     return wrapper
+
 
 # This has side effects if using a cache
 @dataclass
@@ -68,22 +71,13 @@ class OpenWithFSSpec(beam.PTransform):
     secrets: Optional[dict] = None
     open_kwargs: Optional[dict] = None
 
-    def _open_with_fsspec(self, element: Tuple[Index, Any]) -> Tuple[Index, OpenFileType]:
-        key, fname = element
-        open_kwargs = self.open_kwargs or {}
-        if self.cache is not None:
-            logger.info(f"Opening '{fname}' from cache")
-            # this has side effects
-            self.cache.cache_file(fname, self.secrets, **open_kwargs)
-            open_file = self.cache.open_file(fname, mode="rb")
-        else:
-            logger.info(f"Opening '{fname}' directly.")
-            open_file = get_opener(fname, self.secrets, **open_kwargs)
-        open_file
-        return key, open_file
-
     def expand(self, pcoll):
-        return pcoll | "Open with fsspec" >> beam.Map(self._open_with_fsspec)
+        return pcoll | "Open with fsspec" >> beam.Map(
+            _add_keys(open_file),
+            cache=self.cache,
+            secrets=self.secrets,
+            open_kwargs=self.open_kwargs,
+        )
 
 
 @dataclass
@@ -98,7 +92,7 @@ class OpenWithXarray(beam.PTransform):
             _add_keys(open_with_xarray),
             file_type=self.file_type,
             load=self.load,
-            xarray_open_kwargs=self.xarray_open_kwargs
+            xarray_open_kwargs=self.xarray_open_kwargs,
         )
 
 
