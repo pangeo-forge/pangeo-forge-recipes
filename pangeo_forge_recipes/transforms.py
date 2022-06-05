@@ -4,13 +4,14 @@ import logging
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, TypeVar, Union
 
 import apache_beam as beam
+import xarray as xr
 
 from .openers import open_with_xarray
 from .patterns import FileType, Index
-from .storage import CacheFSSpecTarget, open_file
+from .storage import CacheFSSpecTarget, OpenFileType, open_file
 
 logger = logging.getLogger(__name__)
 
@@ -47,23 +48,33 @@ logger = logging.getLogger(__name__)
 # from other modules
 
 
-# can we use a generic, e.g Indexed[xr.Dataset]?
-# Indexed[int] -> Tuple[Index, int]
+T = TypeVar("T")
+Indexed = Tuple[Index, T]
 
 
 def _add_keys(func):
     """Convenience decorator to remove and re-add keys to items in a Map"""
-    # @wraps(func) # this causes beam type checking to fail
-    def wrapper(arg: Tuple[Index, Any], **kwargs):
+    annotations = func.__annotations__.copy()
+    arg_name, annotation = next(iter(annotations.items()))
+    annotations[arg_name] = Indexed[annotation]
+    annotations["return"] = Indexed[annotations["return"]]
+
+    # @wraps(func)  # doesn't work for some reason
+    def wrapper(arg: Indexed[Any], **kwargs):
         key, item = arg
         result = func(item, **kwargs)
         return key, result
 
+    wrapper.__annotations__ = annotations
     return wrapper
 
 
 # This has side effects if using a cache
+
+
 @dataclass
+@beam.typehints.with_input_types(Indexed[str])
+@beam.typehints.with_output_types(Indexed[OpenFileType])
 class OpenWithFSSpec(beam.PTransform):
     """Open indexed items from a FilePattern with FSSpec, optionally caching along the way."""
 
@@ -81,6 +92,8 @@ class OpenWithFSSpec(beam.PTransform):
 
 
 @dataclass
+@beam.typehints.with_input_types(Indexed[Union[str, OpenFileType]])
+@beam.typehints.with_output_types(Indexed[xr.Dataset])
 class OpenWithXarray(beam.PTransform):
 
     file_type: FileType = FileType.unknown
@@ -96,8 +109,6 @@ class OpenWithXarray(beam.PTransform):
         )
 
 
-# @beam.typehints.with_input_types(Tuple[Index, xr.Dataset])
-# @beam.typehints.with_output_types(Tuple[Index, Dict])
 # @dataclass
 # class GetXarraySchema(beam.PTransform):
 #     def expand(self, pcoll):

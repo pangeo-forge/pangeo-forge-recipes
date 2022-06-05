@@ -11,7 +11,7 @@ import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, Optional, Sequence, Union
+from typing import Dict, Iterator, Optional, Sequence, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
@@ -19,12 +19,7 @@ from fsspec.implementations.local import LocalFileSystem
 
 logger = logging.getLogger(__name__)
 
-# fsspec doesn't provide type hints, so I'm not sure what the write type is for open files
-OpenFileType = Any
-# https://github.com/pangeo-forge/pangeo-forge-recipes/pull/213#discussion_r717801623
-# There is no fool-proof method to tell whether the output of the context was created by fsspec.
-# You could check for the few concrete classes that we expect
-# like AbstractBufferedFile, LocalFileOpener.
+OpenFileType = Union[fsspec.core.OpenFile, fsspec.spec.AbstractBufferedFile]
 
 
 def _get_url_size(fname, secrets, **open_kwargs):
