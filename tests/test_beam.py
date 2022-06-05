@@ -97,7 +97,7 @@ def pcoll_xarray_datasets(pcoll_opened_files):
 def test_OpenWithXarray(pcoll_opened_files, load):
     input, pattern, cache = pcoll_opened_files
     with TestPipeline() as p:
-        output = p | input | OpenWithXarray(load=load)
+        output = p | input | OpenWithXarray(file_type=pattern.file_type, load=load)
         assert_that(output, is_xr_dataset(in_memory=load))
 
 
@@ -109,6 +109,6 @@ def test_OpenWithXarray_downstream_load(pcoll_opened_files):
         return key, ds.load()
 
     with TestPipeline() as p:
-        output = p | input | OpenWithXarray(load=False)
+        output = p | input | OpenWithXarray(file_type=pattern.file_type, load=False)
         loaded_dsets = output | beam.Map(manually_load)
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
