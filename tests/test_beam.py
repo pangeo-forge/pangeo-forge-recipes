@@ -16,12 +16,13 @@ from pangeo_forge_recipes.transforms import OpenWithFSSpec, OpenWithXarray
         lazy_fixture("netcdf_local_file_pattern_sequential"),
         lazy_fixture("netcdf_http_file_pattern_sequential_1d"),
     ],
+    ids=["local", "http"],
 )
 def pattern(request):
     return request.param
 
 
-@pytest.fixture(params=[True, False])
+@pytest.fixture(params=[True, False], ids=["with_cache", "no_cache"])
 def cache(tmp_cache, request):
     if request.param:
         return tmp_cache
@@ -71,11 +72,17 @@ def test_OpenWithFSSpec(pcoll_opened_files):
             assert cache.exists(fname)
 
 
-def is_xr_dataset():
+def is_xr_dataset(in_memory=False):
     def _is_xr_dataset(actual):
         for _, ds in actual:
             if not isinstance(ds, xr.Dataset):
                 raise BeamAssertException(f"Object {ds} has type {type(ds)}, expected xr.Dataset.")
+            offending_vars = [
+                vname for vname in ds.data_vars if ds[vname].variable._in_memory != in_memory
+            ]
+            if offending_vars:
+                msg = "were NOT in memory" if in_memory else "were in memory"
+                raise BeamAssertException(f"The following vars {msg}: {offending_vars}")
 
     return _is_xr_dataset
 
@@ -86,8 +93,22 @@ def pcoll_xarray_datasets(pcoll_opened_files):
     return open_files | OpenWithXarray()
 
 
-def test_OpenWithXarray(pcoll_xarray_datasets):
+@pytest.mark.parametrize("load", [False, True])
+def test_OpenWithXarray(pcoll_opened_files, load):
+    input, pattern, cache = pcoll_opened_files
     with TestPipeline() as p:
-        output = p | pcoll_xarray_datasets
+        output = p | input | OpenWithXarray(load=load)
+        assert_that(output, is_xr_dataset(in_memory=load))
 
-        assert_that(output, is_xr_dataset(), label="is xr.Dataset")
+
+def test_OpenWithXarray_downstream_load(pcoll_opened_files):
+    input, pattern, cache = pcoll_opened_files
+
+    def manually_load(item):
+        key, ds = item
+        return key, ds.load()
+
+    with TestPipeline() as p:
+        output = p | input | OpenWithXarray(load=False)
+        loaded_dsets = output | beam.Map(manually_load)
+        assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
