@@ -8,7 +8,7 @@ To get set up Pangeo Forge you'll need to install the `pangeo-forge-recipes` lib
 conda install -c conda-forge pangeo-forge-recipes
 ```
 
-If you have not added the conda forge channel or set it as your default channel and you would liek to do so you can use the following commands:
+If you have not added the conda forge channel or set it as your default channel and you would like to do so you can use the following commands:
 
 ```sh
 conda config --add channels conda-forge
