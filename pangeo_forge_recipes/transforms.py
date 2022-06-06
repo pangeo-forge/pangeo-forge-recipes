@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import Any, Optional, Tuple, TypeVar
+from typing import Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
@@ -60,7 +60,7 @@ def _add_keys(func):
     annotations["return"] = Tuple[Index, return_annotation]
 
     # @wraps(func)  # doesn't work for some reason
-    def wrapper(arg: Indexed[Any], **kwargs):
+    def wrapper(arg, **kwargs):
         key, item = arg
         result = func(item, **kwargs)
         return key, result
