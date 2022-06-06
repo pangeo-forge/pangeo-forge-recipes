@@ -4,14 +4,13 @@ import logging
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import Any, Optional, Tuple, TypeVar, Union
+from typing import Any, Optional, Tuple, TypeVar
 
 import apache_beam as beam
-import xarray as xr
 
 from .openers import open_with_xarray
 from .patterns import FileType, Index
-from .storage import CacheFSSpecTarget, OpenFileType, open_file
+from .storage import CacheFSSpecTarget, open_file
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +55,9 @@ def _add_keys(func):
     """Convenience decorator to remove and re-add keys to items in a Map"""
     annotations = func.__annotations__.copy()
     arg_name, annotation = next(iter(annotations.items()))
-    annotations[arg_name] = Indexed[annotation]
-    annotations["return"] = Indexed[annotations["return"]]
+    annotations[arg_name] = Tuple[Index, annotation]
+    return_annotation = annotations["return"]
+    annotations["return"] = Tuple[Index, return_annotation]
 
     # @wraps(func)  # doesn't work for some reason
     def wrapper(arg: Indexed[Any], **kwargs):
@@ -70,11 +70,7 @@ def _add_keys(func):
 
 
 # This has side effects if using a cache
-
-
 @dataclass
-@beam.typehints.with_input_types(Indexed[str])
-@beam.typehints.with_output_types(Indexed[OpenFileType])
 class OpenWithFSSpec(beam.PTransform):
     """Open indexed items from a FilePattern with FSSpec, optionally caching along the way."""
 
@@ -92,8 +88,6 @@ class OpenWithFSSpec(beam.PTransform):
 
 
 @dataclass
-@beam.typehints.with_input_types(Indexed[Union[str, OpenFileType]])
-@beam.typehints.with_output_types(Indexed[xr.Dataset])
 class OpenWithXarray(beam.PTransform):
 
     file_type: FileType = FileType.unknown
