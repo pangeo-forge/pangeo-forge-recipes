@@ -110,7 +110,7 @@ CombineDim = Union[MergeDim, ConcatDim]
 FilePatternIndex = Index
 
 
-def augment_index_with_start_stop(index: DimIndex, sequence_lens: List[int]) -> DimIndex:
+def augment_index_with_start_stop(index: DimIndex, item_lens: List[int]) -> DimIndex:
     """Take an index _without_ start / stop and add them based on the lens defined in sequence_lens.
 
     :param index: The ``DimIndex`` instance to augment.
