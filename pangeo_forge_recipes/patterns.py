@@ -117,7 +117,7 @@ def augment_index_with_start_stop(index: DimIndex, item_lens: List[int]) -> DimI
     :param sequence_lens: A list of integer sequence lengths for all inputs.
     """
 
-    assert len(sequence_lens) == index.sequence_len
+    assert len(item_lens) == index.sequence_len
     start = sum(sequence_lens[: index.index])
     stop = start + sequence_lens[index.index]
 
