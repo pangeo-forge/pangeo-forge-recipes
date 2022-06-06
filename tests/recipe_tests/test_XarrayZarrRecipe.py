@@ -24,7 +24,7 @@ from pangeo_forge_recipes.storage import MetadataTarget, StorageConfig
 def drop_execution_context_attrs(ds: xr.Dataset) -> xr.Dataset:
     """Drop pangeo-forge execution context attrs from a dataset."""
 
-    ds_copy = ds.copy(deep=True)
+    ds_copy = ds.copy()
     to_drop = [k for k in ds_copy.attrs if k.startswith("pangeo-forge:")]
     for k in to_drop:
         del ds_copy.attrs[k]
