@@ -114,7 +114,7 @@ def augment_index_with_start_stop(index: DimIndex, item_lens: List[int]) -> DimI
     """Take an index _without_ start / stop and add them based on the lens defined in sequence_lens.
 
     :param index: The ``DimIndex`` instance to augment.
-    :param sequence_lens: A list of integer sequence lengths for all inputs.
+    :param item_lens: A list of integer lengths for all items in the sequence.
     """
 
     assert len(item_lens) == index.sequence_len
