@@ -577,6 +577,10 @@ def prepare_target(*, config: XarrayZarrRecipe) -> None:
         recipe_meta = {"input_sequence_lens": input_sequence_lens}
         config.storage_config.metadata[_GLOBAL_METADATA_KEY] = recipe_meta
 
+    zgroup = zarr.open_group(config.target_mapper)
+    for k, v in config.get_execution_context().items():
+        zgroup.attrs[f"pangeo-forge:{k}"] = v
+
 
 def store_chunk(chunk_key: ChunkKey, *, config: XarrayZarrRecipe) -> None:
     if config.storage_config.target is None:

@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
-from typing import Callable, Optional
+from typing import Optional
 
 import pandas as pd
 import pytest
@@ -171,17 +171,17 @@ def test_additional_fields(base_pattern, cls, kwargs):
 
 
 def test_either_encode_or_hash_raises():
-    def f():
+    class A:
         pass
 
     @dataclass
     class HasUnserializableField:
-        unserializable_field: Callable = f
+        unserializable_field: type = A
 
-    expected_msg = f"object of type {type(f).__name__} not serializable"
+    expected_msg = f"object of type {type(A).__name__} not serializable"
 
     with pytest.raises(TypeError, match=expected_msg):
-        either_encode_or_hash(f)
+        either_encode_or_hash(A)
 
     with pytest.raises(TypeError, match=expected_msg):
         # in practice, we never actually call ``either_encode_or_hash`` directly.

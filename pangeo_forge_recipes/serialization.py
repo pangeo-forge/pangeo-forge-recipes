@@ -1,3 +1,4 @@
+import inspect
 from collections.abc import Collection
 from dataclasses import asdict
 from enum import Enum
@@ -17,6 +18,8 @@ def either_encode_or_hash(obj: Any):
         return obj.value
     elif hasattr(obj, "sha256"):
         return obj.sha256().hex()
+    elif inspect.isfunction(obj):
+        return inspect.getsource(obj)
     raise TypeError(f"object of type {type(obj).__name__} not serializable")
 
 

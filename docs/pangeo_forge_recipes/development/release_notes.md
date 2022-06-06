@@ -1,5 +1,11 @@
 # Release Notes
 
+## v0.9.1 - Unreleased
+
+- Persist Pangeo Forge execution context metadata in target datasets. This information, which includes
+the `pangeo-forge-recipes` version as well as recipe and input hashes, attaches execution provenance
+to the dataset itself. {pull}`359`
+
 ## v0.9 - 2022-05-11
 
 - **Breaking changes:** Deprecated `XarrayZarrRecipe` manual stage methods. Manual execution can be
