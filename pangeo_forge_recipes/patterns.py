@@ -119,7 +119,7 @@ def augment_index_with_start_stop(index: DimIndex, item_lens: List[int]) -> DimI
 
     assert len(item_lens) == index.sequence_len
     start = sum(item_lens[: index.index])
-    stop = start + sequence_lens[index.index]
+    stop = start + item_lens[index.index]
 
     kw = asdict(index)
     kw["start"] = start
