@@ -66,7 +66,6 @@ def _set_engine(file_type, xr_open_kwargs):
     return kw
 
 
-# TODO: unit test this function!
 def open_with_xarray(
     thing: Union[OpenFileType, str],
     file_type: FileType = FileType.unknown,

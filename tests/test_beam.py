@@ -22,6 +22,18 @@ def pattern(request):
     return request.param
 
 
+@pytest.fixture(
+    scope="module",
+    params=[
+        lazy_fixture("netcdf_local_file_pattern_sequential"),
+        lazy_fixture("zarr_http_file_pattern_sequential_1d"),
+    ],
+    ids=["local-netcdf", "http-zarr"],
+)
+def pattern_direct(request):
+    return request.param
+
+
 @pytest.fixture(params=[True, False], ids=["with_cache", "no_cache"])
 def cache(tmp_cache, request):
     if request.param:
@@ -93,15 +105,23 @@ def pcoll_xarray_datasets(pcoll_opened_files):
     return open_files | OpenWithXarray()
 
 
-@pytest.mark.parametrize("load", [False, True])
-def test_OpenWithXarray(pcoll_opened_files, load):
+@pytest.mark.parametrize("load", [False, True], ids=["lazy", "eager"])
+def test_OpenWithXarray_via_fsspec(pcoll_opened_files, load):
     input, pattern, cache = pcoll_opened_files
     with TestPipeline() as p:
         output = p | input | OpenWithXarray(file_type=pattern.file_type, load=load)
         assert_that(output, is_xr_dataset(in_memory=load))
 
 
-def test_OpenWithXarray_downstream_load(pcoll_opened_files):
+@pytest.mark.parametrize("load", [False, True], ids=["lazy", "eager"])
+def test_OpenWithXarray_direct(pattern_direct, load):
+    with TestPipeline() as p:
+        input = p | beam.Create(pattern_direct.items())
+        output = input | OpenWithXarray(file_type=pattern_direct.file_type, load=load)
+        assert_that(output, is_xr_dataset(in_memory=load))
+
+
+def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files):
     input, pattern, cache = pcoll_opened_files
 
     def manually_load(item):

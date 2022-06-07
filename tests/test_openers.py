@@ -33,9 +33,9 @@ def url_and_type(request):
     scope="module",
     params=[
         lazy_fixture("netcdf_local_paths_sequential_1d"),
-        lazy_fixture("zarr_local_paths_sequential_1d"),
+        lazy_fixture("zarr_public_http_paths_sequential_1d"),
     ],
-    ids=["netcdf-local", "zarr-local"],
+    ids=["netcdf-local", "zarr-http"],
 )
 def public_url_and_type(request):
     all_urls, _, _, _, _, type_str = request.param
@@ -103,6 +103,7 @@ def is_valid_dataset(ds, in_memory=False):
 def test_open_file_with_xarray(url_and_type, cache, load, xarray_open_kwargs):
     # open fsspec OpenFile objects
     url, kwargs, file_type = url_and_type
+    print(url, kwargs, file_type)
     open_file = open_url(url, cache=cache, **kwargs)
     xr_kwargs, validate_fn = xarray_open_kwargs
     ds = open_with_xarray(open_file, file_type=file_type, load=load, xarray_open_kwargs=xr_kwargs)
