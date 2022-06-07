@@ -32,8 +32,9 @@ def url_and_type(request):
     scope="module",
     params=[
         lazy_fixture("netcdf_local_paths_sequential_1d"),
+        lazy_fixture("zarr_local_paths_sequential_1d"),
     ],
-    ids=["local"],
+    ids=["netcdf-local", "zarr-local"],
 )
 def public_url_and_type(request):
     all_urls, _, _, _, _, type_str = request.param
@@ -110,6 +111,7 @@ def test_open_file_with_xarray(url_and_type, cache, load, xarray_open_kwargs):
 def test_direct_open_with_xarray(public_url_and_type, load, xarray_open_kwargs):
     # open string URLs
     url, file_type = public_url_and_type
+    print(url)
     xr_kwargs, validate_fn = xarray_open_kwargs
     ds = open_with_xarray(url, file_type=file_type, load=load, xarray_open_kwargs=xr_kwargs)
     validate_fn(ds)

@@ -113,7 +113,7 @@ def make_netcdf_local_paths(
     elif file_type == "netcdf3":
         method, suffix, kwargs = "to_netcdf", "nc", {"engine": "scipy", "format": "NETCDF3_CLASSIC"}
     elif file_type == "zarr":
-        method, suffix, kwargs = "to_zarr", ".zarr", {}
+        method, suffix, kwargs = "to_zarr", "zarr", {}
     else:
         assert False
 
@@ -244,6 +244,13 @@ def daily_xarray_dataset_with_coordinateless_dimension(daily_xarray_dataset):
 def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
     return make_netcdf_local_paths(
         daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf4"
+    )
+
+
+@pytest.fixture(scope="session")
+def zarr_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="zarr"
     )
 
 
