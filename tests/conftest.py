@@ -248,6 +248,13 @@ def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
 
 
 @pytest.fixture(scope="session")
+def netcdf3_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
+    return make_netcdf_local_paths(
+        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf3"
+    )
+
+
+@pytest.fixture(scope="session")
 def zarr_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
     return make_netcdf_local_paths(
         daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="zarr"
@@ -340,6 +347,11 @@ http_auth_params = [
 @pytest.fixture(scope="session")
 def netcdf_public_http_paths_sequential_1d(netcdf_local_paths_sequential_1d, request):
     return make_netcdf_http_paths(netcdf_local_paths_sequential_1d, request)
+
+
+@pytest.fixture(scope="session")
+def netcdf3_public_http_paths_sequential_1d(netcdf3_local_paths_sequential_1d, request):
+    return make_netcdf_http_paths(netcdf3_local_paths_sequential_1d, request)
 
 
 @pytest.fixture(

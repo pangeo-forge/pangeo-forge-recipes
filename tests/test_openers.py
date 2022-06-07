@@ -14,9 +14,10 @@ from pangeo_forge_recipes.patterns import FileType
     params=[
         lazy_fixture("netcdf_local_paths_sequential_1d"),
         lazy_fixture("netcdf_public_http_paths_sequential_1d"),
+        lazy_fixture("netcdf3_public_http_paths_sequential_1d"),
         lazy_fixture("netcdf_private_http_paths_sequential_1d"),
     ],
-    ids=["local", "http-public", "http-private"],
+    ids=["netcdf4-local", "netcdf4-http-public", "netcdf3-http-public", "netcdf4-http-private"],
 )
 def url_and_type(request):
     all_urls, _, _, _, extra_kwargs, type_str = request.param
@@ -78,7 +79,8 @@ def _time_is_datetime(ds):
 
 
 def _time_is_int(ds):
-    assert ds.time.dtype == np.dtype("i8")
+    # netcdf3 and netcdf4 behave differently here
+    assert ds.time.dtype in [np.dtype("i4"), np.dtype("i8")]
 
 
 @pytest.fixture(
