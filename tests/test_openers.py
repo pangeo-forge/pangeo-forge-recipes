@@ -1,5 +1,6 @@
 from pickle import dumps, loads
 
+import numpy as np
 import pytest
 import xarray as xr
 from pytest_lazyfixture import lazy_fixture
@@ -71,6 +72,23 @@ def load(request):
     return request.param
 
 
+def _time_is_datetime(ds):
+    assert ds.time.dtype == np.dtype("<M8[ns]")
+
+
+def _time_is_int(ds):
+    assert ds.time.dtype == np.dtype("i8")
+
+
+@pytest.fixture(
+    params=[({}, _time_is_datetime), ({"decode_times": False}, _time_is_int)],
+    ids=["no-xr-kwargs", "decode-times-False"],
+)
+def xarray_open_kwargs(request):
+    kwargs, validate_fn = request.param
+    return kwargs, validate_fn
+
+
 def is_valid_dataset(ds, in_memory=False):
     assert isinstance(ds, xr.Dataset)
     offending_vars = [vname for vname in ds.data_vars if ds[vname].variable._in_memory != in_memory]
@@ -79,16 +97,20 @@ def is_valid_dataset(ds, in_memory=False):
         raise AssertionError(f"The following vars {msg}: {offending_vars}")
 
 
-def test_open_file_with_xarray(url_and_type, cache, load):
+def test_open_file_with_xarray(url_and_type, cache, load, xarray_open_kwargs):
     # open fsspec OpenFile objects
     url, kwargs, file_type = url_and_type
     open_file = open_url(url, cache=cache, **kwargs)
-    ds = open_with_xarray(open_file, file_type=file_type, load=load)
+    xr_kwargs, validate_fn = xarray_open_kwargs
+    ds = open_with_xarray(open_file, file_type=file_type, load=load, xarray_open_kwargs=xr_kwargs)
+    validate_fn(ds)
     is_valid_dataset(ds, in_memory=load)
 
 
-def test_direct_open_with_xarray(public_url_and_type, load):
+def test_direct_open_with_xarray(public_url_and_type, load, xarray_open_kwargs):
     # open string URLs
     url, file_type = public_url_and_type
-    ds = open_with_xarray(url, file_type=file_type, load=load)
+    xr_kwargs, validate_fn = xarray_open_kwargs
+    ds = open_with_xarray(url, file_type=file_type, load=load, xarray_open_kwargs=xr_kwargs)
+    validate_fn(ds)
     is_valid_dataset(ds, in_memory=load)
