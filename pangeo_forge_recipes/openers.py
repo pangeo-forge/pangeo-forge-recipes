@@ -1,13 +1,29 @@
 """Standalone functions for opening sources as Dataset objects."""
 
 import warnings
-from typing import Any, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 import xarray as xr
 
 from .patterns import FileType
+from .storage import CacheFSSpecTarget, OpenFileType, _get_opener
 
-OpenFile = Any  # could fsspec provide a stricter type here?
+
+# TODO: test this function!
+def open_url(
+    fname: str,
+    cache: Optional[CacheFSSpecTarget] = None,
+    secrets: Optional[Dict] = None,
+    open_kwargs: Optional[Dict] = None,
+) -> OpenFileType:
+    kw = open_kwargs or {}
+    if cache is not None:
+        # this has side effects
+        cache.cache_file(fname, secrets, **kw)
+        open_file = cache.open_file(fname, mode="rb")
+    else:
+        open_file = _get_opener(fname, secrets, **kw)
+    return open_file
 
 
 OPENER_MAP = {
@@ -53,7 +69,7 @@ def _set_engine(file_type, xr_open_kwargs):
 
 # TODO: unit test this function!
 def open_with_xarray(
-    thing: Union[OpenFile, str],
+    thing: Union[OpenFileType, str],
     file_type: FileType = FileType.unknown,
     load: bool = False,
     xarray_open_kwargs: Optional[Dict] = None,

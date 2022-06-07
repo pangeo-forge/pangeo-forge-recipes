@@ -7,7 +7,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.transforms import OpenWithFSSpec, OpenWithXarray
+from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray
 
 
 @pytest.fixture(
@@ -33,13 +33,13 @@ def cache(tmp_cache, request):
 @pytest.fixture
 def pcoll_opened_files(pattern, cache):
     input = beam.Create(pattern.items())
-    output = input | OpenWithFSSpec(
+    output = input | OpenURLWithFSSpec(
         cache=cache, secrets=pattern.query_string_secrets, open_kwargs=pattern.fsspec_open_kwargs
     )
     return output, pattern, cache
 
 
-def test_OpenWithFSSpec(pcoll_opened_files):
+def test_OpenURLWithFSSpec(pcoll_opened_files):
     pcoll, pattern, cache = pcoll_opened_files
 
     def expected_len(n):

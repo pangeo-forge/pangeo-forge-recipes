@@ -20,6 +20,10 @@ from pangeo_forge_recipes.recipes.xarray_zarr import (
 )
 from pangeo_forge_recipes.storage import MetadataTarget, StorageConfig
 
+# there are some tests in here that don't use executors that still
+# need to be skipped
+pytest.skip(allow_module_level=True)
+
 
 def make_netCDFtoZarr_recipe(
     file_pattern, xarray_dataset, target, cache, metadata, extra_kwargs=None

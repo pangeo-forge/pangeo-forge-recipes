@@ -55,7 +55,7 @@ def pytest_addoption(parser):
 def split_up_files_by_day(ds, day_param):
     gb = ds.resample(time=day_param)
     _, datasets = zip(*gb)
-    fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
+    fnames = [f"{n:03d}" for n in range(len(datasets))]
     return datasets, fnames
 
 
@@ -80,7 +80,7 @@ def make_file_pattern(path_fixture):
     path_fixture : callable
         `netcdf_local_paths`, `netcdf_http_paths`, or similar
     """
-    paths, items_per_file, fnames_by_variable, path_format, kwargs = path_fixture
+    paths, items_per_file, fnames_by_variable, path_format, kwargs, file_type = path_fixture
 
     if not fnames_by_variable:
         file_pattern = pattern_from_file_sequence(
@@ -102,21 +102,39 @@ def make_file_pattern(path_fixture):
     return file_pattern
 
 
-def make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter):
+def make_netcdf_local_paths(
+    daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter, file_type="netcdf4"
+):
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     file_splitter_tuple = file_splitter(daily_xarray_dataset.copy(), items_per_file)
 
+    if file_type == "netcdf4":
+        method, suffix, kwargs = "to_netcdf", "nc", {"engine": "netcdf4", "format": "NETCDF4"}
+    elif file_type == "netcdf3":
+        method, suffix, kwargs = "to_netcdf", "nc", {"engine": "scipy", "format": "NETCDF3_CLASSIC"}
+    elif file_type == "zarr":
+        method, suffix, kwargs = "to_zarr", ".zarr", {}
+    else:
+        assert False
+
     datasets, fnames = file_splitter_tuple[:2]
-    full_paths = [tmp_path.join(fname) for fname in fnames]
-    xr.save_mfdataset(datasets, [str(path) for path in full_paths])
+    full_paths = [str(tmp_path.join(fname)) + f".{suffix}" for fname in fnames]
+
+    for ds, path in zip(datasets, full_paths):
+        save_method = getattr(ds, method)
+        save_method(path, **kwargs)
+
+    # xr.save_mfdataset(datasets, [str(path) for path in full_paths])
     items_per_file = {"D": 1, "2D": 2}[items_per_file]
 
     fnames_by_variable = file_splitter_tuple[-1] if len(file_splitter_tuple) == 3 else None
-    path_format = str(tmp_path) + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
+    path_format = (
+        str(tmp_path) + "/{variable}_{time:03d}" + f".{suffix}" if fnames_by_variable else None
+    )
 
     kwargs = dict(fsspec_open_kwargs={}, query_string_secrets={})
 
-    return full_paths, items_per_file, fnames_by_variable, path_format, kwargs
+    return full_paths, items_per_file, fnames_by_variable, path_format, kwargs, file_type
 
 
 def get_open_port():
@@ -132,7 +150,7 @@ def start_http_server(paths, request, username=None, password=None, required_que
 
     first_path = paths[0]
     # assume that all files are in the same directory
-    basedir = first_path.dirpath()
+    basedir = os.path.dirname(first_path)
 
     this_dir = os.path.dirname(os.path.abspath(__file__))
     port = get_open_port()
@@ -159,12 +177,12 @@ def start_http_server(paths, request, username=None, password=None, required_que
 
 
 def make_netcdf_http_paths(netcdf_local_paths, request):
-    paths, items_per_file, fnames_by_variable, _, kwargs = netcdf_local_paths
+    paths, items_per_file, fnames_by_variable, _, kwargs, file_type = netcdf_local_paths
 
     url = start_http_server(paths, request, **request.param)
     path_format = url + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
 
-    fnames = [path.basename for path in paths]
+    fnames = [os.path.basename(path) for path in paths]
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]
 
     if "username" in request.param.keys():
@@ -172,7 +190,7 @@ def make_netcdf_http_paths(netcdf_local_paths, request):
     if "required_query_string" in request.param.keys():
         kwargs.update(dict(query_string_secrets={"foo": "foo", "bar": "bar"}))
 
-    return all_urls, items_per_file, fnames_by_variable, path_format, kwargs
+    return all_urls, items_per_file, fnames_by_variable, path_format, kwargs, file_type
 
 
 # Dataset + path fixtures -------------------------------------------------------------------------

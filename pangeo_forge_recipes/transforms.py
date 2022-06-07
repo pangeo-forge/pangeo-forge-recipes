@@ -8,9 +8,9 @@ from typing import Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
-from .openers import open_with_xarray
+from .openers import open_url, open_with_xarray
 from .patterns import FileType, Index
-from .storage import CacheFSSpecTarget, open_file
+from .storage import CacheFSSpecTarget
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ def _add_keys(func):
 
 # This has side effects if using a cache
 @dataclass
-class OpenWithFSSpec(beam.PTransform):
+class OpenURLWithFSSpec(beam.PTransform):
     """Open indexed items from a FilePattern with FSSpec, optionally caching along the way."""
 
     cache: Optional[CacheFSSpecTarget] = None
@@ -80,7 +80,7 @@ class OpenWithFSSpec(beam.PTransform):
 
     def expand(self, pcoll):
         return pcoll | "Open with fsspec" >> beam.Map(
-            _add_keys(open_file),
+            _add_keys(open_url),
             cache=self.cache,
             secrets=self.secrets,
             open_kwargs=self.open_kwargs,

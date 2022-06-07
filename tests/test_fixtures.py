@@ -14,8 +14,8 @@ def test_fixture_local_files(daily_xarray_dataset, netcdf_local_paths):
 
 def test_fixture_http_files(daily_xarray_dataset, netcdf_http_paths_sequential_1d):
     urls = netcdf_http_paths_sequential_1d[0]
-    open_kwargs = netcdf_http_paths_sequential_1d[-1]["fsspec_open_kwargs"]
-    secrets = netcdf_http_paths_sequential_1d[-1]["query_string_secrets"]
+    open_kwargs = netcdf_http_paths_sequential_1d[-2]["fsspec_open_kwargs"]
+    secrets = netcdf_http_paths_sequential_1d[-2]["query_string_secrets"]
     if secrets:
         urls = [_add_query_string_secrets(url, secrets) for url in urls]
     open_files = [fsspec.open(url, **open_kwargs).open() for url in urls]
