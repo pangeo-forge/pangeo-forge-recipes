@@ -1,9 +1,10 @@
 from pickle import dumps, loads
 
 import pytest
+import xarray as xr
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.openers import open_url
+from pangeo_forge_recipes.openers import open_url, open_with_xarray
 from pangeo_forge_recipes.patterns import FileType
 
 
@@ -11,19 +12,32 @@ from pangeo_forge_recipes.patterns import FileType
     scope="module",
     params=[
         lazy_fixture("netcdf_local_paths_sequential_1d"),
-        lazy_fixture("netcdf_http_paths_sequential_1d"),
+        lazy_fixture("netcdf_public_http_paths_sequential_1d"),
+        lazy_fixture("netcdf_private_http_paths_sequential_1d"),
     ],
-    ids=["local", "http"],
+    ids=["local", "http-public", "http-private"],
 )
 def url_and_type(request):
     all_urls, _, _, _, extra_kwargs, type_str = request.param
-
     kwargs = {
         "secrets": extra_kwargs.get("query_string_secrets", None),
         "open_kwargs": extra_kwargs.get("fsspec_open_kwargs", None),
     }
     file_type = FileType(type_str)
     return all_urls[0], kwargs, file_type
+
+
+@pytest.fixture(
+    scope="module",
+    params=[
+        lazy_fixture("netcdf_local_paths_sequential_1d"),
+    ],
+    ids=["local"],
+)
+def public_url_and_type(request):
+    all_urls, _, _, _, _, type_str = request.param
+    file_type = FileType(type_str)
+    return all_urls[0], file_type
 
 
 @pytest.fixture(params=[True, False], ids=["with_cache", "no_cache"])
@@ -52,71 +66,29 @@ def test_open_url(url_and_type, cache):
         assert data3 == data
 
 
-# @pytest.mark.parametrize(
-#     "file_paths",
-#     [
-#         lazy_fixture("netcdf_local_paths_sequential"),
-#         lazy_fixture("netcdf_http_paths_sequential_1d"),
-#     ],
-# )
-# @pytest.mark.parametrize("copy_to_local", [False, True])
-# @pytest.mark.parametrize("use_cache, cache_first", [(False, False), (True, False), (True, True)])
-# @pytest.mark.parametrize("use_dask", [True, False])
-# @pytest.mark.parametrize("use_xarray", [True, False])
-# def test_file_opener(
-#     file_paths,
-#     tmp_cache,
-#     copy_to_local,
-#     use_cache,
-#     cache_first,
-#     dask_cluster,
-#     use_dask,
-#     use_xarray,
-# ):
-#     all_paths = file_paths[0]
-#     path = str(all_paths[0])
-#     open_kwargs = file_paths[-1]["fsspec_open_kwargs"]
-#     secrets = file_paths[-1]["query_string_secrets"]
-#     cache = tmp_cache if use_cache else None
-#
-#     def do_actual_test():
-#         if cache_first:
-#             cache.cache_file(path, secrets, **open_kwargs)
-#             assert cache.exists(path)
-#             details = cache.fs.ls(cache.root_path, detail=True)
-#             cache.cache_file(path, secrets, **open_kwargs)
-#             # check that nothing happened
-#             assert cache.fs.ls(cache.root_path, detail=True) == details
-#
-#         opener = file_opener(
-#             path, cache, copy_to_local=copy_to_local, secrets=secrets, **open_kwargs
-#         )
-#         if use_cache and not cache_first:
-#             with pytest.raises(FileNotFoundError):
-#                 with opener as fp:
-#                     pass
-#         else:
-#             with opener as fp:
-#                 if copy_to_local:
-#                     assert isinstance(fp, str)
-#                     with open(fp, mode="rb") as fp2:
-#                         if use_xarray:
-#                             ds = xr.open_dataset(fp2, engine="h5netcdf")
-#                             ds.load()
-#                         else:
-#                             _ = fp2.read()
-#                 else:
-#                     if use_xarray:
-#                         ds = xr.open_dataset(fp, engine="h5netcdf")
-#                         ds.load()
-#                     else:
-#                         _ = fp.read()
-#                     assert hasattr(fp, "fs")  # should be true for fsspec.OpenFile objects
-#
-#     if use_dask:
-#         with Client(dask_cluster) as client:
-#             to_actual_test_delayed = delayed(do_actual_test)()
-#             to_actual_test_delayed.compute()
-#             client.close()
-#     else:
-#         do_actual_test()
+@pytest.fixture(params=[False, True], ids=["lazy", "eager"])
+def load(request):
+    return request.param
+
+
+def is_valid_dataset(ds, in_memory=False):
+    assert isinstance(ds, xr.Dataset)
+    offending_vars = [vname for vname in ds.data_vars if ds[vname].variable._in_memory != in_memory]
+    if offending_vars:
+        msg = "were NOT in memory" if in_memory else "were in memory"
+        raise AssertionError(f"The following vars {msg}: {offending_vars}")
+
+
+def test_open_file_with_xarray(url_and_type, cache, load):
+    # open fsspec OpenFile objects
+    url, kwargs, file_type = url_and_type
+    open_file = open_url(url, cache=cache, **kwargs)
+    ds = open_with_xarray(open_file, file_type=file_type, load=load)
+    is_valid_dataset(ds, in_memory=load)
+
+
+def test_direct_open_with_xarray(public_url_and_type, load):
+    # open string URLs
+    url, file_type = public_url_and_type
+    ds = open_with_xarray(url, file_type=file_type, load=load)
+    is_valid_dataset(ds, in_memory=load)

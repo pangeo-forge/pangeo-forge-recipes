@@ -132,7 +132,7 @@ def make_netcdf_local_paths(
         str(tmp_path) + "/{variable}_{time:03d}" + f".{suffix}" if fnames_by_variable else None
     )
 
-    kwargs = dict(fsspec_open_kwargs={}, query_string_secrets={})
+    kwargs = {}
 
     return full_paths, items_per_file, fnames_by_variable, path_format, kwargs, file_type
 
@@ -177,18 +177,20 @@ def start_http_server(paths, request, username=None, password=None, required_que
 
 
 def make_netcdf_http_paths(netcdf_local_paths, request):
-    paths, items_per_file, fnames_by_variable, _, kwargs, file_type = netcdf_local_paths
+    paths, items_per_file, fnames_by_variable, _, _, file_type = netcdf_local_paths
 
-    url = start_http_server(paths, request, **request.param)
+    param = getattr(request, "param", {})
+    url = start_http_server(paths, request, **param)
     path_format = url + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
 
     fnames = [os.path.basename(path) for path in paths]
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]
 
-    if "username" in request.param.keys():
-        kwargs.update(dict(fsspec_open_kwargs={"auth": aiohttp.BasicAuth("foo", "bar")}))
-    if "required_query_string" in request.param.keys():
-        kwargs.update(dict(query_string_secrets={"foo": "foo", "bar": "bar"}))
+    kwargs = {}
+    if "username" in param.keys():
+        kwargs = {"fsspec_open_kwargs": {"auth": aiohttp.BasicAuth("foo", "bar")}}
+    if "required_query_string" in param.keys():
+        kwargs.update({"query_string_secrets": {"foo": "foo", "bar": "bar"}})
 
     return all_urls, items_per_file, fnames_by_variable, path_format, kwargs, file_type
 
@@ -240,16 +242,15 @@ def daily_xarray_dataset_with_coordinateless_dimension(daily_xarray_dataset):
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day)
+    return make_netcdf_local_paths(
+        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf4"
+    )
 
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_2d(daily_xarray_dataset, tmpdir_factory):
     return make_netcdf_local_paths(
-        daily_xarray_dataset,
-        tmpdir_factory,
-        "2D",
-        split_up_files_by_day,
+        daily_xarray_dataset, tmpdir_factory, "2D", split_up_files_by_day, file_type="netcdf4"
     )
 
 
@@ -271,6 +272,7 @@ def netcdf_local_paths_sequential_multivariable_1d(daily_xarray_dataset, tmpdir_
         tmpdir_factory,
         "D",
         split_up_files_by_variable_and_day,
+        file_type="netcdf4",
     )
 
 
@@ -281,6 +283,7 @@ def netcdf_local_paths_sequential_multivariable_2d(daily_xarray_dataset, tmpdir_
         tmpdir_factory,
         "2D",
         split_up_files_by_variable_and_day,
+        file_type="netcdf4",
     )
 
 
@@ -306,6 +309,7 @@ def netcdf_local_paths_sequential_multivariable_with_coordinateless_dimension(
         tmpdir_factory,
         "D",
         split_up_files_by_variable_and_day,
+        file_type="netcdf4",
     )
 
 
@@ -326,12 +330,19 @@ http_auth_params = [
 ]
 
 
-@pytest.fixture(scope="session", params=[dict()])
+@pytest.fixture(scope="session")
 def netcdf_public_http_paths_sequential_1d(netcdf_local_paths_sequential_1d, request):
     return make_netcdf_http_paths(netcdf_local_paths_sequential_1d, request)
 
 
-@pytest.fixture(scope="session", params=[*http_auth_params])
+@pytest.fixture(
+    scope="session",
+    params=[
+        dict(username="foo", password="bar"),
+        dict(required_query_string="foo=foo&bar=bar"),
+    ],
+    ids=["http-auth", "query-string-auth"],
+)
 def netcdf_private_http_paths_sequential_1d(netcdf_local_paths_sequential_1d, request):
     return make_netcdf_http_paths(netcdf_local_paths_sequential_1d, request)
 
@@ -356,6 +367,7 @@ def netcdf_local_paths_sequential_with_coordinateless_dimension(
         tmpdir_factory,
         "D",
         split_up_files_by_day,
+        file_type="netcdf4",
     )
 
 
