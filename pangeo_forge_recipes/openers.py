@@ -9,7 +9,6 @@ from .patterns import FileType
 from .storage import CacheFSSpecTarget, OpenFileType, _get_opener
 
 
-# TODO: test this function!
 def open_url(
     fname: str,
     cache: Optional[CacheFSSpecTarget] = None,
