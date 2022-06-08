@@ -103,7 +103,7 @@ def make_file_pattern(path_fixture):
     return file_pattern
 
 
-def make_netcdf_local_paths(
+def make_local_paths(
     daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter, file_type="netcdf4"
 ):
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
@@ -245,28 +245,28 @@ def daily_xarray_dataset_with_coordinateless_dimension(daily_xarray_dataset):
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf4"
     )
 
 
 @pytest.fixture(scope="session")
 def netcdf3_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf3"
     )
 
 
 @pytest.fixture(scope="session")
 def zarr_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="zarr"
     )
 
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_2d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset, tmpdir_factory, "2D", split_up_files_by_day, file_type="netcdf4"
     )
 
@@ -285,7 +285,7 @@ def netcdf_local_paths_sequential(request):
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_multivariable_1d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset,
         tmpdir_factory,
         "D",
@@ -296,7 +296,7 @@ def netcdf_local_paths_sequential_multivariable_1d(daily_xarray_dataset, tmpdir_
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_multivariable_2d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset,
         tmpdir_factory,
         "2D",
@@ -322,7 +322,7 @@ def netcdf_local_paths_sequential_multivariable(request):
 def netcdf_local_paths_sequential_multivariable_with_coordinateless_dimension(
     daily_xarray_dataset_with_coordinateless_dimension, tmpdir_factory
 ):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset_with_coordinateless_dimension,
         tmpdir_factory,
         "D",
@@ -391,7 +391,7 @@ def netcdf_http_paths_sequential_1d(request):
 def netcdf_local_paths_sequential_with_coordinateless_dimension(
     daily_xarray_dataset_with_coordinateless_dimension, tmpdir_factory
 ):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset_with_coordinateless_dimension,
         tmpdir_factory,
         "D",
