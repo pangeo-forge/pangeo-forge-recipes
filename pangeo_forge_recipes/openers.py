@@ -1,13 +1,14 @@
 """Standalone functions for opening sources as Dataset objects."""
 
 import io
+import tempfile
 import warnings
 from typing import Dict, Optional, Union
 
 import xarray as xr
 
 from .patterns import FileType
-from .storage import CacheFSSpecTarget, OpenFileType, _get_opener
+from .storage import CacheFSSpecTarget, OpenFileType, _copy_btw_filesystems, _get_opener
 
 
 def open_url(
@@ -79,6 +80,7 @@ def open_with_xarray(
     thing: Union[OpenFileType, str],
     file_type: FileType = FileType.unknown,
     load: bool = False,
+    copy_to_local=False,
     xarray_open_kwargs: Optional[Dict] = None,
 ) -> xr.Dataset:
     """Open item with Xarray. Accepts either fsspec open-file-like objects
@@ -87,12 +89,29 @@ def open_with_xarray(
     :param thing: The thing to be opened.
     :param file_type: Provide this if you know what type of file it is.
     :param load: Whether to eagerly load the data into memory ofter opening.
+    :param copy_to_local: Whether to copy the file-like-object to a local path
+       and pass the path to Xarray. Required for some file types (e.g. Grib).
+       Can only be used with file-like-objects, not URLs.
     :xarray_open_kwargs: Extra arguments to pass to Xarray's open function.
     """
     # TODO: check file type matrix
 
     kw = xarray_open_kwargs or {}
     kw = _set_engine(file_type, kw)
+
+    if copy_to_local:
+        if file_type in [FileType.zarr or FileType.opendap]:
+            raise ValueError(f"File type {file_type} can't be copied to a local file.")
+        if isinstance(thing, str):
+            raise ValueError(
+                "Won't copy string URLs to local files. Please call ``open_url`` first."
+            )
+        ntf = tempfile.NamedTemporaryFile()
+        tmp_name = ntf.name
+        target_opener = open(tmp_name, mode="wb")
+        _copy_btw_filesystems(thing, target_opener)
+        thing = tmp_name
+
     if isinstance(thing, str):
         pass
     elif isinstance(thing, io.IOBase):
@@ -105,4 +124,11 @@ def open_with_xarray(
     ds = xr.open_dataset(thing, **kw)
     if load:
         ds.load()
+
+    if copy_to_local and not load:
+        warnings.warn(
+            "Input has been copied to a local file, but the Xarray dataset has not been loaded. "
+            "The data may not be accessible from other hosts. Consider adding ``load=True``."
+        )
+
     return ds

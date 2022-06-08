@@ -99,11 +99,15 @@ class OpenWithXarray(beam.PTransform):
 
     :param file_type: Provide this if you know what type of file it is.
     :param load: Whether to eagerly load the data into memory ofter opening.
+    :param copy_to_local: Whether to copy the file-like-object to a local path
+       and pass the path to Xarray. Required for some file types (e.g. Grib).
+       Can only be used with file-like-objects, not URLs.
     :param xarray_open_kwargs: Extra arguments to pass to Xarray's open function.
     """
 
     file_type: FileType = FileType.unknown
     load: bool = False
+    copy_to_local: bool = False
     xarray_open_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(self, pcoll):
@@ -111,19 +115,6 @@ class OpenWithXarray(beam.PTransform):
             _add_keys(open_with_xarray),
             file_type=self.file_type,
             load=self.load,
+            copy_to_local=self.copy_to_local,
             xarray_open_kwargs=self.xarray_open_kwargs,
         )
-
-
-# @dataclass
-# class GetXarraySchema(beam.PTransform):
-#     def expand(self, pcoll):
-#         pass
-#
-#
-# @beam.typehints.with_input_types(Dict)
-# @beam.typehints.with_output_types(zarr.Group)
-# @dataclass
-# class CreateZarrFromSchema(beam.PTransform):
-#     def expand(self, pcoll):
-#         pass

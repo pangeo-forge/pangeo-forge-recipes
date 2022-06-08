@@ -17,7 +17,7 @@ from pangeo_forge_recipes.patterns import FileType
         lazy_fixture("netcdf3_public_http_paths_sequential_1d"),
         lazy_fixture("netcdf_private_http_paths_sequential_1d"),
     ],
-    ids=["netcdf4-local", "netcdf4-http-public", "netcdf3-http-public", "netcdf4-http-private"],
+    ids=["netcdf4_local", "netcdf4_http_public", "netcdf3_http_public", "netcdf4_http_private"],
 )
 def url_and_type(request):
     all_urls, _, _, _, extra_kwargs, type_str = request.param
@@ -35,7 +35,7 @@ def url_and_type(request):
         lazy_fixture("netcdf_local_paths_sequential_1d"),
         lazy_fixture("zarr_public_http_paths_sequential_1d"),
     ],
-    ids=["netcdf-local", "zarr-http"],
+    ids=["netcdf_local", "zarr_http"],
 )
 def public_url_and_type(request):
     all_urls, _, _, _, _, type_str = request.param
@@ -74,6 +74,11 @@ def load(request):
     return request.param
 
 
+@pytest.fixture(params=[False, True], ids=["dont_copy", "copy_to_local"])
+def copy_to_local(request):
+    return request.param
+
+
 def _time_is_datetime(ds):
     assert ds.time.dtype == np.dtype("<M8[ns]")
 
@@ -85,7 +90,7 @@ def _time_is_int(ds):
 
 @pytest.fixture(
     params=[({}, _time_is_datetime), ({"decode_times": False}, _time_is_int)],
-    ids=["no-xr-kwargs", "decode-times-False"],
+    ids=["no_xr_kwargs", "decode_times_False"],
 )
 def xarray_open_kwargs(request):
     kwargs, validate_fn = request.param
@@ -93,6 +98,7 @@ def xarray_open_kwargs(request):
 
 
 def is_valid_dataset(ds, in_memory=False):
+    ds = loads(dumps(ds))  # make sure it serializes
     assert isinstance(ds, xr.Dataset)
     offending_vars = [vname for vname in ds.data_vars if ds[vname].variable._in_memory != in_memory]
     if offending_vars:
@@ -100,13 +106,18 @@ def is_valid_dataset(ds, in_memory=False):
         raise AssertionError(f"The following vars {msg}: {offending_vars}")
 
 
-def test_open_file_with_xarray(url_and_type, cache, load, xarray_open_kwargs):
+def test_open_file_with_xarray(url_and_type, cache, load, copy_to_local, xarray_open_kwargs):
     # open fsspec OpenFile objects
     url, kwargs, file_type = url_and_type
-    print(url, kwargs, file_type)
     open_file = open_url(url, cache=cache, **kwargs)
     xr_kwargs, validate_fn = xarray_open_kwargs
-    ds = open_with_xarray(open_file, file_type=file_type, load=load, xarray_open_kwargs=xr_kwargs)
+    ds = open_with_xarray(
+        open_file,
+        file_type=file_type,
+        load=load,
+        copy_to_local=copy_to_local,
+        xarray_open_kwargs=xr_kwargs,
+    )
     validate_fn(ds)
     is_valid_dataset(ds, in_memory=load)
 
@@ -114,7 +125,6 @@ def test_open_file_with_xarray(url_and_type, cache, load, xarray_open_kwargs):
 def test_direct_open_with_xarray(public_url_and_type, load, xarray_open_kwargs):
     # open string URLs
     url, file_type = public_url_and_type
-    print(url)
     xr_kwargs, validate_fn = xarray_open_kwargs
     ds = open_with_xarray(url, file_type=file_type, load=load, xarray_open_kwargs=xr_kwargs)
     validate_fn(ds)

@@ -38,7 +38,7 @@ def pattern(request):
         lazy_fixture("netcdf_local_file_pattern_sequential"),
         lazy_fixture("zarr_http_file_pattern_sequential_1d"),
     ],
-    ids=["local-netcdf", "http-zarr"],
+    ids=["local_netcdf", "http_zarr"],
 )
 def pattern_direct(request):
     return request.param
