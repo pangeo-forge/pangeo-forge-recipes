@@ -47,7 +47,7 @@
 ```
 
 
-## Standalone Function
+## Processing Functions
 
 The [Beam PTransform Style Guide](https://beam.apache.org/contribute/ptransform-style-guide/) recommends:
 
