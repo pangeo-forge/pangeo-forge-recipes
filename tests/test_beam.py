@@ -1,6 +1,7 @@
 import apache_beam as beam
 import pytest
 import xarray as xr
+from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 
 # from apache_beam.testing.util import assert_that, equal_to
@@ -8,6 +9,11 @@ from apache_beam.testing.util import BeamAssertException, assert_that, is_not_em
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray
+
+
+@pytest.fixture
+def options():
+    return PipelineOptions(runtime_type_check=True)
 
 
 @pytest.fixture(
@@ -106,29 +112,29 @@ def pcoll_xarray_datasets(pcoll_opened_files):
 
 
 @pytest.mark.parametrize("load", [False, True], ids=["lazy", "eager"])
-def test_OpenWithXarray_via_fsspec(pcoll_opened_files, load):
+def test_OpenWithXarray_via_fsspec(pcoll_opened_files, load, options):
     input, pattern, cache = pcoll_opened_files
-    with TestPipeline() as p:
+    with TestPipeline(options=options) as p:
         output = p | input | OpenWithXarray(file_type=pattern.file_type, load=load)
         assert_that(output, is_xr_dataset(in_memory=load))
 
 
 @pytest.mark.parametrize("load", [False, True], ids=["lazy", "eager"])
-def test_OpenWithXarray_direct(pattern_direct, load):
-    with TestPipeline() as p:
+def test_OpenWithXarray_direct(pattern_direct, load, options):
+    with TestPipeline(options=options) as p:
         input = p | beam.Create(pattern_direct.items())
         output = input | OpenWithXarray(file_type=pattern_direct.file_type, load=load)
         assert_that(output, is_xr_dataset(in_memory=load))
 
 
-def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files):
+def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, options):
     input, pattern, cache = pcoll_opened_files
 
     def manually_load(item):
         key, ds = item
         return key, ds.load()
 
-    with TestPipeline() as p:
+    with TestPipeline(options=options) as p:
         output = p | input | OpenWithXarray(file_type=pattern.file_type, load=False)
         loaded_dsets = output | beam.Map(manually_load)
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))

@@ -72,7 +72,12 @@ def _add_keys(func):
 # This has side effects if using a cache
 @dataclass
 class OpenURLWithFSSpec(beam.PTransform):
-    """Open indexed items from a FilePattern with FSSpec, optionally caching along the way."""
+    """Open indexed string-based URLs with fsspec.
+
+    :param cache: If provided, data will be cached in the object before opening.
+    :param secrets: If provided these secrets will be injected into the URL as a query string.
+    :param open_kwargs: Extra arguments passed to fsspec.open.
+    """
 
     cache: Optional[CacheFSSpecTarget] = None
     secrets: Optional[dict] = None
@@ -89,6 +94,13 @@ class OpenURLWithFSSpec(beam.PTransform):
 
 @dataclass
 class OpenWithXarray(beam.PTransform):
+    """Open indexed items with Xarray. Accepts either fsspec open-file-like objects
+    or string URLs that can be passed directly to Xarray.
+
+    :param file_type: Provide this if you know what type of file it is.
+    :param load: Whether to eagerly load the data into memory ofter opening.
+    :param xarray_open_kwargs: Extra arguments to pass to Xarray's open function.
+    """
 
     file_type: FileType = FileType.unknown
     load: bool = False

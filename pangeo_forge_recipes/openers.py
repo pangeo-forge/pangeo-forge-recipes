@@ -1,5 +1,6 @@
 """Standalone functions for opening sources as Dataset objects."""
 
+import io
 import warnings
 from typing import Dict, Optional, Union
 
@@ -10,18 +11,26 @@ from .storage import CacheFSSpecTarget, OpenFileType, _get_opener
 
 
 def open_url(
-    fname: str,
+    url: str,
     cache: Optional[CacheFSSpecTarget] = None,
     secrets: Optional[Dict] = None,
     open_kwargs: Optional[Dict] = None,
 ) -> OpenFileType:
+    """Open a string-based URL with fsspec.
+
+    :param url: The URL to be parsed by fsspec.
+    :param cache: If provided, data will be cached in the object before opening.
+    :param secrets: If provided these secrets will be injected into the URL as a query string.
+    :param open_kwargs: Extra arguments passed to fsspec.open.
+    """
+
     kw = open_kwargs or {}
     if cache is not None:
         # this has side effects
-        cache.cache_file(fname, secrets, **kw)
-        open_file = cache.open_file(fname, mode="rb")
+        cache.cache_file(url, secrets, **kw)
+        open_file = cache.open_file(url, mode="rb")
     else:
-        open_file = _get_opener(fname, secrets, **kw)
+        open_file = _get_opener(url, secrets, **kw)
     return open_file
 
 
@@ -72,11 +81,23 @@ def open_with_xarray(
     load: bool = False,
     xarray_open_kwargs: Optional[Dict] = None,
 ) -> xr.Dataset:
+    """Open item with Xarray. Accepts either fsspec open-file-like objects
+    or string URLs that can be passed directly to Xarray.
+
+    :param thing: The thing to be opened.
+    :param file_type: Provide this if you know what type of file it is.
+    :param load: Whether to eagerly load the data into memory ofter opening.
+    :xarray_open_kwargs: Extra arguments to pass to Xarray's open function.
+    """
     # TODO: check file type matrix
 
     kw = xarray_open_kwargs or {}
     kw = _set_engine(file_type, kw)
     if isinstance(thing, str):
+        pass
+    elif isinstance(thing, io.IOBase):
+        # required to make mypy happy
+        # LocalFileOpener is a subclass of io.IOBase
         pass
     elif hasattr(thing, "open"):
         # work around fsspec inconsistencies

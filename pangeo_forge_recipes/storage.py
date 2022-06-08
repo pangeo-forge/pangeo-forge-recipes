@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 import logging
 import os
@@ -19,7 +20,7 @@ from fsspec.implementations.local import LocalFileSystem
 
 logger = logging.getLogger(__name__)
 
-OpenFileType = Union[fsspec.core.OpenFile, fsspec.spec.AbstractBufferedFile]
+OpenFileType = Union[fsspec.core.OpenFile, fsspec.spec.AbstractBufferedFile, io.IOBase]
 
 
 def _get_url_size(fname, secrets, **open_kwargs):
