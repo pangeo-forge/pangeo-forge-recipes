@@ -77,11 +77,7 @@ def _merge_attrs(a1, a2):
 
 
 def _merge_dtype(d1, d2):
-    # workaround https://github.com/numpy/numpy/issues/21703
-    if np.dtype(d1) == np.dtype(d2):
-        return d1
-    # todo: is this right?
-    return str(np.find_common_type([d1, d2], []))
+    return str(np.promote_types(d1, d2))
 
 
 def _merge_vars(v1, v2, concat_dim, allow_both=False):
