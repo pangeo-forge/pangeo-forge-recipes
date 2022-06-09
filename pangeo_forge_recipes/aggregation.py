@@ -25,7 +25,9 @@ class XarrayConcatAccumulator:
         self.chunks.append((position, s["dims"][self.concat_dim]))
 
     def __add__(self, other: XarrayConcatAccumulator) -> XarrayConcatAccumulator:
-        new_schema = _merge_xarray_schemas(self.schema, other.schema)
+        if other.concat_dim != self.concat_dim:
+            raise DatasetMergeError("Can't merge accumulators with different concat_dims")
+        new_schema = _merge_xarray_schemas(self.schema, other.schema, self.concat_dim)
         assert self.concat_dim == other.concat_dim
         new_chunks = self.chunks + other.chunks
         return XarrayConcatAccumulator(self.concat_dim, new_schema, new_chunks)
