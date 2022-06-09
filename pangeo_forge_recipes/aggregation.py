@@ -25,6 +25,7 @@ class XarrayConcatAccumulator:
         self.chunks.append((position, s["dims"][self.concat_dim]))
 
     def __add__(self, other: XarrayConcatAccumulator) -> XarrayConcatAccumulator:
+        print(f"called __add__ {self}, {other}")
         if other.concat_dim != self.concat_dim:
             raise DatasetMergeError("Can't merge accumulators with different concat_dims")
         new_schema = _merge_xarray_schemas(self.schema, other.schema, self.concat_dim)
@@ -34,6 +35,8 @@ class XarrayConcatAccumulator:
 
     @property
     def chunk_lens(self) -> tuple[int, ...]:
+        if len(self.chunks) == 0:
+            return ()
         expected_dim_len = self.schema["dims"][self.concat_dim]
         sorted_chunks = sorted(self.chunks)
         keys = [item[0] for item in sorted_chunks]
