@@ -1,21 +1,18 @@
-from typing import Sequence
 from dataclasses import dataclass
+from typing import Sequence, Tuple
 
 import apache_beam as beam
 
-from pangeo_forge_recipes.patterns import Index, CombineOp
 from pangeo_forge_recipes.aggregation import XarrayConcatAccumulator
+from pangeo_forge_recipes.patterns import CombineOp, Index
 
 
 def _get_position(index: Index, concat_dim: str):
     possible_indexes = [
-        didx for didx in index
-        if didx.operation == CombineOp.CONCAT
-        and didx.name == concat_dim
+        didx for didx in index if didx.operation == CombineOp.CONCAT and didx.name == concat_dim
     ]
     assert len(possible_indexes) == 1, "More than one concat dim detected."
     return possible_indexes[0].index
-
 
 
 @dataclass
@@ -25,7 +22,7 @@ class ConcatXarraySchemas(beam.CombineFn):
     def create_accumulator(self) -> XarrayConcatAccumulator:
         return XarrayConcatAccumulator(self.concat_dim)
 
-    def add_input(self, accumulator: XarrayConcatAccumulator, item: tuple[Index, dict]):
+    def add_input(self, accumulator: XarrayConcatAccumulator, item: Tuple[Index, dict]):
         index, schema = item
         position = _get_position(index, self.concat_dim)
         accumulator.add_input(schema, position)
