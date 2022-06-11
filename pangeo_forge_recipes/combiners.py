@@ -3,35 +3,38 @@ from typing import Sequence, Tuple
 
 import apache_beam as beam
 
-from pangeo_forge_recipes.aggregation import XarrayConcatAccumulator
+from pangeo_forge_recipes.aggregation import XarrayCombineAccumulator
 from pangeo_forge_recipes.patterns import CombineOp, Index
 
 
-def _get_position(index: Index, concat_dim: str):
-    possible_indexes = [
-        didx for didx in index if didx.operation == CombineOp.CONCAT and didx.name == concat_dim
-    ]
-    assert len(possible_indexes) == 1, "More than one concat dim detected."
-    return possible_indexes[0].index
-
-
 @dataclass
-class ConcatXarraySchemas(beam.CombineFn):
-    concat_dim: str
+class CombineXarraySchemas(beam.CombineFn):
+    name: str
+    operation: CombineOp
 
-    def create_accumulator(self) -> XarrayConcatAccumulator:
-        return XarrayConcatAccumulator(self.concat_dim)
+    def get_position(self, index: Index):
+        possible_indexes = [
+            didx
+            for didx in index
+            if (didx.name == self.name) and (didx.operation == self.operation)
+        ]
+        assert len(possible_indexes) == 1, "More than one dim detected"
+        return possible_indexes[0].index
 
-    def add_input(self, accumulator: XarrayConcatAccumulator, item: Tuple[Index, dict]):
+    def create_accumulator(self) -> XarrayCombineAccumulator:
+        concat_dim = self.name if self.operation == CombineOp.CONCAT else None
+        return XarrayCombineAccumulator(concat_dim=concat_dim)
+
+    def add_input(self, accumulator: XarrayCombineAccumulator, item: Tuple[Index, dict]):
         index, schema = item
-        position = _get_position(index, self.concat_dim)
+        position = self.get_position(index)
         accumulator.add_input(schema, position)
         return accumulator
 
-    def merge_accumulators(self, accumulators: Sequence[XarrayConcatAccumulator]):
+    def merge_accumulators(self, accumulators: Sequence[XarrayCombineAccumulator]):
         if len(accumulators) == 1:
             return accumulators[0]
         return sum(accumulators)
 
     def extract_output(self, accumulator):
-        return accumulator.schema, accumulator.chunk_lens
+        return accumulator.schema

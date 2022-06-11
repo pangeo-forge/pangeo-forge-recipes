@@ -8,7 +8,8 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.combiners import ConcatXarraySchemas
+from pangeo_forge_recipes.combiners import CombineXarraySchemas
+from pangeo_forge_recipes.patterns import CombineOp
 
 # to make these tests more isolated, we create a schema fixture
 # from scratch
@@ -51,22 +52,27 @@ def _strip_keys(item):
     return item[1]
 
 
-def test_ConcatXarraySchemas(schema_pcoll, pipeline):
+def test_CombineXarraySchemas_concat_1D(schema_pcoll, pipeline):
     pattern, pcoll = schema_pcoll
     concat_dim = _get_concat_dim(pattern)
 
     expected_ds = xr.open_mfdataset(item[1] for item in pattern.items())
     expected_schema = expected_ds.to_dict(data=False)
+    expected_schema["chunks"] = {
+        "time": {pos: v for pos, v in enumerate(expected_ds.chunks["time"])}
+    }
 
     def has_correct_schema():
         def _check_results(actual):
             assert len(actual) == 1
-            schema, chunk_lens = actual[0]
+            schema = actual[0]
             assert schema == expected_schema
 
         return _check_results
 
     with pipeline as p:
         input = p | pcoll
-        output = input | beam.CombineGlobally(ConcatXarraySchemas(concat_dim=concat_dim))
+        output = input | beam.CombineGlobally(
+            CombineXarraySchemas(name=concat_dim, operation=CombineOp.CONCAT)
+        )
         assert_that(output, has_correct_schema())
