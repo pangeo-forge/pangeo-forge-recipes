@@ -21,7 +21,7 @@ import zarr
 
 from ..chunk_grid import ChunkGrid
 from ..executors.base import Pipeline, Stage
-from ..patterns import CombineOp, DimIndex, FilePattern, FileType, Index
+from ..patterns import CombineOp, FilePattern, FileType, Index
 from ..reference import create_hdf5_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts

@@ -4,7 +4,7 @@ from typing import Sequence, Tuple
 import apache_beam as beam
 
 from pangeo_forge_recipes.aggregation import XarrayCombineAccumulator
-from pangeo_forge_recipes.patterns import CombineOp, Index
+from pangeo_forge_recipes.patterns import CombineOp, DimKey, Index
 
 
 @dataclass
@@ -13,13 +13,7 @@ class CombineXarraySchemas(beam.CombineFn):
     operation: CombineOp
 
     def get_position(self, index: Index):
-        possible_positions = [
-            pos
-            for didx, pos in index.items()
-            if (didx.name == self.name) and (didx.operation == self.operation)
-        ]
-        assert len(possible_positions) == 1, "More than one dim detected"
-        return possible_positions[0]
+        return index[DimKey(self.name, self.operation)]
 
     def create_accumulator(self) -> XarrayCombineAccumulator:
         concat_dim = self.name if self.operation == CombineOp.CONCAT else None
