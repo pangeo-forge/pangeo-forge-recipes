@@ -79,8 +79,9 @@ def test_pattern_from_file_sequence():
     assert fp.concat_dims == ["time"]
     assert fp.nitems_per_input == {"time": None}
     assert fp.concat_sequence_lens == {"time": None}
-    for key in fp:
-        assert fp[key] == file_sequence[sorted(key)[0].index]
+    for index in fp:
+        position = next(iter(index.values()))
+        assert fp[index] == file_sequence[position]
 
 
 @pytest.mark.parametrize("pickle", [False, True])
@@ -119,15 +120,15 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
     assert fp.concat_sequence_lens == {"time": None}
     assert len(list(fp)) == 6
     for key in fp:
-        for k in key:
+        for k, pos in key.items():
             if k.name == "time":
                 assert k.operation == CombineOp.CONCAT
                 assert k.sequence_len == 3
-                time_val = times[k.index]
+                time_val = times[pos]
             if k.name == "variable":
                 assert k.operation == CombineOp.MERGE
                 assert k.sequence_len == 2
-                variable_val = varnames[k.index]
+                variable_val = varnames[pos]
         expected_fname = format_function(time=time_val, variable=variable_val)
         assert fp[key] == expected_fname
 

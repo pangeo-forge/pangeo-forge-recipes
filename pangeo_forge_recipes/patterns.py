@@ -6,19 +6,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum, auto
 from hashlib import sha256
 from itertools import product
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    FrozenSet,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
 from .serialization import dataclass_sha256, dict_drop_empty, dict_to_sha256
 
@@ -70,35 +58,22 @@ class MergeDim:
 
 
 @dataclass(frozen=True, order=True)
-class DimIndex:
-    """Object used to index a single dimension of a FilePattern or Recipe Chunks.
-
-    :param name: The name of the dimension.
-    :param index: The position of the item within the sequence.
-    :param sequence_len: The total length of the sequence.
-    :param operation: What type of Combine Operation does this dimension represent.
-    """
-
+class DimKey:
     name: str
-    index: int
-    sequence_len: int
     operation: CombineOp
-
-    def __str__(self):
-        return f"{self.name}-{self.index}"
-
-    def __post_init__(self):
-        assert self.sequence_len > 0
-        assert self.index >= 0
-        assert self.index < self.sequence_len
+    sequence_len: int
 
 
-class Index(FrozenSet[DimIndex]):
+class Index(Dict[DimKey, int]):
     pass
 
 
+# class Index(FrozenSet[DimIndex]):
+#    pass
+
+
 CombineDim = Union[MergeDim, ConcatDim]
-FilePatternIndex = Index
+Index = Index
 
 
 class AutoName(Enum):
@@ -202,31 +177,31 @@ class FilePattern:
             for dim_name, nitems in self.nitems_per_input.items()
         }
 
-    def __getitem__(self, indexer: FilePatternIndex) -> str:
+    def __getitem__(self, indexer: Index) -> str:
         """Get a filename path for a particular key."""
         assert len(indexer) == len(self.combine_dims)
         format_function_kwargs = {}
-        for idx in indexer:
+        for idx_key, position in indexer.items():
             dims = [
                 dim
                 for dim in self.combine_dims
-                if dim.name == idx.name and dim.operation == idx.operation
+                if dim.name == idx_key.name and dim.operation == idx_key.operation
             ]
             if len(dims) != 1:
-                raise KeyError(r"Could not valid combine_dim for indexer {idx}")
+                raise KeyError(r"Could not valid combine_dim for indexer {idx_key}")
             dim = dims[0]
-            format_function_kwargs[dim.name] = dim.keys[idx.index]
+            format_function_kwargs[dim.name] = dim.keys[position]
         fname = self.format_function(**format_function_kwargs)
         return fname
 
-    def __iter__(self) -> Iterator[FilePatternIndex]:
+    def __iter__(self) -> Iterator[Index]:
         """Iterate over all keys in the pattern."""
         for val in product(*[range(n) for n in self.shape]):
             index = Index(
-                (
-                    DimIndex(op.name, v, len(op.keys), op.operation)
+                {
+                    DimKey(op.name, op.operation, len(op.keys)): v
                     for op, v in zip(self.combine_dims, val)
-                )
+                }
             )
             yield index
 
