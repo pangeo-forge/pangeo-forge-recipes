@@ -13,13 +13,13 @@ class CombineXarraySchemas(beam.CombineFn):
     operation: CombineOp
 
     def get_position(self, index: Index):
-        possible_indexes = [
-            didx
-            for didx in index
+        possible_positions = [
+            pos
+            for didx, pos in index.items()
             if (didx.name == self.name) and (didx.operation == self.operation)
         ]
-        assert len(possible_indexes) == 1, "More than one dim detected"
-        return possible_indexes[0].index
+        assert len(possible_positions) == 1, "More than one dim detected"
+        return possible_positions[0]
 
     def create_accumulator(self) -> XarrayCombineAccumulator:
         concat_dim = self.name if self.operation == CombineOp.CONCAT else None

@@ -123,11 +123,9 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
         for k, pos in key.items():
             if k.name == "time":
                 assert k.operation == CombineOp.CONCAT
-                assert k.sequence_len == 3
                 time_val = times[pos]
             if k.name == "variable":
                 assert k.operation == CombineOp.MERGE
-                assert k.sequence_len == 2
                 variable_val = varnames[pos]
         expected_fname = format_function(time=time_val, variable=variable_val)
         assert fp[key] == expected_fname

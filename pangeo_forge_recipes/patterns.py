@@ -8,7 +8,7 @@ from hashlib import sha256
 from itertools import product
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
-from .serialization import dataclass_sha256, dict_drop_empty, dict_to_sha256
+from .serialization import dict_drop_empty, dict_to_sha256
 
 
 class CombineOp(Enum):
@@ -57,19 +57,15 @@ class MergeDim:
     operation: ClassVar[CombineOp] = CombineOp.MERGE
 
 
+# would it be simpler to just use a tuple?
 @dataclass(frozen=True, order=True)
 class DimKey:
     name: str
     operation: CombineOp
-    sequence_len: int
 
 
 class Index(Dict[DimKey, int]):
     pass
-
-
-# class Index(FrozenSet[DimIndex]):
-#    pass
 
 
 CombineDim = Union[MergeDim, ConcatDim]
@@ -198,10 +194,7 @@ class FilePattern:
         """Iterate over all keys in the pattern."""
         for val in product(*[range(n) for n in self.shape]):
             index = Index(
-                {
-                    DimKey(op.name, op.operation, len(op.keys)): v
-                    for op, v in zip(self.combine_dims, val)
-                }
+                {DimKey(op.name, op.operation): v for op, v in zip(self.combine_dims, val)}
             )
             yield index
 
@@ -288,11 +281,9 @@ def pattern_blockchain(pattern: FilePattern) -> List[bytes]:
 
     blockchain = [root_sha256]
     for k, v in pattern.items():
-        key_hash = b"".join(
-            sorted([dataclass_sha256(dimindex, ignore_keys=["sequence_len"]) for dimindex in k])
-        )
+        # key is no longer part of the hash
         value_hash = sha256(v.encode("utf-8")).digest()
-        new_hash = key_hash + value_hash
+        new_hash = value_hash
         new_block = sha256(blockchain[-1] + new_hash).digest()
         blockchain.append(new_block)
 
