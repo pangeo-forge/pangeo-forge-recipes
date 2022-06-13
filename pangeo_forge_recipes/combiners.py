@@ -13,7 +13,7 @@ class CombineXarraySchemas(beam.CombineFn):
     operation: CombineOp
 
     def get_position(self, index: Index):
-        return index[DimKey(self.name, self.operation)]
+        return index[DimKey(self.name, self.operation)].position
 
     def create_accumulator(self) -> XarrayCombineAccumulator:
         concat_dim = self.name if self.operation == CombineOp.CONCAT else None
