@@ -1,14 +1,12 @@
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from typing import Callable, Optional
+from typing import Callable
 
 import pandas as pd
 import pytest
-from fsspec.implementations.local import LocalFileSystem
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, match_pattern_blockchain
 from pangeo_forge_recipes.serialization import dict_to_sha256, either_encode_or_hash
-from pangeo_forge_recipes.storage import FSSpecTarget, StorageConfig
 
 # TODO: revise this test once refactor is farther along
 pytest.skip(allow_module_level=True)
@@ -87,89 +85,6 @@ def test_match_pattern_blockchain(base_pattern, end_date, new_pattern_nitems_per
         assert new_pattern[matching_key] == next_url
     elif kwargs[0] != kwargs[1] or new_pattern_nitems_per_file == 2:
         assert matching_key is None
-
-
-@pytest.mark.parametrize("recipe_cls", [XarrayZarrRecipe, HDFReferenceRecipe])
-def test_recipe_sha256_hash_exclude(base_pattern, recipe_cls, tmpdir_factory):
-    recipe_0 = recipe_cls(base_pattern)
-    recipe_1 = recipe_cls(base_pattern)
-
-    assert recipe_0.sha256() == recipe_1.sha256()
-
-    local_fs = LocalFileSystem()
-    custom_target_path = tmpdir_factory.mktemp("custom_target")
-    custom_storage_config = StorageConfig(target=FSSpecTarget(local_fs, custom_target_path))
-    recipe_1.storage_config = custom_storage_config
-
-    assert recipe_0.sha256() == recipe_1.sha256()
-
-
-@pytest.mark.parametrize(
-    "kwargs",
-    [
-        ({}, {}),
-        ({}, dict(target_chunks={"time": 1})),
-        (dict(target_chunks={"time": 1}), dict(target_chunks={"time": 1})),
-        (dict(target_chunks={"time": 1}), dict(target_chunks={"time": 2})),
-        (dict(subset_inputs={"time": 2}), dict(target_chunks={"time": 2})),
-    ],
-)
-def test_xarray_zarr_sha265(pattern_pair, kwargs):
-    recipe_0 = XarrayZarrRecipe(pattern_pair[0], **kwargs[0])
-    recipe_1 = XarrayZarrRecipe(pattern_pair[1], **kwargs[1])
-
-    if pattern_pair[0] == pattern_pair[1] and kwargs[0] == kwargs[1]:
-        assert recipe_0.sha256() == recipe_1.sha256()
-    else:
-        assert recipe_0.sha256() != recipe_1.sha256()
-
-
-@pytest.mark.parametrize(
-    "kwargs",
-    [
-        ({}, {}),
-        ({}, dict(output_json_fname="custom_name.json")),
-        (dict(output_json_fname="custom_name.json"), dict(output_json_fname="custom_name.json")),
-        (dict(netcdf_storage_options={"anon": True}), dict(output_json_fname="custom_name.json")),
-    ],
-)
-def test_kerchunk_sha265(pattern_pair, kwargs):
-    recipe_0 = HDFReferenceRecipe(pattern_pair[0], **kwargs[0])
-    recipe_1 = HDFReferenceRecipe(pattern_pair[1], **kwargs[1])
-
-    if pattern_pair[0] == pattern_pair[1] and kwargs[0] == kwargs[1]:
-        assert recipe_0.sha256() == recipe_1.sha256()
-    else:
-        assert recipe_0.sha256() != recipe_1.sha256()
-
-
-@pytest.mark.parametrize("cls", [XarrayZarrRecipe, HDFReferenceRecipe])
-@pytest.mark.parametrize(
-    "kwargs",
-    [
-        {},
-        {"new_optional_str": "hello"},
-        {"new_dict": dict(a=1)},
-        {"new_list": [1, 2, 3]},
-    ],
-)
-def test_additional_fields(base_pattern, cls, kwargs):
-    # simulates a new release in which new fields are added; because we drop empty fields from
-    # the hash calculation, backwards compatibility is preserved as long as new fields are unset
-
-    @dataclass
-    class NewRelease(cls):
-        new_optional_str: Optional[str] = None
-        new_dict: dict = field(default_factory=dict)
-        new_list: list = field(default_factory=list)
-
-    old_release_obj = cls(base_pattern)
-    new_release_obj = NewRelease(base_pattern, **kwargs)
-
-    if not kwargs:
-        assert old_release_obj.sha256() == new_release_obj.sha256()
-    else:
-        assert old_release_obj.sha256() != new_release_obj.sha256()
 
 
 def test_either_encode_or_hash_raises():
