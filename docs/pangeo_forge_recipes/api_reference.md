@@ -39,14 +39,6 @@
     :members:
 ```
 
-
-## Recipes
-
-```{eval-rst}
-.. automodule:: pangeo_forge_recipes.recipes
-   :members:
-```
-
 ## Storage
 
 ```{eval-rst}
@@ -55,10 +47,32 @@
 ```
 
 
-## Executors
+## Processing Functions
 
+The [Beam PTransform Style Guide](https://beam.apache.org/contribute/ptransform-style-guide/) recommends:
+
+> Expose large, non-trivial, reusable sequential bits of the
+> transform’s code, which others might want to reuse in ways you
+> haven’t anticipated, as a regular function or class library.
+> The transform should simply wire this logic together.
+
+These are those functions.
 
 ```{eval-rst}
-.. automodule:: pangeo_forge_recipes.executors
-   :members:
+.. automodule:: pangeo_forge_recipes.openers
+    :members:
+```
+
+
+## PTransforms
+
+The [Beam PTransform Style Guide](https://beam.apache.org/contribute/ptransform-style-guide/) recommends:
+
+> Expose every major data-parallel task accomplished by your
+> library as a composite PTransform. This allows the structure of
+> the transform to evolve transparently to the code that uses it.
+
+```{eval-rst}
+.. automodule:: pangeo_forge_recipes.transforms
+    :members:
 ```

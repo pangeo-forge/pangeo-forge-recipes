@@ -1,13 +1,21 @@
 import apache_beam as beam
 import pytest
 import xarray as xr
+from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 
 # from apache_beam.testing.util import assert_that, equal_to
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.transforms import OpenWithFSSpec, OpenWithXarray
+from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray
+
+
+@pytest.fixture
+def pipeline():
+    options = PipelineOptions(runtime_type_check=True)
+    with TestPipeline(options=options) as p:
+        yield p
 
 
 @pytest.fixture(
@@ -22,6 +30,20 @@ def pattern(request):
     return request.param
 
 
+# the items from these patterns are suitable to be opened directly
+# by open_with_xarray, bypassing fsspec
+@pytest.fixture(
+    scope="module",
+    params=[
+        lazy_fixture("netcdf_local_file_pattern_sequential"),
+        lazy_fixture("zarr_http_file_pattern_sequential_1d"),
+    ],
+    ids=["local_netcdf", "http_zarr"],
+)
+def pattern_direct(request):
+    return request.param
+
+
 @pytest.fixture(params=[True, False], ids=["with_cache", "no_cache"])
 def cache(tmp_cache, request):
     if request.param:
@@ -33,13 +55,13 @@ def cache(tmp_cache, request):
 @pytest.fixture
 def pcoll_opened_files(pattern, cache):
     input = beam.Create(pattern.items())
-    output = input | OpenWithFSSpec(
+    output = input | OpenURLWithFSSpec(
         cache=cache, secrets=pattern.query_string_secrets, open_kwargs=pattern.fsspec_open_kwargs
     )
     return output, pattern, cache
 
 
-def test_OpenWithFSSpec(pcoll_opened_files):
+def test_OpenURLWithFSSpec(pcoll_opened_files):
     pcoll, pattern, cache = pcoll_opened_files
 
     def expected_len(n):
@@ -93,22 +115,30 @@ def pcoll_xarray_datasets(pcoll_opened_files):
     return open_files | OpenWithXarray()
 
 
-@pytest.mark.parametrize("load", [False, True])
-def test_OpenWithXarray(pcoll_opened_files, load):
+@pytest.mark.parametrize("load", [False, True], ids=["lazy", "eager"])
+def test_OpenWithXarray_via_fsspec(pcoll_opened_files, load, pipeline):
     input, pattern, cache = pcoll_opened_files
-    with TestPipeline() as p:
-        output = p | input | OpenWithXarray(load=load)
+    with pipeline as p:
+        output = p | input | OpenWithXarray(file_type=pattern.file_type, load=load)
         assert_that(output, is_xr_dataset(in_memory=load))
 
 
-def test_OpenWithXarray_downstream_load(pcoll_opened_files):
+@pytest.mark.parametrize("load", [False, True], ids=["lazy", "eager"])
+def test_OpenWithXarray_direct(pattern_direct, load, pipeline):
+    with pipeline as p:
+        input = p | beam.Create(pattern_direct.items())
+        output = input | OpenWithXarray(file_type=pattern_direct.file_type, load=load)
+        assert_that(output, is_xr_dataset(in_memory=load))
+
+
+def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
     input, pattern, cache = pcoll_opened_files
 
     def manually_load(item):
         key, ds = item
         return key, ds.load()
 
-    with TestPipeline() as p:
-        output = p | input | OpenWithXarray(load=False)
+    with pipeline as p:
+        output = p | input | OpenWithXarray(file_type=pattern.file_type, load=False)
         loaded_dsets = output | beam.Map(manually_load)
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))

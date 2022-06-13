@@ -55,7 +55,7 @@ def pytest_addoption(parser):
 def split_up_files_by_day(ds, day_param):
     gb = ds.resample(time=day_param)
     _, datasets = zip(*gb)
-    fnames = [f"{n:03d}.nc" for n in range(len(datasets))]
+    fnames = [f"{n:03d}" for n in range(len(datasets))]
     return datasets, fnames
 
 
@@ -80,11 +80,11 @@ def make_file_pattern(path_fixture):
     path_fixture : callable
         `netcdf_local_paths`, `netcdf_http_paths`, or similar
     """
-    paths, items_per_file, fnames_by_variable, path_format, kwargs = path_fixture
+    paths, items_per_file, fnames_by_variable, path_format, kwargs, file_type = path_fixture
 
     if not fnames_by_variable:
         file_pattern = pattern_from_file_sequence(
-            [str(path) for path in paths], "time", items_per_file, **kwargs
+            [str(path) for path in paths], "time", items_per_file, file_type=file_type, **kwargs
         )
     else:
         time_index = list(range(len(paths) // 2))
@@ -96,27 +96,46 @@ def make_file_pattern(path_fixture):
             format_function,
             ConcatDim("time", time_index, items_per_file),
             MergeDim("variable", ["foo", "bar"]),
+            file_type=file_type,
             **kwargs,
         )
 
     return file_pattern
 
 
-def make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter):
+def make_local_paths(
+    daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter, file_type="netcdf4"
+):
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     file_splitter_tuple = file_splitter(daily_xarray_dataset.copy(), items_per_file)
 
+    if file_type == "netcdf4":
+        method, suffix, kwargs = "to_netcdf", "nc", {"engine": "netcdf4", "format": "NETCDF4"}
+    elif file_type == "netcdf3":
+        method, suffix, kwargs = "to_netcdf", "nc", {"engine": "scipy", "format": "NETCDF3_CLASSIC"}
+    elif file_type == "zarr":
+        method, suffix, kwargs = "to_zarr", "zarr", {}
+    else:
+        assert False
+
     datasets, fnames = file_splitter_tuple[:2]
-    full_paths = [tmp_path.join(fname) for fname in fnames]
-    xr.save_mfdataset(datasets, [str(path) for path in full_paths])
+    full_paths = [str(tmp_path.join(fname)) + f".{suffix}" for fname in fnames]
+
+    for ds, path in zip(datasets, full_paths):
+        save_method = getattr(ds, method)
+        save_method(path, **kwargs)
+
+    # xr.save_mfdataset(datasets, [str(path) for path in full_paths])
     items_per_file = {"D": 1, "2D": 2}[items_per_file]
 
     fnames_by_variable = file_splitter_tuple[-1] if len(file_splitter_tuple) == 3 else None
-    path_format = str(tmp_path) + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
+    path_format = (
+        str(tmp_path) + "/{variable}_{time:03d}" + f".{suffix}" if fnames_by_variable else None
+    )
 
-    kwargs = dict(fsspec_open_kwargs={}, query_string_secrets={})
+    kwargs = {}
 
-    return full_paths, items_per_file, fnames_by_variable, path_format, kwargs
+    return full_paths, items_per_file, fnames_by_variable, path_format, kwargs, file_type
 
 
 def get_open_port():
@@ -132,7 +151,7 @@ def start_http_server(paths, request, username=None, password=None, required_que
 
     first_path = paths[0]
     # assume that all files are in the same directory
-    basedir = first_path.dirpath()
+    basedir = os.path.dirname(first_path)
 
     this_dir = os.path.dirname(os.path.abspath(__file__))
     port = get_open_port()
@@ -158,21 +177,25 @@ def start_http_server(paths, request, username=None, password=None, required_que
     return url
 
 
-def make_netcdf_http_paths(netcdf_local_paths, request):
-    paths, items_per_file, fnames_by_variable, _, kwargs = netcdf_local_paths
+def make_http_paths(netcdf_local_paths, request):
+    paths, items_per_file, fnames_by_variable, _, _, file_type = netcdf_local_paths
 
-    url = start_http_server(paths, request, **request.param)
-    path_format = url + "/{variable}_{time:03d}.nc" if fnames_by_variable else None
+    param = getattr(request, "param", {})
+    url = start_http_server(paths, request, **param)
+    suf = "zarr" if file_type == "zarr" else "nc"
+    # what is this variable for? 🤔
+    path_format = url + "/{variable}_{time:03d}" + f".{suf}" if fnames_by_variable else None
 
-    fnames = [path.basename for path in paths]
+    fnames = [os.path.basename(path) for path in paths]
     all_urls = ["/".join([url, str(fname)]) for fname in fnames]
 
-    if "username" in request.param.keys():
-        kwargs.update(dict(fsspec_open_kwargs={"auth": aiohttp.BasicAuth("foo", "bar")}))
-    if "required_query_string" in request.param.keys():
-        kwargs.update(dict(query_string_secrets={"foo": "foo", "bar": "bar"}))
+    kwargs = {}
+    if "username" in param.keys():
+        kwargs = {"fsspec_open_kwargs": {"auth": aiohttp.BasicAuth("foo", "bar")}}
+    if "required_query_string" in param.keys():
+        kwargs.update({"query_string_secrets": {"foo": "foo", "bar": "bar"}})
 
-    return all_urls, items_per_file, fnames_by_variable, path_format, kwargs
+    return all_urls, items_per_file, fnames_by_variable, path_format, kwargs, file_type
 
 
 # Dataset + path fixtures -------------------------------------------------------------------------
@@ -222,16 +245,29 @@ def daily_xarray_dataset_with_coordinateless_dimension(daily_xarray_dataset):
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day)
+    return make_local_paths(
+        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf4"
+    )
+
+
+@pytest.fixture(scope="session")
+def netcdf3_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
+    return make_local_paths(
+        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf3"
+    )
+
+
+@pytest.fixture(scope="session")
+def zarr_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
+    return make_local_paths(
+        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="zarr"
+    )
 
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_2d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(
-        daily_xarray_dataset,
-        tmpdir_factory,
-        "2D",
-        split_up_files_by_day,
+    return make_local_paths(
+        daily_xarray_dataset, tmpdir_factory, "2D", split_up_files_by_day, file_type="netcdf4"
     )
 
 
@@ -239,6 +275,7 @@ def netcdf_local_paths_sequential_2d(daily_xarray_dataset, tmpdir_factory):
     scope="session",
     params=[
         lazy_fixture("netcdf_local_paths_sequential_1d"),
+        lazy_fixture("netcdf3_local_paths_sequential_1d"),
         lazy_fixture("netcdf_local_paths_sequential_2d"),
     ],
 )
@@ -248,21 +285,23 @@ def netcdf_local_paths_sequential(request):
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_multivariable_1d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset,
         tmpdir_factory,
         "D",
         split_up_files_by_variable_and_day,
+        file_type="netcdf4",
     )
 
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_multivariable_2d(daily_xarray_dataset, tmpdir_factory):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset,
         tmpdir_factory,
         "2D",
         split_up_files_by_variable_and_day,
+        file_type="netcdf4",
     )
 
 
@@ -283,11 +322,12 @@ def netcdf_local_paths_sequential_multivariable(request):
 def netcdf_local_paths_sequential_multivariable_with_coordinateless_dimension(
     daily_xarray_dataset_with_coordinateless_dimension, tmpdir_factory
 ):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset_with_coordinateless_dimension,
         tmpdir_factory,
         "D",
         split_up_files_by_variable_and_day,
+        file_type="netcdf4",
     )
 
 
@@ -308,20 +348,38 @@ http_auth_params = [
 ]
 
 
-@pytest.fixture(scope="session", params=[dict()])
+@pytest.fixture(scope="session")
 def netcdf_public_http_paths_sequential_1d(netcdf_local_paths_sequential_1d, request):
-    return make_netcdf_http_paths(netcdf_local_paths_sequential_1d, request)
+    return make_http_paths(netcdf_local_paths_sequential_1d, request)
 
 
-@pytest.fixture(scope="session", params=[*http_auth_params])
+@pytest.fixture(scope="session")
+def netcdf3_public_http_paths_sequential_1d(netcdf3_local_paths_sequential_1d, request):
+    return make_http_paths(netcdf3_local_paths_sequential_1d, request)
+
+
+@pytest.fixture(scope="session")
+def zarr_public_http_paths_sequential_1d(zarr_local_paths_sequential_1d, request):
+    return make_http_paths(zarr_local_paths_sequential_1d, request)
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        dict(username="foo", password="bar"),
+        dict(required_query_string="foo=foo&bar=bar"),
+    ],
+    ids=["http-auth", "query-string-auth"],
+)
 def netcdf_private_http_paths_sequential_1d(netcdf_local_paths_sequential_1d, request):
-    return make_netcdf_http_paths(netcdf_local_paths_sequential_1d, request)
+    return make_http_paths(netcdf_local_paths_sequential_1d, request)
 
 
 @pytest.fixture(
     scope="session",
     params=[
         lazy_fixture("netcdf_public_http_paths_sequential_1d"),
+        lazy_fixture("netcdf3_public_http_paths_sequential_1d"),
         lazy_fixture("netcdf_private_http_paths_sequential_1d"),
     ],
 )
@@ -333,11 +391,12 @@ def netcdf_http_paths_sequential_1d(request):
 def netcdf_local_paths_sequential_with_coordinateless_dimension(
     daily_xarray_dataset_with_coordinateless_dimension, tmpdir_factory
 ):
-    return make_netcdf_local_paths(
+    return make_local_paths(
         daily_xarray_dataset_with_coordinateless_dimension,
         tmpdir_factory,
         "D",
         split_up_files_by_day,
+        file_type="netcdf4",
     )
 
 
@@ -370,6 +429,11 @@ def netcdf_local_file_pattern(request):
 @pytest.fixture(scope="session")
 def netcdf_http_file_pattern_sequential_1d(netcdf_http_paths_sequential_1d):
     return make_file_pattern(netcdf_http_paths_sequential_1d)
+
+
+@pytest.fixture(scope="session")
+def zarr_http_file_pattern_sequential_1d(zarr_public_http_paths_sequential_1d):
+    return make_file_pattern(zarr_public_http_paths_sequential_1d)
 
 
 @pytest.fixture(scope="session")
