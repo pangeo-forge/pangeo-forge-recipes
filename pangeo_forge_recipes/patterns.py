@@ -64,12 +64,32 @@ class DimKey:
     operation: CombineOp
 
 
-class Index(Dict[DimKey, int]):
+@dataclass(frozen=True, order=True)
+class DimVal:
+    position: int
+    start: Optional[int] = None
+    stop: Optional[int] = None
+
+
+class Index(Dict[DimKey, DimVal]):
     pass
 
 
 CombineDim = Union[MergeDim, ConcatDim]
 Index = Index
+
+
+def augment_index_with_start_stop(dim_val: DimVal, item_lens: List[int]) -> DimVal:
+    """Take an index _without_ start / stop and add them based on the lens defined in sequence_lens.
+
+    :param index: The ``DimIndex`` instance to augment.
+    :param item_lens: A list of integer lengths for all items in the sequence.
+    """
+
+    start = sum(item_lens[: dim_val.position])
+    stop = start + item_lens[dim_val.position]
+
+    return DimVal(dim_val.position, start, stop)
 
 
 class AutoName(Enum):
@@ -177,16 +197,16 @@ class FilePattern:
         """Get a filename path for a particular key."""
         assert len(indexer) == len(self.combine_dims)
         format_function_kwargs = {}
-        for idx_key, position in indexer.items():
+        for dimkey, dimval in indexer.items():
             dims = [
                 dim
                 for dim in self.combine_dims
-                if dim.name == idx_key.name and dim.operation == idx_key.operation
+                if dim.name == dimkey.name and dim.operation == dimkey.operation
             ]
             if len(dims) != 1:
                 raise KeyError(r"Could not valid combine_dim for indexer {idx_key}")
             dim = dims[0]
-            format_function_kwargs[dim.name] = dim.keys[position]
+            format_function_kwargs[dim.name] = dim.keys[dimval.position]
         fname = self.format_function(**format_function_kwargs)
         return fname
 
@@ -194,7 +214,7 @@ class FilePattern:
         """Iterate over all keys in the pattern."""
         for val in product(*[range(n) for n in self.shape]):
             index = Index(
-                {DimKey(op.name, op.operation): v for op, v in zip(self.combine_dims, val)}
+                {DimKey(op.name, op.operation): DimVal(v) for op, v in zip(self.combine_dims, val)}
             )
             yield index
 

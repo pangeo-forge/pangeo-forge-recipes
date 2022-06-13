@@ -77,7 +77,7 @@ def _set_engine(file_type, xr_open_kwargs):
 
 
 def open_with_xarray(
-    thing: Union[OpenFileType, str],
+    url_or_file_obj: Union[OpenFileType, str],
     file_type: FileType = FileType.unknown,
     load: bool = False,
     copy_to_local=False,
@@ -86,7 +86,7 @@ def open_with_xarray(
     """Open item with Xarray. Accepts either fsspec open-file-like objects
     or string URLs that can be passed directly to Xarray.
 
-    :param thing: The thing to be opened.
+    :param url_or_file_obj: The url or file object to be opened.
     :param file_type: Provide this if you know what type of file it is.
     :param load: Whether to eagerly load the data into memory ofter opening.
     :param copy_to_local: Whether to copy the file-like-object to a local path
@@ -102,26 +102,26 @@ def open_with_xarray(
     if copy_to_local:
         if file_type in [FileType.zarr or FileType.opendap]:
             raise ValueError(f"File type {file_type} can't be copied to a local file.")
-        if isinstance(thing, str):
+        if isinstance(url_or_file_obj, str):
             raise ValueError(
                 "Won't copy string URLs to local files. Please call ``open_url`` first."
             )
         ntf = tempfile.NamedTemporaryFile()
         tmp_name = ntf.name
         target_opener = open(tmp_name, mode="wb")
-        _copy_btw_filesystems(thing, target_opener)
-        thing = tmp_name
+        _copy_btw_filesystems(url_or_file_obj, target_opener)
+        url_or_file_obj = tmp_name
 
-    if isinstance(thing, str):
+    if isinstance(url_or_file_obj, str):
         pass
-    elif isinstance(thing, io.IOBase):
+    elif isinstance(url_or_file_obj, io.IOBase):
         # required to make mypy happy
         # LocalFileOpener is a subclass of io.IOBase
         pass
-    elif hasattr(thing, "open"):
+    elif hasattr(url_or_file_obj, "open"):
         # work around fsspec inconsistencies
-        thing = thing.open()
-    ds = xr.open_dataset(thing, **kw)
+        url_or_file_obj = url_or_file_obj.open()
+    ds = xr.open_dataset(url_or_file_obj, **kw)
     if load:
         ds.load()
 

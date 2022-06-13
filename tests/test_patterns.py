@@ -5,9 +5,11 @@ import pytest
 from pangeo_forge_recipes.patterns import (
     CombineOp,
     ConcatDim,
+    DimVal,
     FilePattern,
     FileType,
     MergeDim,
+    augment_index_with_start_stop,
     pattern_from_file_sequence,
     prune_pattern,
 )
@@ -80,8 +82,8 @@ def test_pattern_from_file_sequence():
     assert fp.nitems_per_input == {"time": None}
     assert fp.concat_sequence_lens == {"time": None}
     for index in fp:
-        position = next(iter(index.values()))
-        assert fp[index] == file_sequence[position]
+        dimval = next(iter(index.values()))
+        assert fp[index] == file_sequence[dimval.position]
 
 
 @pytest.mark.parametrize("pickle", [False, True])
@@ -120,13 +122,13 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
     assert fp.concat_sequence_lens == {"time": None}
     assert len(list(fp)) == 6
     for key in fp:
-        for k, pos in key.items():
-            if k.name == "time":
-                assert k.operation == CombineOp.CONCAT
-                time_val = times[pos]
-            if k.name == "variable":
-                assert k.operation == CombineOp.MERGE
-                variable_val = varnames[pos]
+        for dimkey, dimval in key.items():
+            if dimkey.name == "time":
+                assert dimkey.operation == CombineOp.CONCAT
+                time_val = times[dimval.position]
+            if dimkey.name == "variable":
+                assert dimkey.operation == CombineOp.MERGE
+                variable_val = varnames[dimval.position]
         expected_fname = format_function(time=time_val, variable=variable_val)
         assert fp[key] == expected_fname
 
@@ -195,3 +197,14 @@ def test_setting_file_types(file_type_value):
     else:
         with pytest.raises(ValueError, match=rf"'{file_type_value}' is not a valid FileType"):
             fp = make_concat_merge_pattern(**file_type_kwargs)[0]
+
+
+@pytest.mark.parametrize(
+    "position,start,stop",
+    [(0, 0, 2), (1, 2, 4), (2, 4, 7), (3, 7, 9), (4, 9, 11)],
+)
+def test_augment_index_with_start_stop(position, start, stop):
+    dk = DimVal(position)
+    expected = DimVal(position, start, stop)
+    actual = augment_index_with_start_stop(dk, [2, 2, 3, 2, 2])
+    assert actual == expected
