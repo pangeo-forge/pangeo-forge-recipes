@@ -1,4 +1,3 @@
-
 @dataclass
 class XarrayZarrRecipe(beam.PTransform):
 
@@ -18,12 +17,11 @@ class XarrayZarrRecipe(beam.PTransform):
         input_urls = beam.create(file_pattern)
         open_files = input_urls | OpenURLWithFSSpec(
             secrets=self.file_pattern.query_string_secrets,
-            open_kwargs=self.file_pattern.fsspec_open_kwargs
+            open_kwargs=self.file_pattern.fsspec_open_kwargs,
         )
         dsets = open_files | OpenWithXarray(
             file_type=self.file_pattern.file_type,
             copy_to_local=self.copy_input_to_local_file,
-            xarray_open_kwargs=self.xarray_open_kwargs
+            xarray_open_kwargs=self.xarray_open_kwargs,
         )
         schemas = dsets | DatasetSchema()
-    

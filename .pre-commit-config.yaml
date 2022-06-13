@@ -21,6 +21,7 @@ repos:
     rev: 3.8.3
     hooks:
     - id: flake8
+      exclude: pangeo_forge_recipes/recipes
 
 -   repo: https://github.com/asottile/seed-isort-config
     rev: v2.2.0
@@ -31,7 +32,7 @@ repos:
     rev: 'v0.931'
     hooks:
     -   id: mypy
-        exclude: tests
+        exclude: tests,pangeo_forge_recipes/recipes
 
 -   repo: https://github.com/pycqa/isort
     rev: 5.5.4
