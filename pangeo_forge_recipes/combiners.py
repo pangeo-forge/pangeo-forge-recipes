@@ -1,3 +1,4 @@
+import operator
 from dataclasses import dataclass
 from functools import reduce
 from typing import Sequence, Tuple, TypeVar
@@ -70,7 +71,7 @@ class CombineXarraySchemas(beam.CombineFn):
         if len(accumulators) == 1:
             return accumulators[0]
         # mypy did not like sum(accumulators)
-        return reduce(lambda a, b: a + b, accumulators)
+        return reduce(operator.add, accumulators)
 
     def extract_output(self, accumulator) -> dict:
         return accumulator.schema
