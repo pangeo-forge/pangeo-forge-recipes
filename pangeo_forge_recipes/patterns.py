@@ -71,12 +71,24 @@ class DimVal:
     stop: Optional[int] = None
 
 
+# Alternative way of specifying type
+# Index = dict[DimKey, DimVal]
+
+
 class Index(Dict[DimKey, DimVal]):
-    pass
+    # the methods below are needed to allow beam to deterministically encode these objects
+    # so they can be used as groupby keys
+    def __hash__(self):
+        return hash(tuple(self.__getstate__()))
+
+    def __getstate__(self):
+        return sorted(self.items())
+
+    def __setstate__(self, state):
+        self.__init__({k: v for k, v in state})
 
 
 CombineDim = Union[MergeDim, ConcatDim]
-Index = Index
 
 
 def augment_index_with_start_stop(dim_val: DimVal, item_lens: List[int]) -> DimVal:

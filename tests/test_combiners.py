@@ -8,8 +8,8 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.combiners import CombineXarraySchemas
-from pangeo_forge_recipes.patterns import CombineOp
+from pangeo_forge_recipes.combiners import CombineNested, CombineXarraySchemas, NestDim
+from pangeo_forge_recipes.patterns import CombineOp, DimKey, FilePattern, Index
 
 # to make these tests more isolated, we create a schema fixture
 # from scratch
@@ -24,6 +24,20 @@ def pipeline():
         yield p
 
 
+def _get_schema(path):
+    ds = xr.open_dataset(path)
+    return ds.to_dict(data=False)
+
+
+def _expected_schema(pattern):
+    expected_ds = xr.open_mfdataset(item[1] for item in pattern.items())
+    expected_schema = expected_ds.to_dict(data=False)
+    expected_schema["chunks"] = {
+        "time": {pos: v for pos, v in enumerate(expected_ds.chunks["time"])}
+    }
+    return expected_schema
+
+
 # TODO: make this fixture leaner; don't need netcdf3 and netcdf4
 @pytest.fixture(
     scope="module",
@@ -32,14 +46,31 @@ def pipeline():
     ],
     ids=["sequential"],
 )
-def schema_pcoll(request):
+def schema_pcoll_concat(request):
     pattern = request.param
+    expected_schema = _expected_schema(pattern)
+    return (
+        pattern,
+        expected_schema,
+        beam.Create(((key, _get_schema(url)) for key, url in pattern.items())),
+    )
 
-    def _get_schema(path):
-        ds = xr.open_dataset(path)
-        return ds.to_dict(data=False)
 
-    return pattern, beam.Create(((key, _get_schema(url)) for key, url in pattern.items()))
+@pytest.fixture(
+    scope="module",
+    params=[
+        lazy_fixture("netcdf_local_file_pattern_sequential_multivariable"),
+    ],
+    ids=["sequential_multivariable"],
+)
+def schema_pcoll_concat_merge(request):
+    pattern = request.param
+    expected_schema = _expected_schema(pattern)
+    return (
+        pattern,
+        expected_schema,
+        beam.Create(((key, _get_schema(url)) for key, url in pattern.items())),
+    )
 
 
 def _get_concat_dim(pattern):
@@ -52,27 +83,90 @@ def _strip_keys(item):
     return item[1]
 
 
-def test_CombineXarraySchemas_concat_1D(schema_pcoll, pipeline):
-    pattern, pcoll = schema_pcoll
+def has_correct_schema(expected_schema):
+    def _check_results(actual):
+        assert len(actual) == 1
+        schema = actual[0]
+        assert schema == expected_schema
+
+    return _check_results
+
+
+def test_CombineXarraySchemas_concat_1D(schema_pcoll_concat, pipeline):
+    pattern, expected_schema, pcoll = schema_pcoll_concat
     concat_dim = _get_concat_dim(pattern)
-
-    expected_ds = xr.open_mfdataset(item[1] for item in pattern.items())
-    expected_schema = expected_ds.to_dict(data=False)
-    expected_schema["chunks"] = {
-        "time": {pos: v for pos, v in enumerate(expected_ds.chunks["time"])}
-    }
-
-    def has_correct_schema():
-        def _check_results(actual):
-            assert len(actual) == 1
-            schema = actual[0]
-            assert schema == expected_schema
-
-        return _check_results
 
     with pipeline as p:
         input = p | pcoll
         output = input | beam.CombineGlobally(
-            CombineXarraySchemas(name=concat_dim, operation=CombineOp.CONCAT)
+            CombineXarraySchemas(DimKey(name=concat_dim, operation=CombineOp.CONCAT))
         )
-        assert_that(output, has_correct_schema())
+        assert_that(output, has_correct_schema(expected_schema))
+
+
+def test_NestDim(schema_pcoll_concat_merge, pipeline):
+    pattern, _, pcoll = schema_pcoll_concat_merge
+    pattern_merge_only = FilePattern(
+        pattern.format_function,
+        *[cdim for cdim in pattern.combine_dims if cdim.operation == CombineOp.MERGE]
+    )
+    merge_only_indexes = list(pattern_merge_only)
+    pattern_concat_only = FilePattern(
+        pattern.format_function,
+        *[cdim for cdim in pattern.combine_dims if cdim.operation == CombineOp.CONCAT]
+    )
+    concat_only_indexes = list(pattern_concat_only)
+
+    def check_key(expected_outer_indexes, expected_inner_indexes):
+        def _check(actual):
+            outer_indexes = [item[0] for item in actual]
+            assert outer_indexes == expected_outer_indexes
+            for outer_index, group in actual:
+                assert isinstance(outer_index, Index)
+                inner_indexes = [item[0] for item in group]
+                assert inner_indexes == expected_inner_indexes
+                for idx in inner_indexes:
+                    assert isinstance(idx, Index)
+
+        return _check
+
+    with pipeline as p:
+        input = p | pcoll
+        group1 = (
+            input
+            | "Nest CONCAT" >> NestDim(DimKey("time", CombineOp.CONCAT))
+            | "Groupby CONCAT" >> beam.GroupByKey()
+        )
+        group2 = (
+            input
+            | "Nest MERGE" >> NestDim(DimKey("variable", CombineOp.MERGE))
+            | "Groupy MERGE" >> beam.GroupByKey()
+        )
+        assert_that(group1, check_key(merge_only_indexes, concat_only_indexes), label="merge")
+        assert_that(group2, check_key(concat_only_indexes, merge_only_indexes), label="concat")
+
+
+def test_CombineNested_concat_1D(schema_pcoll_concat, pipeline):
+    pattern, expected_schema, pcoll = schema_pcoll_concat
+    concat_dim = _get_concat_dim(pattern)
+
+    with pipeline as p:
+        input = p | pcoll
+        output = input | CombineNested([DimKey(name=concat_dim, operation=CombineOp.CONCAT)])
+        assert_that(output, has_correct_schema(expected_schema))
+
+
+_dimkeys = [
+    DimKey("time", operation=CombineOp.CONCAT),
+    DimKey("variable", operation=CombineOp.MERGE),
+]
+
+
+@pytest.mark.parametrize("dimkeys", [_dimkeys, _dimkeys[::-1]], ids=["concat_first", "merge_first"])
+def test_CombineNested_concat_merge(dimkeys, schema_pcoll_concat_merge, pipeline):
+    pattern, expected_schema, pcoll = schema_pcoll_concat_merge
+
+    with pipeline as p:
+        input = p | pcoll
+        output = input | CombineNested(dimkeys)
+        assert_that(output, has_correct_schema(expected_schema))
