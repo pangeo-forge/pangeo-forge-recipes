@@ -4,12 +4,13 @@ import logging
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import Optional, Tuple, TypeVar
+from typing import List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
+from .combiners import CombineXarraySchemas
 from .openers import open_url, open_with_xarray
-from .patterns import FileType, Index
+from .patterns import DimKey, FileType, Index
 from .storage import CacheFSSpecTarget
 
 logger = logging.getLogger(__name__)
@@ -118,3 +119,48 @@ class OpenWithXarray(beam.PTransform):
             copy_to_local=self.copy_to_local,
             xarray_open_kwargs=self.xarray_open_kwargs,
         )
+
+
+def _nest_dim(item: Indexed[T], dim_key: DimKey) -> Indexed[Indexed[T]]:
+    index, value = item
+    inner_index = Index({dim_key: index[dim_key]})
+    outer_index = Index({dk: index[dk] for dk in index if dk != dim_key})
+    return outer_index, (inner_index, value)
+
+
+@dataclass
+class _NestDim(beam.PTransform):
+    """Prepare a collection for grouping by transforming an Index into a nested
+    Tuple of Indexes.
+
+    :param dim_key: The dimension to nest
+    """
+
+    dim_key: DimKey
+
+    def expand(self, pcoll):
+        return pcoll | beam.Map(_nest_dim, dim_key=self.dim_key)
+
+
+@dataclass
+class DetermineSchema(beam.PTransform):
+    """Combine many Dataset schemas into a single schema along multiple dimensions.
+    This is a reduction that produces a singleton PCollection.
+
+    :param combine_dims: The dimensions to combine
+    """
+
+    combine_dims: List[DimKey]
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        cdims = self.combine_dims.copy()
+        while len(cdims) > 0:
+            last_dim = cdims.pop()
+            if len(cdims) == 0:
+                # at this point, we should have a 1D index as our key
+                pcoll = pcoll | beam.CombineGlobally(CombineXarraySchemas(last_dim))
+            else:
+                pcoll = (
+                    pcoll | _NestDim(last_dim) | beam.CombinePerKey(CombineXarraySchemas(last_dim))
+                )
+        return pcoll

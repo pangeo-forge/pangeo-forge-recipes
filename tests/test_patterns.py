@@ -5,7 +5,7 @@ import pytest
 from pangeo_forge_recipes.patterns import (
     CombineOp,
     ConcatDim,
-    DimIndex,
+    DimVal,
     FilePattern,
     FileType,
     MergeDim,
@@ -81,8 +81,9 @@ def test_pattern_from_file_sequence():
     assert fp.concat_dims == ["time"]
     assert fp.nitems_per_input == {"time": None}
     assert fp.concat_sequence_lens == {"time": None}
-    for key in fp:
-        assert fp[key] == file_sequence[sorted(key)[0].index]
+    for index in fp:
+        dimval = next(iter(index.values()))
+        assert fp[index] == file_sequence[dimval.position]
 
 
 @pytest.mark.parametrize("pickle", [False, True])
@@ -121,15 +122,13 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
     assert fp.concat_sequence_lens == {"time": None}
     assert len(list(fp)) == 6
     for key in fp:
-        for k in key:
-            if k.name == "time":
-                assert k.operation == CombineOp.CONCAT
-                assert k.sequence_len == 3
-                time_val = times[k.index]
-            if k.name == "variable":
-                assert k.operation == CombineOp.MERGE
-                assert k.sequence_len == 2
-                variable_val = varnames[k.index]
+        for dimkey, dimval in key.items():
+            if dimkey.name == "time":
+                assert dimkey.operation == CombineOp.CONCAT
+                time_val = times[dimval.position]
+            if dimkey.name == "variable":
+                assert dimkey.operation == CombineOp.MERGE
+                variable_val = varnames[dimval.position]
         expected_fname = format_function(time=time_val, variable=variable_val)
         assert fp[key] == expected_fname
 
@@ -201,24 +200,11 @@ def test_setting_file_types(file_type_value):
 
 
 @pytest.mark.parametrize(
-    "index,start,stop",
+    "position,start,stop",
     [(0, 0, 2), (1, 2, 4), (2, 4, 7), (3, 7, 9), (4, 9, 11)],
 )
-def test_augment_index_with_start_stop(index, start, stop):
-    kw = dict(name="time", index=index, sequence_len=5, operation=CombineOp.CONCAT)
-    di = DimIndex(**kw)
-    expected = DimIndex(start=start, stop=stop, **kw)
-    actual = augment_index_with_start_stop(di, [2, 2, 3, 2, 2])
+def test_augment_index_with_start_stop(position, start, stop):
+    dk = DimVal(position)
+    expected = DimVal(position, start, stop)
+    actual = augment_index_with_start_stop(dk, [2, 2, 3, 2, 2])
     assert actual == expected
-
-
-@pytest.mark.parametrize(
-    "dimindex_sequence_len, passed_sequence_lengths",
-    [(2, [1]), (2, [1, 1, 1])],
-)
-def test_augment_index_with_start_stop_raises(dimindex_sequence_len, passed_sequence_lengths):
-    kw = dict(name="time", index=0, operation=CombineOp.CONCAT)
-    di = DimIndex(sequence_len=dimindex_sequence_len, **kw)
-
-    with pytest.raises(AssertionError):
-        augment_index_with_start_stop(di, passed_sequence_lengths)

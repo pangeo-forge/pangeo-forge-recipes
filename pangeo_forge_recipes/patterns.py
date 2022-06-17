@@ -2,25 +2,13 @@
 Filename / URL patterns.
 """
 import inspect
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum, auto
 from hashlib import sha256
 from itertools import product
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    FrozenSet,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
-from .serialization import dataclass_sha256, dict_drop_empty, dict_to_sha256
+from .serialization import dict_drop_empty, dict_to_sha256
 
 
 class CombineOp(Enum):
@@ -69,62 +57,69 @@ class MergeDim:
     operation: ClassVar[CombineOp] = CombineOp.MERGE
 
 
+# would it be simpler to just use a tuple?
 @dataclass(frozen=True, order=True)
-class DimIndex:
-    """Object used to index a single dimension of a FilePattern or Recipe Chunks.
-
-    :param name: The name of the dimension.
-    :param index: The position of the item within the sequence.
-    :param sequence_len: The total length of the sequence.
-    :param operation: What type of Combine Operation does this dimension represent.
-    :param start: The explicit absolute array index start location of the data in this chunk,
-      in respect to the full dataset.
-    :param stop: The explicit absolute array index stop location of the data in this chunk,
-      in respect to the full dataset.
+class DimKey:
+    """
+    :param name: The name of the dimension we are combining over.
+    :param operation: What type of combination this is (merge or concat)
     """
 
     name: str
-    index: int
-    sequence_len: int
     operation: CombineOp
+
+
+@dataclass(frozen=True, order=True)
+class DimVal:
+    """
+    :param position: Where this item lies within the sequence.
+    :param start: Where the starting array index for the item.
+    :param stop: The ending array index for the item.
+    """
+
+    position: int
     start: Optional[int] = None
     stop: Optional[int] = None
 
-    def __str__(self):
-        return f"{self.name}-{self.index}"
 
-    def __post_init__(self):
-        assert self.sequence_len > 0
-        assert self.index >= 0
-        assert self.index < self.sequence_len
-        if self.start:
-            assert self.stop is not None
-            assert self.start < self.stop
+# Alternative way of specifying type
+# Index = dict[DimKey, DimVal]
 
 
-class Index(FrozenSet[DimIndex]):
-    pass
+class Index(Dict[DimKey, DimVal]):
+    """An Index is a special sort of dictionary which describes a position within
+    a multidimensional set.
+
+    - The key is a :class:`DimKey` which tells us which dimension we are addressing.
+    - The value is a :class:`DimVal` which tells us where we are within that dimension.
+
+    This object is hashable and deterministically serializable.
+    """
+
+    def __hash__(self):
+        return hash(tuple(self.__getstate__()))
+
+    def __getstate__(self):
+        return sorted(self.items())
+
+    def __setstate__(self, state):
+        self.__init__({k: v for k, v in state})
 
 
 CombineDim = Union[MergeDim, ConcatDim]
-FilePatternIndex = Index
 
 
-def augment_index_with_start_stop(index: DimIndex, item_lens: List[int]) -> DimIndex:
+def augment_index_with_start_stop(dim_val: DimVal, item_lens: List[int]) -> DimVal:
     """Take an index _without_ start / stop and add them based on the lens defined in sequence_lens.
 
     :param index: The ``DimIndex`` instance to augment.
     :param item_lens: A list of integer lengths for all items in the sequence.
     """
 
-    assert len(item_lens) == index.sequence_len
-    start = sum(item_lens[: index.index])
-    stop = start + item_lens[index.index]
+    start = sum(item_lens[: dim_val.position])
+    stop = start + item_lens[dim_val.position]
 
-    kw = asdict(index)
-    kw["start"] = start
-    kw["stop"] = stop
-    return DimIndex(**kw)
+    return DimVal(dim_val.position, start, stop)
 
 
 class AutoName(Enum):
@@ -228,31 +223,28 @@ class FilePattern:
             for dim_name, nitems in self.nitems_per_input.items()
         }
 
-    def __getitem__(self, indexer: FilePatternIndex) -> str:
+    def __getitem__(self, indexer: Index) -> str:
         """Get a filename path for a particular key."""
         assert len(indexer) == len(self.combine_dims)
         format_function_kwargs = {}
-        for idx in indexer:
+        for dimkey, dimval in indexer.items():
             dims = [
                 dim
                 for dim in self.combine_dims
-                if dim.name == idx.name and dim.operation == idx.operation
+                if dim.name == dimkey.name and dim.operation == dimkey.operation
             ]
             if len(dims) != 1:
-                raise KeyError(r"Could not valid combine_dim for indexer {idx}")
+                raise KeyError(r"Could not valid combine_dim for indexer {idx_key}")
             dim = dims[0]
-            format_function_kwargs[dim.name] = dim.keys[idx.index]
+            format_function_kwargs[dim.name] = dim.keys[dimval.position]
         fname = self.format_function(**format_function_kwargs)
         return fname
 
-    def __iter__(self) -> Iterator[FilePatternIndex]:
+    def __iter__(self) -> Iterator[Index]:
         """Iterate over all keys in the pattern."""
         for val in product(*[range(n) for n in self.shape]):
             index = Index(
-                (
-                    DimIndex(op.name, v, len(op.keys), op.operation)
-                    for op, v in zip(self.combine_dims, val)
-                )
+                {DimKey(op.name, op.operation): DimVal(v) for op, v in zip(self.combine_dims, val)}
             )
             yield index
 
@@ -339,11 +331,9 @@ def pattern_blockchain(pattern: FilePattern) -> List[bytes]:
 
     blockchain = [root_sha256]
     for k, v in pattern.items():
-        key_hash = b"".join(
-            sorted([dataclass_sha256(dimindex, ignore_keys=["sequence_len"]) for dimindex in k])
-        )
+        # key is no longer part of the hash
         value_hash = sha256(v.encode("utf-8")).digest()
-        new_hash = key_hash + value_hash
+        new_hash = value_hash
         new_block = sha256(blockchain[-1] + new_hash).digest()
         blockchain.append(new_block)
 
