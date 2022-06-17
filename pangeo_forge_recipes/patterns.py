@@ -60,12 +60,23 @@ class MergeDim:
 # would it be simpler to just use a tuple?
 @dataclass(frozen=True, order=True)
 class DimKey:
+    """
+    :param name: The name of the dimension we are combining over.
+    :param operation: What type of combination this is (merge or concat)
+    """
+
     name: str
     operation: CombineOp
 
 
 @dataclass(frozen=True, order=True)
 class DimVal:
+    """
+    :param position: Where this item lies within the sequence.
+    :param start: Where the starting array index for the item.
+    :param stop: The ending array index for the item.
+    """
+
     position: int
     start: Optional[int] = None
     stop: Optional[int] = None
@@ -76,8 +87,15 @@ class DimVal:
 
 
 class Index(Dict[DimKey, DimVal]):
-    # the methods below are needed to allow beam to deterministically encode these objects
-    # so they can be used as groupby keys
+    """An Index is a special sort of dictionary which describes a position within
+    a multidimensional set.
+
+    - The key is a :class:`DimKey` which tells us which dimension we are addressing.
+    - The value is a :class:`DimVal` which tells us where we are within that dimension.
+
+    This object is hashable and deterministically serializable.
+    """
+
     def __hash__(self):
         return hash(tuple(self.__getstate__()))
 

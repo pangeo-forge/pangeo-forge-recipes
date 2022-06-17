@@ -16,6 +16,13 @@ def empty_xarray_schema():
 
 @dataclass
 class XarrayCombineAccumulator:
+    """An object used to help combine Xarray schemas.
+
+    :param schema: A schema to initialize the accumulator with.
+    :param concat_dim: If set, this accumulator applies concat rules.
+       Otherwise applies merge rules.
+    """
+
     schema: dict = field(default_factory=empty_xarray_schema)
     concat_dim: Optional[str] = None
 
@@ -30,21 +37,21 @@ class XarrayCombineAccumulator:
                 self.concat_dim not in s["chunks"]
             ), "Concat dim should be unchunked for new input"
             s["chunks"][self.concat_dim] = {position: s["dims"][self.concat_dim]}
-        self.schema = _merge_xarray_schemas(self.schema, s, concat_dim=self.concat_dim)
+        self.schema = _combine_xarray_schemas(self.schema, s, concat_dim=self.concat_dim)
 
     def __add__(self, other: XarrayCombineAccumulator) -> XarrayCombineAccumulator:
         if other.concat_dim != self.concat_dim:
             raise DatasetCombineError("Can't merge accumulators with different concat_dims")
-        new_schema = _merge_xarray_schemas(self.schema, other.schema, self.concat_dim)
+        new_schema = _combine_xarray_schemas(self.schema, other.schema, self.concat_dim)
         return XarrayCombineAccumulator(new_schema, self.concat_dim)
 
 
-def _merge_xarray_schemas(s1: dict, s2: dict, concat_dim: Optional[str] = None):
-    dims = _merge_dims(s1["dims"], s2["dims"], concat_dim)
-    chunks = _merge_chunks(s1["chunks"], s2["chunks"], concat_dim)
-    attrs = _merge_attrs(s1["attrs"], s2["attrs"])
-    data_vars = _merge_vars(s1["data_vars"], s2["data_vars"], concat_dim)
-    coords = _merge_vars(s1["coords"], s2["coords"], concat_dim, allow_both=True)
+def _combine_xarray_schemas(s1: dict, s2: dict, concat_dim: Optional[str] = None):
+    dims = _combine_dims(s1["dims"], s2["dims"], concat_dim)
+    chunks = _combine_chunks(s1["chunks"], s2["chunks"], concat_dim)
+    attrs = _combine_attrs(s1["attrs"], s2["attrs"])
+    data_vars = _combine_vars(s1["data_vars"], s2["data_vars"], concat_dim)
+    coords = _combine_vars(s1["coords"], s2["coords"], concat_dim, allow_both=True)
     return {
         "attrs": attrs,
         "coords": coords,
@@ -54,7 +61,7 @@ def _merge_xarray_schemas(s1: dict, s2: dict, concat_dim: Optional[str] = None):
     }
 
 
-def _merge_dims(
+def _combine_dims(
     d1: Dict[str, int], d2: Dict[str, int], concat_dim: Optional[str]
 ) -> Dict[str, int]:
     if d1 is None:
@@ -80,7 +87,7 @@ ChunkDict = Dict[str, Dict[int, int]]
 #  dim_name: {position, chunk_len}
 
 
-def _merge_chunks(c1: ChunkDict, c2: ChunkDict, concat_dim: Optional[str]) -> ChunkDict:
+def _combine_chunks(c1: ChunkDict, c2: ChunkDict, concat_dim: Optional[str]) -> ChunkDict:
     if c1 is None:
         return c2
 
@@ -101,7 +108,7 @@ def _merge_chunks(c1: ChunkDict, c2: ChunkDict, concat_dim: Optional[str]) -> Ch
     return chunks
 
 
-def _merge_attrs(a1: dict, a2: dict) -> dict:
+def _combine_attrs(a1: dict, a2: dict) -> dict:
     if a1 is None:
         return a2
     # for now, only keep attrs that are the same in both datasets
@@ -113,11 +120,11 @@ def _merge_attrs(a1: dict, a2: dict) -> dict:
     return new_attrs
 
 
-def _merge_dtype(d1, d2):
+def _combine_dtype(d1, d2):
     return str(np.promote_types(d1, d2))
 
 
-def _merge_vars(v1, v2, concat_dim, allow_both=False):
+def _combine_vars(v1, v2, concat_dim, allow_both=False):
     if v1 is None:
         return v2
     all_vars = set(v1) | set(v2)
@@ -130,8 +137,8 @@ def _merge_vars(v1, v2, concat_dim, allow_both=False):
         else:
             if concat_dim is None and not allow_both:
                 raise DatasetCombineError(f"Can't merge datasets with the same variable {vname}")
-            attrs = _merge_attrs(v1[vname]["attrs"], v2[vname]["attrs"])
-            dtype = _merge_dtype(v1[vname]["dtype"], v2[vname]["dtype"])
+            attrs = _combine_attrs(v1[vname]["attrs"], v2[vname]["attrs"])
+            dtype = _combine_dtype(v1[vname]["dtype"], v2[vname]["dtype"])
             (d1, s1), (d2, s2) = (
                 (v1[vname]["dims"], v1[vname]["shape"]),
                 (v2[vname]["dims"], v2[vname]["shape"]),

@@ -30,7 +30,11 @@
 ```
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.patterns.DimIndex
+.. autoclass:: pangeo_forge_recipes.patterns.DimKey
+    :members:
+```
+```{eval-rst}
+.. autoclass:: pangeo_forge_recipes.patterns.DimVal
     :members:
 ```
 
@@ -63,6 +67,13 @@ These are those functions.
     :members:
 ```
 
+```{eval-rst}
+.. autoclass:: pangeo_forge_recipes.aggregation.XarrayCombineAccumulator
+    :members:
+    :special-members: __add__
+```
+
+
 
 ## PTransforms
 
@@ -74,5 +85,13 @@ The [Beam PTransform Style Guide](https://beam.apache.org/contribute/ptransform-
 
 ```{eval-rst}
 .. automodule:: pangeo_forge_recipes.transforms
+    :members:
+```
+
+## Combiners
+
+
+```{eval-rst}
+.. automodule:: pangeo_forge_recipes.combiners
     :members:
 ```
