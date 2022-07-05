@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
+import dask.array as dsa
 import numpy as np
+import xarray as xr
 
 
 class DatasetCombineError(Exception):
@@ -29,6 +31,9 @@ class XarrayCombineAccumulator:
     def add_input(self, s: dict, position: int) -> None:
         s = s.copy()  # avoid modifying input
         if "chunks" not in s:
+            # By default, the output of ds.to_dict(data=False) includes nothing
+            # about the chunks. We may want an intermediary function that actually
+            # looks at the contents of the dataset and sets chunks appropriately.
             s["chunks"] = {}
         else:
             s["chunks"] = s["chunks"].copy()
@@ -159,3 +164,42 @@ def _combine_vars(v1, v2, concat_dim, allow_both=False):
                     shape.append(l1)
             new_vars[vname] = {"dims": dims, "attrs": attrs, "dtype": dtype, "shape": tuple(shape)}
     return new_vars
+
+
+def _to_variable(template, target_chunks):
+    """Create an xarray variable from a specification."""
+    dims = template["dims"]
+    shape = template["shape"]
+    # todo: possibly override with encoding dtype once we add encoding to the schema
+    dtype = template["dtype"]
+    chunks = tuple(target_chunks[dim] for dim in dims)
+    # we pick ones as the safest value to initialize empty data with
+    # will only be used for dimension coordinates
+    data = dsa.ones(shape=shape, chunks=chunks, dtype=dtype)
+    # TODO: add encoding
+    return xr.Variable(dims=dims, data=data, attrs=template["attrs"])
+
+
+def schema_to_template_ds(
+    schema: Dict, specified_chunks: Optional[Dict[str, int]] = None
+) -> xr.Dataset:
+    """Convert a schema to an xarray dataset as lazily as possible."""
+
+    # start by defaulting to the full shape for chunks
+    target_chunks = schema["dims"].copy()
+    # if the schema is chunked, use that
+    target_chunks.update({dim: dimchunks[0] for dim, dimchunks in schema["chunks"].items()})
+    # finally override with any specified chunks
+    target_chunks.update(specified_chunks or {})
+
+    data_vars = {
+        name: _to_variable(template, target_chunks)
+        for name, template in schema["data_vars"].items()
+    }
+
+    coords = {
+        name: _to_variable(template, target_chunks) for name, template in schema["coords"].items()
+    }
+
+    ds = xr.Dataset(data_vars=data_vars, coords=coords, attrs=schema["attrs"])
+    return ds
