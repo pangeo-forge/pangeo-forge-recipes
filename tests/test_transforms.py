@@ -8,6 +8,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
+from pangeo_forge_recipes.storage import CacheFSSpecTarget
 from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray
 
 
@@ -45,24 +46,26 @@ def pattern_direct(request):
 
 
 @pytest.fixture(params=[True, False], ids=["with_cache", "no_cache"])
-def cache(tmp_cache, request):
+def cache_url(tmp_cache_url, request):
     if request.param:
-        return tmp_cache
+        return tmp_cache_url
     else:
         return None
 
 
 @pytest.fixture
-def pcoll_opened_files(pattern, cache):
+def pcoll_opened_files(pattern, cache_url):
     input = beam.Create(pattern.items())
     output = input | OpenURLWithFSSpec(
-        cache=cache, secrets=pattern.query_string_secrets, open_kwargs=pattern.fsspec_open_kwargs
+        cache_url=cache_url,
+        secrets=pattern.query_string_secrets,
+        open_kwargs=pattern.fsspec_open_kwargs,
     )
-    return output, pattern, cache
+    return output, pattern, cache_url
 
 
 def test_OpenURLWithFSSpec(pcoll_opened_files):
-    pcoll, pattern, cache = pcoll_opened_files
+    pcoll, pattern, cache_url = pcoll_opened_files
 
     def expected_len(n):
         def _expected_len(actual):
@@ -89,7 +92,8 @@ def test_OpenURLWithFSSpec(pcoll_opened_files):
         assert_that(output, expected_len(pattern.shape[0]), label="expected len")
         assert_that(output, is_readable(), label="output is readable")
 
-    if cache:
+    if cache_url:
+        cache = CacheFSSpecTarget.from_url(cache_url)
         for key, fname in pattern.items():
             assert cache.exists(fname)
 
@@ -117,7 +121,7 @@ def pcoll_xarray_datasets(pcoll_opened_files):
 
 @pytest.mark.parametrize("load", [False, True], ids=["lazy", "eager"])
 def test_OpenWithXarray_via_fsspec(pcoll_opened_files, load, pipeline):
-    input, pattern, cache = pcoll_opened_files
+    input, pattern, cache_url = pcoll_opened_files
     with pipeline as p:
         output = p | input | OpenWithXarray(file_type=pattern.file_type, load=load)
         assert_that(output, is_xr_dataset(in_memory=load))
@@ -132,7 +136,7 @@ def test_OpenWithXarray_direct(pattern_direct, load, pipeline):
 
 
 def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
-    input, pattern, cache = pcoll_opened_files
+    input, pattern, cache_url = pcoll_opened_files
 
     def manually_load(item):
         key, ds = item
