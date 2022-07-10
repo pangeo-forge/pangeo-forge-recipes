@@ -6,6 +6,7 @@ import warnings
 from typing import Dict, Optional, Union
 
 import xarray as xr
+import zarr
 
 from .patterns import FileType
 from .storage import CacheFSSpecTarget, OpenFileType, _copy_btw_filesystems, _get_opener
@@ -77,7 +78,7 @@ def _set_engine(file_type, xr_open_kwargs):
 
 
 def open_with_xarray(
-    url_or_file_obj: Union[OpenFileType, str],
+    url_or_file_obj: Union[OpenFileType, str, zarr.storage.FSStore],
     file_type: FileType = FileType.unknown,
     load: bool = False,
     copy_to_local=False,
@@ -114,6 +115,9 @@ def open_with_xarray(
 
     if isinstance(url_or_file_obj, str):
         pass
+    elif isinstance(url_or_file_obj, zarr.storage.FSStore):
+        if file_type is not FileType.zarr:
+            raise ValueError(f"FSStore object can only be opened as FileType.zarr; got {file_type}")
     elif isinstance(url_or_file_obj, io.IOBase):
         # required to make mypy happy
         # LocalFileOpener is a subclass of io.IOBase

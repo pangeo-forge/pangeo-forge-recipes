@@ -4,14 +4,15 @@ import logging
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import List, Optional, Tuple, TypeVar
+from typing import Dict, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
+from .aggregation import schema_to_zarr
 from .combiners import CombineXarraySchemas
 from .openers import open_url, open_with_xarray
 from .patterns import DimKey, FileType, Index
-from .storage import CacheFSSpecTarget
+from .storage import CacheFSSpecTarget, FSSpecTarget
 
 logger = logging.getLogger(__name__)
 
@@ -165,3 +166,17 @@ class DetermineSchema(beam.PTransform):
                     pcoll | _NestDim(last_dim) | beam.CombinePerKey(CombineXarraySchemas(last_dim))
                 )
         return pcoll
+
+
+@dataclass
+class PrepareZarrTarget(beam.PTransform):
+    target_url: str
+    target_chunks: Dict[str, int] = field(default_factory=dict)
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        target = FSSpecTarget.from_url(self.target_url)
+        store = target.get_mapper()
+        initialized_target = pcoll | beam.Map(
+            schema_to_zarr, target_store=store, target_chunks=self.target_chunks
+        )
+        return initialized_target

@@ -6,6 +6,7 @@ from typing import Dict, Optional
 import dask.array as dsa
 import numpy as np
 import xarray as xr
+import zarr
 
 
 class DatasetCombineError(Exception):
@@ -203,3 +204,15 @@ def schema_to_template_ds(
 
     ds = xr.Dataset(data_vars=data_vars, coords=coords, attrs=schema["attrs"])
     return ds
+
+
+def schema_to_zarr(
+    schema: Dict,
+    target_store: zarr.storage.FSStore,
+    target_chunks: Optional[Dict[str, int]] = None,
+) -> zarr.storage.FSStore:
+    """Initialize a zarr group based on a schema."""
+    ds = schema_to_template_ds(schema, specified_chunks=target_chunks)
+    # using mode="w" makes this function idempotent
+    ds.to_zarr(target_store, mode="w")
+    return target_store

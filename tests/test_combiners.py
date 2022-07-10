@@ -3,8 +3,6 @@ import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
-
-# from apache_beam.testing.util import assert_that, equal_to
 from apache_beam.testing.util import assert_that
 from pytest_lazyfixture import lazy_fixture
 
@@ -152,7 +150,7 @@ def test_DetermineSchema_concat_1D(schema_pcoll_concat, pipeline):
     with pipeline as p:
         input = p | pcoll
         output = input | DetermineSchema([DimKey(name=concat_dim, operation=CombineOp.CONCAT)])
-        assert_that(output, has_correct_schema(expected_schema))
+        assert_that(output, has_correct_schema(expected_schema), label="correct schema")
 
 
 _dimkeys = [

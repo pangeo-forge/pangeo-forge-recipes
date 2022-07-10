@@ -9,7 +9,9 @@ from apache_beam.testing.util import BeamAssertException, assert_that, is_not_em
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
-from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray
+from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, PrepareZarrTarget
+
+from .data_generation import make_ds
 
 
 @pytest.fixture
@@ -146,3 +148,31 @@ def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
         output = p | input | OpenWithXarray(file_type=pattern.file_type, load=False)
         loaded_dsets = output | beam.Map(manually_load)
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
+
+
+def test_PrepareZarrTarget(pipeline, tmp_target_url):
+
+    ds = make_ds()
+    schema = ds.to_dict(data=False)
+    schema["chunks"] = {}
+
+    def correct_target():
+        def _check_target(actual):
+            assert len(actual) == 1
+            item = actual[0]
+            ds_target = xr.open_zarr(item, consolidated=False).load()
+            # the datasets contents shouldn't be set yet, just metadata
+            assert ds_target.attrs == ds.attrs
+            for vname, v in ds.items():
+                v_actual = ds_target[vname]
+                assert v.dims == v_actual.dims
+                assert v.data.shape == v_actual.data.shape
+                assert v.data.dtype == v_actual.data.dtype
+                assert v.attrs == v_actual.attrs
+
+        return _check_target
+
+    with pipeline as p:
+        input = p | beam.Create([schema])
+        target = input | PrepareZarrTarget(target_url=tmp_target_url)
+        assert_that(target, correct_target())
