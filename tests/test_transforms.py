@@ -1,6 +1,7 @@
 import apache_beam as beam
 import pytest
 import xarray as xr
+import zarr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 
@@ -150,7 +151,8 @@ def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
 
 
-def test_PrepareZarrTarget(pipeline, tmp_target_url):
+@pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])
+def test_PrepareZarrTarget(pipeline, tmp_target_url, target_chunks):
 
     ds = make_ds()
     schema = ds.to_dict(data=False)
@@ -160,7 +162,8 @@ def test_PrepareZarrTarget(pipeline, tmp_target_url):
         def _check_target(actual):
             assert len(actual) == 1
             item = actual[0]
-            ds_target = xr.open_zarr(item, consolidated=False).load()
+            ds_target = xr.open_zarr(item, consolidated=False, chunks={})
+            zgroup = zarr.open_group(item)
             # the datasets contents shouldn't be set yet, just metadata
             assert ds_target.attrs == ds.attrs
             for vname, v in ds.items():
@@ -170,9 +173,15 @@ def test_PrepareZarrTarget(pipeline, tmp_target_url):
                 assert v.data.dtype == v_actual.data.dtype
                 assert v.attrs == v_actual.attrs
 
+                zarr_chunks = zgroup[vname].chunks
+                expected_chunks = tuple(
+                    target_chunks.get(dim) or dimsize for dim, dimsize in v.sizes.items()
+                )
+                assert zarr_chunks == expected_chunks
+
         return _check_target
 
     with pipeline as p:
         input = p | beam.Create([schema])
-        target = input | PrepareZarrTarget(target_url=tmp_target_url)
+        target = input | PrepareZarrTarget(target_url=tmp_target_url, target_chunks=target_chunks)
         assert_that(target, correct_target())

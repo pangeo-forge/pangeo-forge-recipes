@@ -170,6 +170,16 @@ class DetermineSchema(beam.PTransform):
 
 @dataclass
 class PrepareZarrTarget(beam.PTransform):
+    """From a singleton PCollection containing a dataset schema, initialize a
+    Zarr store with the correct variables, dimension, dimensions and chunking.
+
+    :param target_url: Where to store the target Zarr dataset.
+    :param target_chunks: Dictionary mapping dimension names to chunks sizes.
+        If a dimension is a not named, the chunks will be inferred from the schema.
+        If chunking is present in the schema fo a given dimension, the length of
+        the first chunk will be used. Otherwise, the dimension will not be chunked.
+    """
+
     target_url: str
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
