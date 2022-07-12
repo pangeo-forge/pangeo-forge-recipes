@@ -22,7 +22,7 @@ import zarr
 from ..chunk_grid import ChunkGrid
 from ..executors.base import Pipeline, Stage
 from ..patterns import CombineOp, DimIndex, FilePattern, FileType, Index
-from ..reference import create_hdf5_reference, unstrip_protocol
+from ..reference import create_kerchunk_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
 from .base import BaseRecipe, FilePatternMixin, StorageMixin
@@ -199,7 +199,7 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             secrets=config.file_pattern.query_string_secrets,
             **config.file_pattern.fsspec_open_kwargs,
         ) as fp:
-            ref_data = create_hdf5_reference(fp, url, fname)
+            ref_data = create_kerchunk_reference(fp, url, config.file_pattern.file_type)
         config.storage_config.metadata[ref_fname] = ref_data
 
 
