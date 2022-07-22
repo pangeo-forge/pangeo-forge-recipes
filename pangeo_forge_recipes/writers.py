@@ -52,8 +52,17 @@ def _is_first_in_merge_dim(index):
 def store_dataset_fragment(
     item: Tuple[Index, xr.Dataset], target_store: zarr.storage.FSStore
 ) -> None:
+    """Store a piece of a dataset in a Zarr store.
+
+    :param item: The index and dataset to be stored
+    :param target_store: The destination to store in
+    """
+
     index, ds = item
     zgroup = zarr.open_group(target_store)
+
+    # TODO: check that the dataset and the index are compatible
+
     # only store coords if this is the first item in a merge dim
     if _is_first_in_merge_dim(index):
         for vname, da in ds.coords.items():
