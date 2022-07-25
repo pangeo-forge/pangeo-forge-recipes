@@ -11,7 +11,7 @@ from kerchunk.combine import MultiZarrToZarr
 
 from ..executors.base import Pipeline, Stage
 from ..patterns import FileType, Index
-from ..reference import create_hdf5_reference, unstrip_protocol
+from ..reference import create_grib2_reference, create_hdf5_reference, unstrip_protocol  # noqa
 from ..storage import file_opener
 from .base import BaseRecipe, FilePatternMixin, StorageMixin
 
@@ -27,18 +27,28 @@ def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
     assert config.storage_config.metadata is not None, "metadata_cache is required"
     fname = config.file_pattern[chunk_key]
     ref_fname = os.path.basename(fname + ".json")
-    with file_opener(fname, **config.netcdf_storage_options) as fp:
+    with file_opener(fname, **config.src_storage_options) as fp:
         protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
         if protocol is None:
             raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
-        config.storage_config.metadata[ref_fname] = create_hdf5_reference(fp, target_url, fname)
+        # reference = create_hdf5_reference(fp, target_url, fname)
+        reference = create_grib2_reference(fp, fname, target_url, **config.src_storage_options)
+        print(">> reference")
+        import pprint
+
+        pprint.pprint(reference)
+        config.storage_config.metadata[ref_fname] = reference
 
 
 def finalize(config: HDFReferenceRecipe):
     assert config.storage_config.target is not None, "target is required"
     assert config.storage_config.metadata is not None, "metadata_cache is required"
     remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
+
+    import pprint
+
+    pprint.pprint(config.storage_config)
 
     files = list(
         config.storage_config.metadata.getitems(
@@ -51,7 +61,7 @@ def finalize(config: HDFReferenceRecipe):
         mzz = MultiZarrToZarr(
             files,
             remote_protocol=remote_protocol,
-            remote_options=config.netcdf_storage_options,
+            remote_options=config.src_storage_options,
             coo_dtypes=config.coo_dtypes,
             coo_map=config.coo_map,
             identical_dims=config.identical_dims,
@@ -78,7 +88,7 @@ def finalize(config: HDFReferenceRecipe):
                         "target_protocol": protocol,
                         "target_options": config.output_storage_options,
                         "remote_protocol": remote_protocol,
-                        "remote_options": config.netcdf_storage_options,
+                        "remote_options": config.src_storage_options,
                         "skip_instance_cache": True,
                     },
                     "chunks": {},  # can optimize access here
@@ -102,7 +112,7 @@ def hdf_reference_recipe_compiler(recipe: HDFReferenceRecipe) -> Pipeline:
 @dataclass
 class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     """
-    Generates reference files for each input netCDF, then combines
+    Generates reference files for each input file, then combines
     into one ensemble output
 
     Currently supports concat or merge along a single dimension.
@@ -124,8 +134,8 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
       this default config can be used for testing and debugging the recipe. In an actual execution
       context, the default config is re-assigned to point to the destination(s) of choice, which can
       be any combination of ``fsspec``-compatible storage backends.
-    :param netcdf_storage_options: dict of kwargs for creating fsspec
-        instance to read original data files
+    :param src_storage_options: dict of kwargs for creating fsspec instance to read original data
+        files
     :param inline_threshold: blocks with fewer bytes than this will be
         inlined into the output reference file
     :param output_storage_options: dict of kwargs for creating fsspec
@@ -156,7 +166,7 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     #  also supports TIFF, FITS, netCDF3 and grib2 (and more coming)
     output_json_fname: str = "reference.json"
     output_intake_yaml_fname: str = "reference.yaml"
-    netcdf_storage_options: dict = field(default_factory=dict)
+    src_storage_options: dict = field(default_factory=dict)
     inline_threshold: int = 500
     output_storage_options: dict = field(default_factory=dict)
     concat_dims: list = field(default_factory=list)
@@ -170,8 +180,9 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         self._validate_file_pattern()
 
     def _validate_file_pattern(self):
-        if self.file_pattern.file_type != FileType.netcdf4:
-            raise ValueError("This recipe works on netcdf4 input only")
+        print(self.file_pattern.file_type)
+        if self.file_pattern.file_type not in (FileType.netcdf4, FileType.grib):
+            raise ValueError("This recipe works on netcdf4 or gribinput only")
         if len(self.file_pattern.merge_dims) > 1:
             raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
         if len(self.file_pattern.concat_dims) > 1:
