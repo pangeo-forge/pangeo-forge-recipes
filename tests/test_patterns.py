@@ -122,10 +122,13 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
     assert fp.concat_sequence_lens == {"time": None}
     assert len(list(fp)) == 6
     for key in fp:
+        concat_val = key.find_concat_dim("time")
+        assert key.find_concat_dim("foobar") is None
         for dimkey, dimval in key.items():
             if dimkey.name == "time":
                 assert dimkey.operation == CombineOp.CONCAT
                 time_val = times[dimval.position]
+                assert dimval == concat_val
             if dimkey.name == "variable":
                 assert dimkey.operation == CombineOp.MERGE
                 variable_val = varnames[dimval.position]

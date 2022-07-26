@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
 from fsspec.implementations.local import LocalFileSystem
+from zarr.storage import FSStore
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +94,15 @@ class FSSpecTarget(AbstractTarget):
     fs: fsspec.AbstractFileSystem
     root_path: str = ""
 
+    @classmethod
+    def from_url(cls, url: str):
+        fs, _, root_paths = fsspec.get_fs_token_paths(url)
+        assert len(root_paths) == 1
+        return cls(fs, root_paths[0])
+
     def get_mapper(self) -> fsspec.mapping.FSMap:
         """Get a mutable mapping object suitable for storing Zarr data."""
-        return self.fs.get_mapper(self.root_path)
+        return FSStore(self.root_path, fs=self.fs)
 
     def _full_path(self, path: str):
         return os.path.join(self.root_path, path)

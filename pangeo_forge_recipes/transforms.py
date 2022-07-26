@@ -4,14 +4,15 @@ import logging
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import List, Optional, Tuple, TypeVar
+from typing import Dict, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
+from .aggregation import schema_to_zarr
 from .combiners import CombineXarraySchemas
 from .openers import open_url, open_with_xarray
 from .patterns import DimKey, FileType, Index
-from .storage import CacheFSSpecTarget
+from .storage import CacheFSSpecTarget, FSSpecTarget
 
 logger = logging.getLogger(__name__)
 
@@ -75,19 +76,20 @@ def _add_keys(func):
 class OpenURLWithFSSpec(beam.PTransform):
     """Open indexed string-based URLs with fsspec.
 
-    :param cache: If provided, data will be cached in the object before opening.
+    :param cache_url: If provided, data will be cached at this url path before opening.
     :param secrets: If provided these secrets will be injected into the URL as a query string.
     :param open_kwargs: Extra arguments passed to fsspec.open.
     """
 
-    cache: Optional[CacheFSSpecTarget] = None
+    cache_url: Optional[str] = None
     secrets: Optional[dict] = None
     open_kwargs: Optional[dict] = None
 
     def expand(self, pcoll):
+        cache = CacheFSSpecTarget.from_url(self.cache_url) if self.cache_url else None
         return pcoll | "Open with fsspec" >> beam.Map(
             _add_keys(open_url),
-            cache=self.cache,
+            cache=cache,
             secrets=self.secrets,
             open_kwargs=self.open_kwargs,
         )
@@ -164,3 +166,28 @@ class DetermineSchema(beam.PTransform):
                     pcoll | _NestDim(last_dim) | beam.CombinePerKey(CombineXarraySchemas(last_dim))
                 )
         return pcoll
+
+
+@dataclass
+class PrepareZarrTarget(beam.PTransform):
+    """From a singleton PCollection containing a dataset schema, initialize a
+    Zarr store with the correct variables, dimensions, attributes and chunking.
+    Note that the dimension coordinates will be initialized with dummy values.
+
+    :param target_url: Where to store the target Zarr dataset.
+    :param target_chunks: Dictionary mapping dimension names to chunks sizes.
+        If a dimension is a not named, the chunks will be inferred from the schema.
+        If chunking is present in the schema for a given dimension, the length of
+        the first chunk will be used. Otherwise, the dimension will not be chunked.
+    """
+
+    target_url: str
+    target_chunks: Dict[str, int] = field(default_factory=dict)
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        target = FSSpecTarget.from_url(self.target_url)
+        store = target.get_mapper()
+        initialized_target = pcoll | beam.Map(
+            schema_to_zarr, target_store=store, target_chunks=self.target_chunks
+        )
+        return initialized_target

@@ -1,6 +1,7 @@
 import apache_beam as beam
 import pytest
 import xarray as xr
+import zarr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 
@@ -8,7 +9,11 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray
+from pangeo_forge_recipes.aggregation import dataset_to_schema
+from pangeo_forge_recipes.storage import CacheFSSpecTarget
+from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, PrepareZarrTarget
+
+from .data_generation import make_ds
 
 
 @pytest.fixture
@@ -45,24 +50,26 @@ def pattern_direct(request):
 
 
 @pytest.fixture(params=[True, False], ids=["with_cache", "no_cache"])
-def cache(tmp_cache, request):
+def cache_url(tmp_cache_url, request):
     if request.param:
-        return tmp_cache
+        return tmp_cache_url
     else:
         return None
 
 
 @pytest.fixture
-def pcoll_opened_files(pattern, cache):
+def pcoll_opened_files(pattern, cache_url):
     input = beam.Create(pattern.items())
     output = input | OpenURLWithFSSpec(
-        cache=cache, secrets=pattern.query_string_secrets, open_kwargs=pattern.fsspec_open_kwargs
+        cache_url=cache_url,
+        secrets=pattern.query_string_secrets,
+        open_kwargs=pattern.fsspec_open_kwargs,
     )
-    return output, pattern, cache
+    return output, pattern, cache_url
 
 
 def test_OpenURLWithFSSpec(pcoll_opened_files):
-    pcoll, pattern, cache = pcoll_opened_files
+    pcoll, pattern, cache_url = pcoll_opened_files
 
     def expected_len(n):
         def _expected_len(actual):
@@ -89,7 +96,8 @@ def test_OpenURLWithFSSpec(pcoll_opened_files):
         assert_that(output, expected_len(pattern.shape[0]), label="expected len")
         assert_that(output, is_readable(), label="output is readable")
 
-    if cache:
+    if cache_url:
+        cache = CacheFSSpecTarget.from_url(cache_url)
         for key, fname in pattern.items():
             assert cache.exists(fname)
 
@@ -117,7 +125,7 @@ def pcoll_xarray_datasets(pcoll_opened_files):
 
 @pytest.mark.parametrize("load", [False, True], ids=["lazy", "eager"])
 def test_OpenWithXarray_via_fsspec(pcoll_opened_files, load, pipeline):
-    input, pattern, cache = pcoll_opened_files
+    input, pattern, cache_url = pcoll_opened_files
     with pipeline as p:
         output = p | input | OpenWithXarray(file_type=pattern.file_type, load=load)
         assert_that(output, is_xr_dataset(in_memory=load))
@@ -132,7 +140,7 @@ def test_OpenWithXarray_direct(pattern_direct, load, pipeline):
 
 
 def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
-    input, pattern, cache = pcoll_opened_files
+    input, pattern, cache_url = pcoll_opened_files
 
     def manually_load(item):
         key, ds = item
@@ -142,3 +150,38 @@ def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
         output = p | input | OpenWithXarray(file_type=pattern.file_type, load=False)
         loaded_dsets = output | beam.Map(manually_load)
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
+
+
+@pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])
+def test_PrepareZarrTarget(pipeline, tmp_target_url, target_chunks):
+
+    ds = make_ds()
+    schema = dataset_to_schema(ds)
+
+    def correct_target():
+        def _check_target(actual):
+            assert len(actual) == 1
+            item = actual[0]
+            ds_target = xr.open_zarr(item, consolidated=False, chunks={})
+            zgroup = zarr.open_group(item)
+            # the datasets contents shouldn't be set yet, just metadata
+            assert ds_target.attrs == ds.attrs
+            for vname, v in ds.items():
+                v_actual = ds_target[vname]
+                assert v.dims == v_actual.dims
+                assert v.data.shape == v_actual.data.shape
+                assert v.data.dtype == v_actual.data.dtype
+                assert v.attrs == v_actual.attrs
+
+                zarr_chunks = zgroup[vname].chunks
+                expected_chunks = tuple(
+                    target_chunks.get(dim) or dimsize for dim, dimsize in v.sizes.items()
+                )
+                assert zarr_chunks == expected_chunks
+
+        return _check_target
+
+    with pipeline as p:
+        input = p | beam.Create([schema])
+        target = input | PrepareZarrTarget(target_url=tmp_target_url, target_chunks=target_chunks)
+        assert_that(target, correct_target())

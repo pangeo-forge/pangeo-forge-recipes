@@ -21,10 +21,7 @@ import time
 
 import aiohttp
 import fsspec
-import numpy as np
-import pandas as pd
 import pytest
-import xarray as xr
 from dask.distributed import Client, LocalCluster
 from prefect.executors import DaskExecutor
 
@@ -38,6 +35,8 @@ from pangeo_forge_recipes.patterns import (
     pattern_from_file_sequence,
 )
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
+
+from .data_generation import make_ds
 
 # Helper functions --------------------------------------------------------------------------------
 
@@ -203,32 +202,7 @@ def make_http_paths(netcdf_local_paths, request):
 
 @pytest.fixture(scope="session")
 def daily_xarray_dataset():
-    """Return a synthetic random xarray dataset."""
-    np.random.seed(1)
-    # TODO: change nt to 11 in order to catch the edge case where
-    # items_per_input does not evenly divide the length of the sequence dimension
-    nt, ny, nx = 10, 18, 36
-    time = pd.date_range(start="2010-01-01", periods=nt, freq="D")
-    lon = (np.arange(nx) + 0.5) * 360 / nx
-    lon_attrs = {"units": "degrees_east", "long_name": "longitude"}
-    lat = (np.arange(ny) + 0.5) * 180 / ny
-    lat_attrs = {"units": "degrees_north", "long_name": "latitude"}
-    foo = np.random.rand(nt, ny, nx)
-    foo_attrs = {"long_name": "Fantastic Foo"}
-    # make sure things work with heterogenous data types
-    bar = np.random.randint(0, 10, size=(nt, ny, nx))
-    bar_attrs = {"long_name": "Beautiful Bar"}
-    dims = ("time", "lat", "lon")
-    ds = xr.Dataset(
-        {"bar": (dims, bar, bar_attrs), "foo": (dims, foo, foo_attrs)},
-        coords={
-            "time": ("time", time),
-            "lat": ("lat", lat, lat_attrs),
-            "lon": ("lon", lon, lon_attrs),
-        },
-        attrs={"conventions": "CF 1.6"},
-    )
-    return ds
+    return make_ds(nt=10)
 
 
 @pytest.fixture(scope="session")
@@ -457,11 +431,23 @@ def tmp_target(tmpdir_factory):
 
 
 @pytest.fixture()
+def tmp_target_url(tmpdir_factory):
+    path = str(tmpdir_factory.mktemp("target.zarr"))
+    return path
+
+
+@pytest.fixture()
 def tmp_cache(tmpdir_factory):
     path = str(tmpdir_factory.mktemp("cache"))
     fs = fsspec.get_filesystem_class("file")()
     cache = CacheFSSpecTarget(fs, path)
     return cache
+
+
+@pytest.fixture()
+def tmp_cache_url(tmpdir_factory):
+    path = str(tmpdir_factory.mktemp("cache"))
+    return path
 
 
 @pytest.fixture()
