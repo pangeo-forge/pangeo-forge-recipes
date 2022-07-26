@@ -9,6 +9,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
+from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
 from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, PrepareZarrTarget
 
@@ -155,8 +156,7 @@ def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
 def test_PrepareZarrTarget(pipeline, tmp_target_url, target_chunks):
 
     ds = make_ds()
-    schema = ds.to_dict(data=False)
-    schema["chunks"] = {}
+    schema = dataset_to_schema(ds)
 
     def correct_target():
         def _check_target(actual):

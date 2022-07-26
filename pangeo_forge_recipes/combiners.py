@@ -5,7 +5,7 @@ from typing import Sequence, Tuple
 
 import apache_beam as beam
 
-from .aggregation import XarrayCombineAccumulator
+from .aggregation import XarrayCombineAccumulator, XarraySchema
 from .patterns import CombineOp, DimKey, Index
 
 
@@ -26,7 +26,7 @@ class CombineXarraySchemas(beam.CombineFn):
         concat_dim = self.dim_key.name if self.dim_key.operation == CombineOp.CONCAT else None
         return XarrayCombineAccumulator(concat_dim=concat_dim)
 
-    def add_input(self, accumulator: XarrayCombineAccumulator, item: Tuple[Index, dict]):
+    def add_input(self, accumulator: XarrayCombineAccumulator, item: Tuple[Index, XarraySchema]):
         index, schema = item
         position = self.get_position(index)
         accumulator.add_input(schema, position)

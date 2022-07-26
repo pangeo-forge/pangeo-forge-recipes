@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, TypedDict
 
 import dask.array as dsa
 import numpy as np
@@ -13,8 +14,31 @@ class DatasetCombineError(Exception):
     pass
 
 
-def empty_xarray_schema():
-    return {"attrs": None, "coords": None, "data_vars": None, "dims": None, "chunks": None}
+class XarraySchema(TypedDict):
+    attrs: Dict
+    coords: Dict
+    data_vars: Dict
+    dims: Dict
+    chunks: Dict
+
+
+def dataset_to_schema(ds: xr.Dataset) -> XarraySchema:
+    """Convert the output of `dataset.to_dict(data=False)` to a schema
+    (Basically justs adds chunks, which is not part of the Xarray ouput).
+    """
+
+    d = ds.to_dict(data=False)
+    return XarraySchema(
+        attrs=d.get("attrs"),
+        coords=d.get("coords"),
+        data_vars=d.get("data_vars"),
+        dims=d.get("dims"),
+        chunks=d.get("chunks", {}),
+    )
+
+
+def empty_xarray_schema() -> XarraySchema:
+    return {"attrs": {}, "coords": {}, "data_vars": {}, "dims": {}, "chunks": {}}
 
 
 @dataclass
@@ -26,18 +50,11 @@ class XarrayCombineAccumulator:
        Otherwise applies merge rules.
     """
 
-    schema: dict = field(default_factory=empty_xarray_schema)
+    schema: XarraySchema = field(default_factory=empty_xarray_schema)
     concat_dim: Optional[str] = None
 
-    def add_input(self, s: dict, position: int) -> None:
-        s = s.copy()  # avoid modifying input
-        if "chunks" not in s:
-            # By default, the output of ds.to_dict(data=False) includes nothing
-            # about the chunks. We may want an intermediary function that actually
-            # looks at the contents of the dataset and sets chunks appropriately.
-            s["chunks"] = {}
-        else:
-            s["chunks"] = s["chunks"].copy()
+    def add_input(self, s: XarraySchema, position: int) -> None:
+        s = deepcopy(s)  # avoid modifying input
         if self.concat_dim:
             assert (
                 self.concat_dim not in s["chunks"]
@@ -52,7 +69,9 @@ class XarrayCombineAccumulator:
         return XarrayCombineAccumulator(new_schema, self.concat_dim)
 
 
-def _combine_xarray_schemas(s1: dict, s2: dict, concat_dim: Optional[str] = None):
+def _combine_xarray_schemas(
+    s1: XarraySchema, s2: XarraySchema, concat_dim: Optional[str] = None
+) -> XarraySchema:
     dims = _combine_dims(s1["dims"], s2["dims"], concat_dim)
     chunks = _combine_chunks(s1["chunks"], s2["chunks"], concat_dim)
     attrs = _combine_attrs(s1["attrs"], s2["attrs"])
@@ -70,7 +89,7 @@ def _combine_xarray_schemas(s1: dict, s2: dict, concat_dim: Optional[str] = None
 def _combine_dims(
     d1: Dict[str, int], d2: Dict[str, int], concat_dim: Optional[str]
 ) -> Dict[str, int]:
-    if d1 is None:
+    if not d1:
         return d2
     all_dims = set(d1) | set(d2)
     new_dims = {}
@@ -94,7 +113,7 @@ ChunkDict = Dict[str, Dict[int, int]]
 
 
 def _combine_chunks(c1: ChunkDict, c2: ChunkDict, concat_dim: Optional[str]) -> ChunkDict:
-    if c1 is None:
+    if not c1:
         return c2
 
     chunks = {}
@@ -115,7 +134,7 @@ def _combine_chunks(c1: ChunkDict, c2: ChunkDict, concat_dim: Optional[str]) -> 
 
 
 def _combine_attrs(a1: dict, a2: dict) -> dict:
-    if a1 is None:
+    if not a1:
         return a2
     # for now, only keep attrs that are the same in both datasets
     common_attrs = set(a1) & set(a2)
@@ -131,7 +150,7 @@ def _combine_dtype(d1, d2):
 
 
 def _combine_vars(v1, v2, concat_dim, allow_both=False):
-    if v1 is None:
+    if not v1:
         return v2
     all_vars = set(v1) | set(v2)
     new_vars = {}
@@ -182,7 +201,7 @@ def _to_variable(template, target_chunks):
 
 
 def schema_to_template_ds(
-    schema: Dict, specified_chunks: Optional[Dict[str, int]] = None
+    schema: XarraySchema, specified_chunks: Optional[Dict[str, int]] = None
 ) -> xr.Dataset:
     """Convert a schema to an xarray dataset as lazily as possible."""
 
@@ -207,7 +226,7 @@ def schema_to_template_ds(
 
 
 def schema_to_zarr(
-    schema: Dict,
+    schema: XarraySchema,
     target_store: zarr.storage.FSStore,
     target_chunks: Optional[Dict[str, int]] = None,
 ) -> zarr.storage.FSStore:

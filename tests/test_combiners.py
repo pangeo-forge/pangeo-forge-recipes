@@ -6,6 +6,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that
 from pytest_lazyfixture import lazy_fixture
 
+from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.combiners import CombineXarraySchemas
 from pangeo_forge_recipes.patterns import CombineOp, DimKey, FilePattern, Index
 from pangeo_forge_recipes.transforms import DetermineSchema, _NestDim
@@ -22,12 +23,12 @@ def pipeline():
 
 def _get_schema(path):
     ds = xr.open_dataset(path)
-    return ds.to_dict(data=False)
+    return dataset_to_schema(ds)
 
 
 def _expected_schema(pattern):
     expected_ds = xr.open_mfdataset(item[1] for item in pattern.items())
-    expected_schema = expected_ds.to_dict(data=False)
+    expected_schema = dataset_to_schema(expected_ds)
     expected_schema["chunks"] = {
         "time": {pos: v for pos, v in enumerate(expected_ds.chunks["time"])}
     }
