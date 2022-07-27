@@ -158,18 +158,6 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             **config.file_pattern.fsspec_open_kwargs,
         )
 
-    if config.cache_metadata:
-        if config.storage_config.metadata is None:
-            raise ValueError("metadata_cache is not set.")
-
-        if not _input_metadata_fname(input_key) in config.storage_config.metadata:
-            with open_input(input_key, config=config) as ds:
-                logger.info(f"Caching metadata for input '{input_key!s}'")
-                input_metadata = ds.to_dict(data=False)
-                config.storage_config.metadata[_input_metadata_fname(input_key)] = input_metadata
-        else:
-            logger.info(f"Metadata already cached for input '{input_key!s}'")
-
     if config.open_input_with_kerchunk:
         if config.file_pattern.file_type == FileType.opendap:
             raise ValueError("Can't make references for opendap inputs")
@@ -199,8 +187,21 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             secrets=config.file_pattern.query_string_secrets,
             **config.file_pattern.fsspec_open_kwargs,
         ) as fp:
+            logger.info(f"creating kerchunk referernce for {url}")
             ref_data = create_kerchunk_reference(fp, url, config.file_pattern.file_type)
         config.storage_config.metadata[ref_fname] = ref_data
+
+    if config.cache_metadata:
+        if config.storage_config.metadata is None:
+            raise ValueError("metadata_cache is not set.")
+
+        if not _input_metadata_fname(input_key) in config.storage_config.metadata:
+            with open_input(input_key, config=config) as ds:
+                logger.info(f"Caching metadata for input '{input_key!s}'")
+                input_metadata = ds.to_dict(data=False)
+                config.storage_config.metadata[_input_metadata_fname(input_key)] = input_metadata
+        else:
+            logger.info(f"Metadata already cached for input '{input_key!s}'")
 
 
 def region_and_conflicts_for_chunk(
@@ -266,8 +267,10 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
         from fsspec.implementations.reference import ReferenceFileSystem
 
         reference_data = config.storage_config.metadata[_input_reference_fname(input_key)]
-        # TODO: figure out how to set this for the cache target
-        remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
+        if config.cache_inputs and config.storage_config.cache is not None:
+            remote_protocol = config.storage_config.cache.fs.protocol
+        else:
+            remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
         ref_fs = ReferenceFileSystem(
             reference_data, remote_protocol=remote_protocol, skip_instance_cache=True
         )

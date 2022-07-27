@@ -5,7 +5,7 @@ Functions related to creating fsspec references.
 from typing import Dict, Tuple, Union
 
 from kerchunk.hdf import SingleHdf5ToZarr
-from kerchunk.netCDF3 import netcdf_recording_file
+from kerchunk.netCDF3 import NetCDF3ToZarr
 
 from .patterns import FileType
 
@@ -15,11 +15,9 @@ def create_kerchunk_reference(
 ) -> Dict:
     if file_type == FileType.netcdf4:
         chunks = SingleHdf5ToZarr(fp, url, inline_threshold=inline_threshold)
-        translate_kwargs = {}
     elif file_type == FileType.netcdf3:
-        chunks = netcdf_recording_file(url)
-        translate_kwargs = {"max_chunk_size": 100_000_000}
-    return chunks.translate(**translate_kwargs)
+        chunks = NetCDF3ToZarr(url, max_chunk_size=100_000_000)
+    return chunks.translate()
 
 
 def unstrip_protocol(name: str, protocol: Union[str, Tuple[str, ...]]) -> str:
