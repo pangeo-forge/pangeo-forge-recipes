@@ -98,7 +98,7 @@ def inputs_for_chunk(
 def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: int) -> None:
     target_mapper = target.get_mapper()
     zgroup = zarr.open_group(target_mapper)
-    ds = open_target(target)
+    ds = open_target(target, decode_cf=False)  # avoid decoding issues
     sequence_axes = {
         v: ds[v].get_axis_num(concat_dim) for v in ds.variables if concat_dim in ds[v].dims
     }
@@ -111,8 +111,8 @@ def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: 
         arr.resize(shape)
 
 
-def open_target(target: FSSpecTarget) -> xr.Dataset:
-    return xr.open_zarr(target.get_mapper())
+def open_target(target: FSSpecTarget, **kwargs) -> xr.Dataset:
+    return xr.open_zarr(target.get_mapper(), **kwargs)
 
 
 def input_position(input_key: InputKey) -> int:
@@ -277,7 +277,9 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
         mapper = ref_fs.get_mapper("/")
         # Doesn't really need to be a context manager, but that's how this function works
         with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
-            with xr.open_dataset(mapper, engine="zarr", chunks={}, consolidated=False) as ds:
+            with xr.open_dataset(
+                mapper, engine="zarr", chunks={}, consolidated=False, **config.xarray_open_kwargs
+            ) as ds:
                 logger.debug("successfully opened reference dataset with zarr")
 
                 if config.delete_input_encoding:
