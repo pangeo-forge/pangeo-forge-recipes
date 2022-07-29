@@ -5,14 +5,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 
 from pangeo_forge_recipes.patterns import CombineOp, DimKey
-from pangeo_forge_recipes.transforms import (
-    DatasetToSchema,
-    DetermineSchema,
-    IndexItems,
-    OpenWithXarray,
-    PrepareZarrTarget,
-    StoreToZarr,
-)
+from pangeo_forge_recipes.transforms import OpenWithXarray, StoreToZarr
 
 # from apache_beam.testing.util import assert_that, equal_to
 # from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
@@ -32,13 +25,11 @@ def test_xarray_zarr(
     with pipeline as p:
         inputs = p | beam.Create(pattern.items())
         datasets = inputs | OpenWithXarray(file_type=pattern.file_type)
-        # TODO determine this dynamically
-        combine_dims = [DimKey("time", operation=CombineOp.CONCAT)]
-        schemas = datasets | DatasetToSchema()
-        schema = schemas | DetermineSchema(combine_dims=combine_dims)
-        indexed_datasets = datasets | IndexItems(schema=schema)
-        target = schema | PrepareZarrTarget(target_url=tmp_target_url)
-        _ = indexed_datasets | StoreToZarr(target_store=target)
+        datasets | StoreToZarr(
+            target_url=tmp_target_url,
+            target_chunks={"time": 1},
+            combine_dims=[DimKey("time", CombineOp.CONCAT)],
+        )
 
     ds = xr.open_dataset(tmp_target_url, engine="zarr").load()
     xr.testing.assert_equal(ds, daily_xarray_dataset)

@@ -223,11 +223,26 @@ class PrepareZarrTarget(beam.PTransform):
 
 
 @dataclass
-class StoreToZarr(beam.PTransform):
+class StoreDatasetFragments(beam.PTransform):
 
     target_store: beam.PCollection  # side input
 
-    def expand(self, pcoll: beam.PCollection):
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         return pcoll | beam.Map(
             store_dataset_fragment, target_store=beam.pvalue.AsSingleton(self.target_store)
         )
+
+
+@dataclass
+class StoreToZarr(beam.PTransform):
+
+    target_url: str
+    combine_dims: List[DimKey]
+    target_chunks: Dict[str, int] = field(default_factory=dict)
+
+    def expand(self, datasets: beam.PCollection) -> beam.PCollection:
+        schemas = datasets | DatasetToSchema()
+        schema = schemas | DetermineSchema(combine_dims=self.combine_dims)
+        indexed_datasets = datasets | IndexItems(schema=schema)
+        target_store = schema | PrepareZarrTarget(target_url=self.target_url)
+        return indexed_datasets | StoreDatasetFragments(target_store=target_store)
