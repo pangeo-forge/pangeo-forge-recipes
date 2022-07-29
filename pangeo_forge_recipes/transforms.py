@@ -240,9 +240,18 @@ class StoreDatasetFragments(beam.PTransform):
 
 @dataclass
 class StoreToZarr(beam.PTransform):
+    """Store a PCollection of Xarray datasets to Zarr.
 
-    target_url: str
+    :param combine_dims: The dimensions to combine
+    :param target_url: Where to store the target Zarr dataset.
+    :param target_chunks: Dictionary mapping dimension names to chunks sizes.
+        If a dimension is a not named, the chunks will be inferred from the data.
+    """
+
+    # TODO: make it so we don't have to explictly specify combine_dims
+    # Could be inferred from the pattern instead
     combine_dims: List[DimKey]
+    target_url: str
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
