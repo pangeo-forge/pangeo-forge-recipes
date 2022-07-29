@@ -233,6 +233,11 @@ class StoreDatasetFragments(beam.PTransform):
         )
 
 
+# TODO
+# - consolidate coords
+# - consolidate metadata
+
+
 @dataclass
 class StoreToZarr(beam.PTransform):
 
@@ -244,5 +249,7 @@ class StoreToZarr(beam.PTransform):
         schemas = datasets | DatasetToSchema()
         schema = schemas | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
-        target_store = schema | PrepareZarrTarget(target_url=self.target_url)
+        target_store = schema | PrepareZarrTarget(
+            target_url=self.target_url, target_chunks=self.target_chunks
+        )
         return indexed_datasets | StoreDatasetFragments(target_store=target_store)
