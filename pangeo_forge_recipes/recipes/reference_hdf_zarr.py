@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Callable, Hashable, Iterable, Optional
+from typing import Callable, Hashable, Iterable, Optional, Type
 
 import fsspec
 import yaml
@@ -11,7 +11,7 @@ from kerchunk.combine import MultiZarrToZarr
 
 from ..executors.base import Pipeline, Stage
 from ..patterns import FileType, Index
-from ..reference import create_grib2_reference, create_hdf5_reference, unstrip_protocol  # noqa
+from ..reference import create_grib2_reference, create_hdf5_reference, unstrip_protocol
 from ..storage import file_opener
 from .base import BaseRecipe, FilePatternMixin, StorageMixin
 
@@ -27,28 +27,40 @@ def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
     assert config.storage_config.metadata is not None, "metadata_cache is required"
     fname = config.file_pattern[chunk_key]
     ref_fname = os.path.basename(fname + ".json")
-    with file_opener(fname, **config.src_storage_options) as fp:
+
+    with file_opener(fname, **config.storage_options) as fp:
         protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
         if protocol is None:
             raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
-        # reference = create_hdf5_reference(fp, target_url, fname)
-        reference = create_grib2_reference(fp, fname, target_url, **config.src_storage_options)
-        print(">> reference")
-        import pprint
-
-        pprint.pprint(reference)
+        reference = create_hdf5_reference(fp, target_url, fname)
         config.storage_config.metadata[ref_fname] = reference
 
 
-def finalize(config: HDFReferenceRecipe):
+def scan_grib(chunk_key: ChunkKey, config: GribReferenceRecipe):
+    assert config.storage_config.metadata is not None, "metadata_cache is required"
+    fname = config.file_pattern[chunk_key]
+    ref_fname = os.path.basename(fname + ".json")
+
+    with file_opener(fname, **config.storage_options) as fp:
+        protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
+        if protocol is None:
+            raise ValueError("Couldn't determine protocol")
+        target_url = unstrip_protocol(fname, protocol)
+        reference = create_grib2_reference(
+            fp,
+            fname,
+            target_url,
+            filter=config.grib_filter_by_keys,
+            inline_threshold=config.inline_threshold,
+        )
+        config.storage_config.metadata[ref_fname] = reference
+
+
+def finalize(config: Type[ReferenceRecipe]):
     assert config.storage_config.target is not None, "target is required"
     assert config.storage_config.metadata is not None, "metadata_cache is required"
     remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
-
-    import pprint
-
-    pprint.pprint(config.storage_config)
 
     files = list(
         config.storage_config.metadata.getitems(
@@ -61,7 +73,7 @@ def finalize(config: HDFReferenceRecipe):
         mzz = MultiZarrToZarr(
             files,
             remote_protocol=remote_protocol,
-            remote_options=config.src_storage_options,
+            remote_options=config.storage_options,
             coo_dtypes=config.coo_dtypes,
             coo_map=config.coo_map,
             identical_dims=config.identical_dims,
@@ -88,7 +100,7 @@ def finalize(config: HDFReferenceRecipe):
                         "target_protocol": protocol,
                         "target_options": config.output_storage_options,
                         "remote_protocol": remote_protocol,
-                        "remote_options": config.src_storage_options,
+                        "remote_options": config.storage_options,
                         "skip_instance_cache": True,
                     },
                     "chunks": {},  # can optimize access here
@@ -109,8 +121,16 @@ def hdf_reference_recipe_compiler(recipe: HDFReferenceRecipe) -> Pipeline:
     return Pipeline(stages=stages, config=recipe)
 
 
+def grib_reference_recipe_compiler(recipe: GribReferenceRecipe) -> Pipeline:
+    stages = [
+        Stage(name="scan_gribs", function=scan_grib, mappable=list(recipe.iter_inputs())),
+        Stage(name="finalize", function=finalize),
+    ]
+    return Pipeline(stages=stages, config=recipe)
+
+
 @dataclass
-class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
+class ReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     """
     Generates reference files for each input file, then combines
     into one ensemble output
@@ -134,7 +154,7 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
       this default config can be used for testing and debugging the recipe. In an actual execution
       context, the default config is re-assigned to point to the destination(s) of choice, which can
       be any combination of ``fsspec``-compatible storage backends.
-    :param src_storage_options: dict of kwargs for creating fsspec instance to read original data
+    :param storage_options: dict of kwargs for creating fsspec instance to read original data
         files
     :param inline_threshold: blocks with fewer bytes than this will be
         inlined into the output reference file
@@ -155,8 +175,6 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     :param postprocess: a function applied to the global combined references before write
     """
 
-    _compiler = hdf_reference_recipe_compiler
-
     # TODO: support chunked ("tree") aggregation: would entail processing each file
     #  in one stage, running a set of merges in a second step and doing
     #  a master merge in finalise. This would maybe map to iter_chunk,
@@ -166,7 +184,7 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     #  also supports TIFF, FITS, netCDF3 and grib2 (and more coming)
     output_json_fname: str = "reference.json"
     output_intake_yaml_fname: str = "reference.yaml"
-    src_storage_options: dict = field(default_factory=dict)
+    storage_options: dict = field(default_factory=dict)
     inline_threshold: int = 500
     output_storage_options: dict = field(default_factory=dict)
     concat_dims: list = field(default_factory=list)
@@ -176,17 +194,49 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     preprocess: Optional[Callable] = None
     postprocess: Optional[Callable] = None
 
-    def __post_init__(self):
-        self._validate_file_pattern()
-
+    # NOTE(darothen): We would prefer that this be an abstractmethod and the
+    # interface definition here leave the implementation of the validation logic
+    # up to the user. Due to python/mypy#5374, this will not work - the type
+    # checker will be confused as to whether or not this is a concrete class
+    # (it isn't), and have trouble with methods that are typed to accept
+    # generic implementations of this interface. So we simple raise an error if
+    # an implementor doesn't provide this method.
     def _validate_file_pattern(self):
-        print(self.file_pattern.file_type)
-        if self.file_pattern.file_type not in (FileType.netcdf4, FileType.grib):
-            raise ValueError("This recipe works on netcdf4 or gribinput only")
+        """Apply any file pattern validation checks for an implementation of a
+        ReferenceRecipe."""
+        raise NotImplementedError()
+
+    def __post_init__(self):
+        self.validate_file_pattern()
+
+    def validate_file_pattern(self):
         if len(self.file_pattern.merge_dims) > 1:
             raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
         if len(self.file_pattern.concat_dims) > 1:
             raise NotImplementedError("This Recipe class can't handle more than one concat dim.")
+        # Apply specialized file pattern validation checks
+        self._validate_file_pattern()
 
     def iter_inputs(self) -> Iterable[Hashable]:
         yield from self.file_pattern
+
+
+@dataclass
+class HDFReferenceRecipe(ReferenceRecipe):
+    _compiler = hdf_reference_recipe_compiler
+
+    def _validate_file_pattern(self):
+        if self.file_pattern.file_type != FileType.netcdf4:
+            raise ValueError("This recipe works on netcdf4 input only.")
+
+
+@dataclass
+class GribReferenceRecipe(ReferenceRecipe):
+
+    grib_filter_by_keys: dict = field(default_factory=dict)
+
+    _compiler = grib_reference_recipe_compiler
+
+    def _validate_file_pattern(self):
+        if self.file_pattern.file_type != FileType.grib:
+            raise ValueError("This recipe works on GRIB input only.")
