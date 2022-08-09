@@ -23,7 +23,6 @@ import aiohttp
 import fsspec
 import pytest
 from dask.distributed import Client, LocalCluster
-from prefect.executors import DaskExecutor
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
@@ -509,7 +508,6 @@ def dask_cluster(request):
         pytest.param("FunctionPipelineExecutor", marks=pytest.mark.executor_function),
         pytest.param("GeneratorPipelineExecutor", marks=pytest.mark.executor_generator),
         pytest.param("DaskPipelineExecutor", marks=pytest.mark.executor_dask),
-        pytest.param("PrefectPipelineExecutor", marks=pytest.mark.executor_prefect),
         pytest.param("BeamPipelineExecutor", marks=pytest.mark.executor_beam),
     ],
 )
@@ -552,30 +550,6 @@ def execute_recipe_dask(dask_cluster):
 def execute_recipe_prefect():
     def execute(recipe):
         state = recipe.to_prefect().run()
-        if state.is_failed():
-            raise ValueError(f"Prefect flow run failed with message {state.message}")
-
-    return execute
-
-
-@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_prefect_dask)])
-def execute_recipe_prefect_dask(dask_cluster):
-    def execute(recipe):
-        flow = recipe.to_prefect()
-        executor = DaskExecutor(address=dask_cluster.scheduler_address)
-        state = flow.run(executor=executor)
-        if state.is_failed():
-            raise ValueError(f"Prefect flow run failed with message {state.message}")
-
-    return execute
-
-
-@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_prefect_wrapper)])
-def execute_recipe_prefect_wrapper(dask_cluster):
-    def execute(recipe):
-        flow = recipe.to_prefect(wrap_dask=True)
-        executor = DaskExecutor(address=dask_cluster.scheduler_address)
-        state = flow.run(executor=executor)
         if state.is_failed():
             raise ValueError(f"Prefect flow run failed with message {state.message}")
 
