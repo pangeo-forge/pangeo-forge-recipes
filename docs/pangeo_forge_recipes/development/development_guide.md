@@ -137,7 +137,7 @@ When you are ready to make changes.
 - Once your PR is merged:
   ```bash
   git checkout master
-  git fetch upsream
+  git fetch upstream
   git rebase upstream/master
   # clean up feature branch
   git branch -d my-cool-feature
