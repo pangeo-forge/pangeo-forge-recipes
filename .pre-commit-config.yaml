@@ -12,7 +12,7 @@ repos:
       args: ["--autofix", "--indent=2", "--no-sort-keys"]
 
 -   repo: https://github.com/ambv/black
-    rev: 19.10b0
+    rev: 22.3.0
     hooks:
     - id: black
       args: ["--line-length", "100"]
@@ -26,17 +26,20 @@ repos:
     rev: v2.2.0
     hooks:
     - id: seed-isort-config
--   repo: https://github.com/pre-commit/mirrors-isort
-    rev: v5.2.0
-    hooks:
-    - id: isort
 
--   repo: https://github.com/deathbeds/prenotebook
-    rev: f5bdb72a400f1a56fe88109936c83aa12cc349fa
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: 'v0.931'
     hooks:
-    - id: prenotebook
+    -   id: mypy
+        exclude: tests
+
+-   repo: https://github.com/pycqa/isort
+    rev: 5.5.4
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
 
 -   repo: https://github.com/myint/rstcheck
-    rev: master
+    rev: 3f92957478422df87bd730abde66f089cc1ee19b
     hooks:
     -   id: rstcheck
