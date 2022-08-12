@@ -28,7 +28,7 @@ dependencies:
   - numpy
   - pandas
   - pip
-  - prefect
+  - prefect>=1.3.0
   - pydap
   # bring back eventually once pynio conda-forge package supports py3.9 and does not
   # conflict with ujson, which is a depencency of kerchunk's conda-forge feedstock.
