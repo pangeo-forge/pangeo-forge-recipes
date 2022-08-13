@@ -1,5 +1,3 @@
-import math
-
 import pytest
 import xarray as xr
 
@@ -23,20 +21,21 @@ def test_split_fragment(time_chunks, offset):
 
     all_splits = list(split_fragment((index, ds), target_chunks_and_dims=target_chunks_and_dims))
 
-    expected_chunks = math.ceil(nt / time_chunks)
-    assert len(all_splits) == expected_chunks
-
     group_keys = [item[0] for item in all_splits]
     new_indexes = [item[1][0] for item in all_splits]
     new_datasets = [item[1][1] for item in all_splits]
 
-    for n in range(expected_chunks):
+    for n in range(len(all_splits)):
         chunk_number = offset // time_chunks + n
         assert group_keys[n] == (("time", chunk_number),)
         chunk_start = time_chunks * chunk_number
         chunk_stop = min(time_chunks * (chunk_number + 1), nt_total)
         fragment_start = max(chunk_start, offset)
-        fragment_stop = min(chunk_stop, fragment_start + time_chunks)
+        fragment_stop = min(chunk_stop, fragment_start + time_chunks, offset + nt)
         assert new_indexes[n] == Index({dim_key: DimVal(0, fragment_start, fragment_stop)})
         start, stop = fragment_start - offset, fragment_stop - offset
         xr.testing.assert_equal(new_datasets[n], ds.isel(time=slice(start, stop)))
+
+    # make sure we got the whole dataset back
+    ds_concat = xr.concat(new_datasets, "time")
+    xr.testing.assert_equal(ds, ds_concat)
