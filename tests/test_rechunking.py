@@ -18,7 +18,13 @@ def test_split_fragment(time_chunks, offset):
     nt = 10
     ds = make_ds(nt=nt)  # this represents a single dataset fragment
     dim_key = DimKey("time", CombineOp.CONCAT)
-    index = Index({dim_key: DimVal(0, offset, offset + nt)})
+
+    extra_indexes = [
+        (DimKey("foo", CombineOp.CONCAT), DimVal(0)),
+        (DimKey("bar", CombineOp.MERGE), DimVal(1)),
+    ]
+
+    index = Index([(dim_key, DimVal(0, offset, offset + nt))] + extra_indexes)
 
     all_splits = list(split_fragment((index, ds), target_chunks_and_dims=target_chunks_and_dims))
 
@@ -33,7 +39,10 @@ def test_split_fragment(time_chunks, offset):
         chunk_stop = min(time_chunks * (chunk_number + 1), nt_total)
         fragment_start = max(chunk_start, offset)
         fragment_stop = min(chunk_stop, fragment_start + time_chunks, offset + nt)
-        assert new_indexes[n] == Index({dim_key: DimVal(0, fragment_start, fragment_stop)})
+        # other dimensions in the index should be passed through unchanged
+        assert new_indexes[n] == Index(
+            [(dim_key, DimVal(0, fragment_start, fragment_stop))] + extra_indexes
+        )
         start, stop = fragment_start - offset, fragment_stop - offset
         xr.testing.assert_equal(new_datasets[n], ds.isel(time=slice(start, stop)))
 
@@ -82,3 +91,7 @@ def test_split_multidim():
         xr.testing.assert_equal(
             fragment_ds, ds.isel(time=slice(time_start, time_stop), lat=slice(lat_start, lat_stop))
         )
+
+
+def test_combine_fragments():
+    """Basically just the inverse of the ``test_split_multidim`` test."""

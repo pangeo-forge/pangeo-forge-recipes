@@ -19,12 +19,14 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
     chunk_grid = ChunkGrid.from_uniform_grid(target_chunks_and_dims)
 
     fragment_slices = {}  # type: Dict[str, slice]
+    keys_to_skip = []  # type: list[DimKey]
     for dim in target_chunks_and_dims:
         concat_dim_key = index.find_concat_dim(dim)
         if concat_dim_key:
             # this dimension is present in the fragment as a concat dim
             concat_dim_val = index[concat_dim_key]
             dim_slice = slice(concat_dim_val.start, concat_dim_val.stop)
+            keys_to_skip.append(concat_dim_key)
         else:
             # If there is a target_chunk that is NOT present as a concat_dim in the fragment,
             # then we can assume that the entire span of that dimension is present in the dataset
@@ -45,7 +47,8 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
         # now we need to figure out which piece of the fragment belongs in which chunk
         chunk_array_slices = chunk_grid.chunk_index_to_array_slice(dict(target_chunk_group))
         sub_fragment_indexer = {}  # passed to ds.isel
-        sub_fragment_index = Index()
+        # initialize the new index with the items we want to keep from the original index
+        sub_fragment_index = Index({k: v for k, v in index.items() if k not in keys_to_skip})
         for dim, chunk_slice in chunk_array_slices.items():
             fragment_slice = fragment_slices[dim]
             start = max(chunk_slice.start, fragment_slice.start)
