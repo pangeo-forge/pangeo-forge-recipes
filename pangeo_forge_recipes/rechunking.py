@@ -23,7 +23,8 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
         concat_dim_key = index.find_concat_dim(dim)
         if concat_dim_key:
             # this dimension is present in the fragment as a concat dim
-            dim_slice = slice(concat_dim_key.start, concat_dim_key.stop)
+            concat_dim_val = index[concat_dim_key]
+            dim_slice = slice(concat_dim_val.start, concat_dim_val.stop)
         else:
             # If there is a target_chunk that is NOT present as a concat_dim in the fragment,
             # then we can assume that the entire span of that dimension is present in the dataset

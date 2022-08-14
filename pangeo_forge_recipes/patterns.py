@@ -105,7 +105,7 @@ class Index(Dict[DimKey, DimVal]):
     def __setstate__(self, state):
         self.__init__({k: v for k, v in state})
 
-    def find_concat_dim(self, dim_name: str) -> Optional[DimVal]:
+    def find_concat_dim(self, dim_name: str) -> Optional[DimKey]:
         possible_concat_dims = [
             d for d in self if (d.name == dim_name and d.operation == CombineOp.CONCAT)
         ]
@@ -117,8 +117,7 @@ class Index(Dict[DimKey, DimVal]):
         elif len(possible_concat_dims) == 0:
             return None
         else:
-            key = possible_concat_dims[0]
-            return self[key]
+            return possible_concat_dims[0]
 
 
 CombineDim = Union[MergeDim, ConcatDim]

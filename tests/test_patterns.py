@@ -121,19 +121,19 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
     assert fp.nitems_per_input == {"time": None}
     assert fp.concat_sequence_lens == {"time": None}
     assert len(list(fp)) == 6
-    for key in fp:
-        concat_val = key.find_concat_dim("time")
-        assert key.find_concat_dim("foobar") is None
-        for dimkey, dimval in key.items():
+    for index in fp:
+        concat_dim_key = index.find_concat_dim("time")
+        assert index.find_concat_dim("foobar") is None
+        for dimkey, dimval in index.items():
             if dimkey.name == "time":
                 assert dimkey.operation == CombineOp.CONCAT
                 time_val = times[dimval.position]
-                assert dimval == concat_val
+                assert dimval == index[concat_dim_key]
             if dimkey.name == "variable":
                 assert dimkey.operation == CombineOp.MERGE
                 variable_val = varnames[dimval.position]
         expected_fname = format_function(time=time_val, variable=variable_val)
-        assert fp[key] == expected_fname
+        assert fp[index] == expected_fname
 
     if "fsspec_open_kwargs" in kwargs.keys():
         assert fp.file_type != FileType.opendap

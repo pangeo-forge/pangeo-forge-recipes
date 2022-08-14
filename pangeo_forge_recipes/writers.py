@@ -10,9 +10,10 @@ from .patterns import CombineOp, Index
 def _region_for(var: xr.Variable, index: Index) -> Tuple[slice, ...]:
     region_slice = []
     for dim, dimsize in var.sizes.items():
-        concat_dim_val = index.find_concat_dim(dim)
-        if concat_dim_val:
+        concat_dim_key = index.find_concat_dim(dim)
+        if concat_dim_key:
             # we are concatenating over this dimension
+            concat_dim_val = index[concat_dim_key]
             assert concat_dim_val.start is not None
             assert concat_dim_val.stop == concat_dim_val.start + dimsize
             region_slice.append(slice(concat_dim_val.start, concat_dim_val.stop))
