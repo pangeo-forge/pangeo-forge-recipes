@@ -1,6 +1,7 @@
 import itertools
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
+import numpy as np
 import xarray as xr
 
 from .chunk_grid import ChunkGrid
@@ -48,6 +49,7 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
         chunk_array_slices = chunk_grid.chunk_index_to_array_slice(dict(target_chunk_group))
         sub_fragment_indexer = {}  # passed to ds.isel
         # initialize the new index with the items we want to keep from the original index
+        # TODO: think about whether we want to always rechunk concat dims
         sub_fragment_index = Index({k: v for k, v in index.items() if k not in keys_to_skip})
         for dim, chunk_slice in chunk_array_slices.items():
             fragment_slice = fragment_slices[dim]
@@ -64,3 +66,48 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
             sub_fragment_index[dim_key] = DimVal(original_position, start, stop)
         sub_fragment_ds = ds.isel(**sub_fragment_indexer)
         yield tuple(sorted(target_chunk_group)), (sub_fragment_index, sub_fragment_ds)
+
+
+def _sort_index_key(item):
+    index = item[0]
+    return tuple(index.items())
+
+
+def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index, xr.Dataset]:
+    # we are combining over all the concat dims found in the indexes
+    # first check indexes for consistency
+    fragments.sort(key=_sort_index_key)  # this should sort by index
+    all_indexes = [item[0] for item in fragments]
+    first_index = all_indexes[0]
+    dim_keys = tuple(first_index)
+    if not all([tuple(index) == dim_keys for index in all_indexes]):
+        raise ValueError(
+            f"Cannot combine fragments for elements with different combine dims: {all_indexes}"
+        )
+    concat_dims = [dim_key for dim_key in dim_keys if dim_key.operation == CombineOp.CONCAT]
+    dim_names_and_vals = {
+        dim_key.name: [index[dim_key] for index in all_indexes] for dim_key in concat_dims
+    }
+    index_combined = Index()
+    for dim, dim_vals in dim_names_and_vals.items():
+        # check for contiguity
+        starts = [dim_val.start for dim_val in dim_vals][1:]
+        stops = [dim_val.stop for dim_val in dim_vals][:-1]
+        if not starts == stops:
+            raise ValueError(
+                f"Index starts and stops are not consistent for concat_dim {dim}: {dim_vals}"
+            )
+        # Position is unneeded at this point, but we still have to provide it
+        # This API probably needs to change
+        combined_dim_val = DimVal(dim_vals[0].position, dim_vals[0].start, dim_vals[-1].stop)
+        index_combined[DimKey(dim, CombineOp.CONCAT)] = combined_dim_val
+    # now create the nested dataset structure we need
+    shape = [len(dim_vals) for dim_vales in dim_names_and_vals.items()]
+    # some tricky workarounds to put xarray datasets into a nested list
+    all_datasets = np.empty(shape, dtype="O").ravel()
+    for n, fragment in enumerate(fragments):
+        all_datasets[n] = fragment[1]
+    dsets_to_concat = all_datasets.reshape(shape).tolist()
+    ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=list(dim_names_and_vals))
+
+    return index_combined, ds_combined

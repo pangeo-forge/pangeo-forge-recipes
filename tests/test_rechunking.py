@@ -2,7 +2,7 @@ import pytest
 import xarray as xr
 
 from pangeo_forge_recipes.patterns import CombineOp, DimKey, DimVal, Index
-from pangeo_forge_recipes.rechunking import split_fragment
+from pangeo_forge_recipes.rechunking import combine_fragments, split_fragment
 
 from .data_generation import make_ds
 
@@ -94,4 +94,24 @@ def test_split_multidim():
 
 
 def test_combine_fragments():
-    """Basically just the inverse of the ``test_split_multidim`` test."""
+    """The function applied after GroupBy to combine fragments into a single chunk.
+    All concat dims that appear more than once are combined.
+    """
+
+    nt = 4
+    time_chunk = 2
+    ds = make_ds(nt=nt)
+
+    fragments = []
+    dim_key = DimKey("time", CombineOp.CONCAT)
+    for nfrag, start in enumerate(range(0, nt, time_chunk)):
+        stop = min(start + time_chunk, nt)
+        # we are ignoring position (first item) at this point
+        index_frag = Index({dim_key: DimVal(0, start, stop)})
+        ds_frag = ds.isel(time=slice(start, stop))
+        fragments.append((index_frag, ds_frag))
+
+    index, ds_comb = combine_fragments(fragments)
+
+    assert index == Index({dim_key: DimVal(0, 0, nt)})
+    xr.testing.assert_equal(ds, ds_comb)
