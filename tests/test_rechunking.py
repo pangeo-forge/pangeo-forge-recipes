@@ -93,13 +93,13 @@ def test_split_multidim():
         )
 
 
-def test_combine_fragments():
+@pytest.mark.parametrize("time_chunk", [1, 2, 3, 5, 10])
+def test_combine_fragments(time_chunk):
     """The function applied after GroupBy to combine fragments into a single chunk.
     All concat dims that appear more than once are combined.
     """
 
-    nt = 4
-    time_chunk = 2
+    nt = 10
     ds = make_ds(nt=nt)
 
     fragments = []

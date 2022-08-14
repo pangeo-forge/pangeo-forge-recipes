@@ -85,11 +85,16 @@ def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index,
             f"Cannot combine fragments for elements with different combine dims: {all_indexes}"
         )
     concat_dims = [dim_key for dim_key in dim_keys if dim_key.operation == CombineOp.CONCAT]
+    other_dims = [dim_key for dim_key in dim_keys if dim_key.operation != CombineOp.CONCAT]
+    # initialize new index with non-concat dims
+    index_combined = Index({dim: first_index[dim] for dim in other_dims})
     dim_names_and_vals = {
         dim_key.name: [index[dim_key] for index in all_indexes] for dim_key in concat_dims
     }
-    index_combined = Index()
     for dim, dim_vals in dim_names_and_vals.items():
+        for dim_val in dim_vals:
+            if dim_val.start is None or dim_val.stop is None:
+                raise ValueError("Can only comined indexed fragments.")
         # check for contiguity
         starts = [dim_val.start for dim_val in dim_vals][1:]
         stops = [dim_val.stop for dim_val in dim_vals][:-1]
@@ -102,12 +107,21 @@ def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index,
         combined_dim_val = DimVal(dim_vals[0].position, dim_vals[0].start, dim_vals[-1].stop)
         index_combined[DimKey(dim, CombineOp.CONCAT)] = combined_dim_val
     # now create the nested dataset structure we need
-    shape = [len(dim_vals) for dim_vales in dim_names_and_vals.items()]
+    shape = tuple(len(dim_vals) for dim_vals in dim_names_and_vals.values())
+    expected_dims = {
+        dim_name: (dim_vals[-1].stop - dim_vals[0].start)  # type: ignore
+        for dim_name, dim_vals in dim_names_and_vals.items()
+    }
     # some tricky workarounds to put xarray datasets into a nested list
     all_datasets = np.empty(shape, dtype="O").ravel()
     for n, fragment in enumerate(fragments):
         all_datasets[n] = fragment[1]
     dsets_to_concat = all_datasets.reshape(shape).tolist()
     ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=list(dim_names_and_vals))
-
+    actual_dims = {dim: ds_combined.dims[dim] for dim in expected_dims}
+    if actual_dims != expected_dims:
+        raise ValueError(
+            f"Combined dataset dims {actual_dims} not the same as those expected"
+            f"from the index {expected_dims}"
+        )
     return index_combined, ds_combined
