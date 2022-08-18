@@ -39,6 +39,7 @@ MAX_MEMORY = (
 OPENER_MAP = {
     FileType.netcdf3: dict(engine="scipy"),
     FileType.netcdf4: dict(engine="h5netcdf"),
+    FileType.tiff: dict(engine="rasterio"),
 }
 
 logger = logging.getLogger(__name__)
