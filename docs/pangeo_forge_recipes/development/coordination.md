@@ -2,6 +2,10 @@
 
 ## Developer Meetings
 
+Anyone is welcome to join the Pangeo Forge development community!
+(As long as you follow the [Pangeo code of conduct](https://github.com/pangeo-data/governance/blob/master/conduct/code_of_conduct.md).)
+
+
 We hold bi-weekly developer meetings **Every other Monday at 2pm ET**.
 
 - Conferencing: <https://whereby.com/pangeo>
