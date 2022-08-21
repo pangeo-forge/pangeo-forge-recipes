@@ -10,13 +10,14 @@ from .patterns import CombineOp, Index
 def _region_for(var: xr.Variable, index: Index) -> Tuple[slice, ...]:
     region_slice = []
     for dim, dimsize in var.sizes.items():
-        concat_dim_key = index.find_concat_dim(dim)
-        if concat_dim_key:
+        concat_dimension = index.find_concat_dim(dim)
+        if concat_dimension:
             # we are concatenating over this dimension
-            concat_dim_val = index[concat_dim_key]
-            assert concat_dim_val.start is not None
-            assert concat_dim_val.stop == concat_dim_val.start + dimsize
-            region_slice.append(slice(concat_dim_val.start, concat_dim_val.stop))
+            position = index[concat_dimension]
+            assert position.indexed
+            start = position.value
+            stop = start + dimsize
+            region_slice.append(slice(start, stop))
         else:
             # we are writing the entire dimension
             region_slice.append(slice(None))
@@ -37,7 +38,7 @@ def _store_data(vname: str, var: xr.Variable, index: Index, zgroup: zarr.Group) 
 
 def _is_first_item(index):
     for _, v in index.items():
-        if v.position > 0:
+        if v.value > 0:
             return False
     return True
 
@@ -45,7 +46,7 @@ def _is_first_item(index):
 def _is_first_in_merge_dim(index):
     for k, v in index.items():
         if k.operation == CombineOp.MERGE:
-            if v.position > 0:
+            if v.value > 0:
                 return False
     return True
 
