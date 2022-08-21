@@ -103,16 +103,47 @@ def test_combine_fragments(time_chunk):
     ds = make_ds(nt=nt)
 
     fragments = []
-    dimension = Dimension("time", CombineOp.CONCAT)
+    time_dim = Dimension("time", CombineOp.CONCAT)
     for nfrag, start in enumerate(range(0, nt, time_chunk)):
         stop = min(start + time_chunk, nt)
-        index_frag = Index({dimension: IndexedPosition(start)})
+        index_frag = Index({time_dim: IndexedPosition(start)})
         ds_frag = ds.isel(time=slice(start, stop))
         fragments.append((index_frag, ds_frag))
 
     index, ds_comb = combine_fragments(fragments)
 
-    assert index == Index({dimension: IndexedPosition(0)})
+    assert index == Index({time_dim: IndexedPosition(0)})
+    xr.testing.assert_equal(ds, ds_comb)
+
+
+@pytest.mark.parametrize("time_chunk", [1, 2, 3, 5, 10])
+@pytest.mark.parametrize("lat_chunk", [8, 9, 12])
+def test_combine_fragments_multidim(time_chunk, lat_chunk):
+    """The function applied after GroupBy to combine fragments into a single chunk.
+    All concat dims that appear more than once are combined.
+    """
+
+    nt = 10
+    ds = make_ds(nt=nt)
+    ny = ds.dims['lat']
+
+    fragments = []
+    time_dim = Dimension("time", CombineOp.CONCAT)
+    lat_dim = Dimension("lat", CombineOp.CONCAT)
+    for start_t in range(0, nt, time_chunk):
+        stop_t = min(start_t + time_chunk, nt)
+        for start_y in range(0, ny, lat_chunk):
+            stop_y = min(start_y + lat_chunk, ny)
+            ds_frag = ds.isel(time=slice(start_t, stop_t), lat=slice(start_y, stop_y))
+            index_frag = Index({
+                time_dim: IndexedPosition(start_t),
+                lat_dim: IndexedPosition(start_y)
+            })
+            fragments.append((index_frag, ds_frag))
+
+    index, ds_comb = combine_fragments(fragments)
+
+    assert index == Index({time_dim: IndexedPosition(0), lat_dim: IndexedPosition(0)})
     xr.testing.assert_equal(ds, ds_comb)
 
 

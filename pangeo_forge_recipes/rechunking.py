@@ -108,6 +108,32 @@ def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index,
     other_dims = [dimension for dimension in dimensions if dimension.operation != CombineOp.CONCAT]
     # initialize new index with non-concat dims
     index_combined = Index({dim: first_index[dim] for dim in other_dims})
+
+    # now we need to unstack the 1D concat dims into an ND nested data structure
+    # first step is figuring out the shape
+    dims_starts_sizes = [
+        (
+            dim.name,
+            [index[dim].value for index in all_indexes],
+            [ds.dims[dimension.name]] for ds in all_dsets]
+        )
+        for dim in concat_dims
+    ]
+
+    def _sort_by_speed_of_varying(item):
+        indexes = item[1]
+        return np.diff(np.array(indexes)).tolist()
+    dims_starts_sizes.sort(key=_sort_by_speed_of_varying)
+
+    shape = [len(np.unique(item[1])) for item in dims_starts_sizes]
+    starts_rectangles = [np.array(item[1]).reshape(shape) for item in dims_starts_sizes]
+     
+    # this will look something like
+    # [[0, 0, 0, 1, 1, 1], [0, 1, 2, 0, 1, 2]]
+    # now we need to sort this into fastest varying to slowest varying dimension
+
+    sizes = [[ds.dims[dimension.name]] for index in all_indexes] for dimension in concat_dims]
+
     dims_positions = {
         dimension.name: [index[dimension] for index in all_indexes] for dimension in concat_dims
     }
