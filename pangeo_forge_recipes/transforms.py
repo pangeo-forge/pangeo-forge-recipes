@@ -11,7 +11,7 @@ import apache_beam as beam
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineXarraySchemas
 from .openers import open_url, open_with_xarray
-from .patterns import CombineOp, DimKey, FileType, Index, augment_index_with_start_stop
+from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .storage import CacheFSSpecTarget, FSSpecTarget
 from .writers import store_dataset_fragment
 
@@ -124,10 +124,10 @@ class OpenWithXarray(beam.PTransform):
         )
 
 
-def _nest_dim(item: Indexed[T], dim_key: DimKey) -> Indexed[Indexed[T]]:
+def _nest_dim(item: Indexed[T], dimension: Dimension) -> Indexed[Indexed[T]]:
     index, value = item
-    inner_index = Index({dim_key: index[dim_key]})
-    outer_index = Index({dk: index[dk] for dk in index if dk != dim_key})
+    inner_index = Index({dimension: index[dimension]})
+    outer_index = Index({dk: index[dk] for dk in index if dk != dimension})
     return outer_index, (inner_index, value)
 
 
@@ -136,13 +136,13 @@ class _NestDim(beam.PTransform):
     """Prepare a collection for grouping by transforming an Index into a nested
     Tuple of Indexes.
 
-    :param dim_key: The dimension to nest
+    :param dimension: The dimension to nest
     """
 
-    dim_key: DimKey
+    dimension: Dimension
 
     def expand(self, pcoll):
-        return pcoll | beam.Map(_nest_dim, dim_key=self.dim_key)
+        return pcoll | beam.Map(_nest_dim, dimension=self.dimension)
 
 
 @dataclass
@@ -159,7 +159,7 @@ class DetermineSchema(beam.PTransform):
     :param combine_dims: The dimensions to combine
     """
 
-    combine_dims: List[DimKey]
+    combine_dims: List[Dimension]
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         cdims = self.combine_dims.copy()
@@ -250,7 +250,7 @@ class StoreToZarr(beam.PTransform):
 
     # TODO: make it so we don't have to explictly specify combine_dims
     # Could be inferred from the pattern instead
-    combine_dims: List[DimKey]
+    combine_dims: List[Dimension]
     target_url: str
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
