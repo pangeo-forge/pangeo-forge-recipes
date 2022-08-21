@@ -9,18 +9,22 @@ from itertools import product
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
 from .serialization import dict_drop_empty, dict_to_sha256
-
-
-class CombineOp(Enum):
-    """Used to uniquely identify different combine operations across Pangeo Forge Recipes."""
-
-    MERGE = 1
-    CONCAT = 2
-    SUBSET = 3
+from .types import CombineOp, Dimension, Index, IndexedPosition, Position
 
 
 @dataclass(frozen=True)
-class ConcatDim:
+class CombineDim:
+    name: str
+    operation: ClassVar[CombineOp]
+    keys: Sequence[Any] = field(repr=False)
+
+    @property
+    def dimension(self):
+        return Dimension(self.name, self.operation)
+
+
+@dataclass(frozen=True)
+class ConcatDim(CombineDim):
     """Represents a concatenation operation across a dimension of a FilePattern.
 
     :param name: The name of the dimension we are concatenating over. For
@@ -34,14 +38,12 @@ class ConcatDim:
       provide a fast path for recipes.
     """
 
-    name: str  # should match the actual dimension name
-    keys: Sequence[Any] = field(repr=False)
     nitems_per_file: Optional[int] = None
     operation: ClassVar[CombineOp] = CombineOp.CONCAT
 
 
 @dataclass(frozen=True)
-class MergeDim:
+class MergeDim(CombineDim):
     """Represents a merge operation across a dimension of a FilePattern.
 
     :param name: The name of the dimension we are are merging over. The actual
@@ -52,88 +54,20 @@ class MergeDim:
       the file name.
     """
 
-    name: str
-    keys: Sequence[Any] = field(repr=False)
     operation: ClassVar[CombineOp] = CombineOp.MERGE
 
 
-# would it be simpler to just use a tuple?
-@dataclass(frozen=True, order=True)
-class DimKey:
-    """
-    :param name: The name of the dimension we are combining over.
-    :param operation: What type of combination this is (merge or concat)
-    """
-
-    name: str
-    operation: CombineOp
-
-
-@dataclass(frozen=True, order=True)
-class DimVal:
-    """
-    :param position: Where this item lies within the sequence.
-    :param start: Where the starting array index for the item.
-    :param stop: The ending array index for the item.
-    """
-
-    position: int
-    start: Optional[int] = None
-    stop: Optional[int] = None
-
-
-# Alternative way of specifying type
-# Index = dict[DimKey, DimVal]
-
-
-class Index(Dict[DimKey, DimVal]):
-    """An Index is a special sort of dictionary which describes a position within
-    a multidimensional set.
-
-    - The key is a :class:`DimKey` which tells us which dimension we are addressing.
-    - The value is a :class:`DimVal` which tells us where we are within that dimension.
-
-    This object is hashable and deterministically serializable.
-    """
-
-    def __hash__(self):
-        return hash(tuple(self.__getstate__()))
-
-    def __getstate__(self):
-        return sorted(self.items())
-
-    def __setstate__(self, state):
-        self.__init__({k: v for k, v in state})
-
-    def find_concat_dim(self, dim_name: str) -> Optional[DimKey]:
-        possible_concat_dims = [
-            d for d in self if (d.name == dim_name and d.operation == CombineOp.CONCAT)
-        ]
-        if len(possible_concat_dims) > 1:
-            raise ValueError(
-                f"Found {len(possible_concat_dims)} concat dims named {dim_name} "
-                f"in the index {self}."
-            )
-        elif len(possible_concat_dims) == 0:
-            return None
-        else:
-            return possible_concat_dims[0]
-
-
-CombineDim = Union[MergeDim, ConcatDim]
-
-
-def augment_index_with_start_stop(dim_val: DimVal, item_lens: List[int]) -> DimVal:
+def augment_index_with_start_stop(position: Position, item_lens: List[int]) -> IndexedPosition:
     """Take an index _without_ start / stop and add them based on the lens defined in sequence_lens.
 
     :param index: The ``DimIndex`` instance to augment.
     :param item_lens: A list of integer lengths for all items in the sequence.
     """
 
-    start = sum(item_lens[: dim_val.position])
-    stop = start + item_lens[dim_val.position]
-
-    return DimVal(dim_val.position, start, stop)
+    if position.indexed:
+        raise ValueError("This position is already indexed")
+    start = sum(item_lens[: position.value])
+    return IndexedPosition(start)
 
 
 class AutoName(Enum):
@@ -238,23 +172,23 @@ class FilePattern:
         }
 
     @property
-    def combine_dim_keys(self) -> List[DimKey]:
-        return [DimKey(dim.name, dim.operation) for dim in self.combine_dims]
+    def combine_dim_keys(self) -> List[Dimension]:
+        return [Dimension(dim.name, dim.operation) for dim in self.combine_dims]
 
     def __getitem__(self, indexer: Index) -> str:
         """Get a filename path for a particular key."""
         assert len(indexer) == len(self.combine_dims)
         format_function_kwargs = {}
-        for dimkey, dimval in indexer.items():
+        for dimension, position in indexer.items():
             dims = [
-                dim
-                for dim in self.combine_dims
-                if dim.name == dimkey.name and dim.operation == dimkey.operation
+                combine_dim
+                for combine_dim in self.combine_dims
+                if combine_dim.dimension == dimension
             ]
             if len(dims) != 1:
-                raise KeyError(r"Could not valid combine_dim for indexer {idx_key}")
+                raise KeyError(f"Could not valid combine_dim for dimension {dimension}")
             dim = dims[0]
-            format_function_kwargs[dim.name] = dim.keys[dimval.position]
+            format_function_kwargs[dim.name] = dim.keys[position.value]
         fname = self.format_function(**format_function_kwargs)
         return fname
 
@@ -262,7 +196,10 @@ class FilePattern:
         """Iterate over all keys in the pattern."""
         for val in product(*[range(n) for n in self.shape]):
             index = Index(
-                {DimKey(op.name, op.operation): DimVal(v) for op, v in zip(self.combine_dims, val)}
+                {
+                    Dimension(op.name, op.operation): Position(v)
+                    for op, v in zip(self.combine_dims, val)
+                }
             )
             yield index
 
