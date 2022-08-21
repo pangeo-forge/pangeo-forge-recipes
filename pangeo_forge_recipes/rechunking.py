@@ -106,6 +106,7 @@ def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index,
         )
     concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
     other_dims = [dimension for dimension in dimensions if dimension.operation != CombineOp.CONCAT]
+
     # initialize new index with non-concat dims
     index_combined = Index({dim: first_index[dim] for dim in other_dims})
 
@@ -115,7 +116,7 @@ def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index,
         (
             dim.name,
             [index[dim].value for index in all_indexes],
-            [ds.dims[dimension.name]] for ds in all_dsets]
+            [ds.dims[dim.name] for ds in all_dsets]
         )
         for dim in concat_dims
     ]
@@ -127,40 +128,51 @@ def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index,
 
     shape = [len(np.unique(item[1])) for item in dims_starts_sizes]
     starts_rectangles = [np.array(item[1]).reshape(shape) for item in dims_starts_sizes]
-     
-    # this will look something like
-    # [[0, 0, 0, 1, 1, 1], [0, 1, 2, 0, 1, 2]]
-    # now we need to sort this into fastest varying to slowest varying dimension
-
-    sizes = [[ds.dims[dimension.name]] for index in all_indexes] for dimension in concat_dims]
-
-    dims_positions = {
-        dimension.name: [index[dimension] for index in all_indexes] for dimension in concat_dims
-    }
-    dims_sizes = {
-        dimension.name: [ds.dims[dimension.name] for ds in all_dsets] for dimension in concat_dims
-    }
-    for dim, positions in dims_positions.items():
-        if not all(position.indexed for position in positions):
-            raise ValueError("Positions are not indexed; cannot combine.")
-        # check for contiguity
-        sizes = np.array(dims_sizes[dim])
-        starts = np.array([position.value for position in positions])
-        expected_sizes = np.diff(starts)
-        if not all(np.equal(sizes[:-1], expected_sizes)):
-            raise ValueError(
-                f"Dataset {sizes} and index starts {starts} are not consistent for concat_dim {dim}"
-            )
-        combined_position = IndexedPosition(positions[0].value)
-        index_combined[Dimension(dim, CombineOp.CONCAT)] = combined_position
-
-    # now create the nested dataset structure we need
-    shape = tuple(len(positions) for positions in dims_positions.values())
     # some tricky workarounds to put xarray datasets into a nested list
     all_datasets = np.empty(shape, dtype="O").ravel()
     for n, fragment in enumerate(fragments):
         all_datasets[n] = fragment[1]
     dsets_to_concat = all_datasets.reshape(shape).tolist()
-    ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=list(dims_positions))
+    concat_dims_sorted = [item[0] for item in dims_starts_sizes]
+    ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=concat_dims_sorted)
 
-    return index_combined, ds_combined
+    return first_index, ds_combined
+    # TODO: make sure these rectangles are aligned correctly and verify sizes
+    
+
+    # this will look something like
+    # [[0, 0, 0, 1, 1, 1], [0, 1, 2, 0, 1, 2]]
+    # now we need to sort this into fastest varying to slowest varying dimension
+    #
+    # sizes = [[ds.dims[dimension.name]] for index in all_indexes] for dimension in concat_dims]
+    #
+    # dims_positions = {
+    #     dimension.name: [index[dimension] for index in all_indexes] for dimension in concat_dims
+    # }
+    # dims_sizes = {
+    #     dimension.name: [ds.dims[dimension.name] for ds in all_dsets] for dimension in concat_dims
+    # }
+    # for dim, positions in dims_positions.items():
+    #     if not all(position.indexed for position in positions):
+    #         raise ValueError("Positions are not indexed; cannot combine.")
+    #     # check for contiguity
+    #     sizes = np.array(dims_sizes[dim])
+    #     starts = np.array([position.value for position in positions])
+    #     expected_sizes = np.diff(starts)
+    #     if not all(np.equal(sizes[:-1], expected_sizes)):
+    #         raise ValueError(
+    #             f"Dataset {sizes} and index starts {starts} are not consistent for concat_dim {dim}"
+    #         )
+    #     combined_position = IndexedPosition(positions[0].value)
+    #     index_combined[Dimension(dim, CombineOp.CONCAT)] = combined_position
+    #
+    # # now create the nested dataset structure we need
+    # shape = tuple(len(positions) for positions in dims_positions.values())
+    # # some tricky workarounds to put xarray datasets into a nested list
+    # all_datasets = np.empty(shape, dtype="O").ravel()
+    # for n, fragment in enumerate(fragments):
+    #     all_datasets[n] = fragment[1]
+    # dsets_to_concat = all_datasets.reshape(shape).tolist()
+    # ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=list(dims_positions))
+    #
+    # return index_combined, ds_combined

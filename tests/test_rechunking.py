@@ -1,3 +1,5 @@
+import random
+
 import pytest
 import xarray as xr
 
@@ -117,7 +119,7 @@ def test_combine_fragments(time_chunk):
 
 
 @pytest.mark.parametrize("time_chunk", [1, 2, 3, 5, 10])
-@pytest.mark.parametrize("lat_chunk", [8, 9, 12])
+@pytest.mark.parametrize("lat_chunk", [8, 9, 17, 18])
 def test_combine_fragments_multidim(time_chunk, lat_chunk):
     """The function applied after GroupBy to combine fragments into a single chunk.
     All concat dims that appear more than once are combined.
@@ -141,6 +143,8 @@ def test_combine_fragments_multidim(time_chunk, lat_chunk):
             })
             fragments.append((index_frag, ds_frag))
 
+    # fragments will come in a random order
+    random.shuffle(fragments)
     index, ds_comb = combine_fragments(fragments)
 
     assert index == Index({time_dim: IndexedPosition(0), lat_dim: IndexedPosition(0)})
