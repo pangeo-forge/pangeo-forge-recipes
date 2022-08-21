@@ -16,10 +16,20 @@ GroupKey = Tuple[Tuple[str, int], ...]
 
 
 def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: ChunkDimDict):
+    """Split a single indexed dataset fragment into sub-fragments, according to the
+    specified target chunks
+
+    :param fragment: the indexed fragment. The index must have ``start`` and ``stop`` set.
+    :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
+    """
+
     index, ds = fragment
     chunk_grid = ChunkGrid.from_uniform_grid(target_chunks_and_dims)
 
+    # fragment_slices tells us where this fragement lies within the global dataset
     fragment_slices = {}  # type: Dict[str, slice]
+    # keys_to_skip is used to track dimensions that are present in both
+    # concat dims and target chunks
     keys_to_skip = []  # type: list[DimKey]
     for dim in target_chunks_and_dims:
         concat_dim_key = index.find_concat_dim(dim)
@@ -37,6 +47,8 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
 
     target_chunk_slices = chunk_grid.array_slice_to_chunk_slice(fragment_slices)
 
+    # each chunk we are going to yield is indexed by a "target chunk group",
+    # a tuple of tuples of the form (("lat", 1), ("time", 0))
     all_chunks = itertools.product(
         *(
             [(dim, n) for n in range(chunk_slice.start, chunk_slice.stop)]
@@ -44,6 +56,7 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
         )
     )
 
+    # this iteration yields new fragments, indexed by their target chunk group
     for target_chunk_group in all_chunks:
         # now we need to figure out which piece of the fragment belongs in which chunk
         chunk_array_slices = chunk_grid.chunk_index_to_array_slice(dict(target_chunk_group))
@@ -74,6 +87,13 @@ def _sort_index_key(item):
 
 
 def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index, xr.Dataset]:
+    """Combine multiple dataset fragments into a single fragment.
+
+    Only combines concat dims; merge dims are not combined.
+
+    :param fragments: indexed dataset fragments
+    """
+
     # we are combining over all the concat dims found in the indexes
     # first check indexes for consistency
     fragments.sort(key=_sort_index_key)  # this should sort by index
