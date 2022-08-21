@@ -1,8 +1,8 @@
 import pytest
 import xarray as xr
 
-from pangeo_forge_recipes.patterns import CombineOp, DimKey, DimVal, Index
 from pangeo_forge_recipes.rechunking import combine_fragments, split_fragment
+from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
 
 from .data_generation import make_ds
 
@@ -17,14 +17,14 @@ def test_split_fragment(time_chunks, offset):
 
     nt = 10
     ds = make_ds(nt=nt)  # this represents a single dataset fragment
-    dim_key = DimKey("time", CombineOp.CONCAT)
+    dimension = Dimension("time", CombineOp.CONCAT)
 
     extra_indexes = [
-        (DimKey("foo", CombineOp.CONCAT), DimVal(0)),
-        (DimKey("bar", CombineOp.MERGE), DimVal(1)),
+        (Dimension("foo", CombineOp.CONCAT), Position(0)),
+        (Dimension("bar", CombineOp.MERGE), Position(1)),
     ]
 
-    index = Index([(dim_key, DimVal(0, offset, offset + nt))] + extra_indexes)
+    index = Index([(dimension, IndexedPosition(offset))] + extra_indexes)
 
     all_splits = list(split_fragment((index, ds), target_chunks_and_dims=target_chunks_and_dims))
 
@@ -41,7 +41,7 @@ def test_split_fragment(time_chunks, offset):
         fragment_stop = min(chunk_stop, fragment_start + time_chunks, offset + nt)
         # other dimensions in the index should be passed through unchanged
         assert new_indexes[n] == Index(
-            [(dim_key, DimVal(0, fragment_start, fragment_stop))] + extra_indexes
+            [(dimension, IndexedPosition(fragment_start))] + extra_indexes
         )
         start, stop = fragment_start - offset, fragment_stop - offset
         xr.testing.assert_equal(new_datasets[n], ds.isel(time=slice(start, stop)))
@@ -58,8 +58,8 @@ def test_split_multidim():
     nt = 2
     ds = make_ds(nt=nt)
     nlat = ds.dims["lat"]
-    dim_key = DimKey("time", CombineOp.CONCAT)
-    index = Index({dim_key: DimVal(0, 0, nt)})
+    dimension = Dimension("time", CombineOp.CONCAT)
+    index = Index({dimension: IndexedPosition(0)})
 
     time_chunks = 1
     lat_chunks = nlat // 2
@@ -83,8 +83,8 @@ def test_split_multidim():
         lat_start, lat_stop = n_lat_chunk * lat_chunks, (n_lat_chunk + 1) * lat_chunks
         expected_index = Index(
             {
-                DimKey("time", CombineOp.CONCAT): DimVal(0, time_start, time_stop),
-                DimKey("lat", CombineOp.CONCAT): DimVal(0, lat_start, lat_stop),
+                Dimension("time", CombineOp.CONCAT): IndexedPosition(time_start),
+                Dimension("lat", CombineOp.CONCAT): IndexedPosition(lat_start),
             }
         )
         assert fragment_index == expected_index
@@ -103,15 +103,48 @@ def test_combine_fragments(time_chunk):
     ds = make_ds(nt=nt)
 
     fragments = []
-    dim_key = DimKey("time", CombineOp.CONCAT)
+    dimension = Dimension("time", CombineOp.CONCAT)
     for nfrag, start in enumerate(range(0, nt, time_chunk)):
         stop = min(start + time_chunk, nt)
-        # we are ignoring position (first item) at this point
-        index_frag = Index({dim_key: DimVal(0, start, stop)})
+        index_frag = Index({dimension: IndexedPosition(start)})
         ds_frag = ds.isel(time=slice(start, stop))
         fragments.append((index_frag, ds_frag))
 
     index, ds_comb = combine_fragments(fragments)
 
-    assert index == Index({dim_key: DimVal(0, 0, nt)})
+    assert index == Index({dimension: IndexedPosition(0)})
     xr.testing.assert_equal(ds, ds_comb)
+
+
+def test_combine_fragments_errors():
+
+    ds = make_ds(nt=1)
+
+    # check for inconsistent indexes
+    index0 = Index({Dimension("time", CombineOp.CONCAT): IndexedPosition(0)})
+    bad_indexes = [
+        Index(
+            {
+                Dimension("timestep", CombineOp.CONCAT): IndexedPosition(1),
+            }
+        ),
+        Index(
+            {
+                Dimension("time", CombineOp.CONCAT): IndexedPosition(1),
+                Dimension("variable", CombineOp.MERGE): Position(0),
+            }
+        ),
+    ]
+    for index1 in bad_indexes:
+        with pytest.raises(ValueError, match="different combine dims"):
+            _ = combine_fragments([(index0, ds), (index1, ds)])
+
+    # check for missing start stop
+    index1 = Index({Dimension("time", CombineOp.CONCAT): Position(1)})
+    with pytest.raises(ValueError, match="Positions are not indexed"):
+        _ = combine_fragments([(index0, ds), (index1, ds)])
+
+    # check for non-contiguous indexes
+    index1 = Index({Dimension("time", CombineOp.CONCAT): IndexedPosition(2)})
+    with pytest.raises(ValueError, match="are not consistent for concat_dim"):
+        _ = combine_fragments([(index0, ds), (index1, ds)])

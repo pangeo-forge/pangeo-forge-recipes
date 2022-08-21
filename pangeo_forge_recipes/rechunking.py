@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from .chunk_grid import ChunkGrid
-from .patterns import CombineOp, DimKey, DimVal, Index
+from .types import CombineOp, Dimension, Index, IndexedPosition
 
 ChunkDimDict = Dict[str, Tuple[int, int]]
 
@@ -19,7 +19,7 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
     """Split a single indexed dataset fragment into sub-fragments, according to the
     specified target chunks
 
-    :param fragment: the indexed fragment. The index must have ``start`` and ``stop`` set.
+    :param fragment: the indexed fragment.
     :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
     """
 
@@ -30,14 +30,16 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
     fragment_slices = {}  # type: Dict[str, slice]
     # keys_to_skip is used to track dimensions that are present in both
     # concat dims and target chunks
-    keys_to_skip = []  # type: list[DimKey]
+    keys_to_skip = []  # type: list[Dimension]
     for dim in target_chunks_and_dims:
-        concat_dim_key = index.find_concat_dim(dim)
-        if concat_dim_key:
+        concat_dimension = index.find_concat_dim(dim)
+        if concat_dimension:
             # this dimension is present in the fragment as a concat dim
-            concat_dim_val = index[concat_dim_key]
-            dim_slice = slice(concat_dim_val.start, concat_dim_val.stop)
-            keys_to_skip.append(concat_dim_key)
+            concat_position = index[concat_dimension]
+            start = concat_position.value
+            stop = start + ds.dims[dim]
+            dim_slice = slice(start, stop)
+            keys_to_skip.append(concat_dimension)
         else:
             # If there is a target_chunk that is NOT present as a concat_dim in the fragment,
             # then we can assume that the entire span of that dimension is present in the dataset
@@ -71,19 +73,15 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
             sub_fragment_indexer[dim] = slice(
                 start - fragment_slice.start, stop - fragment_slice.start
             )
-            dim_key = DimKey(dim, CombineOp.CONCAT)
-            # I am getting the original "position" value from the original index
-            # Not sure if this makes sense. There is no way to know the actual position here
-            # without knowing all the previous subfragments
-            original_position = getattr(index.get(dim_key), "position", 0)
-            sub_fragment_index[dim_key] = DimVal(original_position, start, stop)
+            dimension = Dimension(dim, CombineOp.CONCAT)
+            sub_fragment_index[dimension] = IndexedPosition(start)
         sub_fragment_ds = ds.isel(**sub_fragment_indexer)
         yield tuple(sorted(target_chunk_group)), (sub_fragment_index, sub_fragment_ds)
 
 
 def _sort_index_key(item):
     index = item[0]
-    return tuple(index.items())
+    return tuple((dimension, position.value) for dimension, position in index.items())
 
 
 def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index, xr.Dataset]:
@@ -97,51 +95,46 @@ def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index,
     # we are combining over all the concat dims found in the indexes
     # first check indexes for consistency
     fragments.sort(key=_sort_index_key)  # this should sort by index
+
     all_indexes = [item[0] for item in fragments]
+    all_dsets = [item[1] for item in fragments]
     first_index = all_indexes[0]
-    dim_keys = tuple(first_index)
-    if not all([tuple(index) == dim_keys for index in all_indexes]):
+    dimensions = tuple(first_index)
+    if not all([tuple(index) == dimensions for index in all_indexes]):
         raise ValueError(
             f"Cannot combine fragments for elements with different combine dims: {all_indexes}"
         )
-    concat_dims = [dim_key for dim_key in dim_keys if dim_key.operation == CombineOp.CONCAT]
-    other_dims = [dim_key for dim_key in dim_keys if dim_key.operation != CombineOp.CONCAT]
+    concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
+    other_dims = [dimension for dimension in dimensions if dimension.operation != CombineOp.CONCAT]
     # initialize new index with non-concat dims
     index_combined = Index({dim: first_index[dim] for dim in other_dims})
-    dim_names_and_vals = {
-        dim_key.name: [index[dim_key] for index in all_indexes] for dim_key in concat_dims
+    dims_positions = {
+        dimension.name: [index[dimension] for index in all_indexes] for dimension in concat_dims
     }
-    for dim, dim_vals in dim_names_and_vals.items():
-        for dim_val in dim_vals:
-            if dim_val.start is None or dim_val.stop is None:
-                raise ValueError("Can only comined indexed fragments.")
+    dims_sizes = {
+        dimension.name: [ds.dims[dimension.name] for ds in all_dsets] for dimension in concat_dims
+    }
+    for dim, positions in dims_positions.items():
+        if not all(position.indexed for position in positions):
+            raise ValueError("Positions are not indexed; cannot combine.")
         # check for contiguity
-        starts = [dim_val.start for dim_val in dim_vals][1:]
-        stops = [dim_val.stop for dim_val in dim_vals][:-1]
-        if not starts == stops:
+        sizes = np.array(dims_sizes[dim])
+        starts = np.array([position.value for position in positions])
+        expected_sizes = np.diff(starts)
+        if not all(np.equal(sizes[:-1], expected_sizes)):
             raise ValueError(
-                f"Index starts and stops are not consistent for concat_dim {dim}: {dim_vals}"
+                f"Dataset {sizes} and index starts {starts} are not consistent for concat_dim {dim}"
             )
-        # Position is unneeded at this point, but we still have to provide it
-        # This API probably needs to change
-        combined_dim_val = DimVal(dim_vals[0].position, dim_vals[0].start, dim_vals[-1].stop)
-        index_combined[DimKey(dim, CombineOp.CONCAT)] = combined_dim_val
+        combined_position = IndexedPosition(positions[0].value)
+        index_combined[Dimension(dim, CombineOp.CONCAT)] = combined_position
+
     # now create the nested dataset structure we need
-    shape = tuple(len(dim_vals) for dim_vals in dim_names_and_vals.values())
-    expected_dims = {
-        dim_name: (dim_vals[-1].stop - dim_vals[0].start)  # type: ignore
-        for dim_name, dim_vals in dim_names_and_vals.items()
-    }
+    shape = tuple(len(positions) for positions in dims_positions.values())
     # some tricky workarounds to put xarray datasets into a nested list
     all_datasets = np.empty(shape, dtype="O").ravel()
     for n, fragment in enumerate(fragments):
         all_datasets[n] = fragment[1]
     dsets_to_concat = all_datasets.reshape(shape).tolist()
-    ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=list(dim_names_and_vals))
-    actual_dims = {dim: ds_combined.dims[dim] for dim in expected_dims}
-    if actual_dims != expected_dims:
-        raise ValueError(
-            f"Combined dataset dims {actual_dims} not the same as those expected"
-            f"from the index {expected_dims}"
-        )
+    ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=list(dims_positions))
+
     return index_combined, ds_combined
