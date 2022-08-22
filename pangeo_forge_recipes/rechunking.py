@@ -1,4 +1,6 @@
+import functools
 import itertools
+import operator
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -84,6 +86,23 @@ def _sort_index_key(item):
     return tuple((dimension, position.value) for dimension, position in index.items())
 
 
+def _invert_meshgrid(*arrays):
+    """Inverts the numpy.meshgrid function."""
+
+    ndim = len(arrays)
+    shape = arrays[0].shape
+    assert all(a.shape == shape for a in arrays)
+    selectors = [ndim * [0] for n in range(ndim)]
+    for n in range(ndim):
+        selectors[n][ndim - n - 1] = slice(None)
+        selectors[n] = tuple(selectors[n])
+    xi = [a[s] for a, s in zip(arrays, selectors)]
+    assert all(
+        np.equal(actual, expected).all() for actual, expected in zip(arrays, np.meshgrid(*xi))
+    )
+    return xi
+
+
 def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index, xr.Dataset]:
     """Combine multiple dataset fragments into a single fragment.
 
@@ -105,10 +124,11 @@ def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index,
             f"Cannot combine fragments for elements with different combine dims: {all_indexes}"
         )
     concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
-    other_dims = [dimension for dimension in dimensions if dimension.operation != CombineOp.CONCAT]
 
-    # initialize new index with non-concat dims
-    index_combined = Index({dim: first_index[dim] for dim in other_dims})
+    if not all(all(index[dim].indexed for index in all_indexes) for dim in concat_dims):
+        raise ValueError(
+            "All concat dimension positions must be indexed in order to combine fragments."
+        )
 
     # now we need to unstack the 1D concat dims into an ND nested data structure
     # first step is figuring out the shape
@@ -116,7 +136,7 @@ def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index,
         (
             dim.name,
             [index[dim].value for index in all_indexes],
-            [ds.dims[dim.name] for ds in all_dsets]
+            [ds.dims[dim.name] for ds in all_dsets],
         )
         for dim in concat_dims
     ]
@@ -124,55 +144,40 @@ def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index,
     def _sort_by_speed_of_varying(item):
         indexes = item[1]
         return np.diff(np.array(indexes)).tolist()
+
     dims_starts_sizes.sort(key=_sort_by_speed_of_varying)
 
     shape = [len(np.unique(item[1])) for item in dims_starts_sizes]
-    starts_rectangles = [np.array(item[1]).reshape(shape) for item in dims_starts_sizes]
+
+    total_size = functools.reduce(operator.mul, shape)
+    if len(fragments) != total_size:
+        # this error path is currently untested
+        raise ValueError(
+            "Cannot combine fragments. "
+            f"Expected a hypercube of shape {shape} but got {len(fragments)} fragments."
+        )
+
+    starts_cube = [np.array(item[1]).reshape(shape) for item in dims_starts_sizes]
+    sizes_cube = [np.array(item[2]).reshape(shape) for item in dims_starts_sizes]
+    try:
+        # reversing order is necessary here because _sort_by_speed_of_varying puts the
+        # arrays into the opposite order as wanted by np.meshgrid
+        starts = _invert_meshgrid(*starts_cube[::-1])[::-1]
+        sizes = _invert_meshgrid(*sizes_cube[::-1])[::-1]
+    except AssertionError:
+        raise ValueError("Cannot combine fragments because they do not form a regular hypercube.")
+
+    expected_sizes = [np.diff(s) for s in starts]
+    if not all(np.equal(s[:-1], es).all() for s, es in zip(sizes, expected_sizes)):
+        raise ValueError(f"Dataset {sizes} and index starts {starts} are not consistent.")
+
     # some tricky workarounds to put xarray datasets into a nested list
     all_datasets = np.empty(shape, dtype="O").ravel()
     for n, fragment in enumerate(fragments):
         all_datasets[n] = fragment[1]
+
     dsets_to_concat = all_datasets.reshape(shape).tolist()
     concat_dims_sorted = [item[0] for item in dims_starts_sizes]
     ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=concat_dims_sorted)
 
     return first_index, ds_combined
-    # TODO: make sure these rectangles are aligned correctly and verify sizes
-    
-
-    # this will look something like
-    # [[0, 0, 0, 1, 1, 1], [0, 1, 2, 0, 1, 2]]
-    # now we need to sort this into fastest varying to slowest varying dimension
-    #
-    # sizes = [[ds.dims[dimension.name]] for index in all_indexes] for dimension in concat_dims]
-    #
-    # dims_positions = {
-    #     dimension.name: [index[dimension] for index in all_indexes] for dimension in concat_dims
-    # }
-    # dims_sizes = {
-    #     dimension.name: [ds.dims[dimension.name] for ds in all_dsets] for dimension in concat_dims
-    # }
-    # for dim, positions in dims_positions.items():
-    #     if not all(position.indexed for position in positions):
-    #         raise ValueError("Positions are not indexed; cannot combine.")
-    #     # check for contiguity
-    #     sizes = np.array(dims_sizes[dim])
-    #     starts = np.array([position.value for position in positions])
-    #     expected_sizes = np.diff(starts)
-    #     if not all(np.equal(sizes[:-1], expected_sizes)):
-    #         raise ValueError(
-    #             f"Dataset {sizes} and index starts {starts} are not consistent for concat_dim {dim}"
-    #         )
-    #     combined_position = IndexedPosition(positions[0].value)
-    #     index_combined[Dimension(dim, CombineOp.CONCAT)] = combined_position
-    #
-    # # now create the nested dataset structure we need
-    # shape = tuple(len(positions) for positions in dims_positions.values())
-    # # some tricky workarounds to put xarray datasets into a nested list
-    # all_datasets = np.empty(shape, dtype="O").ravel()
-    # for n, fragment in enumerate(fragments):
-    #     all_datasets[n] = fragment[1]
-    # dsets_to_concat = all_datasets.reshape(shape).tolist()
-    # ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=list(dims_positions))
-    #
-    # return index_combined, ds_combined

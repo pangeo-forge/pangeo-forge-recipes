@@ -127,7 +127,7 @@ def test_combine_fragments_multidim(time_chunk, lat_chunk):
 
     nt = 10
     ds = make_ds(nt=nt)
-    ny = ds.dims['lat']
+    ny = ds.dims["lat"]
 
     fragments = []
     time_dim = Dimension("time", CombineOp.CONCAT)
@@ -137,13 +137,12 @@ def test_combine_fragments_multidim(time_chunk, lat_chunk):
         for start_y in range(0, ny, lat_chunk):
             stop_y = min(start_y + lat_chunk, ny)
             ds_frag = ds.isel(time=slice(start_t, stop_t), lat=slice(start_y, stop_y))
-            index_frag = Index({
-                time_dim: IndexedPosition(start_t),
-                lat_dim: IndexedPosition(start_y)
-            })
+            index_frag = Index(
+                {time_dim: IndexedPosition(start_t), lat_dim: IndexedPosition(start_y)}
+            )
             fragments.append((index_frag, ds_frag))
 
-    # fragments will come in a random order
+    # fragments will arrive in a random order
     random.shuffle(fragments)
     index, ds_comb = combine_fragments(fragments)
 
@@ -176,10 +175,10 @@ def test_combine_fragments_errors():
 
     # check for missing start stop
     index1 = Index({Dimension("time", CombineOp.CONCAT): Position(1)})
-    with pytest.raises(ValueError, match="Positions are not indexed"):
+    with pytest.raises(ValueError, match="positions must be indexed"):
         _ = combine_fragments([(index0, ds), (index1, ds)])
 
     # check for non-contiguous indexes
     index1 = Index({Dimension("time", CombineOp.CONCAT): IndexedPosition(2)})
-    with pytest.raises(ValueError, match="are not consistent for concat_dim"):
+    with pytest.raises(ValueError, match="are not consistent"):
         _ = combine_fragments([(index0, ds), (index1, ds)])
