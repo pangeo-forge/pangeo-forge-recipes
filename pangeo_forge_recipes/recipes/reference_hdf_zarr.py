@@ -52,7 +52,7 @@ def finalize(config: HDFReferenceRecipe):
             files,
             remote_protocol=remote_protocol,
             remote_options=config.netcdf_storage_options,
-            target_options=config.reference_storage_options,
+            target_options=config.target_options,
             coo_dtypes=config.coo_dtypes,
             coo_map=config.coo_map,
             identical_dims=config.identical_dims,
@@ -158,7 +158,7 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     output_json_fname: str = "reference.json"
     output_intake_yaml_fname: str = "reference.yaml"
     netcdf_storage_options: dict = field(default_factory=dict)
-    reference_storage_options: Optional[dict] = field(default_factory=dict)
+    target_options: Optional[dict] = field(default_factory=dict)
     inline_threshold: int = 500
     output_storage_options: dict = field(default_factory=dict)
     concat_dims: list = field(default_factory=list)
