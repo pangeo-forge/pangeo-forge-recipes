@@ -112,7 +112,8 @@ def test_combine_fragments(time_chunk):
         ds_frag = ds.isel(time=slice(start, stop))
         fragments.append((index_frag, ds_frag))
 
-    index, ds_comb = combine_fragments(fragments)
+    group = (("time", 0),)  # not actually used
+    index, ds_comb = combine_fragments(group, fragments)
 
     assert index == Index({time_dim: IndexedPosition(0)})
     xr.testing.assert_equal(ds, ds_comb)
@@ -144,7 +145,8 @@ def test_combine_fragments_multidim(time_chunk, lat_chunk):
 
     # fragments will arrive in a random order
     random.shuffle(fragments)
-    index, ds_comb = combine_fragments(fragments)
+    group = (("time", 0), ("lat", 0))  # not actually used
+    index, ds_comb = combine_fragments(group, fragments)
 
     assert index == Index({time_dim: IndexedPosition(0), lat_dim: IndexedPosition(0)})
     xr.testing.assert_equal(ds, ds_comb)
@@ -153,6 +155,7 @@ def test_combine_fragments_multidim(time_chunk, lat_chunk):
 def test_combine_fragments_errors():
 
     ds = make_ds(nt=1)
+    group = (("time", 0),)  # not actually used
 
     # check for inconsistent indexes
     index0 = Index({Dimension("time", CombineOp.CONCAT): IndexedPosition(0)})
@@ -171,14 +174,14 @@ def test_combine_fragments_errors():
     ]
     for index1 in bad_indexes:
         with pytest.raises(ValueError, match="different combine dims"):
-            _ = combine_fragments([(index0, ds), (index1, ds)])
+            _ = combine_fragments(group, [(index0, ds), (index1, ds)])
 
     # check for missing start stop
     index1 = Index({Dimension("time", CombineOp.CONCAT): Position(1)})
     with pytest.raises(ValueError, match="positions must be indexed"):
-        _ = combine_fragments([(index0, ds), (index1, ds)])
+        _ = combine_fragments(group, [(index0, ds), (index1, ds)])
 
     # check for non-contiguous indexes
     index1 = Index({Dimension("time", CombineOp.CONCAT): IndexedPosition(2)})
     with pytest.raises(ValueError, match="are not consistent"):
-        _ = combine_fragments([(index0, ds), (index1, ds)])
+        _ = combine_fragments(group, [(index0, ds), (index1, ds)])

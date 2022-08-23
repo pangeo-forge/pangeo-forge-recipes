@@ -155,7 +155,7 @@ class DatasetToSchema(beam.PTransform):
 
 @dataclass
 class DetermineSchema(beam.PTransform):
-    """Combine many Dataset schemas into a single schema along multiple dimensions.
+    """Combine many Datasets into a single schema along multiple dimensions.
     This is a reduction that produces a singleton PCollection.
 
     :param combine_dims: The dimensions to combine
@@ -242,7 +242,7 @@ class StoreDatasetFragments(beam.PTransform):
 # - consolidate coords
 # - consolidate metadata
 
-# UNTESTED!!!
+
 @dataclass
 class Rechunk(beam.PTransform):
     target_chunks: Dict[str, int] = field(default_factory=dict)
@@ -252,7 +252,7 @@ class Rechunk(beam.PTransform):
             pcoll
             | beam.FlatMap(split_fragment, target_chunks=self.target_chunks)
             | beam.GroupByKey()
-            | beam.Map(combine_fragments)
+            | beam.MapTuple(combine_fragments)
         )
         return new_fragments
 

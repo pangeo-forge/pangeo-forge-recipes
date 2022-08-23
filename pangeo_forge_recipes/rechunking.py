@@ -1,7 +1,7 @@
 import functools
 import itertools
 import operator
-from typing import Dict, List, Tuple
+from typing import Dict, Iterator, List, Tuple
 
 import numpy as np
 import xarray as xr
@@ -15,7 +15,9 @@ from .types import CombineOp, Dimension, Index, IndexedPosition
 GroupKey = Tuple[Tuple[str, int], ...]
 
 
-def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks: Dict[str, int]):
+def split_fragment(
+    fragment: Tuple[Index, xr.Dataset], target_chunks: Dict[str, int]
+) -> Iterator[Tuple[GroupKey, Tuple[Index, xr.Dataset]]]:
     """Split a single indexed dataset fragment into sub-fragments, according to the
     specified target chunks
 
@@ -116,11 +118,15 @@ def _invert_meshgrid(*arrays):
     return xi
 
 
-def combine_fragments(fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index, xr.Dataset]:
+# TODO: figure out a type hint that beam likes
+def combine_fragments(
+    group: GroupKey, fragments: List[Tuple[Index, xr.Dataset]]
+) -> Tuple[Index, xr.Dataset]:
     """Combine multiple dataset fragments into a single fragment.
 
     Only combines concat dims; merge dims are not combined.
 
+    :param group: the group key; not actually used in combining
     :param fragments: indexed dataset fragments
     """
 
