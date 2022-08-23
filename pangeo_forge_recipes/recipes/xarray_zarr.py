@@ -431,7 +431,10 @@ def open_chunk(chunk_key: ChunkKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
         yield ds
 
 
-def get_input_meta(metadata_cache: Optional[MetadataTarget], file_pattern: FilePattern,) -> Dict:
+def get_input_meta(
+    metadata_cache: Optional[MetadataTarget],
+    file_pattern: FilePattern,
+) -> Dict:
     # getitems should be async; much faster than serial calls
     if metadata_cache is None:
         raise ValueError("metadata_cache is not set.")
@@ -505,7 +508,12 @@ def prepare_target(*, config: XarrayZarrRecipe) -> None:
             # TODO: check that target_chunks id compatibile with the
             # existing chunks
             pass
-    except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
+    except (
+        FileNotFoundError,
+        IOError,
+        zarr.errors.GroupNotFoundError,
+        zarr.errors.PathNotFoundError,
+    ):
         logger.info("Creating a new dataset in target")
 
         # need to rewrite this as an append loop
@@ -559,7 +567,9 @@ def prepare_target(*, config: XarrayZarrRecipe) -> None:
     # Regardless of whether there is an existing dataset or we are creating a new one,
     # we need to expand the concat_dim to hold the entire expected size of the data
     input_sequence_lens = calculate_sequence_lens(
-        config.nitems_per_input, config.file_pattern, config.storage_config.metadata,
+        config.nitems_per_input,
+        config.file_pattern,
+        config.storage_config.metadata,
     )
     n_sequence = sum(input_sequence_lens)
     logger.info(f"Expanding target concat dim '{config.concat_dim}' to size {n_sequence}")
