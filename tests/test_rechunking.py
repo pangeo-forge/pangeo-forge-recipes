@@ -15,7 +15,7 @@ def test_split_fragment(time_chunks, offset):
     """A thorough test of 1D splitting logic that should cover all major edge cases."""
 
     nt_total = 20  # the total size of the hypothetical dataset
-    target_chunks_and_dims = {"time": (time_chunks, nt_total)}
+    target_chunks = {"time": time_chunks}
 
     nt = 10
     ds = make_ds(nt=nt)  # this represents a single dataset fragment
@@ -26,9 +26,9 @@ def test_split_fragment(time_chunks, offset):
         (Dimension("bar", CombineOp.MERGE), Position(1)),
     ]
 
-    index = Index([(dimension, IndexedPosition(offset))] + extra_indexes)
+    index = Index([(dimension, IndexedPosition(offset, dimsize=nt_total))] + extra_indexes)
 
-    all_splits = list(split_fragment((index, ds), target_chunks_and_dims=target_chunks_and_dims))
+    all_splits = list(split_fragment((index, ds), target_chunks=target_chunks))
 
     group_keys = [item[0] for item in all_splits]
     new_indexes = [item[1][0] for item in all_splits]
@@ -43,7 +43,7 @@ def test_split_fragment(time_chunks, offset):
         fragment_stop = min(chunk_stop, fragment_start + time_chunks, offset + nt)
         # other dimensions in the index should be passed through unchanged
         assert new_indexes[n] == Index(
-            [(dimension, IndexedPosition(fragment_start))] + extra_indexes
+            [(dimension, IndexedPosition(fragment_start, dimsize=nt_total))] + extra_indexes
         )
         start, stop = fragment_start - offset, fragment_stop - offset
         xr.testing.assert_equal(new_datasets[n], ds.isel(time=slice(start, stop)))
@@ -61,13 +61,13 @@ def test_split_multidim():
     ds = make_ds(nt=nt)
     nlat = ds.dims["lat"]
     dimension = Dimension("time", CombineOp.CONCAT)
-    index = Index({dimension: IndexedPosition(0)})
+    index = Index({dimension: IndexedPosition(0, dimsize=nt)})
 
     time_chunks = 1
     lat_chunks = nlat // 2
-    target_chunks_and_dims = {"time": (time_chunks, nt), "lat": (lat_chunks, nlat)}
+    target_chunks = {"time": time_chunks, "lat": lat_chunks}
 
-    all_splits = list(split_fragment((index, ds), target_chunks_and_dims=target_chunks_and_dims))
+    all_splits = list(split_fragment((index, ds), target_chunks=target_chunks))
 
     group_keys = [item[0] for item in all_splits]
 
@@ -85,8 +85,8 @@ def test_split_multidim():
         lat_start, lat_stop = n_lat_chunk * lat_chunks, (n_lat_chunk + 1) * lat_chunks
         expected_index = Index(
             {
-                Dimension("time", CombineOp.CONCAT): IndexedPosition(time_start),
-                Dimension("lat", CombineOp.CONCAT): IndexedPosition(lat_start),
+                Dimension("time", CombineOp.CONCAT): IndexedPosition(time_start, dimsize=nt),
+                Dimension("lat", CombineOp.CONCAT): IndexedPosition(lat_start, dimsize=nlat),
             }
         )
         assert fragment_index == expected_index

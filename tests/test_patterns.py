@@ -208,6 +208,6 @@ def test_setting_file_types(file_type_value):
 )
 def test_augment_index_with_start_stop(position, start):
     dk = Position(position)
-    expected = IndexedPosition(start)
+    expected = IndexedPosition(start, dimsize=11)
     actual = augment_index_with_start_stop(dk, [2, 2, 3, 2, 2])
     assert actual == expected

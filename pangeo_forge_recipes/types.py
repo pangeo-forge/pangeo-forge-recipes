@@ -37,6 +37,7 @@ class Position:
 @dataclass(frozen=True, order=True)
 class IndexedPosition(Position):
     indexed: bool = True
+    dimsize: int = 0
 
 
 class Index(Dict[Dimension, Position]):

@@ -67,7 +67,8 @@ def augment_index_with_start_stop(position: Position, item_lens: List[int]) -> I
     if position.indexed:
         raise ValueError("This position is already indexed")
     start = sum(item_lens[: position.value])
-    return IndexedPosition(start)
+    dimsize = sum(item_lens)
+    return IndexedPosition(start, dimsize=dimsize)
 
 
 class AutoName(Enum):

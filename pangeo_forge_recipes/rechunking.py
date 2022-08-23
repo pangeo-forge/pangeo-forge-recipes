@@ -9,15 +9,13 @@ import xarray as xr
 from .chunk_grid import ChunkGrid
 from .types import CombineOp, Dimension, Index, IndexedPosition
 
-ChunkDimDict = Dict[str, Tuple[int, int]]
-
 # group keys are a tuple of tuples like (("lon", 1), ("time", 0))
 # the ints are chunk indexes
 # code should aways sort the key before emitting it
 GroupKey = Tuple[Tuple[str, int], ...]
 
 
-def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: ChunkDimDict):
+def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks: Dict[str, int]):
     """Split a single indexed dataset fragment into sub-fragments, according to the
     specified target chunks
 
@@ -26,29 +24,41 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
     """
 
     index, ds = fragment
-    chunk_grid = ChunkGrid.from_uniform_grid(target_chunks_and_dims)
 
+    # target_chunks_and_dims contains both the chunk size and global dataset dimension size
+    target_chunks_and_dims = {}  # type: Dict[str, Tuple[int, int]]
     # fragment_slices tells us where this fragement lies within the global dataset
     fragment_slices = {}  # type: Dict[str, slice]
-    # keys_to_skip is used to track dimensions that are present in both
+    # rechunked_concat_dims is used to track dimensions that are present in both
     # concat dims and target chunks
-    keys_to_skip = []  # type: list[Dimension]
-    for dim in target_chunks_and_dims:
-        concat_dimension = index.find_concat_dim(dim)
-        if concat_dimension:
-            # this dimension is present in the fragment as a concat dim
-            concat_position = index[concat_dimension]
+    rechunked_concat_dims = []  # type: list[Dimension]
+    for dim_name, chunk in target_chunks.items():
+        concat_dim = Dimension(dim_name, CombineOp.CONCAT)
+        if concat_dim in index:
+            dimsize = getattr(index[concat_dim], "dimsize", 0)
+            concat_position = index[concat_dim]
             start = concat_position.value
-            stop = start + ds.dims[dim]
+            stop = start + ds.dims[dim_name]
             dim_slice = slice(start, stop)
-            keys_to_skip.append(concat_dimension)
+            rechunked_concat_dims.append(concat_dim)
         else:
-            # If there is a target_chunk that is NOT present as a concat_dim in the fragment,
-            # then we can assume that the entire span of that dimension is present in the dataset
+            # If there is a target_chunk that is NOT present as a concat_dim
+            # in the fragment index, then we can assume that the entire span of
+            # that dimension is present in the dataset.
             # This would arise e.g. when decimating a contiguous dimension
-            dim_slice = slice(0, ds.dims[dim])
-        fragment_slices[dim] = dim_slice
+            dimsize = ds.dims[dim_name]
+            dim_slice = slice(0, dimsize)
 
+        target_chunks_and_dims[dim_name] = (chunk, dimsize)
+        fragment_slices[dim_name] = dim_slice
+
+    if any(item[1] == 0 for item in target_chunks_and_dims.values()):
+        raise ValueError("A dimsize of 0 means that this fragment has not been properly indexed.")
+
+    # all index fragments will have this as a base
+    common_index = {k: v for k, v in index.items() if k not in rechunked_concat_dims}
+
+    chunk_grid = ChunkGrid.from_uniform_grid(target_chunks_and_dims)
     target_chunk_slices = chunk_grid.array_slice_to_chunk_slice(fragment_slices)
 
     # each chunk we are going to yield is indexed by a "target chunk group",
@@ -64,10 +74,11 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
     for target_chunk_group in all_chunks:
         # now we need to figure out which piece of the fragment belongs in which chunk
         chunk_array_slices = chunk_grid.chunk_index_to_array_slice(dict(target_chunk_group))
+        print("chunk_array_slices", chunk_array_slices)
         sub_fragment_indexer = {}  # passed to ds.isel
         # initialize the new index with the items we want to keep from the original index
         # TODO: think about whether we want to always rechunk concat dims
-        sub_fragment_index = Index({k: v for k, v in index.items() if k not in keys_to_skip})
+        sub_fragment_index = Index(common_index.copy())
         for dim, chunk_slice in chunk_array_slices.items():
             fragment_slice = fragment_slices[dim]
             start = max(chunk_slice.start, fragment_slice.start)
@@ -76,8 +87,11 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks_and_dims: C
                 start - fragment_slice.start, stop - fragment_slice.start
             )
             dimension = Dimension(dim, CombineOp.CONCAT)
-            sub_fragment_index[dimension] = IndexedPosition(start)
+            sub_fragment_index[dimension] = IndexedPosition(
+                start, dimsize=target_chunks_and_dims[dim][1]
+            )
         sub_fragment_ds = ds.isel(**sub_fragment_indexer)
+
         yield tuple(sorted(target_chunk_group)), (sub_fragment_index, sub_fragment_ds)
 
 
