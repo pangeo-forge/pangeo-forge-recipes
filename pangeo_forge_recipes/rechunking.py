@@ -74,7 +74,6 @@ def split_fragment(fragment: Tuple[Index, xr.Dataset], target_chunks: Dict[str, 
     for target_chunk_group in all_chunks:
         # now we need to figure out which piece of the fragment belongs in which chunk
         chunk_array_slices = chunk_grid.chunk_index_to_array_slice(dict(target_chunk_group))
-        print("chunk_array_slices", chunk_array_slices)
         sub_fragment_indexer = {}  # passed to ds.isel
         # initialize the new index with the items we want to keep from the original index
         # TODO: think about whether we want to always rechunk concat dims

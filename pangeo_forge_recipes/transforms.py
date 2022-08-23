@@ -12,6 +12,7 @@ from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineXarraySchemas
 from .openers import open_url, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
+from .rechuking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
 from .writers import store_dataset_fragment
 
@@ -54,6 +55,7 @@ T = TypeVar("T")
 Indexed = Tuple[Index, T]
 
 
+# TODO: replace with beam.MapTuple?
 def _add_keys(func):
     """Convenience decorator to remove and re-add keys to items in a Map"""
     annotations = func.__annotations__.copy()
@@ -236,6 +238,20 @@ class StoreDatasetFragments(beam.PTransform):
 # TODO
 # - consolidate coords
 # - consolidate metadata
+
+# UNTESTED!!!
+@dataclass
+class Rechunk(beam.PTransform):
+    target_chunks: Dict[str, int] = field(default_factory=dict)
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        new_fragments = (
+            pcoll
+            | beam.FlatMap(split_fragment, target_chunks=self.target_chunks)
+            | beam.GroupByKey()
+            | beam.Map(combine_fragments)
+        )
+        return new_fragments
 
 
 @dataclass
