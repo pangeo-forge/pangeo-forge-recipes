@@ -127,6 +127,8 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
       be any combination of ``fsspec``-compatible storage backends.
     :param netcdf_storage_options: dict of kwargs for creating fsspec
         instance to read original data files
+    :param target_options: dict of kwargs for creating fsspec
+        instance to read Kerchunk reference files
     :param inline_threshold: blocks with fewer bytes than this will be
         inlined into the output reference file
     :param output_storage_options: dict of kwargs for creating fsspec
