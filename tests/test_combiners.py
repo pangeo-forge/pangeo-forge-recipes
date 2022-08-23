@@ -9,7 +9,7 @@ from pytest_lazyfixture import lazy_fixture
 from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.combiners import CombineXarraySchemas
 from pangeo_forge_recipes.patterns import FilePattern
-from pangeo_forge_recipes.transforms import DetermineSchema, _NestDim
+from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index
 
 
@@ -44,14 +44,21 @@ def _expected_schema(pattern):
     ],
     ids=["sequential"],
 )
-def schema_pcoll_concat(request):
+def dsets_pcoll_concat(request):
     pattern = request.param
     expected_schema = _expected_schema(pattern)
     return (
         pattern,
         expected_schema,
-        beam.Create(((key, _get_schema(url)) for key, url in pattern.items())),
+        beam.Create((key, xr.open_dataset(url)) for key, url in pattern.items()),
     )
+
+
+@pytest.fixture
+def schema_pcoll_concat(dsets_pcoll_concat):
+    pattern, expected_schema, pcoll = dsets_pcoll_concat
+    pcoll_schema = pcoll | DatasetToSchema()
+    return pattern, expected_schema, pcoll_schema
 
 
 @pytest.fixture(
@@ -61,14 +68,21 @@ def schema_pcoll_concat(request):
     ],
     ids=["sequential_multivariable"],
 )
-def schema_pcoll_concat_merge(request):
+def dsets_pcoll_concat_merge(request):
     pattern = request.param
     expected_schema = _expected_schema(pattern)
     return (
         pattern,
         expected_schema,
-        beam.Create(((key, _get_schema(url)) for key, url in pattern.items())),
+        beam.Create((key, xr.open_dataset(url)) for key, url in pattern.items()),
     )
+
+
+@pytest.fixture
+def schema_pcoll_concat_merge(dsets_pcoll_concat_merge):
+    pattern, expected_schema, pcoll = dsets_pcoll_concat_merge
+    pcoll_schema = pcoll | DatasetToSchema()
+    return pattern, expected_schema, pcoll_schema
 
 
 def _get_concat_dim(pattern):
@@ -145,8 +159,8 @@ def test_NestDim(schema_pcoll_concat_merge, pipeline):
         assert_that(group2, check_key(concat_only_indexes, merge_only_indexes), label="concat")
 
 
-def test_DetermineSchema_concat_1D(schema_pcoll_concat, pipeline):
-    pattern, expected_schema, pcoll = schema_pcoll_concat
+def test_DetermineSchema_concat_1D(dsets_pcoll_concat, pipeline):
+    pattern, expected_schema, pcoll = dsets_pcoll_concat
     concat_dim = _get_concat_dim(pattern)
 
     with pipeline as p:
@@ -164,8 +178,8 @@ _dimensions = [
 @pytest.mark.parametrize(
     "dimensions", [_dimensions, _dimensions[::-1]], ids=["concat_first", "merge_first"]
 )
-def test_DetermineSchema_concat_merge(dimensions, schema_pcoll_concat_merge, pipeline):
-    pattern, expected_schema, pcoll = schema_pcoll_concat_merge
+def test_DetermineSchema_concat_merge(dimensions, dsets_pcoll_concat_merge, pipeline):
+    pattern, expected_schema, pcoll = dsets_pcoll_concat_merge
 
     with pipeline as p:
         input = p | pcoll

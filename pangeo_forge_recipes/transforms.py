@@ -12,7 +12,7 @@ from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineXarraySchemas
 from .openers import open_url, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
-from .rechuking import combine_fragments, split_fragment
+from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
 from .writers import store_dataset_fragment
 
@@ -164,17 +164,20 @@ class DetermineSchema(beam.PTransform):
     combine_dims: List[Dimension]
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        schemas = pcoll | beam.Map(_add_keys(dataset_to_schema))
         cdims = self.combine_dims.copy()
         while len(cdims) > 0:
             last_dim = cdims.pop()
             if len(cdims) == 0:
                 # at this point, we should have a 1D index as our key
-                pcoll = pcoll | beam.CombineGlobally(CombineXarraySchemas(last_dim))
+                schemas = schemas | beam.CombineGlobally(CombineXarraySchemas(last_dim))
             else:
-                pcoll = (
-                    pcoll | _NestDim(last_dim) | beam.CombinePerKey(CombineXarraySchemas(last_dim))
+                schemas = (
+                    schemas
+                    | _NestDim(last_dim)
+                    | beam.CombinePerKey(CombineXarraySchemas(last_dim))
                 )
-        return pcoll
+        return schemas
 
 
 @dataclass
@@ -271,8 +274,7 @@ class StoreToZarr(beam.PTransform):
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
-        schemas = datasets | DatasetToSchema()
-        schema = schemas | DetermineSchema(combine_dims=self.combine_dims)
+        schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
         target_store = schema | PrepareZarrTarget(
             target_url=self.target_url, target_chunks=self.target_chunks
