@@ -19,6 +19,7 @@ from pangeo_forge_recipes.transforms import (
     PrepareZarrTarget,
     Rechunk,
 )
+from pangeo_forge_recipes.types import CombineOp
 
 from .data_generation import make_ds
 
@@ -196,7 +197,15 @@ def test_PrepareZarrTarget(pipeline, tmp_target_url, target_chunks):
 
 
 @pytest.mark.parametrize(
-    "target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}, {"time": 10}, {"time": 10, "lat": 3}]
+    "target_chunks",
+    [
+        {"time": 1},
+        {"time": 2},
+        {"time": 3},
+        {"time": 10},
+        {"time": 10, "lat": 3},
+        {"time": 7, "lat": 5},
+    ],
 )
 def test_rechunk(
     daily_xarray_dataset,
@@ -204,6 +213,28 @@ def test_rechunk(
     pipeline,
     target_chunks,
 ):
+    def correct_chunks():
+        def _check_chunks(actual):
+            for index, ds in actual:
+                actual_chunked_dims = {dim: ds.dims[dim] for dim in target_chunks}
+                assert all(
+                    position.indexed
+                    for dimension, position in index.items()
+                    if dimension.operation == CombineOp.CONCAT
+                )
+                max_possible_chunk_size = {
+                    dimension.name: (position.dimsize - position.value)
+                    for dimension, position in index.items()
+                    if dimension.operation == CombineOp.CONCAT
+                }
+                expected_chunks = {
+                    dim: min(target_chunks[dim], max_possible_chunk_size[dim])
+                    for dim in target_chunks
+                }
+                assert actual_chunked_dims == expected_chunks
+
+        return _check_chunks
+
     pattern = netcdf_local_file_pattern_sequential
     with pipeline as p:
         inputs = p | beam.Create(pattern.items())
@@ -211,4 +242,4 @@ def test_rechunk(
         schema = datasets | DetermineSchema(combine_dims=pattern.combine_dim_keys)
         indexed_datasets = datasets | IndexItems(schema=schema)
         rechunked = indexed_datasets | Rechunk(target_chunks=target_chunks)
-        rechunked | beam.Map(print)
+        assert_that(rechunked, correct_chunks())
