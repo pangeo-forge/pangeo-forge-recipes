@@ -5,7 +5,6 @@ import pytest
 from pangeo_forge_recipes.patterns import (
     CombineOp,
     ConcatDim,
-    DimVal,
     FilePattern,
     FileType,
     MergeDim,
@@ -13,6 +12,7 @@ from pangeo_forge_recipes.patterns import (
     pattern_from_file_sequence,
     prune_pattern,
 )
+from pangeo_forge_recipes.types import IndexedPosition, Position
 
 
 @pytest.fixture
@@ -82,8 +82,8 @@ def test_pattern_from_file_sequence():
     assert fp.nitems_per_input == {"time": None}
     assert fp.concat_sequence_lens == {"time": None}
     for index in fp:
-        dimval = next(iter(index.values()))
-        assert fp[index] == file_sequence[dimval.position]
+        position = next(iter(index.values()))
+        assert fp[index] == file_sequence[position.value]
 
 
 @pytest.mark.parametrize("pickle", [False, True])
@@ -121,19 +121,19 @@ def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern
     assert fp.nitems_per_input == {"time": None}
     assert fp.concat_sequence_lens == {"time": None}
     assert len(list(fp)) == 6
-    for key in fp:
-        concat_val = key.find_concat_dim("time")
-        assert key.find_concat_dim("foobar") is None
-        for dimkey, dimval in key.items():
-            if dimkey.name == "time":
-                assert dimkey.operation == CombineOp.CONCAT
-                time_val = times[dimval.position]
-                assert dimval == concat_val
-            if dimkey.name == "variable":
-                assert dimkey.operation == CombineOp.MERGE
-                variable_val = varnames[dimval.position]
+    for index in fp:
+        concat_dim_key = index.find_concat_dim("time")
+        assert index.find_concat_dim("foobar") is None
+        for dimension, position in index.items():
+            if dimension.name == "time":
+                assert dimension.operation == CombineOp.CONCAT
+                time_val = times[position.value]
+                assert position == index[concat_dim_key]
+            if dimension.name == "variable":
+                assert dimension.operation == CombineOp.MERGE
+                variable_val = varnames[position.value]
         expected_fname = format_function(time=time_val, variable=variable_val)
-        assert fp[key] == expected_fname
+        assert fp[index] == expected_fname
 
     if "fsspec_open_kwargs" in kwargs.keys():
         assert fp.file_type != FileType.opendap
@@ -203,11 +203,11 @@ def test_setting_file_types(file_type_value):
 
 
 @pytest.mark.parametrize(
-    "position,start,stop",
-    [(0, 0, 2), (1, 2, 4), (2, 4, 7), (3, 7, 9), (4, 9, 11)],
+    "position,start",
+    [(0, 0), (1, 2), (2, 4), (3, 7), (4, 9)],
 )
-def test_augment_index_with_start_stop(position, start, stop):
-    dk = DimVal(position)
-    expected = DimVal(position, start, stop)
+def test_augment_index_with_start_stop(position, start):
+    dk = Position(position)
+    expected = IndexedPosition(start)
     actual = augment_index_with_start_stop(dk, [2, 2, 3, 2, 2])
     assert actual == expected
