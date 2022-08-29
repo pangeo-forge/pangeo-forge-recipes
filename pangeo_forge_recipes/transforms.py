@@ -8,11 +8,12 @@ from typing import Dict, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
-from .aggregation import schema_to_zarr
+from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineXarraySchemas
 from .openers import open_url, open_with_xarray
-from .patterns import DimKey, FileType, Index
+from .patterns import CombineOp, DimKey, FileType, Index, augment_index_with_start_stop
 from .storage import CacheFSSpecTarget, FSSpecTarget
+from .writers import store_dataset_fragment
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,12 @@ class _NestDim(beam.PTransform):
 
 
 @dataclass
+class DatasetToSchema(beam.PTransform):
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(_add_keys(dataset_to_schema))
+
+
+@dataclass
 class DetermineSchema(beam.PTransform):
     """Combine many Dataset schemas into a single schema along multiple dimensions.
     This is a reduction that produces a singleton PCollection.
@@ -166,6 +173,28 @@ class DetermineSchema(beam.PTransform):
                     pcoll | _NestDim(last_dim) | beam.CombinePerKey(CombineXarraySchemas(last_dim))
                 )
         return pcoll
+
+
+@dataclass
+class IndexItems(beam.PTransform):
+    """Augment dataset indexes with information about start and stop position."""
+
+    schema: beam.PCollection
+
+    @staticmethod
+    def index_item(item: Indexed[T], schema: XarraySchema) -> Indexed[T]:
+        index, ds = item
+        new_index = Index()
+        for dimkey, dimval in index.items():
+            if dimkey.operation == CombineOp.CONCAT:
+                item_len_dict = schema["chunks"][dimkey.name]
+                item_lens = [item_len_dict[n] for n in range(len(item_len_dict))]
+                dimval = augment_index_with_start_stop(dimval, item_lens)
+            new_index[dimkey] = dimval
+        return new_index, ds
+
+    def expand(self, pcoll: beam.PCollection):
+        return pcoll | beam.Map(self.index_item, schema=beam.pvalue.AsSingleton(self.schema))
 
 
 @dataclass
@@ -191,3 +220,45 @@ class PrepareZarrTarget(beam.PTransform):
             schema_to_zarr, target_store=store, target_chunks=self.target_chunks
         )
         return initialized_target
+
+
+@dataclass
+class StoreDatasetFragments(beam.PTransform):
+
+    target_store: beam.PCollection  # side input
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(
+            store_dataset_fragment, target_store=beam.pvalue.AsSingleton(self.target_store)
+        )
+
+
+# TODO
+# - consolidate coords
+# - consolidate metadata
+
+
+@dataclass
+class StoreToZarr(beam.PTransform):
+    """Store a PCollection of Xarray datasets to Zarr.
+
+    :param combine_dims: The dimensions to combine
+    :param target_url: Where to store the target Zarr dataset.
+    :param target_chunks: Dictionary mapping dimension names to chunks sizes.
+        If a dimension is a not named, the chunks will be inferred from the data.
+    """
+
+    # TODO: make it so we don't have to explictly specify combine_dims
+    # Could be inferred from the pattern instead
+    combine_dims: List[DimKey]
+    target_url: str
+    target_chunks: Dict[str, int] = field(default_factory=dict)
+
+    def expand(self, datasets: beam.PCollection) -> beam.PCollection:
+        schemas = datasets | DatasetToSchema()
+        schema = schemas | DetermineSchema(combine_dims=self.combine_dims)
+        indexed_datasets = datasets | IndexItems(schema=schema)
+        target_store = schema | PrepareZarrTarget(
+            target_url=self.target_url, target_chunks=self.target_chunks
+        )
+        return indexed_datasets | StoreDatasetFragments(target_store=target_store)

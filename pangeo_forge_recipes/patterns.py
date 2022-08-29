@@ -238,6 +238,10 @@ class FilePattern:
             for dim_name, nitems in self.nitems_per_input.items()
         }
 
+    @property
+    def combine_dim_keys(self) -> List[DimKey]:
+        return [DimKey(dim.name, dim.operation) for dim in self.combine_dims]
+
     def __getitem__(self, indexer: Index) -> str:
         """Get a filename path for a particular key."""
         assert len(indexer) == len(self.combine_dims)

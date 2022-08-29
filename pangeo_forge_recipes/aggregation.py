@@ -193,11 +193,16 @@ def _to_variable(template, target_chunks):
     # todo: possibly override with encoding dtype once we add encoding to the schema
     dtype = template["dtype"]
     chunks = tuple(target_chunks[dim] for dim in dims)
-    # we pick ones as the safest value to initialize empty data with
+    # we pick zeros as the safest value to initialize empty data with
     # will only be used for dimension coordinates
-    data = dsa.ones(shape=shape, chunks=chunks, dtype=dtype)
-    # TODO: add encoding
-    return xr.Variable(dims=dims, data=data, attrs=template["attrs"])
+    # WARNING: there are lots of edge cases aroudn time!
+    # Xarray will pick a time encoding for the dataset (e.g. "days since days since 1970-01-01")
+    # and this may not be compatible with the actual values in the time coordinate
+    # (which we don't know yet)
+    data = dsa.zeros(shape=shape, chunks=chunks, dtype=dtype)
+    # TODO: add more encoding
+    encoding = {"chunks": chunks}
+    return xr.Variable(dims=dims, data=data, attrs=template["attrs"], encoding=encoding)
 
 
 def schema_to_template_ds(
@@ -233,5 +238,5 @@ def schema_to_zarr(
     """Initialize a zarr group based on a schema."""
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks)
     # using mode="w" makes this function idempotent
-    ds.to_zarr(target_store, mode="w")
+    ds.to_zarr(target_store, mode="w", compute=False)
     return target_store
