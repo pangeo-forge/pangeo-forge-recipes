@@ -112,6 +112,14 @@ class FSSpecTarget(AbstractTarget):
         """Remove file from the cache."""
         self.fs.rm(self._full_path(path))
 
+    def rmdir(self, path: str) -> None:
+        """Remove bucket path from Zarr."""
+        target = self._full_path(path)
+        try:
+            self.fs.rmdir(target)
+        except OSError:
+
+
     def size(self, path: str) -> int:
         return self.fs.size(self._full_path(path))
 
