@@ -666,13 +666,14 @@ def finalize_target(*, config: XarrayZarrRecipe) -> None:
         for dim in dims:
             arr = group[dim]
             attrs = dict(arr.attrs)
+            arr_copy = arr[:]
 
             # This will generally use bulk-delete API calls
-            config.storage_config.target.rmdir(dim)
+            config.storage_config.target.rm(dim, recursive=True)
 
             new = group.array(
                 dim,
-                arr[:],
+                arr_copy,
                 chunks=arr.shape,
                 dtype=arr.dtype,
                 compressor=arr.compressor,
