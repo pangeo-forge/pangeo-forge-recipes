@@ -673,7 +673,7 @@ def finalize_target(*, config: XarrayZarrRecipe) -> None:
 
             new = group.array(
                 dim,
-                arr_copy,
+                data,
                 chunks=arr.shape,
                 dtype=arr.dtype,
                 compressor=arr.compressor,
