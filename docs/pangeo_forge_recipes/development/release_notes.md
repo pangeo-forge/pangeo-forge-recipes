@@ -1,10 +1,15 @@
 # Release Notes
 
-## v0.9.1 - Unreleased
+## v0.9.1 - 2022-09-08
 
 - Persist Pangeo Forge execution context metadata in target datasets. This information, which includes
 the `pangeo-forge-recipes` version as well as recipe and input hashes, attaches execution provenance
 to the dataset itself. {pull}`359`
+- File pattern support for `.tiff`s. {pull}`393`
+- Improved `HDFReferenceRecipe` by passing `target_options` to the `MultiZarrToZarr` class.
+- Typo fixes, documentation updates, and project health improvements. {pull}`364`, {pull}`365`, {pull}`366`,
+  {pull}`388`, {pull}`396`, {pull}`394`, {pull}`398`, {pull}`407`.
+- Fixed `XarrayZarrRecipe`'s `finalize_target()` stage by using bulk delete APIs for consolidating Zarr coordinates.
 
 ## v0.9 - 2022-05-11
 
