@@ -15,6 +15,15 @@ Pangeo Forge is made of two main components:
 Pangeo Forge is inspired directly by [Conda Forge](https://conda-forge.org/), a
 community-led collection of recipes for building conda packages.
 We hope that Pangeo Forge can play the same role for datasets.
+
+## Videos and Talks
+
+This video and accompanying slides provide a longer introduction to Pangeo Forge.
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/sY20UpYCAEE" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<iframe class="speakerdeck-iframe" frameborder="0" src="https://speakerdeck.com/player/86adf74a7fce479f8c7098b0a3209c4b" title="Pangeo Forge: Crowdsourcing Open Data in the Cloud" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true" style="border: 0px; background: padding-box padding-box rgba(0, 0, 0, 0.1); margin: 0px; padding: 0px; border-radius: 6px; box-shadow: rgba(0, 0, 0, 0.2) 0px 5px 40px; width: 560px; height: 314px;" data-ratio="1.78343949044586"></iframe>
+
 ## The Pangeo Forge Paper
 
 We wrote a long academic paper about Pangeo Forge.
