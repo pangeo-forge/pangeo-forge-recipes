@@ -10,7 +10,7 @@ Pangeo Forge is made of two main components:
 
 - {doc}`pangeo_forge_recipes/index` - an open source Python package, which allows you
   to create and run ETL pipelines ("recipes") and run them from your own computers.
-- {doc}`pangeo_forge_cloud/index` - a cloud-based automation framework with runs these recipes in the cloud from code stored in GitHub.
+- {doc}`pangeo_forge_cloud/index` - a cloud-based automation framework which runs these recipes in the cloud from code stored in GitHub.
 
 Pangeo Forge is inspired directly by [Conda Forge](https://conda-forge.org/), a
 community-led collection of recipes for building conda packages.
