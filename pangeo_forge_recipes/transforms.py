@@ -251,7 +251,7 @@ class Rechunk(beam.PTransform):
         new_fragments = (
             pcoll
             | beam.FlatMap(split_fragment, target_chunks=self.target_chunks)
-            | beam.GroupByKey()
+            | beam.GroupByKey()  # this has major performance implication
             | beam.MapTuple(combine_fragments)
         )
         return new_fragments
