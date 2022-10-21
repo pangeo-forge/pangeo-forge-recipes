@@ -8,8 +8,9 @@ from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.combiners import CombineXarraySchemas
-from pangeo_forge_recipes.patterns import CombineOp, DimKey, FilePattern, Index
-from pangeo_forge_recipes.transforms import DetermineSchema, _NestDim
+from pangeo_forge_recipes.patterns import FilePattern
+from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
+from pangeo_forge_recipes.types import CombineOp, Dimension, Index
 
 
 @pytest.fixture
@@ -43,14 +44,21 @@ def _expected_schema(pattern):
     ],
     ids=["sequential"],
 )
-def schema_pcoll_concat(request):
+def dsets_pcoll_concat(request):
     pattern = request.param
     expected_schema = _expected_schema(pattern)
     return (
         pattern,
         expected_schema,
-        beam.Create(((key, _get_schema(url)) for key, url in pattern.items())),
+        beam.Create((key, xr.open_dataset(url)) for key, url in pattern.items()),
     )
+
+
+@pytest.fixture
+def schema_pcoll_concat(dsets_pcoll_concat):
+    pattern, expected_schema, pcoll = dsets_pcoll_concat
+    pcoll_schema = pcoll | DatasetToSchema()
+    return pattern, expected_schema, pcoll_schema
 
 
 @pytest.fixture(
@@ -60,14 +68,21 @@ def schema_pcoll_concat(request):
     ],
     ids=["sequential_multivariable"],
 )
-def schema_pcoll_concat_merge(request):
+def dsets_pcoll_concat_merge(request):
     pattern = request.param
     expected_schema = _expected_schema(pattern)
     return (
         pattern,
         expected_schema,
-        beam.Create(((key, _get_schema(url)) for key, url in pattern.items())),
+        beam.Create((key, xr.open_dataset(url)) for key, url in pattern.items()),
     )
+
+
+@pytest.fixture
+def schema_pcoll_concat_merge(dsets_pcoll_concat_merge):
+    pattern, expected_schema, pcoll = dsets_pcoll_concat_merge
+    pcoll_schema = pcoll | DatasetToSchema()
+    return pattern, expected_schema, pcoll_schema
 
 
 def _get_concat_dim(pattern):
@@ -96,7 +111,7 @@ def test_CombineXarraySchemas_concat_1D(schema_pcoll_concat, pipeline):
     with pipeline as p:
         input = p | pcoll
         output = input | beam.CombineGlobally(
-            CombineXarraySchemas(DimKey(name=concat_dim, operation=CombineOp.CONCAT))
+            CombineXarraySchemas(Dimension(name=concat_dim, operation=CombineOp.CONCAT))
         )
         assert_that(output, has_correct_schema(expected_schema))
 
@@ -132,39 +147,41 @@ def test_NestDim(schema_pcoll_concat_merge, pipeline):
         input = p | pcoll
         group1 = (
             input
-            | "Nest CONCAT" >> _NestDim(DimKey("time", CombineOp.CONCAT))
+            | "Nest CONCAT" >> _NestDim(Dimension("time", CombineOp.CONCAT))
             | "Groupby CONCAT" >> beam.GroupByKey()
         )
         group2 = (
             input
-            | "Nest MERGE" >> _NestDim(DimKey("variable", CombineOp.MERGE))
+            | "Nest MERGE" >> _NestDim(Dimension("variable", CombineOp.MERGE))
             | "Groupy MERGE" >> beam.GroupByKey()
         )
         assert_that(group1, check_key(merge_only_indexes, concat_only_indexes), label="merge")
         assert_that(group2, check_key(concat_only_indexes, merge_only_indexes), label="concat")
 
 
-def test_DetermineSchema_concat_1D(schema_pcoll_concat, pipeline):
-    pattern, expected_schema, pcoll = schema_pcoll_concat
+def test_DetermineSchema_concat_1D(dsets_pcoll_concat, pipeline):
+    pattern, expected_schema, pcoll = dsets_pcoll_concat
     concat_dim = _get_concat_dim(pattern)
 
     with pipeline as p:
         input = p | pcoll
-        output = input | DetermineSchema([DimKey(name=concat_dim, operation=CombineOp.CONCAT)])
+        output = input | DetermineSchema([Dimension(name=concat_dim, operation=CombineOp.CONCAT)])
         assert_that(output, has_correct_schema(expected_schema), label="correct schema")
 
 
-_dimkeys = [
-    DimKey("time", operation=CombineOp.CONCAT),
-    DimKey("variable", operation=CombineOp.MERGE),
+_dimensions = [
+    Dimension("time", operation=CombineOp.CONCAT),
+    Dimension("variable", operation=CombineOp.MERGE),
 ]
 
 
-@pytest.mark.parametrize("dimkeys", [_dimkeys, _dimkeys[::-1]], ids=["concat_first", "merge_first"])
-def test_DetermineSchema_concat_merge(dimkeys, schema_pcoll_concat_merge, pipeline):
-    pattern, expected_schema, pcoll = schema_pcoll_concat_merge
+@pytest.mark.parametrize(
+    "dimensions", [_dimensions, _dimensions[::-1]], ids=["concat_first", "merge_first"]
+)
+def test_DetermineSchema_concat_merge(dimensions, dsets_pcoll_concat_merge, pipeline):
+    pattern, expected_schema, pcoll = dsets_pcoll_concat_merge
 
     with pipeline as p:
         input = p | pcoll
-        output = input | DetermineSchema(dimkeys)
+        output = input | DetermineSchema(dimensions)
         assert_that(output, has_correct_schema(expected_schema))

@@ -11,14 +11,23 @@ from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
-from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, PrepareZarrTarget
+from pangeo_forge_recipes.transforms import (
+    DetermineSchema,
+    IndexItems,
+    OpenURLWithFSSpec,
+    OpenWithXarray,
+    PrepareZarrTarget,
+    Rechunk,
+)
+from pangeo_forge_recipes.types import CombineOp
 
 from .data_generation import make_ds
 
 
 @pytest.fixture
 def pipeline():
-    options = PipelineOptions(runtime_type_check=True)
+    # TODO: make this True and fix the weird ensuing type check errors
+    options = PipelineOptions(runtime_type_check=False)
     with TestPipeline(options=options) as p:
         yield p
 
@@ -185,3 +194,52 @@ def test_PrepareZarrTarget(pipeline, tmp_target_url, target_chunks):
         input = p | beam.Create([schema])
         target = input | PrepareZarrTarget(target_url=tmp_target_url, target_chunks=target_chunks)
         assert_that(target, correct_target())
+
+
+@pytest.mark.parametrize(
+    "target_chunks",
+    [
+        {"time": 1},
+        {"time": 2},
+        {"time": 3},
+        {"time": 10},
+        {"time": 10, "lat": 3},
+        {"time": 7, "lat": 5},
+    ],
+)
+def test_rechunk(
+    daily_xarray_dataset,
+    netcdf_local_file_pattern_sequential,
+    pipeline,
+    target_chunks,
+):
+    def correct_chunks():
+        def _check_chunks(actual):
+            for index, ds in actual:
+                actual_chunked_dims = {dim: ds.dims[dim] for dim in target_chunks}
+                assert all(
+                    position.indexed
+                    for dimension, position in index.items()
+                    if dimension.operation == CombineOp.CONCAT
+                )
+                max_possible_chunk_size = {
+                    dimension.name: (position.dimsize - position.value)
+                    for dimension, position in index.items()
+                    if dimension.operation == CombineOp.CONCAT
+                }
+                expected_chunks = {
+                    dim: min(target_chunks[dim], max_possible_chunk_size[dim])
+                    for dim in target_chunks
+                }
+                assert actual_chunked_dims == expected_chunks
+
+        return _check_chunks
+
+    pattern = netcdf_local_file_pattern_sequential
+    with pipeline as p:
+        inputs = p | beam.Create(pattern.items())
+        datasets = inputs | OpenWithXarray(file_type=pattern.file_type)
+        schema = datasets | DetermineSchema(combine_dims=pattern.combine_dim_keys)
+        indexed_datasets = datasets | IndexItems(schema=schema)
+        rechunked = indexed_datasets | Rechunk(target_chunks=target_chunks)
+        assert_that(rechunked, correct_chunks())

@@ -3,7 +3,7 @@ import xarray as xr
 import zarr
 
 from pangeo_forge_recipes.aggregation import schema_to_zarr
-from pangeo_forge_recipes.patterns import CombineOp, DimKey, DimVal, Index
+from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
 from pangeo_forge_recipes.writers import store_dataset_fragment
 
 from .data_generation import make_ds
@@ -48,8 +48,8 @@ def test_store_dataset_fragment(temp_store):
     fragment_1_1 = ds[["bar"]].isel(time=slice(2, 4))
     index_1_1 = Index(
         {
-            DimKey("time", CombineOp.CONCAT): DimVal(position=1, start=2, stop=4),
-            DimKey("variable", CombineOp.MERGE): DimVal(position=1),
+            Dimension("time", CombineOp.CONCAT): IndexedPosition(2),
+            Dimension("variable", CombineOp.MERGE): Position(1),
         }
     )
 
@@ -70,8 +70,8 @@ def test_store_dataset_fragment(temp_store):
     fragment_0_1 = ds[["foo"]].isel(time=slice(2, 4))
     index_0_1 = Index(
         {
-            DimKey("time", CombineOp.CONCAT): DimVal(position=1, start=2, stop=4),
-            DimKey("variable", CombineOp.MERGE): DimVal(position=0),
+            Dimension("time", CombineOp.CONCAT): IndexedPosition(2),
+            Dimension("variable", CombineOp.MERGE): Position(0),
         }
     )
 
@@ -93,8 +93,8 @@ def test_store_dataset_fragment(temp_store):
     fragment_0_0 = ds[["foo"]].isel(time=slice(0, 2))
     index_0_0 = Index(
         {
-            DimKey("time", CombineOp.CONCAT): DimVal(position=0, start=0, stop=2),
-            DimKey("variable", CombineOp.MERGE): DimVal(position=0),
+            Dimension("time", CombineOp.CONCAT): IndexedPosition(0),
+            Dimension("variable", CombineOp.MERGE): Position(0),
         }
     )
 
@@ -114,8 +114,8 @@ def test_store_dataset_fragment(temp_store):
     fragment_1_0 = ds[["bar"]].isel(time=slice(0, 2))
     index_1_0 = Index(
         {
-            DimKey("time", CombineOp.CONCAT): DimVal(position=0, start=0, stop=2),
-            DimKey("variable", CombineOp.MERGE): DimVal(position=1),
+            Dimension("time", CombineOp.CONCAT): IndexedPosition(0),
+            Dimension("variable", CombineOp.MERGE): Position(1),
         }
     )
 
@@ -126,13 +126,10 @@ def test_store_dataset_fragment(temp_store):
     # now store everything else
     for nvar, vname in enumerate(["foo", "bar"]):
         for t_start in range(4, 10, 2):
-            ntime = t_start // 2
             index = Index(
                 {
-                    DimKey("time", CombineOp.CONCAT): DimVal(
-                        position=ntime, start=t_start, stop=t_start + 2
-                    ),
-                    DimKey("variable", CombineOp.MERGE): DimVal(position=nvar),
+                    Dimension("time", CombineOp.CONCAT): IndexedPosition(t_start),
+                    Dimension("variable", CombineOp.MERGE): Position(nvar),
                 }
             )
             fragment = ds[[vname]].isel(time=slice(t_start, t_start + 2))

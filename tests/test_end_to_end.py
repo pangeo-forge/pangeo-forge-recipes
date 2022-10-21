@@ -31,12 +31,15 @@ def test_xarray_zarr(
 ):
     pattern = netcdf_local_file_pattern_sequential
     with pipeline as p:
-        inputs = p | beam.Create(pattern.items())
-        datasets = inputs | OpenWithXarray(file_type=pattern.file_type)
-        datasets | StoreToZarr(
-            target_url=tmp_target_url,
-            target_chunks=target_chunks,
-            combine_dims=pattern.combine_dim_keys,
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToZarr(
+                target_url=tmp_target_url,
+                target_chunks=target_chunks,
+                combine_dims=pattern.combine_dim_keys,
+            )
         )
 
     ds = xr.open_dataset(tmp_target_url, engine="zarr")
