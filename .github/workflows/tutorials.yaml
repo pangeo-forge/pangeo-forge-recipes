@@ -11,6 +11,10 @@ env:
   PYTEST_ADDOPTS: "--color=yes"
   python-version: "3.9"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-tutuorials:
     name: 📓 Build Tutorial Notebook
