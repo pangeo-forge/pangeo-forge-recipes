@@ -241,5 +241,5 @@ def test_rechunk(
         datasets = inputs | OpenWithXarray(file_type=pattern.file_type)
         schema = datasets | DetermineSchema(combine_dims=pattern.combine_dim_keys)
         indexed_datasets = datasets | IndexItems(schema=schema)
-        rechunked = indexed_datasets | Rechunk(target_chunks=target_chunks)
+        rechunked = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
         assert_that(rechunked, correct_chunks())
