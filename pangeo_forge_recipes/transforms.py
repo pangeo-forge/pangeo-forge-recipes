@@ -276,7 +276,8 @@ class StoreToZarr(beam.PTransform):
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
+        rechunked_datasets = indexed_datasets | Rechunk(target_chunks=self.target_chunks)
         target_store = schema | PrepareZarrTarget(
             target_url=self.target_url, target_chunks=self.target_chunks
         )
-        return indexed_datasets | StoreDatasetFragments(target_store=target_store)
+        return rechunked_datasets | StoreDatasetFragments(target_store=target_store)
