@@ -114,6 +114,7 @@ class FileType(AutoName):
     netcdf4 = auto()
     grib = auto()
     opendap = auto()
+    tiff = auto()
 
 
 class FilePattern:
