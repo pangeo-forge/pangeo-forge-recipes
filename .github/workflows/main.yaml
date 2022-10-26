@@ -140,7 +140,7 @@ jobs:
           python -m pip install --no-deps -e  .
       - name: 🏄‍♂️ Run Tests
         run: |
-          py.test tests -v -m ${{ matrix.pytest-mark }} \
+          pytest tests -v -m ${{ matrix.pytest-mark }} \
             --cov=pangeo_forge_recipes --cov-config .coveragerc \
             --cov-report term-missing \
             --cov-report xml \
