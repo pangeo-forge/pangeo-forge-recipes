@@ -19,7 +19,21 @@ def either_encode_or_hash(obj: Any):
     elif hasattr(obj, "sha256"):
         return obj.sha256().hex()
     elif inspect.isfunction(obj):
-        return inspect.getsource(obj)
+        try:
+            return inspect.getsource(obj)
+        except OSError as e:
+            # If the function is coming from something that was `exec`d (as pangeo-forge-runner is)
+            # or a lambda, inspect.getsource doesn't work. In that case, we construct something as
+            # stable as possible. However, this is *not* guaranteed to be stable across major
+            # python versions. But I *think* that is fine?
+            if e.args == ("could not get source code",):
+                codeobj = obj.__code__
+                # Name of
+                name = codeobj.co_name
+                args = codeobj.co_varnames[: codeobj.co_argcount]
+                # This is not guaranteed to be stable across python versions unfortunately
+                body = codeobj.co_code
+                return f"{name}({', '.join(args)}): {str(body)}"
     raise TypeError(f"object of type {type(obj).__name__} not serializable")
 
 
