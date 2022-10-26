@@ -235,6 +235,7 @@ class FilePattern:
         for key in self:
             yield key, self[key]
 
+    @property
     def sha256(self):
         """Compute a sha256 hash for the instance."""
 

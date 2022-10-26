@@ -17,9 +17,11 @@ def either_encode_or_hash(obj: Any):
     if isinstance(obj, Enum):  # custom serializer for FileType, CombineOp, etc.
         return obj.value
     elif hasattr(obj, "sha256"):
-        return obj.sha256().hex()
+        return obj.sha256.hex()
     elif inspect.isfunction(obj):
         return inspect.getsource(obj)
+    elif isinstance(obj, bytes):
+        return obj.hex()
     raise TypeError(f"object of type {type(obj).__name__} not serializable")
 
 

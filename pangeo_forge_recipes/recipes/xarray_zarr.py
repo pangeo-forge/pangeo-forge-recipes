@@ -795,6 +795,7 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     """How many items per input along concat_dim."""
 
     def __post_init__(self):
+        super().__post_init__()
         self._validate_file_pattern()
 
         # from here on we know there is at most one merge dim and one concat dim
