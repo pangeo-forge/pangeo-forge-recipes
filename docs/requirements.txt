@@ -1,4 +1,4 @@
-sphinx<5
+sphinx<6
 pangeo-sphinx-book-theme>=0.2
 myst-parser
 myst-nb
