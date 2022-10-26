@@ -51,13 +51,16 @@ env:
 jobs:
   prepare-env:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
     strategy:
       fail-fast: false
       matrix:
         python-version: [3.8, 3.9]
         dependencies: ["releases-only", "upstream-dev"]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: 🔁 Setup Python
         uses: actions/setup-python@v2
         with:
@@ -77,7 +80,7 @@ jobs:
       - name: 🎯 Set environment file
         id: env-file
         run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         name: 🗃 Cache environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
@@ -90,13 +93,15 @@ jobs:
         if: matrix.dependencies == 'upstream-dev'
         run: mamba env update -n pangeo-forge-recipes -f ci/upstream-dev.yml
       - name: 🐍 List conda env
-        shell: bash -l {0}
         run: |
           conda info
           conda list
   run-tests:
     needs: prepare-env
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
     strategy:
       fail-fast: false
       matrix:
@@ -111,7 +116,7 @@ jobs:
           - dependencies: "upstream-dev"
             pytest-mark: "executor_generator"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: 🎯 Set cache number
         id: cache-number
         # cache will last 3 days by default
@@ -119,7 +124,7 @@ jobs:
       - name: 🎯 Set environment file
         id: env-file
         run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         name: 🗃 Loaded Cached environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
@@ -131,13 +136,11 @@ jobs:
       - name: 🎯 Set path to include conda python
         run: echo "/usr/share/miniconda3/envs/pangeo-forge-recipes/bin" >> $GITHUB_PATH
       - name: 🌈 Install pangeo-forge-recipes package
-        shell: bash -l {0}
         run: |
           python -m pip install --no-deps -e  .
       - name: 🏄‍♂️ Run Tests
-        shell: bash -l {0}
         run: |
-          py.test tests -v -m ${{ matrix.pytest-mark }} \
+          pytest tests -v -m ${{ matrix.pytest-mark }} \
             --cov=pangeo_forge_recipes --cov-config .coveragerc \
             --cov-report term-missing \
             --cov-report xml \

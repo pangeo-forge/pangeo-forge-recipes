@@ -19,6 +19,9 @@ jobs:
   test-tutuorials:
     name: 📓 Build Tutorial Notebook
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
     strategy:
       fail-fast: false
       matrix:
@@ -30,9 +33,9 @@ jobs:
          - nb-path: "xarray_zarr/opendap_subset_recipe.ipynb"
          - nb-path: "xarray_zarr/terraclimate.ipynb"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         if: ${{ github.event_name != 'repository_dispatch' }}
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         if: ${{ github.event_name == 'repository_dispatch' }}
         with:
           fetch-depth: 0
@@ -57,7 +60,7 @@ jobs:
           details_url: https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
 
       - name: 🔁 Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ env.python-version }}
           architecture: x64
@@ -75,7 +78,7 @@ jobs:
       - name: 🎯 Set environment file
         id: env-file
         run: echo "env_file=ci/py${{ env.python-version }}.yml" >> $GITHUB_ENV
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         name: 🗃 Cache environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
@@ -85,12 +88,10 @@ jobs:
         run: mamba env update -n pangeo-forge-recipes -f ${{ env.env_file }}
         if: steps.conda-cache.outputs.cache-hit != 'true'
       - name: 🐍 List conda env
-        shell: bash -l {0}
         run: |
           conda info
           conda list
       - name: 🌈 Install pangeo-forge-recipes package
-        shell: bash -l {0}
         run: |
           python -m pip install --no-deps -e  .
 
@@ -98,7 +99,6 @@ jobs:
       # Could we consolidate it somehow?
 
       - name: 🏗 Build Notebook
-        shell: bash -l {0}
         run: >
           pytest --timeout=3000 --nbmake docs/pangeo_forge_recipes/tutorials/${{ matrix.nb-path }}
 
