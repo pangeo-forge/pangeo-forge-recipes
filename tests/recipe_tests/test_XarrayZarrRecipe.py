@@ -138,6 +138,8 @@ def test_recipe(recipe_fixture, execute_recipe):
 
     RecipeClass, file_pattern, kwargs, ds_expected, target = recipe_fixture
     rec = RecipeClass(file_pattern, **kwargs)
+    assert isinstance(rec.dataset_type, str)
+    assert rec.dataset_type == "zarr"
     execute_recipe(rec)
     ds_actual = xr.open_zarr(target.get_mapper()).load()
     assert_identical(ds_actual, ds_expected)

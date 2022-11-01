@@ -148,6 +148,7 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     :param postprocess: a function applied to the global combined references before write
     """
 
+    dataset_type = "kerchunk"
     _compiler = hdf_reference_recipe_compiler
 
     # TODO: support chunked ("tree") aggregation: would entail processing each file

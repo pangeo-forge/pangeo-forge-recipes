@@ -761,6 +761,7 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
       the file with Xarray as a virtual Zarr dataset.
     """
 
+    dataset_type = "zarr"
     _compiler = xarray_zarr_recipe_compiler
 
     inputs_per_chunk: int = 1
