@@ -171,6 +171,7 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     postprocess: Optional[Callable] = None
 
     def __post_init__(self):
+        super().__post_init__()
         self._validate_file_pattern()
 
     def _validate_file_pattern(self):

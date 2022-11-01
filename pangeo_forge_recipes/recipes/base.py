@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass, field, replace
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, Optional
 
 import pkg_resources  # type: ignore
 
@@ -16,6 +16,10 @@ from ..storage import StorageConfig, temporary_storage_config
 class BaseRecipe(ABC):
     _compiler: ClassVar[RecipeCompiler]
     _hash_exclude_ = ["storage_config"]
+    sha256: Optional[bytes] = None
+
+    def __post_init__(self):
+        self.sha256 = dataclass_sha256(self, ignore_keys=self._hash_exclude_)
 
     def to_function(self):
         from ..executors import FunctionPipelineExecutor
@@ -49,15 +53,12 @@ class BaseRecipe(ABC):
 
         return BeamPipelineExecutor.compile(self._compiler())
 
-    def sha256(self):
-        return dataclass_sha256(self, ignore_keys=self._hash_exclude_)
-
     def get_execution_context(self):
         return dict(
             # See https://stackoverflow.com/a/2073599 re: version
             version=pkg_resources.require("pangeo-forge-recipes")[0].version,
-            recipe_hash=self.sha256().hex(),
-            inputs_hash=self.file_pattern.sha256().hex(),
+            recipe_hash=self.sha256.hex(),
+            inputs_hash=self.file_pattern.sha256.hex(),
         )
 
 
