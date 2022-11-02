@@ -39,6 +39,7 @@ MAX_MEMORY = (
 OPENER_MAP = {
     FileType.netcdf3: dict(engine="scipy"),
     FileType.netcdf4: dict(engine="h5netcdf"),
+    FileType.tiff: dict(engine="rasterio"),
 }
 
 logger = logging.getLogger(__name__)
@@ -512,7 +513,12 @@ def prepare_target(*, config: XarrayZarrRecipe) -> None:
             # TODO: check that target_chunks id compatibile with the
             # existing chunks
             pass
-    except (FileNotFoundError, IOError, zarr.errors.GroupNotFoundError):
+    except (
+        FileNotFoundError,
+        IOError,
+        zarr.errors.GroupNotFoundError,
+        zarr.errors.PathNotFoundError,
+    ):
         logger.info("Creating a new dataset in target")
 
         # need to rewrite this as an append loop
@@ -665,9 +671,14 @@ def finalize_target(*, config: XarrayZarrRecipe) -> None:
         for dim in dims:
             arr = group[dim]
             attrs = dict(arr.attrs)
+            data = arr[:]
+
+            # This will generally use bulk-delete API calls
+            config.storage_config.target.rm(dim, recursive=True)
+
             new = group.array(
                 dim,
-                arr[:],
+                data,
                 chunks=arr.shape,
                 dtype=arr.dtype,
                 compressor=arr.compressor,
@@ -789,6 +800,7 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     """How many items per input along concat_dim."""
 
     def __post_init__(self):
+        super().__post_init__()
         self._validate_file_pattern()
 
         # from here on we know there is at most one merge dim and one concat dim
