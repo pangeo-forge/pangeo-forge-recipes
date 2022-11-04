@@ -10,6 +10,7 @@ pytest.importorskip("kerchunk")
 intake = pytest.importorskip("intake")
 reference_zarr = pytest.importorskip("pangeo_forge_recipes.recipes.reference_zarr")
 HDFReferenceRecipe = reference_zarr.HDFReferenceRecipe
+GRIBReferenceRecipe = reference_zarr.GribReferenceRecipe
 
 
 @pytest.mark.parametrize("default_storage", [True, False])

@@ -79,7 +79,7 @@ def test_match_pattern_blockchain(base_pattern, end_date, new_pattern_nitems_per
         for k, v in kwargs[i].items():
             setattr(pattern, k, v)
 
-    matching_key = match_pattern_blockchain(base_pattern.sha256(), new_pattern)
+    matching_key = match_pattern_blockchain(base_pattern.sha256, new_pattern)
 
     if kwargs[0] == kwargs[1] and new_pattern_nitems_per_file == 1:
         assert new_pattern[matching_key] == next_url
@@ -92,14 +92,14 @@ def test_recipe_sha256_hash_exclude(base_pattern, recipe_cls, tmpdir_factory):
     recipe_0 = recipe_cls(base_pattern)
     recipe_1 = recipe_cls(base_pattern)
 
-    assert recipe_0.sha256() == recipe_1.sha256()
+    assert recipe_0.sha256 == recipe_1.sha256
 
     local_fs = LocalFileSystem()
     custom_target_path = tmpdir_factory.mktemp("custom_target")
     custom_storage_config = StorageConfig(target=FSSpecTarget(local_fs, custom_target_path))
     recipe_1.storage_config = custom_storage_config
 
-    assert recipe_0.sha256() == recipe_1.sha256()
+    assert recipe_0.sha256 == recipe_1.sha256
 
 
 @pytest.mark.parametrize(
@@ -117,9 +117,9 @@ def test_xarray_zarr_sha265(pattern_pair, kwargs):
     recipe_1 = XarrayZarrRecipe(pattern_pair[1], **kwargs[1])
 
     if pattern_pair[0] == pattern_pair[1] and kwargs[0] == kwargs[1]:
-        assert recipe_0.sha256() == recipe_1.sha256()
+        assert recipe_0.sha256 == recipe_1.sha256
     else:
-        assert recipe_0.sha256() != recipe_1.sha256()
+        assert recipe_0.sha256 != recipe_1.sha256
 
 
 @pytest.mark.parametrize(
@@ -136,9 +136,9 @@ def test_kerchunk_sha265(pattern_pair, kwargs):
     recipe_1 = HDFReferenceRecipe(pattern_pair[1], **kwargs[1])
 
     if pattern_pair[0] == pattern_pair[1] and kwargs[0] == kwargs[1]:
-        assert recipe_0.sha256() == recipe_1.sha256()
+        assert recipe_0.sha256 == recipe_1.sha256
     else:
-        assert recipe_0.sha256() != recipe_1.sha256()
+        assert recipe_0.sha256 != recipe_1.sha256
 
 
 @pytest.mark.parametrize("cls", [XarrayZarrRecipe, HDFReferenceRecipe])
@@ -165,9 +165,9 @@ def test_additional_fields(base_pattern, cls, kwargs):
     new_release_obj = NewRelease(base_pattern, **kwargs)
 
     if not kwargs:
-        assert old_release_obj.sha256() == new_release_obj.sha256()
+        assert old_release_obj.sha256 == new_release_obj.sha256
     else:
-        assert old_release_obj.sha256() != new_release_obj.sha256()
+        assert old_release_obj.sha256 != new_release_obj.sha256
 
 
 def test_either_encode_or_hash_raises():

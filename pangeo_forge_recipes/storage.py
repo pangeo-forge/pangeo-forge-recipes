@@ -108,9 +108,9 @@ class FSSpecTarget(AbstractTarget):
         """Check that the file is in the cache."""
         return self.fs.exists(self._full_path(path))
 
-    def rm(self, path: str) -> None:
+    def rm(self, path: str, recursive: bool = False) -> None:
         """Remove file from the cache."""
-        self.fs.rm(self._full_path(path))
+        self.fs.rm(self._full_path(path), recursive)
 
     def size(self, path: str) -> int:
         return self.fs.size(self._full_path(path))

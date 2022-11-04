@@ -1,10 +1,38 @@
 # Release Notes
 
-## v0.9.1 - Unreleased
+## v0.9.2 - 2022-10-26
+
+- Bump peter-evans/slash-command-dispatch from 2 to 3 [#434](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/434) ([@dependabot](https://github.com/dependabot))
+- Bump actions/setup-python from 3 to 4 [#433](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/433) ([@dependabot](https://github.com/dependabot))
+- Bump LouisBrunner/checks-action from 1.2.0 to 1.5.0 [#432](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/432) ([@dependabot](https://github.com/dependabot))
+- Bump codecov/codecov-action from 2.0.2 to 3.1.1 [#431](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/431) ([@dependabot](https://github.com/dependabot))
+- Fix CI [#430](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/430) ([@andersy005](https://github.com/andersy005))
+- Avoid serialization blues by computing + caching the hash. [#429](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/429) ([@alxmrs](https://github.com/alxmrs))
+- [pre-commit.ci] pre-commit autoupdate [#426](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/426) ([@pre-commit-ci](https://github.com/pre-commit-ci))
+- Cancel Redundant CI jobs [#424](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/424) ([@andersy005](https://github.com/andersy005))
+- Remove pre-commit action in favor of pre-commit.ci [#423](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/423) ([@andersy005](https://github.com/andersy005))
+- Add SciPy video and slides to what_is_pangeo_forge.md [#416](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/416) ([@rabernat](https://github.com/rabernat))
+- Updated release_notes.md in preparation for a tag & release. [#413](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/413) ([@alxmrs](https://github.com/alxmrs))
+- Document how to access data with Globus [#408](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/408) ([@rabernat](https://github.com/rabernat))
+- [pre-commit.ci] pre-commit autoupdate [#381](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/381) ([@pre-commit-ci](https://github.com/pre-commit-ci))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/pangeo-forge/pangeo-forge-recipes/graphs/contributors?from=2022-09-09&to=2022-10-26&type=c))
+
+[@alxmrs](https://github.com/search?q=repo%3Apangeo-forge%2Fpangeo-forge-recipes+involves%3Aalxmrs+updated%3A2022-09-09..2022-10-26&type=Issues) | [@andersy005](https://github.com/search?q=repo%3Apangeo-forge%2Fpangeo-forge-recipes+involves%3Aandersy005+updated%3A2022-09-09..2022-10-26&type=Issues) | [@dependabot](https://github.com/search?q=repo%3Apangeo-forge%2Fpangeo-forge-recipes+involves%3Adependabot+updated%3A2022-09-09..2022-10-26&type=Issues) | [@derekocallaghan](https://github.com/search?q=repo%3Apangeo-forge%2Fpangeo-forge-recipes+involves%3Aderekocallaghan+updated%3A2022-09-09..2022-10-26&type=Issues) | [@martindurant](https://github.com/search?q=repo%3Apangeo-forge%2Fpangeo-forge-recipes+involves%3Amartindurant+updated%3A2022-09-09..2022-10-26&type=Issues) | [@pre-commit-ci](https://github.com/search?q=repo%3Apangeo-forge%2Fpangeo-forge-recipes+involves%3Apre-commit-ci+updated%3A2022-09-09..2022-10-26&type=Issues) | [@rabernat](https://github.com/search?q=repo%3Apangeo-forge%2Fpangeo-forge-recipes+involves%3Arabernat+updated%3A2022-09-09..2022-10-26&type=Issues) | [@yuvipanda](https://github.com/search?q=repo%3Apangeo-forge%2Fpangeo-forge-recipes+involves%3Ayuvipanda+updated%3A2022-09-09..2022-10-26&type=Issues)
+
+
+## v0.9.1 - 2022-09-08
 
 - Persist Pangeo Forge execution context metadata in target datasets. This information, which includes
 the `pangeo-forge-recipes` version as well as recipe and input hashes, attaches execution provenance
 to the dataset itself. {pull}`359`
+- File pattern support for `.tiff`s. {pull}`393`
+- Improved `HDFReferenceRecipe` by passing `target_options` to the `MultiZarrToZarr` class.
+- Typo fixes, documentation updates, and project health improvements. {pull}`364`, {pull}`365`, {pull}`366`,
+  {pull}`388`, {pull}`396`, {pull}`394`, {pull}`398`, {pull}`407`.
+- Fixed `XarrayZarrRecipe`'s `finalize_target()` stage by using bulk delete APIs for consolidating Zarr coordinates.
 
 ## v0.9 - 2022-05-11
 
