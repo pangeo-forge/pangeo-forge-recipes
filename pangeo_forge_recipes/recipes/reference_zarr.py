@@ -49,9 +49,13 @@ def scan_grib(chunk_key: ChunkKey, config: GribReferenceRecipe):
         if protocol is None:
             raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
-        
-        reference = create_grib2_reference(url=target_url, filter=config.grib_filter_by_keys, inline_threshold=config.inline_threshold)
-        
+
+        reference = create_grib2_reference(
+            url=target_url,
+            filter=config.grib_filter_by_keys,
+            inline_threshold=config.inline_threshold,
+        )
+
         config.storage_config.metadata[ref_fname] = reference
 
 
