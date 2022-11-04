@@ -1,5 +1,5 @@
 from .base import BaseRecipe
-from .reference_hdf_zarr import GribReferenceRecipe, HDFReferenceRecipe
+from .reference_zarr import GribReferenceRecipe, HDFReferenceRecipe
 from .xarray_zarr import XarrayZarrRecipe
 
 __all__ = ["BaseRecipe", "XarrayZarrRecipe", "HDFReferenceRecipe", "GribReferenceRecipe"]

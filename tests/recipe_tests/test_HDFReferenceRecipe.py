@@ -8,8 +8,8 @@ from pangeo_forge_recipes.storage import FSSpecTarget, MetadataTarget
 
 pytest.importorskip("kerchunk")
 intake = pytest.importorskip("intake")
-reference_hdf_zarr = pytest.importorskip("pangeo_forge_recipes.recipes.reference_hdf_zarr")
-HDFReferenceRecipe = reference_hdf_zarr.HDFReferenceRecipe
+reference_zarr = pytest.importorskip("pangeo_forge_recipes.recipes.reference_zarr")
+HDFReferenceRecipe = reference_zarr.HDFReferenceRecipe
 
 
 @pytest.mark.parametrize("default_storage", [True, False])
