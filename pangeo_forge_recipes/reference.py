@@ -4,7 +4,6 @@ Functions related to creating fsspec references.
 
 from typing import Dict, Tuple, Union
 
-# NOTE(darothen): this class was added in July, 2022 (commit d185da9e5ca9b)
 from kerchunk.grib2 import scan_grib
 from kerchunk.hdf import SingleHdf5ToZarr
 
@@ -18,15 +17,10 @@ def create_hdf5_reference(
 
 
 def create_grib2_reference(
-    fp, fname: str, url: str, inline_threshold: int = 100, filter={}, **storage_options
+    url: str, inline_threshold: int = 100, filter={}, **storage_options
 ) -> Dict:
-    """
-    NOTES:
-    - if accessing over HTTPS, only use "skip_instance_cache"
-    - S3 doesn't immediately work but it's not clear why.
-    """
     grib_references = scan_grib(
-        fp,
+        url,
         storage_options=storage_options,
         inline_threshold=inline_threshold,
         filter=filter,

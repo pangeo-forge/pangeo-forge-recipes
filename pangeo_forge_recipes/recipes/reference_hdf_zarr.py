@@ -39,21 +39,19 @@ def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
 
 def scan_grib(chunk_key: ChunkKey, config: GribReferenceRecipe):
     assert config.storage_config.metadata is not None, "metadata_cache is required"
+
     fname = config.file_pattern[chunk_key]
     ref_fname = os.path.basename(fname + ".json")
 
     with file_opener(fname, **config.storage_options) as fp:
+
         protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
         if protocol is None:
             raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
-        reference = create_grib2_reference(
-            fp,
-            fname,
-            target_url,
-            filter=config.grib_filter_by_keys,
-            inline_threshold=config.inline_threshold,
-        )
+        
+        reference = create_grib2_reference(url=target_url, filter=config.grib_filter_by_keys, inline_threshold=config.inline_threshold)
+        
         config.storage_config.metadata[ref_fname] = reference
 
 
