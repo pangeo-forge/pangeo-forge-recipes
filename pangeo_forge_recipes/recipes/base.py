@@ -14,6 +14,7 @@ from ..storage import StorageConfig, temporary_storage_config
 
 @dataclass
 class BaseRecipe(ABC):
+    dataset_type: ClassVar[str]
     _compiler: ClassVar[RecipeCompiler]
     _hash_exclude_ = ["storage_config"]
     sha256: Optional[bytes] = None

@@ -39,6 +39,8 @@ def test_single(
 
     execute_recipe(recipe)
 
+    assert recipe.dataset_type == "kerchunk"
+
     assert out_target.exists("reference.json")
     assert out_target.exists("reference.yaml")
 
