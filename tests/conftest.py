@@ -103,7 +103,7 @@ def make_file_pattern(path_fixture):
 
 
 def make_grib_local_paths(simple_grib_dataset, tmpdir_factory):
-    to_grib = pytest.importorskip("cfgrib.xarray_to_grib")
+    to_grib = pytest.importorskip("cfgrib.xarray_to_grib.to_grib")
     tmp_path = tmpdir_factory.mktemp("grib_data")
     to_grib(simple_grib_dataset, tmp_path)
     return tmp_path
@@ -242,6 +242,11 @@ def daily_xarray_dataset_with_coordinateless_dimension(daily_xarray_dataset):
 
 
 @pytest.fixture(scope="session")
+def grib_local_paths(simple_grib_dataset, tmpdir_factory):
+    return make_grib_local_paths(simple_grib_dataset, tmpdir_factory)
+
+
+@pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
     return make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day)
 
@@ -363,6 +368,11 @@ def netcdf_local_paths_sequential_with_coordinateless_dimension(
 
 
 # FilePattern fixtures ----------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def grib_local_file_pattern_sequential(grib_local_paths):
+    return make_file_pattern(grib_local_paths)
 
 
 @pytest.fixture(scope="session")

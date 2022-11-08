@@ -7,7 +7,8 @@ import pytest
 from fsspec.implementations.local import LocalFileSystem
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, match_pattern_blockchain
-from pangeo_forge_recipes.recipes import HDFReferenceRecipe, XarrayZarrRecipe
+from pangeo_forge_recipes.recipes import XarrayZarrRecipe
+from pangeo_forge_recipes.recipes.reference_zarr import GribReferenceRecipe, HDFReferenceRecipe
 from pangeo_forge_recipes.serialization import dict_to_sha256, either_encode_or_hash
 from pangeo_forge_recipes.storage import FSSpecTarget, StorageConfig
 
@@ -87,7 +88,7 @@ def test_match_pattern_blockchain(base_pattern, end_date, new_pattern_nitems_per
         assert matching_key is None
 
 
-@pytest.mark.parametrize("recipe_cls", [XarrayZarrRecipe, HDFReferenceRecipe])
+@pytest.mark.parametrize("recipe_cls", [XarrayZarrRecipe, HDFReferenceRecipe, GribReferenceRecipe])
 def test_recipe_sha256_hash_exclude(base_pattern, recipe_cls, tmpdir_factory):
     recipe_0 = recipe_cls(base_pattern)
     recipe_1 = recipe_cls(base_pattern)
@@ -141,7 +142,7 @@ def test_kerchunk_sha265(pattern_pair, kwargs):
         assert recipe_0.sha256 != recipe_1.sha256
 
 
-@pytest.mark.parametrize("cls", [XarrayZarrRecipe, HDFReferenceRecipe])
+@pytest.mark.parametrize("cls", [XarrayZarrRecipe, HDFReferenceRecipe, GribReferenceRecipe])
 @pytest.mark.parametrize(
     "kwargs",
     [
