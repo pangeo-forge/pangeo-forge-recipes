@@ -7,7 +7,7 @@ import pytest
 from fsspec.implementations.local import LocalFileSystem
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, match_pattern_blockchain
-from pangeo_forge_recipes.recipes import XarrayZarrRecipe, BaseRecipe
+from pangeo_forge_recipes.recipes import BaseRecipe, XarrayZarrRecipe
 from pangeo_forge_recipes.recipes.reference_zarr import GribReferenceRecipe, HDFReferenceRecipe
 from pangeo_forge_recipes.serialization import dict_to_sha256, either_encode_or_hash
 from pangeo_forge_recipes.storage import FSSpecTarget, StorageConfig
@@ -155,7 +155,7 @@ def test_kerchunk_sha265(pattern_pair, kwargs):
 def test_additional_fields(base_pattern, cls, kwargs):
     # simulates a new release in which new fields are added; because we drop empty fields from
     # the hash calculation, backwards compatibility is preserved as long as new fields are unset
-    
+
     @dataclass
     class NewRelease(cls):
         new_optional_str: Optional[str] = None
