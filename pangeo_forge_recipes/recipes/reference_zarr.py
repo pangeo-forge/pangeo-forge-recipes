@@ -212,6 +212,7 @@ class ReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         raise NotImplementedError()
 
     def __post_init__(self):
+        super().__post_init__()
         self.validate_file_pattern()
 
     def validate_file_pattern(self):
