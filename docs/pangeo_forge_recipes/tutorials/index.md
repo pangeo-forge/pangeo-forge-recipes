@@ -18,9 +18,9 @@ xarray_zarr/opendap_subset_recipe
 
 ## ReferenceRecipes
 
-These tutorials all use the {class}`pangeo_forge_recipes.recipes.ReferenceRecipe` class:
+These tutorials all use the {class}`pangeo_forge_recipes.recipes.ReferenceRecipe`.
 
-.. note: While kerchunk currently supports [netcdf/hdf5, grib2, tiff and fits], the {class}`pangeo_forge_recipes.recipes.ReferenceRecipe` only has implimentations for [netcdf/hdf5 and grib2].
+Note: While kerchunk currently supports [netcdf/hdf5, grib2, tiff and fits], the {class}`pangeo_forge_recipes.recipes.ReferenceRecipe` only has implimentations for [netcdf/hdf5 and grib2].
 
 ```{toctree}
 :maxdepth: 1
