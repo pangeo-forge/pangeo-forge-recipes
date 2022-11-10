@@ -16,12 +16,15 @@ xarray_zarr/terraclimate
 xarray_zarr/opendap_subset_recipe
 ```
 
-## HDFReferenceRecipe
+## ReferenceRecipes
 
-These tutorials all use the {class}`pangeo_forge_recipes.recipes.HDFReferenceRecipe` class:
+These tutorials all use the {class}`pangeo_forge_recipes.recipes.ReferenceRecipe` class:
+
+.. note: While kerchunk currently supports [netcdf/hdf5, grib2, tiff and fits], the {class}`pangeo_forge_recipes.recipes.ReferenceRecipe` only has implimentations for [netcdf/hdf5 and grib2].
 
 ```{toctree}
 :maxdepth: 1
 
 hdf_reference/reference_cmip6
+grib_reference/reference_HRRR
 ```
