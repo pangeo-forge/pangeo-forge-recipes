@@ -300,9 +300,9 @@ def pattern_blockchain(pattern: FilePattern) -> List[bytes]:
         "fsspec_open_kwargs": {
             k: v
             for k, v in pattern.fsspec_open_kwargs.items()
-            # `client_kwargs` is excluded because it can contain 
+            # `client_kwargs` is excluded because it can contain
             # hard-to-hash objects, e.g. aiohttp.ClientTimeout.
-            # This avoids subsequent errors in 
+            # This avoids subsequent errors in
             # `serialization.either_encode_or_hash()`.
             if k != "client_kwargs"
         },
