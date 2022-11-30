@@ -297,7 +297,15 @@ def pattern_blockchain(pattern: FilePattern) -> List[bytes]:
     # index:filepath pairs yielded by iterating over ``.items()``. if these pairs are generated in
     # a different way in the future, we ultimately don't care.
     root = {
-        "fsspec_open_kwargs": pattern.fsspec_open_kwargs,
+        "fsspec_open_kwargs": {
+            k: v
+            for k, v in pattern.fsspec_open_kwargs.items()
+            # `client_kwargs` is excluded because it can contain 
+            # hard-to-hash objects, e.g. aiohttp.ClientTimeout.
+            # This avoids subsequent errors in 
+            # `serialization.either_encode_or_hash()`.
+            if k != "client_kwargs"
+        },
         "query_string_secrets": pattern.query_string_secrets,
         "file_type": pattern.file_type,
         "nitems_per_file": {
