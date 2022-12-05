@@ -14,7 +14,6 @@ from pangeo_forge_recipes.transforms import OpenWithXarray, StoreToZarr
 def pipeline():
     options = PipelineOptions(runtime_type_check=False)
     with TestPipeline(options=options) as p:
-        # Alex: yield the options, not the pipeline itself - but actually maybe not needed because of fixture scope
         yield p
 
 
@@ -33,7 +32,7 @@ def test_xarray_zarr(
     pattern = netcdf_local_file_pattern_sequential
     with pipeline as p:
         (
-            p 
+            p
             | beam.Create(pattern.items())
             | OpenWithXarray(file_type=pattern.file_type)
             | StoreToZarr(
