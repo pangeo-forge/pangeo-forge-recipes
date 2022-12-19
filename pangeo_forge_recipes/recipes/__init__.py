@@ -1,8 +1,8 @@
 from .base import BaseRecipe
-from .reference_hdf_zarr import HDFReferenceRecipe
+from .reference_zarr import ReferenceRecipe
 from .xarray_zarr import XarrayZarrRecipe
 
-__all__ = ["BaseRecipe", "XarrayZarrRecipe", "HDFReferenceRecipe"]
+__all__ = ["BaseRecipe", "XarrayZarrRecipe", "ReferenceRecipe"]
 
 
 def setup_logging(level: str = "INFO"):

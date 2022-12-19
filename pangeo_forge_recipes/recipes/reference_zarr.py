@@ -11,7 +11,7 @@ from kerchunk.combine import MultiZarrToZarr
 
 from ..executors.base import Pipeline, Stage
 from ..patterns import FileType, Index
-from ..reference import create_hdf5_reference, unstrip_protocol
+from ..reference import create_grib_reference, create_hdf5_reference, unstrip_protocol
 from ..storage import file_opener
 from .base import BaseRecipe, FilePatternMixin, StorageMixin
 
@@ -23,19 +23,23 @@ def no_op(*_, **__) -> None:
     return None
 
 
-def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
+def scan_file(chunk_key: ChunkKey, config: ReferenceRecipe):
     assert config.storage_config.metadata is not None, "metadata_cache is required"
     fname = config.file_pattern[chunk_key]
     ref_fname = os.path.basename(fname + ".json")
-    with file_opener(fname, **config.netcdf_storage_options) as fp:
+    with file_opener(fname, **config.storage_options) as fp:
         protocol = getattr(getattr(fp, "fs", None), "protocol", None)  # make mypy happy
         if protocol is None:
             raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
-        config.storage_config.metadata[ref_fname] = create_hdf5_reference(fp, target_url, fname)
+
+        if config.file_pattern.file_type is FileType.netcdf4:
+            config.storage_config.metadata[ref_fname] = create_hdf5_reference(fp=fp, url=target_url)
+        elif config.file_pattern.file_type is FileType.grib:
+            config.storage_config.metadata[ref_fname] = create_grib_reference(fp=fp)
 
 
-def finalize(config: HDFReferenceRecipe):
+def finalize(config: ReferenceRecipe):
     assert config.storage_config.target is not None, "target is required"
     assert config.storage_config.metadata is not None, "metadata_cache is required"
     remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
@@ -51,7 +55,7 @@ def finalize(config: HDFReferenceRecipe):
         mzz = MultiZarrToZarr(
             files,
             remote_protocol=remote_protocol,
-            remote_options=config.netcdf_storage_options,
+            remote_options=config.storage_options,
             target_options=config.target_options,
             coo_dtypes=config.coo_dtypes,
             coo_map=config.coo_map,
@@ -79,7 +83,7 @@ def finalize(config: HDFReferenceRecipe):
                         "target_protocol": protocol,
                         "target_options": config.output_storage_options,
                         "remote_protocol": remote_protocol,
-                        "remote_options": config.netcdf_storage_options,
+                        "remote_options": config.storage_options,
                         "skip_instance_cache": True,
                     },
                     "chunks": {},  # can optimize access here
@@ -92,7 +96,7 @@ def finalize(config: HDFReferenceRecipe):
         yaml.dump(spec, f, default_flow_style=False)
 
 
-def hdf_reference_recipe_compiler(recipe: HDFReferenceRecipe) -> Pipeline:
+def reference_recipe_compiler(recipe: ReferenceRecipe) -> Pipeline:
     stages = [
         Stage(name="scan_file", function=scan_file, mappable=list(recipe.iter_inputs())),
         Stage(name="finalize", function=finalize),
@@ -101,9 +105,9 @@ def hdf_reference_recipe_compiler(recipe: HDFReferenceRecipe) -> Pipeline:
 
 
 @dataclass
-class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
+class ReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     """
-    Generates reference files for each input netCDF, then combines
+    Generates reference files for each input file, then combines
     into one ensemble output
 
     Currently supports concat or merge along a single dimension.
@@ -125,7 +129,8 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
       this default config can be used for testing and debugging the recipe. In an actual execution
       context, the default config is re-assigned to point to the destination(s) of choice, which can
       be any combination of ``fsspec``-compatible storage backends.
-    :param netcdf_storage_options: dict of kwargs for creating fsspec
+    # Update this
+    :param storage_options: dict of kwargs for creating fsspec
         instance to read original data files
     :param target_options: dict of kwargs for creating fsspec
         instance to read Kerchunk reference files
@@ -149,18 +154,16 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     """
 
     dataset_type = "kerchunk"
-    _compiler = hdf_reference_recipe_compiler
+    _compiler = reference_recipe_compiler
 
     # TODO: support chunked ("tree") aggregation: would entail processing each file
     #  in one stage, running a set of merges in a second step and doing
     #  a master merge in finalise. This would maybe map to iter_chunk,
     #  store_chunk, finalize_target. The strategy was used for NWM's 370k files.
 
-    # TODO: as written, this recipe is specific to HDF5 files. kerchunk
-    #  also supports TIFF, FITS, netCDF3 and grib2 (and more coming)
     output_json_fname: str = "reference.json"
     output_intake_yaml_fname: str = "reference.yaml"
-    netcdf_storage_options: dict = field(default_factory=dict)
+    storage_options: dict = field(default_factory=dict)
     target_options: Optional[dict] = field(default_factory=dict)
     inline_threshold: int = 500
     output_storage_options: dict = field(default_factory=dict)
@@ -175,9 +178,15 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         super().__post_init__()
         self._validate_file_pattern()
 
+    # For FileType Validation:
+    # if FileType is not in ['netcdf4', 'grib2']:
+    # raise filetype note supported
+
+    # After filetype validation, check FileType and change kerchunk inputs depending on which one.
+
     def _validate_file_pattern(self):
-        if self.file_pattern.file_type != FileType.netcdf4:
-            raise ValueError("This recipe works on netcdf4 input only")
+        if self.file_pattern.file_type not in [FileType.netcdf4, FileType.grib]:
+            raise ValueError("This recipe works on netcdf4 or grib2 input only")
         if len(self.file_pattern.merge_dims) > 1:
             raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
         if len(self.file_pattern.concat_dims) > 1:

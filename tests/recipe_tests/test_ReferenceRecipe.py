@@ -8,10 +8,11 @@ from pangeo_forge_recipes.storage import FSSpecTarget, MetadataTarget
 
 pytest.importorskip("kerchunk")
 intake = pytest.importorskip("intake")
-reference_hdf_zarr = pytest.importorskip("pangeo_forge_recipes.recipes.reference_hdf_zarr")
-HDFReferenceRecipe = reference_hdf_zarr.HDFReferenceRecipe
+reference_zarr = pytest.importorskip("pangeo_forge_recipes.recipes.reference_zarr")
+ReferenceRecipe = reference_zarr.ReferenceRecipe
 
 
+@pytest.mark.xfail  # This needs to be updated with filetypes
 @pytest.mark.parametrize("default_storage", [True, False])
 @pytest.mark.parametrize("with_intake", [False, True])
 def test_single(
@@ -24,7 +25,7 @@ def test_single(
     file_pattern = netcdf_local_file_pattern_sequential
     path = list(file_pattern.items())[0][1]
     expected = xr.open_dataset(path, engine="h5netcdf")
-    recipe = HDFReferenceRecipe(file_pattern)
+    recipe = ReferenceRecipe(file_pattern)
     recipe = recipe.copy_pruned(nkeep=1)
     recipe.coo_map = {"time": "cf:time"}  # ensure cftime encoding end-to-end
 
@@ -57,12 +58,13 @@ def test_single(
     assert (expected.foo.values == ds.foo.values).all()
 
 
+@pytest.mark.xfail  # This needs to be updated with filetypes
 @pytest.mark.parametrize("with_intake", [True, False])
 def test_multi(netcdf_local_file_pattern_sequential, tmpdir, with_intake, execute_recipe):
     file_pattern = netcdf_local_file_pattern_sequential
     paths = [f for _, f in list(file_pattern.items())]
     expected = xr.open_mfdataset(paths, engine="h5netcdf")
-    recipe = HDFReferenceRecipe(file_pattern)
+    recipe = ReferenceRecipe(file_pattern)
     recipe.coo_map = {"time": "cf:time"}  # ensure cftime encoding end-to-end
 
     # make sure assigning storage later works

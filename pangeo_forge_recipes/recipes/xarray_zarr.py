@@ -200,7 +200,7 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             secrets=config.file_pattern.query_string_secrets,
             **config.file_pattern.fsspec_open_kwargs,
         ) as fp:
-            ref_data = create_hdf5_reference(fp, url, fname)
+            ref_data = create_hdf5_reference(fp=fp, url=url)
         config.storage_config.metadata[ref_fname] = ref_data
 
 

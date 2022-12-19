@@ -4,14 +4,19 @@ Functions related to creating fsspec references.
 
 from typing import Dict, Tuple, Union
 
+from kerchunk.grib2 import scan_grib
 from kerchunk.hdf import SingleHdf5ToZarr
 
 
-def create_hdf5_reference(
-    fp, fname: str, url: str, inline_threshold: int = 300, **netcdf_storage_options
-) -> Dict:
+def create_hdf5_reference(*, fp, url: str, inline_threshold: int = 300) -> Dict:
     h5chunks = SingleHdf5ToZarr(fp, url, inline_threshold=inline_threshold)
     reference_data = h5chunks.translate()
+    return reference_data
+
+
+def create_grib_reference(*, fp, inline_threshold=300, **grib_filters) -> dict:
+    grib_chunks = scan_grib(fp, inline_threshold=inline_threshold, filter=grib_filters)
+    reference_data = grib_chunks.translate()
     return reference_data
 
 
