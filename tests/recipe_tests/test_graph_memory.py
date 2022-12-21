@@ -30,6 +30,7 @@ def _simple_func(*args, **kwargs):
     return None
 
 
+@pytest.mark.skip(reason="This test is too slow to run on every commit.")
 @pytest.mark.timeout(90)
 @pytest.mark.filterwarnings("ignore:Large object")
 def test_memory_usage():
