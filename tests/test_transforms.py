@@ -70,7 +70,7 @@ def cache_url(tmp_cache_url, request):
 def pcoll_opened_files(pattern, cache_url):
     input = beam.Create(pattern.items())
     output = input | OpenURLWithFSSpec(
-        cache_url=cache_url,
+        cache=cache_url,
         secrets=pattern.query_string_secrets,
         open_kwargs=pattern.fsspec_open_kwargs,
     )

@@ -79,17 +79,20 @@ def _add_keys(func):
 class OpenURLWithFSSpec(beam.PTransform):
     """Open indexed string-based URLs with fsspec.
 
-    :param cache_url: If provided, data will be cached at this url path before opening.
+    :param cache: If provided, data will be cached at this url path before opening.
     :param secrets: If provided these secrets will be injected into the URL as a query string.
     :param open_kwargs: Extra arguments passed to fsspec.open.
     """
 
-    cache_url: Optional[str] = None
+    cache: Optional[str | CacheFSSpecTarget] = None
     secrets: Optional[dict] = None
     open_kwargs: Optional[dict] = None
 
     def expand(self, pcoll):
-        cache = CacheFSSpecTarget.from_url(self.cache_url) if self.cache_url else None
+        if isinstance(self.cache, str):
+            cache = CacheFSSpecTarget.from_url(self.cache)
+        else:
+            cache = self.cache
         return pcoll | "Open with fsspec" >> beam.Map(
             _add_keys(open_url),
             cache=cache,
