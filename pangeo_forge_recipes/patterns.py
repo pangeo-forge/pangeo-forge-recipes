@@ -215,7 +215,9 @@ class FilePattern:
         return pattern_blockchain(self).pop(-1)
 
 
-def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None, **kwargs):
+def pattern_from_file_sequence(
+    file_list, concat_dim, nitems_per_file=None, **kwargs
+) -> FilePattern:
     """Convenience function for creating a FilePattern from a list of files."""
 
     keys = list(range(len(file_list)))
