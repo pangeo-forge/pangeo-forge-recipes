@@ -258,8 +258,8 @@ class FilePattern:
         """
 
         # we exclude the format function and combine dims from ``root`` because they determine the
-        # index:filepath pairs yielded by iterating over ``.items()``. if these pairs are generated in
-        # a different way in the future, we ultimately don't care.
+        # index:filepath pairs yielded by iterating over ``.items()``. if these pairs are generated
+        # in a different way in the future, we ultimately don't care.
         root = {
             "fsspec_open_kwargs": self.fsspec_open_kwargs,
             "query_string_secrets": self.query_string_secrets,
@@ -295,8 +295,8 @@ class FilePattern:
         ``Index`` key of the current pattern to begin data processing from, in order to append to
         a dataset built using the previous pattern.
 
-        :param old_pattern_last_hash: The last hash of the merkle tree for the ``FilePattern`` instance
-        which was used to build the existing dataset.
+        :param old_pattern_last_hash: The last hash of the merkle tree for the ``FilePattern``
+        instance which was used to build the existing dataset.
         """
         for k, h in zip(self, self.get_merkle_list()):
             if h == old_pattern_last_hash:
