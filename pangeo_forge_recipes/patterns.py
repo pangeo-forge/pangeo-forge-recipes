@@ -1,6 +1,11 @@
 """
 Filename / URL patterns.
 """
+# This allows us to type annotate a method on a class as returning
+# that class, which is otherwise impossible as that class has not
+# been fully defined yet! https://peps.python.org/pep-0563/
+from __future__ import annotations
+
 import inspect
 from dataclasses import dataclass, field, replace
 from enum import Enum, auto
@@ -214,6 +219,33 @@ class FilePattern:
 
         return pattern_blockchain(self).pop(-1)
 
+    def prune(self, nkeep: int = 2) -> FilePattern:
+        """
+        Create a smaller pattern from a full pattern.
+        Keeps all MergeDims but only the first `nkeep` items from each ConcatDim
+
+        :param nkeep: The number of items to keep from each ConcatDim sequence.
+        """
+
+        new_combine_dims = []  # type: List[CombineDim]
+        for cdim in self.combine_dims:
+            if isinstance(cdim, MergeDim):
+                new_combine_dims.append(cdim)
+            elif isinstance(cdim, ConcatDim):
+                new_keys = cdim.keys[:nkeep]
+                new_cdim = replace(cdim, keys=new_keys)
+                new_combine_dims.append(new_cdim)
+            else:  # pragma: no cover
+                assert "Should never happen"
+
+        sig = inspect.signature(self.__init__)  # type: ignore
+        kwargs = {
+            param: getattr(self, param)
+            for param in sig.parameters.keys()
+            if param not in ["format_function", "combine_dims"]
+        }
+        return FilePattern(self.format_function, *new_combine_dims, **kwargs)
+
 
 def pattern_from_file_sequence(
     file_list, concat_dim, nitems_per_file=None, **kwargs
@@ -227,35 +259,6 @@ def pattern_from_file_sequence(
         return file_list[kwargs[concat_dim]]
 
     return FilePattern(format_function, concat, **kwargs)
-
-
-def prune_pattern(fp: FilePattern, nkeep: int = 2) -> FilePattern:
-    """
-    Create a smaller pattern from a full pattern.
-    Keeps all MergeDims but only the first `nkeep` items from each ConcatDim
-
-    :param fp: The original pattern.
-    :param nkeep: The number of items to keep from each ConcatDim sequence.
-    """
-
-    new_combine_dims = []  # type: List[CombineDim]
-    for cdim in fp.combine_dims:
-        if isinstance(cdim, MergeDim):
-            new_combine_dims.append(cdim)
-        elif isinstance(cdim, ConcatDim):
-            new_keys = cdim.keys[:nkeep]
-            new_cdim = replace(cdim, keys=new_keys)
-            new_combine_dims.append(new_cdim)
-        else:  # pragma: no cover
-            assert "Should never happen"
-
-    sig = inspect.signature(fp.__init__)  # type: ignore
-    kwargs = {
-        param: getattr(fp, param)
-        for param in sig.parameters.keys()
-        if param not in ["format_function", "combine_dims"]
-    }
-    return FilePattern(fp.format_function, *new_combine_dims, **kwargs)
 
 
 def pattern_blockchain(pattern: FilePattern) -> List[bytes]:
