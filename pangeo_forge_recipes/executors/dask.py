@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Set, Tuple, Union
+from typing import Any, Dict, Set, Tuple, Union  # noqa: F401
 
 import dask
 from dask.blockwise import BlockwiseDepDict, blockwise
