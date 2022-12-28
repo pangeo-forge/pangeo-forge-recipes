@@ -36,7 +36,7 @@ def test_xarray_zarr(
             | beam.Create(pattern.items())
             | OpenWithXarray(file_type=pattern.file_type)
             | StoreToZarr(
-                target_url=tmp_target_url,
+                target=tmp_target_url,
                 target_chunks=target_chunks,
                 combine_dims=pattern.combine_dim_keys,
             )

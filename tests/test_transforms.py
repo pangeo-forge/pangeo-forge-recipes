@@ -192,7 +192,7 @@ def test_PrepareZarrTarget(pipeline, tmp_target_url, target_chunks):
 
     with pipeline as p:
         input = p | beam.Create([schema])
-        target = input | PrepareZarrTarget(target_url=tmp_target_url, target_chunks=target_chunks)
+        target = input | PrepareZarrTarget(target=tmp_target_url, target_chunks=target_chunks)
         assert_that(target, correct_target())
 
 
