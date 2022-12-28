@@ -217,7 +217,7 @@ class FilePattern:
     def sha256(self):
         """Compute a sha256 hash for the instance."""
 
-        return pattern_blockchain(self).pop(-1)
+        return self.get_merkle_list()[-1]
 
     def prune(self, nkeep: int = 2) -> FilePattern:
         """
@@ -246,6 +246,65 @@ class FilePattern:
         }
         return FilePattern(self.format_function, *new_combine_dims, **kwargs)
 
+    def get_merkle_list(self) -> List[bytes]:
+        """
+        Compute the merkle tree for the current FilePattern.
+
+        Return a list of hashes, of length len(filepattern)+1. The first item in the list is
+        calculated by hashing attributes of the ``FilePattern`` instance. Each subsequent
+        item is calculated by hashing the byte string produced by concatinating the next
+        index:filepath pair yielded by ``items()`` with the previous hash in the list.
+
+        """
+
+        # we exclude the format function and combine dims from ``root`` because they determine the
+        # index:filepath pairs yielded by iterating over ``.items()``. if these pairs are generated in
+        # a different way in the future, we ultimately don't care.
+        root = {
+            "fsspec_open_kwargs": self.fsspec_open_kwargs,
+            "query_string_secrets": self.query_string_secrets,
+            "file_type": self.file_type,
+            "nitems_per_file": {
+                op.name: op.nitems_per_file  # type: ignore
+                for op in self.combine_dims
+                if op.name in self.concat_dims
+            },
+        }
+        # by dropping empty values from ``root``, we allow for the attributes of ``FilePattern`` to
+        # change while allowing for backwards-compatibility between hashes of patterns which do not
+        # set those new attributes.
+        root_drop_empty = dict_drop_empty([(k, v) for k, v in root.items()])
+        root_sha256 = dict_to_sha256(root_drop_empty)
+
+        merkle_list = [root_sha256]
+        for k, v in self.items():
+            # key is no longer part of the hash
+            value_hash = sha256(v.encode("utf-8")).digest()
+            new_hash = value_hash
+            new_item = sha256(merkle_list[-1] + new_hash).digest()
+            merkle_list.append(new_item)
+
+        return merkle_list
+
+    def start_processing_from(
+        self,
+        old_pattern_last_hash: bytes,
+    ) -> Optional[Index]:
+        """
+        Given the last hash of the merkle tree of a previous pattern, determine which (if any)
+        ``Index`` key of the current pattern to begin data processing from, in order to append to
+        a dataset built using the previous pattern.
+
+        :param old_pattern_last_hash: The last hash of the merkle tree for the ``FilePattern`` instance
+        which was used to build the existing dataset.
+        """
+        for k, h in zip(self, self.get_merkle_list()):
+            if h == old_pattern_last_hash:
+                return k
+
+        # No commonalities found
+        return None
+
 
 def pattern_from_file_sequence(
     file_list, concat_dim, nitems_per_file=None, **kwargs
@@ -259,62 +318,3 @@ def pattern_from_file_sequence(
         return file_list[kwargs[concat_dim]]
 
     return FilePattern(format_function, concat, **kwargs)
-
-
-def pattern_blockchain(pattern: FilePattern) -> List[bytes]:
-    """For a ``FilePattern`` instance, compute a blockchain, i.e. a list of hashes of length N+1,
-    where N is the number of index:filepath pairs yielded by the ``FilePattern`` instance's
-    ``.items()`` method. The first item in the list is calculated by hashing instance attributes.
-    Each subsequent item is calculated by hashing the byte string produced by concatenating the next
-    index:filepath pair yielded by ``.items()`` with the previous hash in the list.
-
-    :param pattern: The ``FilePattern`` instance for which to calculate a blockchain.
-    """
-
-    # we exclude the format function and combine dims from ``root`` because they determine the
-    # index:filepath pairs yielded by iterating over ``.items()``. if these pairs are generated in
-    # a different way in the future, we ultimately don't care.
-    root = {
-        "fsspec_open_kwargs": pattern.fsspec_open_kwargs,
-        "query_string_secrets": pattern.query_string_secrets,
-        "file_type": pattern.file_type,
-        "nitems_per_file": {
-            op.name: op.nitems_per_file  # type: ignore
-            for op in pattern.combine_dims
-            if op.name in pattern.concat_dims
-        },
-    }
-    # by dropping empty values from ``root``, we allow for the attributes of ``FilePattern`` to
-    # change while allowing for backwards-compatibility between hashes of patterns which do not
-    # set those new attributes.
-    root_drop_empty = dict_drop_empty([(k, v) for k, v in root.items()])
-    root_sha256 = dict_to_sha256(root_drop_empty)
-
-    blockchain = [root_sha256]
-    for k, v in pattern.items():
-        # key is no longer part of the hash
-        value_hash = sha256(v.encode("utf-8")).digest()
-        new_hash = value_hash
-        new_block = sha256(blockchain[-1] + new_hash).digest()
-        blockchain.append(new_block)
-
-    return blockchain
-
-
-def match_pattern_blockchain(  # type: ignore
-    old_pattern_last_hash: bytes,
-    new_pattern: FilePattern,
-) -> Index:
-    """Given the last hash of the blockchain for a previous pattern, and a new pattern, determine
-    which (if any) ``Index`` key of the new pattern to begin processing data from, in order to
-    append to a dataset build using the previous pattern.
-
-    :param old_pattern_last_hash: The last hash of the blockchain for the ``FilePattern`` instance
-      which was used to build the existing dataset.
-    :param new_pattern: A new ``FilePattern`` instance from which to append to the existing dataset.
-    """
-
-    new_chain = pattern_blockchain(new_pattern)
-    for k, h in zip(new_pattern, new_chain):
-        if h == old_pattern_last_hash:
-            return k
