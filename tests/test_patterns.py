@@ -10,7 +10,6 @@ from pangeo_forge_recipes.patterns import (
     MergeDim,
     augment_index_with_start_stop,
     pattern_from_file_sequence,
-    prune_pattern,
 )
 from pangeo_forge_recipes.types import IndexedPosition, Position
 
@@ -173,7 +172,7 @@ def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
         if "query_string_secrets" in runtime_secrets.keys():
             fp.query_string_secrets.update(runtime_secrets["query_string_secrets"])
 
-    fp_pruned = prune_pattern(fp, nkeep=nkeep)
+    fp_pruned = fp.prune(nkeep=nkeep)
     assert fp_pruned.dims == {"variable": 2, "time": nkeep}
     assert len(list(fp_pruned.items())) == 2 * nkeep
 
