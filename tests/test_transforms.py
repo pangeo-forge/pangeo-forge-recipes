@@ -70,7 +70,7 @@ def cache_url(tmp_cache_url, request):
 def pcoll_opened_files(pattern, cache_url):
     input = beam.Create(pattern.items())
     output = input | OpenURLWithFSSpec(
-        cache_url=cache_url,
+        cache=cache_url,
         secrets=pattern.query_string_secrets,
         open_kwargs=pattern.fsspec_open_kwargs,
     )
@@ -192,7 +192,7 @@ def test_PrepareZarrTarget(pipeline, tmp_target_url, target_chunks):
 
     with pipeline as p:
         input = p | beam.Create([schema])
-        target = input | PrepareZarrTarget(target_url=tmp_target_url, target_chunks=target_chunks)
+        target = input | PrepareZarrTarget(target=tmp_target_url, target_chunks=target_chunks)
         assert_that(target, correct_target())
 
 
