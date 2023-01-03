@@ -53,6 +53,8 @@ SubsetSpec = Dict[str, int]
 # SubsetSpec is a dictionary mapping dimension names to the number of subsets along that dimension
 # (e.g. {'time': 5, 'depth': 2})
 
+non_openable_file_types = [FileType.opendap, FileType.zarr]
+
 
 def _input_metadata_fname(input_key: InputKey) -> str:
     key_str = "-".join([f"{k.name}_{k.index}" for k in sorted(input_key)])
@@ -148,8 +150,8 @@ def chunk_position(chunk_key: ChunkKey) -> int:
 
 def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
     if config.cache_inputs:
-        if config.file_pattern.file_type == FileType.opendap:
-            raise ValueError("Can't cache opendap inputs")
+        if config.file_pattern.file_type in non_openable_file_types:
+            raise ValueError("Can't cache non-openable inputs")
         if config.storage_config.cache is None:
             raise ValueError("input_cache is not set.")
         logger.info(f"Caching input '{input_key!s}'")
@@ -173,8 +175,8 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             logger.info(f"Metadata already cached for input '{input_key!s}'")
 
     if config.open_input_with_kerchunk:
-        if config.file_pattern.file_type == FileType.opendap:
-            raise ValueError("Can't make references for opendap inputs")
+        if config.file_pattern.file_type in non_openable_file_types:
+            raise ValueError("Can't make references for non-openable inputs")
         if config.storage_config.metadata is None:
             raise ValueError("Can't make references; no metadata cache assigned")
         fname = config.file_pattern[input_key]
@@ -254,13 +256,13 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
     fname = config.file_pattern[input_key]
     logger.info(f"Opening input with Xarray {input_key!s}: '{fname}'")
 
-    if config.file_pattern.file_type == FileType.opendap:
+    if config.file_pattern.file_type in non_openable_file_types:
         if config.cache_inputs:
-            raise ValueError("Can't cache opendap inputs")
+            raise ValueError("Can't cache non-openable inputs")
         if config.copy_input_to_local_file:
-            raise ValueError("Can't copy opendap inputs to local file")
+            raise ValueError("Can't copy non-openable inputs to local file")
         if config.open_input_with_kerchunk:
-            raise ValueError("Can't open opendap inputs with kerchunk")
+            raise ValueError("Can't open non-openable inputs with kerchunk")
 
     if config.open_input_with_kerchunk:
         if config.storage_config.metadata is None:
@@ -293,7 +295,7 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
     else:
 
         cache = config.storage_config.cache if config.cache_inputs else None
-        bypass_open = True if config.file_pattern.file_type == FileType.opendap else False
+        bypass_open = True if config.file_pattern.file_type in non_openable_file_types else False
 
         with file_opener(
             fname,
@@ -808,9 +810,9 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         )
         self.nitems_per_input = self.file_pattern.nitems_per_input[self.concat_dim]
 
-        if self.file_pattern.file_type == FileType.opendap:
+        if self.file_pattern.file_type in non_openable_file_types:
             if self.cache_inputs:
-                raise ValueError("Can't cache opendap inputs.")
+                raise ValueError("Can't cache non-openable inputs.")
             else:
                 self.cache_inputs = False
             if self.open_input_with_kerchunk:
