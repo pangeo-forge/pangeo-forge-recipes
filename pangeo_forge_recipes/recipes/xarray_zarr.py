@@ -18,6 +18,7 @@ import fsspec
 import numpy as np
 import xarray as xr
 import zarr
+from zarr.storage import FSStore
 
 from ..chunk_grid import ChunkGrid
 from ..executors.base import Pipeline, Stage
@@ -272,10 +273,11 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
         ref_fs = ReferenceFileSystem(
             reference_data, remote_protocol=remote_protocol, skip_instance_cache=True
         )
-        mapper = ref_fs.get_mapper("/")
+        store = FSStore("", fs=ref_fs)
+
         # Doesn't really need to be a context manager, but that's how this function works
         with dask.config.set(scheduler="single-threaded"):  # make sure we don't use a scheduler
-            with xr.open_dataset(mapper, engine="zarr", chunks={}, consolidated=False) as ds:
+            with xr.open_dataset(store, engine="zarr", chunks={}, consolidated=False) as ds:
                 logger.debug("successfully opened reference dataset with zarr")
 
                 if config.delete_input_encoding:
