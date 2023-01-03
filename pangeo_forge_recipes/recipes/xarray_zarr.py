@@ -23,7 +23,7 @@ from zarr.storage import FSStore
 from ..chunk_grid import ChunkGrid
 from ..executors.base import Pipeline, Stage
 from ..patterns import CombineOp, DimIndex, FilePattern, FileType, Index
-from ..reference import create_hdf5_reference, unstrip_protocol
+from ..reference import create_kerchunk_reference, unstrip_protocol
 from ..storage import FSSpecTarget, MetadataTarget, file_opener
 from ..utils import calc_subsets, fix_scalar_attr_encoding, lock_for_conflicts
 from .base import BaseRecipe, FilePatternMixin, StorageMixin
@@ -100,7 +100,7 @@ def inputs_for_chunk(
 def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: int) -> None:
     target_mapper = target.get_mapper()
     zgroup = zarr.open_group(target_mapper)
-    ds = open_target(target)
+    ds = open_target(target, decode_cf=False)  # avoid decoding issues
     sequence_axes = {
         v: ds[v].get_axis_num(concat_dim) for v in ds.variables if concat_dim in ds[v].dims
     }
@@ -113,8 +113,8 @@ def expand_target_dim(target: FSSpecTarget, concat_dim: Optional[str], dimsize: 
         arr.resize(shape)
 
 
-def open_target(target: FSSpecTarget) -> xr.Dataset:
-    return xr.open_zarr(target.get_mapper())
+def open_target(target: FSSpecTarget, **kwargs) -> xr.Dataset:
+    return xr.open_zarr(target.get_mapper(), **kwargs)
 
 
 def input_position(input_key: InputKey) -> int:
@@ -160,18 +160,6 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             **config.file_pattern.fsspec_open_kwargs,
         )
 
-    if config.cache_metadata:
-        if config.storage_config.metadata is None:
-            raise ValueError("metadata_cache is not set.")
-
-        if not _input_metadata_fname(input_key) in config.storage_config.metadata:
-            with open_input(input_key, config=config) as ds:
-                logger.info(f"Caching metadata for input '{input_key!s}'")
-                input_metadata = ds.to_dict(data=False)
-                config.storage_config.metadata[_input_metadata_fname(input_key)] = input_metadata
-        else:
-            logger.info(f"Metadata already cached for input '{input_key!s}'")
-
     if config.open_input_with_kerchunk:
         if config.file_pattern.file_type == FileType.opendap:
             raise ValueError("Can't make references for opendap inputs")
@@ -201,8 +189,21 @@ def cache_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> None:
             secrets=config.file_pattern.query_string_secrets,
             **config.file_pattern.fsspec_open_kwargs,
         ) as fp:
-            ref_data = create_hdf5_reference(fp, url, fname)
+            logger.info(f"creating kerchunk referernce for {url}")
+            ref_data = create_kerchunk_reference(fp, url, config.file_pattern.file_type)
         config.storage_config.metadata[ref_fname] = ref_data
+
+    if config.cache_metadata:
+        if config.storage_config.metadata is None:
+            raise ValueError("metadata_cache is not set.")
+
+        if not _input_metadata_fname(input_key) in config.storage_config.metadata:
+            with open_input(input_key, config=config) as ds:
+                logger.info(f"Caching metadata for input '{input_key!s}'")
+                input_metadata = ds.to_dict(data=False)
+                config.storage_config.metadata[_input_metadata_fname(input_key)] = input_metadata
+        else:
+            logger.info(f"Metadata already cached for input '{input_key!s}'")
 
 
 def region_and_conflicts_for_chunk(
@@ -268,8 +269,10 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
         from fsspec.implementations.reference import ReferenceFileSystem
 
         reference_data = config.storage_config.metadata[_input_reference_fname(input_key)]
-        # TODO: figure out how to set this for the cache target
-        remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
+        if config.cache_inputs and config.storage_config.cache is not None:
+            remote_protocol = config.storage_config.cache.fs.protocol
+        else:
+            remote_protocol = fsspec.utils.get_protocol(next(config.file_pattern.items())[1])
         ref_fs = ReferenceFileSystem(
             reference_data, remote_protocol=remote_protocol, skip_instance_cache=True
         )
