@@ -1,5 +1,16 @@
 # Release Notes
 
+## v0.9.3 - 2023-01-03
+
+- Bugfix to allow opening of zarr files. This fix allows using Zarr stores as an input
+source for recipes. {pull}`462`
+- Add netcdf3 support for opening source files with kerchunk. Resolves a long-standing
+issue wherein netcdf3 source files could not be loaded lazily, which effectively
+blocked the use of large netcdf3 files as recipe sources. {pull}`383`
+- Fix zarr reference bug {pull}`455`
+- Add `dataset_type` class attribute for recipe classes {pull}`437`
+
+
 ## v0.9.2 - 2022-10-26
 
 - Bump peter-evans/slash-command-dispatch from 2 to 3 [#434](https://github.com/pangeo-forge/pangeo-forge-recipes/pull/434) ([@dependabot](https://github.com/dependabot))
