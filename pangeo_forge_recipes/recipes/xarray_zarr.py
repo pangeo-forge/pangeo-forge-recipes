@@ -729,7 +729,7 @@ class XarrayZarrRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     :param file_pattern: An object which describes the organization of the input files.
     :param inputs_per_chunk: The number of inputs to use in each chunk along the concat dim.
        Must be an integer >= 1.
-    :param target_chunks: Desired chunk structure for the targret dataset. This is a dictionary
+    :param target_chunks: Desired chunk structure for the target dataset. This is a dictionary
        mapping dimension names to chunk size. When using a :class:`patterns.FilePattern` with
        a :class:`patterns.ConcatDim` that specifies ``n_items_per_file``, then you don't need
        to include the concat dim in ``target_chunks``.
