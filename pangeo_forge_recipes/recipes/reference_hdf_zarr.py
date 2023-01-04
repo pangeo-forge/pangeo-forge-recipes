@@ -11,7 +11,7 @@ from kerchunk.combine import MultiZarrToZarr
 
 from ..executors.base import Pipeline, Stage
 from ..patterns import FileType, Index
-from ..reference import create_hdf5_reference, unstrip_protocol
+from ..reference import create_kerchunk_reference, unstrip_protocol
 from ..storage import file_opener
 from .base import BaseRecipe, FilePatternMixin, StorageMixin
 
@@ -32,7 +32,9 @@ def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
         if protocol is None:
             raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
-        config.storage_config.metadata[ref_fname] = create_hdf5_reference(fp, target_url, fname)
+        config.storage_config.metadata[ref_fname] = create_kerchunk_reference(
+            fp, target_url, file_type=config.file_pattern.file_type
+        )
 
 
 def finalize(config: HDFReferenceRecipe):
@@ -176,8 +178,8 @@ class HDFReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         self._validate_file_pattern()
 
     def _validate_file_pattern(self):
-        if self.file_pattern.file_type != FileType.netcdf4:
-            raise ValueError("This recipe works on netcdf4 input only")
+        if self.file_pattern.file_type not in [FileType.netcdf4, FileType.netcdf3]:
+            raise ValueError("This recipe works on netcdf4 and netcdf3 input only")
         if len(self.file_pattern.merge_dims) > 1:
             raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
         if len(self.file_pattern.concat_dims) > 1:
