@@ -2,22 +2,30 @@
 Functions related to creating fsspec references.
 """
 
-from typing import Dict, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 from kerchunk.grib2 import scan_grib
 from kerchunk.hdf import SingleHdf5ToZarr
+from kerchunk.netCDF3 import NetCDF3ToZarr
+
+from .patterns import FileType
 
 
-def create_hdf5_reference(*, fp, url: str, inline_threshold: int = 300) -> Dict:
-    h5chunks = SingleHdf5ToZarr(fp, url, inline_threshold=inline_threshold)
-    reference_data = h5chunks.translate()
-    return reference_data
+def create_kerchunk_reference(
+    fp,
+    url: str,
+    file_type: FileType,
+    inline_threshold: int = 300,
+    grib_filters: Optional[dict] = None,
+) -> Dict:
+    if file_type == FileType.netcdf4:
+        chunks = SingleHdf5ToZarr(fp, url, inline_threshold=inline_threshold)
+    elif file_type == FileType.netcdf3:
+        chunks = NetCDF3ToZarr(url, max_chunk_size=100_000_000)
+    elif file_type == FileType.grib:
+        chunks = scan_grib(fp, inline_threshold=inline_threshold, filter=grib_filters)
 
-
-def create_grib_reference(*, fp, inline_threshold=300, **grib_filters) -> dict:
-    grib_chunks = scan_grib(fp, inline_threshold=inline_threshold, filter=grib_filters)
-    reference_data = grib_chunks.translate()
-    return reference_data
+    return chunks.translate()
 
 
 def unstrip_protocol(name: str, protocol: Union[str, Tuple[str, ...]]) -> str:

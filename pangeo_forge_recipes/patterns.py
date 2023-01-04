@@ -115,6 +115,7 @@ class FileType(AutoName):
     grib = auto()
     opendap = auto()
     tiff = auto()
+    zarr = auto()
 
 
 class FilePattern:

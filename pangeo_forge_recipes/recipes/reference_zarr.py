@@ -11,7 +11,7 @@ from kerchunk.combine import MultiZarrToZarr
 
 from ..executors.base import Pipeline, Stage
 from ..patterns import FileType, Index
-from ..reference import create_grib_reference, create_hdf5_reference, unstrip_protocol
+from ..reference import create_kerchunk_reference, unstrip_protocol
 from ..storage import file_opener
 from .base import BaseRecipe, FilePatternMixin, StorageMixin
 
@@ -32,11 +32,12 @@ def scan_file(chunk_key: ChunkKey, config: ReferenceRecipe):
         if protocol is None:
             raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
-
-        if config.file_pattern.file_type is FileType.netcdf4:
-            config.storage_config.metadata[ref_fname] = create_hdf5_reference(fp=fp, url=target_url)
-        elif config.file_pattern.file_type is FileType.grib:
-            config.storage_config.metadata[ref_fname] = create_grib_reference(fp=fp)
+        config.storage_config.metadata[ref_fname] = create_kerchunk_reference(
+            fp,
+            target_url,
+            file_type=config.file_pattern.file_type,
+            grib_filters=config.grib_filters,
+        )
 
 
 def finalize(config: ReferenceRecipe):
@@ -173,6 +174,7 @@ class ReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     coo_dtypes: Optional[dict] = field(default_factory=dict)
     preprocess: Optional[Callable] = None
     postprocess: Optional[Callable] = None
+    grib_filters: Optional[dict] = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -185,8 +187,9 @@ class ReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     # After filetype validation, check FileType and change kerchunk inputs depending on which one.
 
     def _validate_file_pattern(self):
-        if self.file_pattern.file_type not in [FileType.netcdf4, FileType.grib]:
-            raise ValueError("This recipe works on netcdf4 or grib2 input only")
+        if self.file_pattern.file_type not in [FileType.netcdf4, FileType.netcdf3, FileType.grib]:
+            raise ValueError("This recipe works on  netcdf3, netcdf4 or grib2 input only")
+
         if len(self.file_pattern.merge_dims) > 1:
             raise NotImplementedError("This Recipe class can't handle more than one merge dim.")
         if len(self.file_pattern.concat_dims) > 1:
