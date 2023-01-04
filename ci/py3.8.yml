@@ -12,7 +12,6 @@ dependencies:
   - codecov
   - dask
   - distributed
-  - eecodecs
   - fsspec>=2022.1.0
   - gcsfs>=2022.1.0
   - h5netcdf
