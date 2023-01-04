@@ -12,6 +12,7 @@ dependencies:
   - codecov
   - dask
   - distributed
+  - eccodes
   - fsspec>=2022.1.0
   - gcsfs>=2022.1.0
   - h5netcdf
@@ -47,6 +48,5 @@ dependencies:
   - pytest-repeat
   - pip
   - pip:
-    - eecodecs
     - h5py>=3.3.0
     - pytest-timeout

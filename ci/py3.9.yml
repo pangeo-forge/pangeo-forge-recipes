@@ -12,6 +12,7 @@ dependencies:
   - codecov
   - dask
   - distributed
+  - eccodes
   - fsspec>=2022.1.0
   - gcsfs>=2022.1.0
   - graphviz  # needed for building tutorial notebooks
@@ -50,5 +51,4 @@ dependencies:
   - zarr>=2.6.0
   - pip:
 
-    - eecodecs
     - pytest-timeout
