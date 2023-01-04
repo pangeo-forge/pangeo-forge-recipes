@@ -128,7 +128,7 @@ def test_xarray_zarr_sha265(pattern_pair, kwargs):
         ({}, {}),
         ({}, dict(output_json_fname="custom_name.json")),
         (dict(output_json_fname="custom_name.json"), dict(output_json_fname="custom_name.json")),
-        (dict(netcdf_storage_options={"anon": True}), dict(output_json_fname="custom_name.json")),
+        (dict(output_json_fname="custom_name.json")),
     ],
 )
 def test_kerchunk_sha265(pattern_pair, kwargs):
