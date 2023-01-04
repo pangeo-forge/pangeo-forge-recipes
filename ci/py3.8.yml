@@ -47,5 +47,6 @@ dependencies:
   - pytest-repeat
   - pip
   - pip:
+    - eecodecs
     - h5py>=3.3.0
     - pytest-timeout

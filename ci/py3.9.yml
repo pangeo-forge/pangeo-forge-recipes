@@ -50,4 +50,5 @@ dependencies:
   - zarr>=2.6.0
   - pip:
 
+    - eecodecs
     - pytest-timeout
