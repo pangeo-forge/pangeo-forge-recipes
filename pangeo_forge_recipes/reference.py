@@ -44,7 +44,7 @@ def create_kerchunk_reference(
         ref["templates"] = {"u": url}
 
         primary_refs = ref["refs"].copy()
-        for i, other_ref in enumerate(grib_references[1:]):
+        for _, other_ref in enumerate(grib_references[1:]):
             primary_refs.update(other_ref["refs"])
         ref["refs"] = primary_refs
 

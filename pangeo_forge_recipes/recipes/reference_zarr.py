@@ -152,6 +152,7 @@ class ReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
         an "M8[*]" as the output type.
     :param preprocess: a function applied to each HDF file's references before combine
     :param postprocess: a function applied to the global combined references before write
+    :param grib_filters: dict of kwargs for grib file filters
     """
 
     dataset_type = "kerchunk"
@@ -179,12 +180,6 @@ class ReferenceRecipe(BaseRecipe, StorageMixin, FilePatternMixin):
     def __post_init__(self):
         super().__post_init__()
         self._validate_file_pattern()
-
-    # For FileType Validation:
-    # if FileType is not in ['netcdf4', 'grib2']:
-    # raise filetype note supported
-
-    # After filetype validation, check FileType and change kerchunk inputs depending on which one.
 
     def _validate_file_pattern(self):
         if self.file_pattern.file_type not in [FileType.netcdf4, FileType.netcdf3, FileType.grib]:
