@@ -102,6 +102,13 @@ def make_file_pattern(path_fixture):
     return file_pattern
 
 
+def make_grib_local_paths(simple_grib_dataset, tmpdir_factory):
+    to_grib = pytest.importorskip("cfgrib.xarray_to_grib.to_grib")
+    tmp_path = tmpdir_factory.mktemp("grib_data")
+    to_grib(simple_grib_dataset, tmp_path)
+    return tmp_path
+
+
 def make_netcdf_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter):
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     file_splitter_tuple = file_splitter(daily_xarray_dataset.copy(), items_per_file)
@@ -179,6 +186,20 @@ def make_netcdf_http_paths(netcdf_local_paths, request):
 
 
 @pytest.fixture(scope="session")
+def simple_grib_dataset():
+    ds = xr.DataArray(
+        np.zeros((5, 6)) + 300.0,
+        coords=[
+            np.linspace(90.0, -90.0, 5),
+            np.linspace(0.0, 360.0, 6, endpoint=False),
+        ],
+        dims=["latitude", "longitude"],
+    ).to_dataset(name="tasmax")
+    ds.tasmax.attrs["GRIB_shortName"] = "skt"
+    return ds
+
+
+@pytest.fixture(scope="session")
 def daily_xarray_dataset():
     """Return a synthetic random xarray dataset."""
     np.random.seed(1)
@@ -218,6 +239,11 @@ def daily_xarray_dataset_with_coordinateless_dimension(daily_xarray_dataset):
     ds = daily_xarray_dataset.copy()
     del ds["lon"]
     return ds
+
+
+@pytest.fixture(scope="session")
+def grib_local_paths(simple_grib_dataset, tmpdir_factory):
+    return make_grib_local_paths(simple_grib_dataset, tmpdir_factory)
 
 
 @pytest.fixture(scope="session")
@@ -347,6 +373,11 @@ def netcdf_local_paths_sequential_with_coordinateless_dimension(
 @pytest.fixture(scope="session")
 def netcdf_local_file_pattern_sequential(netcdf_local_paths_sequential):
     return make_file_pattern(netcdf_local_paths_sequential)
+
+
+@pytest.fixture(scope="session")
+def grib_local_file_pattern_sequential(grib_local_paths):
+    return make_file_pattern(grib_local_paths)
 
 
 @pytest.fixture(scope="session")
