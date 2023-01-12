@@ -29,7 +29,7 @@ def dataset_to_schema(ds: xr.Dataset) -> XarraySchema:
 
     # Remove redundant encoding options
     for v in ds.variables:
-        for option in ['_FillValue', 'source']:
+        for option in ["_FillValue", "source"]:
             # TODO: should be okay to remove _FillValue?
             if option in ds[v].encoding:
                 del ds[v].encoding[option]
@@ -190,12 +190,13 @@ def _combine_vars(v1, v2, concat_dim, allow_both=False):
                     )
                 else:
                     shape.append(l1)
-            new_vars[vname] = {"dims": dims,
-                               "attrs": attrs,
-                               "dtype": dtype,
-                               "shape": tuple(shape),
-                               "encoding": encoding
-                               }
+            new_vars[vname] = {
+                "dims": dims,
+                "attrs": attrs,
+                "dtype": dtype,
+                "shape": tuple(shape),
+                "encoding": encoding,
+            }
 
     return new_vars
 
