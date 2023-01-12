@@ -23,11 +23,17 @@ class XarraySchema(TypedDict):
 
 
 def dataset_to_schema(ds: xr.Dataset) -> XarraySchema:
-    """Convert the output of `dataset.to_dict(data=False)` to a schema
+    """Convert the output of `dataset.to_dict(data=False, encoding=True)` to a schema
     (Basically justs adds chunks, which is not part of the Xarray ouput).
     """
 
-    d = ds.to_dict(data=False)
+    # Remove redundant encoding options
+    for v in ds.variables:
+        for option in ['_FillValue', 'source']:
+            # TODO: should be okay to remove _FillValue?
+            if option in ds[v].encoding:
+                del ds[v].encoding[option]
+    d = ds.to_dict(data=False, encoding=True)
     return XarraySchema(
         attrs=d.get("attrs"),
         coords=d.get("coords"),
@@ -164,6 +170,8 @@ def _combine_vars(v1, v2, concat_dim, allow_both=False):
                 raise DatasetCombineError(f"Can't merge datasets with the same variable {vname}")
             attrs = _combine_attrs(v1[vname]["attrs"], v2[vname]["attrs"])
             dtype = _combine_dtype(v1[vname]["dtype"], v2[vname]["dtype"])
+            # Can combine encoding using the same approach as attrs
+            encoding = _combine_attrs(v1[vname]["encoding"], v2[vname]["encoding"])
             (d1, s1), (d2, s2) = (
                 (v1[vname]["dims"], v1[vname]["shape"]),
                 (v2[vname]["dims"], v2[vname]["shape"]),
@@ -182,7 +190,13 @@ def _combine_vars(v1, v2, concat_dim, allow_both=False):
                     )
                 else:
                     shape.append(l1)
-            new_vars[vname] = {"dims": dims, "attrs": attrs, "dtype": dtype, "shape": tuple(shape)}
+            new_vars[vname] = {"dims": dims,
+                               "attrs": attrs,
+                               "dtype": dtype,
+                               "shape": tuple(shape),
+                               "encoding": encoding
+                               }
+
     return new_vars
 
 
@@ -199,9 +213,14 @@ def _to_variable(template, target_chunks):
     # Xarray will pick a time encoding for the dataset (e.g. "days since days since 1970-01-01")
     # and this may not be compatible with the actual values in the time coordinate
     # (which we don't know yet)
+    # TODO: previous comment regarding encoding should no longer
+    # be relevant now that variable encoding will be used if available
     data = dsa.zeros(shape=shape, chunks=chunks, dtype=dtype)
     # TODO: add more encoding
-    encoding = {"chunks": chunks}
+    # TODO: is the previous comment still relevant now that
+    # variable encoding will be used if available?
+    encoding = template.get("encoding", {})
+    encoding["chunks"] = chunks
     return xr.Variable(dims=dims, data=data, attrs=template["attrs"], encoding=encoding)
 
 
