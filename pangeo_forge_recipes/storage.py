@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import io
 import json
@@ -11,7 +13,7 @@ import time
 import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterator, Optional, Sequence, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
@@ -93,6 +95,14 @@ class FSSpecTarget(AbstractTarget):
 
     fs: fsspec.AbstractFileSystem
     root_path: str = ""
+
+    def __truediv__(self, suffix: str) -> FSSpecTarget:
+        """
+        Support / operator so FSSpecTarget actslike a pathlib.path
+
+        Only supports getting a string suffix added in.
+        """
+        return replace(self, root_path=os.path.join(self.root_path, suffix))
 
     @classmethod
     def from_url(cls, url: str):

@@ -98,3 +98,9 @@ def test_caching_only_truncates_long_fnames_for_local_fs(fs_cls, fname_longer_th
         assert len(fname_in_full_path) == POSIX_MAX_FNAME_LENGTH
     else:
         assert len(fname_in_full_path) > POSIX_MAX_FNAME_LENGTH
+
+
+def test_suffix(tmp_path):
+    assert str((FSSpecTarget(LocalFileSystem(), tmp_path) / "test").root_path) == str(
+        tmp_path / "test"
+    )
