@@ -26,7 +26,6 @@ pangeo-forge is still early in development - there are several ways to contribut
 ## Get in touch
 
 Discussions on pangeo-forge are generally hosted biweekly on Mondays at 7pm UTC via [Whereby](https://whereby.com/pangeo). More details on the scheduling of these meetings can be found [here](https://github.com/pangeo-forge/roadmap/issues/3).
-![Uploading image.png…]()
 
 ## License
 
