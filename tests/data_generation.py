@@ -36,6 +36,9 @@ def make_ds(nt=10, non_dim_coords=False):
     )
 
     # Add time coord encoding
-    ds.time.encoding = {"units": f"days since {time[0]}", "calendar": "proleptic_gregorian"}
+    # Remove "%H:%M:%s" as it will be dropped when time is 0:0:0
+    ds.time.encoding = {"units": f"days since {time[0].strftime('%Y-%m-%d')}",
+                        "calendar": "proleptic_gregorian"
+                        }
 
     return ds

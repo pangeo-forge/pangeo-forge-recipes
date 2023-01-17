@@ -210,16 +210,8 @@ def _to_variable(template, target_chunks):
     chunks = tuple(target_chunks[dim] for dim in dims)
     # we pick zeros as the safest value to initialize empty data with
     # will only be used for dimension coordinates
-    # WARNING: there are lots of edge cases aroudn time!
-    # Xarray will pick a time encoding for the dataset (e.g. "days since days since 1970-01-01")
-    # and this may not be compatible with the actual values in the time coordinate
-    # (which we don't know yet)
-    # TODO: previous comment regarding encoding should no longer
-    # be relevant now that variable encoding will be used if available
     data = dsa.zeros(shape=shape, chunks=chunks, dtype=dtype)
     # TODO: add more encoding
-    # TODO: is the previous comment still relevant now that
-    # variable encoding will be used if available?
     encoding = template.get("encoding", {})
     encoding["chunks"] = chunks
     return xr.Variable(dims=dims, data=data, attrs=template["attrs"], encoding=encoding)

@@ -140,5 +140,4 @@ def test_store_dataset_fragment(temp_store):
     xr.testing.assert_identical(ds, ds_target)
     # assert_identical() doesn't check encoding
     # Checking the original time encoding units should be sufficient
-    # Zarr retains the original "days since %Y:%m%d" and removes " %H:%M:%S"
-    assert " ".join(ds.time.encoding["units"].split(" ")[0:-1]) == ds_target.time.encoding["units"]
+    assert ds.time.encoding.get("units") == ds_target.time.encoding.get("units")
