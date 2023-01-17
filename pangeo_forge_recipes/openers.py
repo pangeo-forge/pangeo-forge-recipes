@@ -25,7 +25,6 @@ def open_url(
     :param secrets: If provided these secrets will be injected into the URL as a query string.
     :param open_kwargs: Extra arguments passed to fsspec.open.
     """
-
     kw = open_kwargs or {}
     if cache is not None:
         # this has side effects
@@ -45,7 +44,12 @@ OPENER_MAP = {
 
 def _set_engine(file_type, xr_open_kwargs):
     kw = xr_open_kwargs.copy()
-    if "engine" in kw:
+    if file_type == FileType.unknown:
+        # Enable support for archives containing a mix of e.g. netCDF3 and netCDF4 products etc.
+        warnings.warn(f"Unknown file type specified, backend engine will be automatically selected by xarray")
+        if "engine" in kw:
+            del kw["engine"]
+    elif "engine" in kw:
         engine_message_base = (
             "pangeo-forge-recipes will automatically set the xarray backend for "
             f"files of type '{file_type.value}' to '{OPENER_MAP[file_type]}', "
