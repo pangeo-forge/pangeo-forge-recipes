@@ -46,7 +46,9 @@ def _set_engine(file_type, xr_open_kwargs):
     kw = xr_open_kwargs.copy()
     if file_type == FileType.unknown:
         # Enable support for archives containing a mix of e.g. netCDF3 and netCDF4 products etc.
-        warnings.warn("Unknown file type specified, backend engine will be automatically selected by xarray")
+        warnings.warn(
+            "Unknown file type specified, backend engine will be automatically selected by xarray"
+        )
         if "engine" in kw:
             del kw["engine"]
     elif "engine" in kw:
