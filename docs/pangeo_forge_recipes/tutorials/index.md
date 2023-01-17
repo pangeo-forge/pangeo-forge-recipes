@@ -28,6 +28,8 @@ When choosing which recipe object you want to use, it is important to consider t
 
 In general, ReferenceRecipes store and copy much less data overall. However, modification of the underlying data is more limited, for example, the chunking schema of a dataset can not be modified with kerchunk, so you are dependent on the initial chunk schema of the dataset. If you need to optimize your datasets chunking schema for space or time, the standard `XarrayZarrRecipe` might be a better bet.
 
+If the original data are not already in the cloud, there is little benefit to using a `ReferenceRecipe`, because the access time for the data will be very slow.
+
 
 
 ```{toctree}
