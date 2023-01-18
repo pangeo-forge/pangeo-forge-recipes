@@ -17,7 +17,7 @@ def temp_store(tmp_path):
 def test_store_dataset_fragment(temp_store):
 
     ds = make_ds(non_dim_coords=True)
-    schema = ds.to_dict(data=False)
+    schema = ds.to_dict(data=False, encoding=True)
     schema["chunks"] = {}
 
     ds.to_zarr(temp_store)
@@ -138,3 +138,6 @@ def test_store_dataset_fragment(temp_store):
     ds_target = xr.open_dataset(temp_store, engine="zarr").load()
 
     xr.testing.assert_identical(ds, ds_target)
+    # assert_identical() doesn't check encoding
+    # Checking the original time encoding units should be sufficient
+    assert ds.time.encoding.get("units") == ds_target.time.encoding.get("units")
