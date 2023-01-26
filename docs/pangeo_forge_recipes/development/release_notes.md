@@ -1,6 +1,15 @@
 # Release Notes
 
+## v0.9.4 - 2023-01-06
+
+- Fixed bug in `0.9.3` which broke all recipe object imports if `scipy` (an optional
+dependency) was missing from environment. {pull}`466`
+
 ## v0.9.3 - 2023-01-03
+
+```{warning}
+Yanked due to presence of a bug. Please use `0.9.4` instead.
+```
 
 - Bugfix to allow opening of zarr files. This fix allows using Zarr stores as an input
 source for recipes. {pull}`462`

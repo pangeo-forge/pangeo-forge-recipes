@@ -6,7 +6,6 @@ from typing import Dict, Optional, Tuple, Union
 
 from kerchunk.grib2 import scan_grib
 from kerchunk.hdf import SingleHdf5ToZarr
-from kerchunk.netCDF3 import NetCDF3ToZarr
 
 from .patterns import FileType
 
@@ -24,6 +23,8 @@ def create_kerchunk_reference(
         ref = chunks.translate()
 
     elif file_type == FileType.netcdf3:
+        from kerchunk.netCDF3 import NetCDF3ToZarr
+
         chunks = NetCDF3ToZarr(url, max_chunk_size=100_000_000)
         ref = chunks.translate()
     elif file_type == FileType.grib:
