@@ -128,13 +128,12 @@ def test_xarray_zarr_sha265(pattern_pair, kwargs):
         ({}, {}),
         ({}, dict(output_json_fname="custom_name.json")),
         (dict(output_json_fname="custom_name.json"), dict(output_json_fname="custom_name.json")),
-        (dict(output_json_fname="custom_name.json")),
+        (dict(storage_options={"anon": True}), dict(output_json_fname="custom_name.json")),
     ],
 )
 def test_kerchunk_sha265(pattern_pair, kwargs):
     recipe_0 = ReferenceRecipe(pattern_pair[0], **kwargs[0])
     recipe_1 = ReferenceRecipe(pattern_pair[1], **kwargs[1])
-
     if pattern_pair[0] == pattern_pair[1] and kwargs[0] == kwargs[1]:
         assert recipe_0.sha256 == recipe_1.sha256
     else:
