@@ -35,4 +35,5 @@ A `ReferenceRecipe` does not copy the original data, but instead produces and st
 :maxdepth: 1
 
 hdf_reference/reference_cmip6
+grib_reference/reference_HRRR
 ```

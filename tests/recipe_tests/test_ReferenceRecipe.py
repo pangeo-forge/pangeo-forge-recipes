@@ -12,7 +12,6 @@ reference_zarr = pytest.importorskip("pangeo_forge_recipes.recipes.reference_zar
 ReferenceRecipe = reference_zarr.ReferenceRecipe
 
 
-@pytest.mark.xfail  # This needs to be updated with filetypes
 @pytest.mark.parametrize("default_storage", [True, False])
 @pytest.mark.parametrize("with_intake", [False, True])
 def test_single_grib(
