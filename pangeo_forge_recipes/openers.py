@@ -8,6 +8,7 @@ from typing import Dict, Optional, Union
 import xarray as xr
 import zarr
 
+
 from .patterns import FileType
 from .storage import CacheFSSpecTarget, OpenFileType, _copy_btw_filesystems, _get_opener
 
@@ -82,6 +83,84 @@ def _set_engine(file_type, xr_open_kwargs):
         kw.update(OPENER_MAP[file_type])
     return kw
 
+def open_with_kerchunk(
+    url_or_file_obj: Union[OpenFileType, str, zarr.storage.FSStore],
+    file_type: FileType = FileType.unknown,
+    inline_threshold: Optional[int] = 100,
+    netcdf3_max_chunk_size: Optional[int] = 100000000,
+    storage_options: Optional[Dict] = None,
+    grib_filters: Optional[Dict] = None
+
+
+) -> xr.Dataset: # Once .translate() is called on SingleHdf5ToZarr, a dictionary containing the ref structure is returned
+    """Scan item with one of Kerchunk's file readers (SingleHdf5ToZarr, ScanGrib etc.). Accepts either fsspec open-file-like objects
+    or string URLs that can be passed directly to Xarray.
+
+    :param url_or_file_obj: The url or file object to be opened.
+    :param file_type: Provide this if you know what type of file it is.
+    :storage_options: Storage options dict to pass to SingleHdf5ToZarr
+    :grib2_open_kwargs: Extra arguments to pass to Kerchunk's ScanGrib
+    """
+
+    # TODO: Add the filetype selection logic for kerchunk along with which set of kwargs should be used:
+    # psudeocode:
+    # if filetype
+
+    if isinstance(url_or_file_obj, str):
+        pass
+    elif isinstance(url_or_file_obj, zarr.storage.FSStore):
+        if file_type is not FileType.zarr:
+            raise ValueError(f"FSStore object can only be opened as FileType.zarr; got {file_type}")
+    elif isinstance(url_or_file_obj, io.IOBase):
+        # required to make mypy happy
+        # LocalFileOpener is a subclass of io.IOBase
+        pass
+    elif hasattr(url_or_file_obj, "open"):
+        # work around fsspec inconsistencies
+        url_or_file_obj = url_or_file_obj.open()
+    
+
+
+
+    if file_type == FileType.netcdf4:
+        from kerchunk.hdf import SingleHdf5ToZarr
+        h5chunks = SingleHdf5ToZarr(url_or_file_obj, url_or_file_obj.path, inline_threshold=inline_threshold[0], storage_options=storage_options[0])
+
+        ref = h5chunks.translate()
+
+
+    elif file_type == FileType.netcdf3:
+        from kerchunk.netCDF3 import NetCDF3ToZarr
+
+        chunks = NetCDF3ToZarr(url=url_or_file_obj, inline_threshold=inline_threshold[0], max_chunk_size=netcdf3_max_chunk_size[0], storage_options = storage_options[0])
+        ref = chunks.translate()
+
+    elif file_type == FileType.grib:
+        from kerchunk.grib2 import scan_grib
+
+        grib_references = scan_grib(
+        url=url_or_file_obj,
+        inline_threshold=inline_threshold[0],
+        filter=grib_filters[0],
+        storage_options=storage_options[0]
+        )
+
+        # Consolidate / post-process references
+        if len(grib_references) == 1:
+            ref = grib_references[0]
+            ref["templates"] = {"u": url_or_file_obj}
+            return ref
+
+        ref = grib_references[0].copy()
+        ref["templates"] = {"u": url_or_file_obj}
+
+        primary_refs = ref["refs"].copy()
+        for _, other_ref in enumerate(grib_references[1:]):
+            primary_refs.update(other_ref["refs"])
+        ref["refs"] = primary_refs
+
+    return ref
+
 
 def open_with_xarray(
     url_or_file_obj: Union[OpenFileType, str, zarr.storage.FSStore],
@@ -102,6 +181,7 @@ def open_with_xarray(
     :xarray_open_kwargs: Extra arguments to pass to Xarray's open function.
     """
     # TODO: check file type matrix
+
 
     kw = xarray_open_kwargs or {}
     kw = _set_engine(file_type, kw)

@@ -10,7 +10,7 @@ import apache_beam as beam
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineXarraySchemas
-from .openers import open_url, open_with_xarray
+from .openers import open_url, open_with_xarray, open_with_kerchunk
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
@@ -101,6 +101,31 @@ class OpenURLWithFSSpec(beam.PTransform):
         )
 
 
+
+@dataclass
+class OpenWithKerchunk(beam.PTransform):
+    """Open indexed items with Kerchunk. Accepts either fsspec open-file-like objects
+    or string URLs that can be passed directly to Kerchunk.
+
+    :param file_type: Provide this if you know what type of file it is. (supported filetypes for kerchunk)
+    :param kerchunk_open_kwargs: Extra arguments to pass to Kerchunk to determine how to create index. 
+    """
+
+    file_type: FileType = FileType.unknown
+    inline_threshold: Optional[int] = 300,
+    netcdf3_max_chunk_size: Optional[int] = 100000000,
+    storage_options: Optional[Dict] = None,
+    grib_filters: Optional[Dict] = None
+
+    def expand(self, pcoll):
+        return pcoll | "Open with Kerchunk" >> beam.Map(
+            _add_keys(open_with_kerchunk),
+            file_type=self.file_type,
+            inline_threshold=self.inline_threshold,
+            netcdf3_max_chunk_size=self.netcdf3_max_chunk_size,
+            storage_options=self.storage_options,
+            grib_filters=self.grib_filters )
+
 @dataclass
 class OpenWithXarray(beam.PTransform):
     """Open indexed items with Xarray. Accepts either fsspec open-file-like objects
@@ -119,7 +144,9 @@ class OpenWithXarray(beam.PTransform):
     copy_to_local: bool = False
     xarray_open_kwargs: Optional[dict] = field(default_factory=dict)
 
+
     def expand(self, pcoll):
+        print('------------------')
         return pcoll | "Open with Xarray" >> beam.Map(
             _add_keys(open_with_xarray),
             file_type=self.file_type,
