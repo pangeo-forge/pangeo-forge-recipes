@@ -10,7 +10,7 @@ import apache_beam as beam
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineXarraySchemas
-from .openers import open_url, open_with_xarray, open_with_kerchunk
+from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
@@ -101,30 +101,32 @@ class OpenURLWithFSSpec(beam.PTransform):
         )
 
 
-
 @dataclass
 class OpenWithKerchunk(beam.PTransform):
     """Open indexed items with Kerchunk. Accepts either fsspec open-file-like objects
     or string URLs that can be passed directly to Kerchunk.
 
     :param file_type: Provide this if you know what type of file it is. (supported filetypes for kerchunk)
-    :param kerchunk_open_kwargs: Extra arguments to pass to Kerchunk to determine how to create index. 
+    :param kerchunk_open_kwargs: Extra arguments to pass to Kerchunk to determine how to create index.
     """
 
     file_type: FileType = FileType.unknown
-    inline_threshold: Optional[int] = 300,
-    netcdf3_max_chunk_size: Optional[int] = 100000000,
-    storage_options: Optional[Dict] = None,
+    inline_threshold: Optional[int] = (300,)
+    netcdf3_max_chunk_size: Optional[int] = (100000000,)
+    storage_options: Optional[Dict] = (None,)
     grib_filters: Optional[Dict] = None
 
     def expand(self, pcoll):
-        return pcoll | "Open with Kerchunk" >> beam.Map(
+        asdf = pcoll | "Open with Kerchunk" >> beam.Map(
             _add_keys(open_with_kerchunk),
             file_type=self.file_type,
             inline_threshold=self.inline_threshold,
             netcdf3_max_chunk_size=self.netcdf3_max_chunk_size,
             storage_options=self.storage_options,
-            grib_filters=self.grib_filters )
+            grib_filters=self.grib_filters,
+        )
+        return asdf
+
 
 @dataclass
 class OpenWithXarray(beam.PTransform):
@@ -144,9 +146,7 @@ class OpenWithXarray(beam.PTransform):
     copy_to_local: bool = False
     xarray_open_kwargs: Optional[dict] = field(default_factory=dict)
 
-
     def expand(self, pcoll):
-        print('------------------')
         return pcoll | "Open with Xarray" >> beam.Map(
             _add_keys(open_with_xarray),
             file_type=self.file_type,
@@ -288,6 +288,44 @@ class Rechunk(beam.PTransform):
             | beam.MapTuple(combine_fragments)
         )
         return new_fragments
+
+
+@dataclass
+class CombineReferencesWrite(beam.PTransform):
+    """Combines Kerchunk references into a single reference dataset
+
+    :param concat_dims: The dimensions to concatenate across
+    :param identical_dims: Shared dimensions
+    :param target: Write destination
+    :param reference_file_type: Which file type to store reference as. Either JSON or Parquet
+
+
+    """
+
+    concat_dims: List[Dimension]
+    identical_dims: List[Dimension]
+    target: str | FSSpecTarget
+    reference_file_type: str = "json"
+
+    def expand(self, references: beam.PCollection) -> beam.PCollection:
+
+        import ujson
+        from kerchunk.combine import MultiZarrToZarr
+
+        # combine individual references into single consolidated reference
+        mzz = MultiZarrToZarr(
+            references,
+            concat_dims=self.concat_dims,
+            identical_dims=self.identical_dims,
+        )
+
+        multi_kerchunk = mzz.translate()
+
+        if self.reference_file_type == "json":
+            raise NotImplementedError("Reference FileTypes other than json are not supported yet.")
+
+        with open(f"{self.target}.json", "wb") as f:
+            f.write(ujson.dumps(multi_kerchunk).encode())
 
 
 @dataclass
