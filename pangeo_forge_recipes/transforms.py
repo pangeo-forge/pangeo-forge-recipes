@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 
 # from functools import wraps
 from typing import Dict, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
+from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineXarraySchemas
@@ -66,12 +68,27 @@ def _add_keys(func):
 
     # @wraps(func)  # doesn't work for some reason
     def wrapper(arg, **kwargs):
+
         key, item = arg
         result = func(item, **kwargs)
         return key, result
 
     wrapper.__annotations__ = annotations
     return wrapper
+
+
+def _drop_keys(kvp):
+    """Function for DropKeys Method"""
+    key, item = kvp
+    return item
+
+
+@dataclass
+class DropKeys(beam.PTransform):
+    """Simple Method to remove keys for use in a Kerchunk Reference Recipe Pipeline"""
+
+    def expand(self, pcoll):
+        return pcoll | "Drop Keys" >> beam.Map(_drop_keys)
 
 
 # This has side effects if using a cache
@@ -106,8 +123,8 @@ class OpenWithKerchunk(beam.PTransform):
     """Open indexed items with Kerchunk. Accepts either fsspec open-file-like objects
     or string URLs that can be passed directly to Kerchunk.
 
-    :param file_type: Provide this if you know what type of file it is. (supported filetypes for kerchunk)
-    :param kerchunk_open_kwargs: Extra arguments to pass to Kerchunk to determine how to create index.
+    :param file_type: Provide this if you know what type of file it is.
+    :param kerchunk_open_kwargs: Extra arguments to pass to Kerchunk.
     """
 
     file_type: FileType = FileType.unknown
@@ -293,43 +310,41 @@ def combine_refs(
     references: beam.PCollection,
     concat_dims: List[Dimension],
     identical_dims: List[Dimension],
-    target: str | FSSpecTarget,
-    reference_file_type: str = "json",
-):
-
-    import ujson
-    from kerchunk import df
-    from kerchunk.combine import MultiZarrToZarr
+) -> MultiZarrToZarr:
 
     # combine individual references into single consolidated reference
-    mzz = MultiZarrToZarr(
+    return MultiZarrToZarr(
         references,
         concat_dims=concat_dims,
         identical_dims=identical_dims,
     )
 
-    print(mzz)
 
-    multi_kerchunk = mzz.translate()
-    print(multi_kerchunk)
+def write_combined_reference(reference: MultiZarrToZarr, target: str | FSSpecTarget):
 
-    if reference_file_type.lower() not in ["json", "parquet"]:
+    import ujson
+
+    file_ext = os.path.splitext(target)[-1].lower()
+
+    multi_kerchunk = reference.translate()
+
+    if file_ext not in ["json", "parquet"]:
         raise NotImplementedError(
             "Reference FileTypes other than json and parquet fare not supported."
         )
 
-    if reference_file_type == "json":
-        with open(f"{target}.json", "wb") as f:
+    if file_ext == "json":
+        with open(target, "wb") as f:
             f.write(ujson.dumps(multi_kerchunk).encode())
 
-    elif reference_file_type == "parquet":
-        df.refs_to_dataframe(multi_kerchunk, f"{target}.parq", partition=True)
+    elif file_ext == "parquet":
+        from kerchunk import df
 
-    return mzz
+        df.refs_to_dataframe(multi_kerchunk, target, partition=True)
 
 
 @dataclass
-class CombineReferencesWrite(beam.PTransform):
+class CombineReferences(beam.PTransform):
     """Combines Kerchunk references into a single reference dataset
 
     :param concat_dims: The dimensions to concatenate across
@@ -342,17 +357,22 @@ class CombineReferencesWrite(beam.PTransform):
 
     concat_dims: List[Dimension]
     identical_dims: List[Dimension]
-    target: str | FSSpecTarget
-    reference_file_type: str = "json"
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
         references | beam.CombineGlobally(
             combine_refs,
             concat_dims=self.concat_dims,
             identical_dims=self.identical_dims,
-            target=self.target,
-            reference_file_type=self.reference_file_type,
         )
+
+
+@dataclass
+class WriteCombinedReference(beam.PTransform):
+
+    target: str | FSSpecTarget
+
+    def expand(self, reference: beam.PCollection) -> beam.PCollection:
+        reference | beam.Map(write_combined_reference, target=self.target)
 
 
 @dataclass

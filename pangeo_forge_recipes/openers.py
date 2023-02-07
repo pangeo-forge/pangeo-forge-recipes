@@ -90,17 +90,15 @@ def open_with_kerchunk(
     netcdf3_max_chunk_size: Optional[int] = 100000000,
     storage_options: Optional[Dict] = None,
     grib_filters: Optional[Dict] = None,
-) -> xr.Dataset:  # Once .translate() is called on SingleHdf5ToZarr, a dictionary containing the ref structure is returned
-    """Scan item with one of Kerchunk's file readers (SingleHdf5ToZarr, ScanGrib etc.). Accepts either fsspec open-file-like objects
-    or string URLs that can be passed directly to Xarray.
+) -> xr.Dataset:
+    """Scan through item(s) with one of Kerchunk's file readers
+    (SingleHdf5ToZarr, ScanGrib etc.) and create reference objects.
 
     :param url_or_file_obj: The url or file object to be opened.
     :param file_type: Provide this if you know what type of file it is.
     :storage_options: Storage options dict to pass to SingleHdf5ToZarr
     :grib2_open_kwargs: Extra arguments to pass to Kerchunk's ScanGrib
     """
-
-    # TODO: Add the filetype selection logic for kerchunk along with which set of kwargs should be used:
 
     if isinstance(url_or_file_obj, str):
         pass
@@ -161,7 +159,6 @@ def open_with_kerchunk(
         for _, other_ref in enumerate(grib_references[1:]):
             primary_refs.update(other_ref["refs"])
         ref["refs"] = primary_refs
-
     return ref
 
 
