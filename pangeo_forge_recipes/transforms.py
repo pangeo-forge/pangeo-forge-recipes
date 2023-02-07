@@ -298,6 +298,7 @@ def combine_refs(
 ):
 
     import ujson
+    from kerchunk import df
     from kerchunk.combine import MultiZarrToZarr
 
     # combine individual references into single consolidated reference
@@ -309,14 +310,21 @@ def combine_refs(
 
     print(mzz)
 
-    # multi_kerchunk = mzz.translate()
-    # print(multi_kerchunk)
+    multi_kerchunk = mzz.translate()
+    print(multi_kerchunk)
 
-    if reference_file_type != "json":
-        raise NotImplementedError("Reference FileTypes other than json are not supported yet.")
+    if reference_file_type.lower() not in ["json", "parquet"]:
+        raise NotImplementedError(
+            "Reference FileTypes other than json and parquet fare not supported."
+        )
 
-    # with open(f"{target}.json", "wb") as f:
-    #     f.write(ujson.dumps(multi_kerchunk).encode())
+    if reference_file_type == "json":
+        with open(f"{target}.json", "wb") as f:
+            f.write(ujson.dumps(multi_kerchunk).encode())
+
+    elif reference_file_type == "parquet":
+        df.refs_to_dataframe(multi_kerchunk, f"{target}.parq", partition=True)
+
     return mzz
 
 
