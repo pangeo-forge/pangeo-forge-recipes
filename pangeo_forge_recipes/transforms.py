@@ -117,7 +117,7 @@ class OpenWithKerchunk(beam.PTransform):
     grib_filters: Optional[Dict] = None
 
     def expand(self, pcoll):
-        asdf = pcoll | "Open with Kerchunk" >> beam.Map(
+        return pcoll | "Open with Kerchunk" >> beam.Map(
             _add_keys(open_with_kerchunk),
             file_type=self.file_type,
             inline_threshold=self.inline_threshold,
@@ -125,7 +125,6 @@ class OpenWithKerchunk(beam.PTransform):
             storage_options=self.storage_options,
             grib_filters=self.grib_filters,
         )
-        return asdf
 
 
 @dataclass
@@ -290,6 +289,37 @@ class Rechunk(beam.PTransform):
         return new_fragments
 
 
+def combine_refs(
+    references: beam.PCollection,
+    concat_dims: List[Dimension],
+    identical_dims: List[Dimension],
+    target: str | FSSpecTarget,
+    reference_file_type: str = "json",
+):
+
+    import ujson
+    from kerchunk.combine import MultiZarrToZarr
+
+    # combine individual references into single consolidated reference
+    mzz = MultiZarrToZarr(
+        references,
+        concat_dims=concat_dims,
+        identical_dims=identical_dims,
+    )
+
+    print(mzz)
+
+    # multi_kerchunk = mzz.translate()
+    # print(multi_kerchunk)
+
+    if reference_file_type != "json":
+        raise NotImplementedError("Reference FileTypes other than json are not supported yet.")
+
+    # with open(f"{target}.json", "wb") as f:
+    #     f.write(ujson.dumps(multi_kerchunk).encode())
+    return mzz
+
+
 @dataclass
 class CombineReferencesWrite(beam.PTransform):
     """Combines Kerchunk references into a single reference dataset
@@ -308,24 +338,13 @@ class CombineReferencesWrite(beam.PTransform):
     reference_file_type: str = "json"
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
-
-        import ujson
-        from kerchunk.combine import MultiZarrToZarr
-
-        # combine individual references into single consolidated reference
-        mzz = MultiZarrToZarr(
-            references,
+        references | beam.CombineGlobally(
+            combine_refs,
             concat_dims=self.concat_dims,
             identical_dims=self.identical_dims,
+            target=self.target,
+            reference_file_type=self.reference_file_type,
         )
-
-        multi_kerchunk = mzz.translate()
-
-        if self.reference_file_type == "json":
-            raise NotImplementedError("Reference FileTypes other than json are not supported yet.")
-
-        with open(f"{self.target}.json", "wb") as f:
-            f.write(ujson.dumps(multi_kerchunk).encode())
 
 
 @dataclass
@@ -338,7 +357,7 @@ class StoreToZarr(beam.PTransform):
         If a dimension is a not named, the chunks will be inferred from the data.
     """
 
-    # TODO: make it so we don't have to explictly specify combine_dims
+    # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
     target: str | FSSpecTarget
