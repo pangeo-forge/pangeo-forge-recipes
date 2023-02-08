@@ -99,9 +99,7 @@ jobs:
         python-version: [3.8, 3.9]
         dependencies: ["releases-only", "upstream-dev"]
         pytest-mark: ["no_executor"]
-        # pytest-mark: ["no_executor", "executor_function", "executor_generator",
-        #              "executor_dask", "executor_prefect", "executor_prefect_dask",
-        #              "executor_prefect_wrapper", "executor_beam"]
+        # pytest-mark: ["no_executor", "executor_function", "executor_generator", "executor_beam"]
         exclude:
           - dependencies: "upstream-dev"
             pytest-mark: "executor_function"

@@ -32,50 +32,6 @@ recipe_func()  # actually execute the recipe
 Note that the python function approach does not support parallel or distributed execution.
 It's mostly just a convenience utility.
 
-
-### Dask Delayed
-
-You can compile your recipe to a [Dask Delayed](https://docs.dask.org/en/latest/delayed.html)
-object using the `.to_dask()` method. For example
-
-```{code-block} python
-delayed = recipe.to_dask()
-delayed.compute()
-```
-
-The `delayed` object can be executed by any of Dask's schedulers, including
-cloud and HPC distributed schedulers.
-
-### Prefect Flow
-
-You can compile your recipe to a [Prefect Flow](https://docs.prefect.io/core/concepts/flows.html) using
-the :meth:`BaseRecipe.to_prefect()` method.
-
-There are two modes of Prefect execution.
-In the default, every individual step in the recipe is explicitly represented
-as a distinct Prefect Task within a Flow.
-
-```{warning}
-For large recipes, this default can lead to Prefect Flows with >10000 Tasks.
-In our experience, Prefect can struggle with this volume.
-```
-
-```{code-block} python
-flow = recipe.to_prefect()
-flow.run()
-```
-
-By default the flow is run using Prefect's [LocalExecutor](https://docs.prefect.io/orchestration/flow_config/executors.html#localexecutor). See [executors](https://docs.prefect.io/orchestration/flow_config/executors.html) for more.
-
-An alternative is to create _a single Prefect Task_ for the entire Recipe.
-This task wraps a Dask Delayed graph, which can then be scheduled on
-a Dask cluster. To use this mode, pass the option `wrap_dask=True`:
-
-```{code-block} python
-flow = recipe.to_prefect(wrap_dask=True)
-flow.run()
-```
-
 ### Beam PTransform
 
 You can compile your recipe to an Apache Beam [PTransform](https://beam.apache.org/documentation/programming-guide/#transforms)
