@@ -90,7 +90,7 @@ def open_with_kerchunk(
     netcdf3_max_chunk_size: Optional[int] = 100000000,
     storage_options: Optional[Dict] = None,
     grib_filters: Optional[Dict] = None,
-) -> xr.Dataset:
+) -> Dict:
     """Scan through item(s) with one of Kerchunk's file readers
     (SingleHdf5ToZarr, ScanGrib etc.) and create reference objects.
 

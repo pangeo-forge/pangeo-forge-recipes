@@ -307,7 +307,7 @@ class Rechunk(beam.PTransform):
 
 
 def combine_refs(
-    references: beam.PCollection,
+    references: List[dict],
     concat_dims: List[Dimension],
     identical_dims: List[Dimension],
 ) -> MultiZarrToZarr:
@@ -320,7 +320,7 @@ def combine_refs(
     )
 
 
-def write_combined_reference(reference: MultiZarrToZarr, target: str | FSSpecTarget):
+def write_combined_reference(_, reference: MultiZarrToZarr, target: str | FSSpecTarget):
 
     import ujson
 
@@ -330,7 +330,7 @@ def write_combined_reference(reference: MultiZarrToZarr, target: str | FSSpecTar
 
     if file_ext not in ["json", "parquet"]:
         raise NotImplementedError(
-            "Reference FileTypes other than json and parquet fare not supported."
+            "Reference FileTypes other than json and parquet are not supported."
         )
 
     if file_ext == "json":
@@ -372,7 +372,12 @@ class WriteCombinedReference(beam.PTransform):
     target: str | FSSpecTarget
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
-        return reference | beam.Map(write_combined_reference, target=self.target)
+
+        return reference | beam.Map(
+            write_combined_reference,
+            reference=beam.pvalue.AsSingleton(reference),
+            target=self.target,
+        )
 
 
 @dataclass
