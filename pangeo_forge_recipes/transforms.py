@@ -359,7 +359,7 @@ class CombineReferences(beam.PTransform):
     identical_dims: List[Dimension]
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
-        references | beam.CombineGlobally(
+        return references | beam.CombineGlobally(
             combine_refs,
             concat_dims=self.concat_dims,
             identical_dims=self.identical_dims,
