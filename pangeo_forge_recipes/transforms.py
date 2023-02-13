@@ -372,7 +372,7 @@ class WriteCombinedReference(beam.PTransform):
     target: str | FSSpecTarget
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
-        reference | beam.Map(write_combined_reference, target=self.target)
+        return reference | beam.Map(write_combined_reference, target=self.target)
 
 
 @dataclass
