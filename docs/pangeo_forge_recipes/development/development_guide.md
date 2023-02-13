@@ -106,10 +106,10 @@ These can be used to select specific executors to test.
 This feature is used in the [main test Github Workfow](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/.github/workflows/main.yaml).
 These marks are enumerated in [setup.cfg](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/setup.cfg).
 
-For example, to run just the test that use the Dask executor, you can do
+For example, to run just the test that use the Beam executor, you can do
 
 ```bash
-py.test tests -m executor_dask
+py.test tests -m executor_beam
 ```
 
 ### Submit a Pull Request
