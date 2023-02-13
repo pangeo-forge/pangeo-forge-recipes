@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.8, 3.9]
+        python-version: ["3.9", "3.10"]
         dependencies: ["releases-only", "upstream-dev"]
     steps:
       - uses: actions/checkout@v2
@@ -96,7 +96,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.8, 3.9]
+        python-version: ["3.9", "3.10"]
         dependencies: ["releases-only", "upstream-dev"]
         pytest-mark: ["no_executor"]
         # pytest-mark: ["no_executor", "executor_function", "executor_generator", "executor_beam"]
