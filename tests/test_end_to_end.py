@@ -39,12 +39,13 @@ def test_xarray_zarr(
             | OpenWithXarray(file_type=pattern.file_type)
             | StoreToZarr(
                 target=tmp_target_url,
+                store_name="store",
                 target_chunks=target_chunks,
                 combine_dims=pattern.combine_dim_keys,
             )
         )
 
-    ds = xr.open_dataset(tmp_target_url, engine="zarr")
+    ds = xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr")
     assert ds.time.encoding["chunks"] == (target_chunks["time"],)
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
@@ -63,7 +64,7 @@ def test_xarray_zarr_subpath(
             | OpenWithXarray(file_type=pattern.file_type)
             | StoreToZarr(
                 target=tmp_target_url,
-                target_subpath="subpath",
+                store_name="subpath",
                 combine_dims=pattern.combine_dim_keys,
             )
         )

@@ -268,9 +268,9 @@ class StoreToZarr(beam.PTransform):
     """Store a PCollection of Xarray datasets to Zarr.
 
     :param combine_dims: The dimensions to combine
-    :param target: Where to store the target Zarr dataset.
-    :param target_subpath: Subpath *inside* the target to store this Zarr dataset.
-                           Useful when generating multiple Zarr datasets from the same recipe.
+    :param target: Location that will contain the target Zarr Store.
+    :param store_name: Name for the Zarr store. It will be created with this name
+                       under `target`.
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the data.
     """
@@ -279,7 +279,7 @@ class StoreToZarr(beam.PTransform):
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
     target: str | FSSpecTarget
-    target_subpath: Optional[str] = None
+    store_name: str
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
@@ -289,10 +289,7 @@ class StoreToZarr(beam.PTransform):
             target_root = FSSpecTarget.from_url(self.target)
         else:
             target_root = self.target
-        if self.target_subpath:
-            full_target = target_root / self.target_subpath
-        else:
-            full_target = target_root
+        full_target = target_root / self.store_name
         target_store = schema | PrepareZarrTarget(
             target=full_target, target_chunks=self.target_chunks
         )
