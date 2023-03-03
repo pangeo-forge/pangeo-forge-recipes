@@ -106,7 +106,7 @@ def is_valid_dataset(ds, in_memory=False):
         raise AssertionError(f"The following vars {msg}: {offending_vars}")
 
 
-def test_open_file_with_xarray(url_and_type, cache, load, copy_to_local, xarray_open_kwargs):
+def validate_open_file_with_xarray(url_and_type, cache, load, copy_to_local, xarray_open_kwargs):
     # open fsspec OpenFile objects
     url, kwargs, file_type = url_and_type
     open_file = open_url(url, cache=cache, **kwargs)
@@ -120,6 +120,32 @@ def test_open_file_with_xarray(url_and_type, cache, load, copy_to_local, xarray_
     )
     validate_fn(ds)
     is_valid_dataset(ds, in_memory=load)
+
+
+def test_open_file_with_xarray(url_and_type, cache, load, copy_to_local, xarray_open_kwargs):
+    validate_open_file_with_xarray(
+        url_and_type=url_and_type,
+        cache=cache,
+        load=load,
+        copy_to_local=copy_to_local,
+        xarray_open_kwargs=xarray_open_kwargs,
+    )
+
+
+def test_open_file_with_xarray_unknown_filetype(
+    url_and_type, cache, load, copy_to_local, xarray_open_kwargs
+):
+    # Ignore the specified file_type
+    url, kwargs, _ = url_and_type
+    # Specifying unknown file_type should ensure xarray automatically
+    # selects the backend engine
+    validate_open_file_with_xarray(
+        url_and_type=(url, kwargs, FileType.unknown),
+        cache=cache,
+        load=load,
+        copy_to_local=copy_to_local,
+        xarray_open_kwargs=xarray_open_kwargs,
+    )
 
 
 def test_direct_open_with_xarray(public_url_and_type, load, xarray_open_kwargs):

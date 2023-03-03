@@ -5,7 +5,7 @@ from typing import Callable
 import pandas as pd
 import pytest
 
-from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, match_pattern_blockchain
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType
 from pangeo_forge_recipes.serialization import dict_to_sha256, either_encode_or_hash
 
 # TODO: revise this test once refactor is farther along
@@ -75,14 +75,14 @@ def pattern_pair(base_pattern, end_date, request):
         (dict(file_type=FileType.opendap), dict(file_type=FileType.opendap)),
     ],
 )
-def test_match_pattern_blockchain(base_pattern, end_date, new_pattern_nitems_per_file, kwargs):
+def test_start_processing_from(base_pattern, end_date, new_pattern_nitems_per_file, kwargs):
     new_pattern, next_url = get_new_pattern_with_next_url(end_date, new_pattern_nitems_per_file)
 
     for i, pattern in enumerate((base_pattern, new_pattern)):
         for k, v in kwargs[i].items():
             setattr(pattern, k, v)
 
-    matching_key = match_pattern_blockchain(base_pattern.sha256(), new_pattern)
+    matching_key = new_pattern.start_processing_from(base_pattern.sha256())
 
     if kwargs[0] == kwargs[1] and new_pattern_nitems_per_file == 1:
         assert new_pattern[matching_key] == next_url

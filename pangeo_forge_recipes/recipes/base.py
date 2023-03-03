@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, replace
 from typing import Callable, ClassVar
 
 from ..executors.base import Pipeline
-from ..patterns import FilePattern, prune_pattern
+from ..patterns import FilePattern
 from ..serialization import dataclass_sha256
 from ..storage import StorageConfig, temporary_storage_config
 
@@ -24,23 +24,6 @@ class BaseRecipe(ABC):
         from ..executors import GeneratorPipelineExecutor
 
         return GeneratorPipelineExecutor.compile(self._compiler())
-
-    def to_dask(self):
-        from pangeo_forge_recipes.executors import DaskPipelineExecutor
-
-        return DaskPipelineExecutor.compile(self._compiler())
-
-    def to_prefect(self, wrap_dask=False):
-        from pangeo_forge_recipes.executors import (
-            PrefectDaskWrapperExecutor,
-            PrefectPipelineExecutor,
-        )
-
-        compiler = self._compiler()
-        if wrap_dask:
-            return PrefectDaskWrapperExecutor.compile(compiler)
-        else:
-            return PrefectPipelineExecutor.compile(compiler)
 
     def to_beam(self):
         from pangeo_forge_recipes.executors import BeamPipelineExecutor
@@ -64,7 +47,7 @@ class FilePatternMixin:
         :param nkeep: The number of items to keep from each ConcatDim sequence.
         """
 
-        new_pattern = prune_pattern(self.file_pattern, nkeep=nkeep)
+        new_pattern = self.file_pattern.prune(nkeep=nkeep)
         return replace(self, file_pattern=new_pattern)
 
 

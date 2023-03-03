@@ -1,3 +1,5 @@
+import os
+
 import apache_beam as beam
 import pytest
 import xarray as xr
@@ -32,12 +34,36 @@ def test_xarray_zarr(
             | beam.Create(pattern.items())
             | OpenWithXarray(file_type=pattern.file_type)
             | StoreToZarr(
-                target_url=tmp_target_url,
+                target_root=tmp_target_url,
+                store_name="store",
                 target_chunks=target_chunks,
                 combine_dims=pattern.combine_dim_keys,
             )
         )
 
-    ds = xr.open_dataset(tmp_target_url, engine="zarr")
+    ds = xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr")
     assert ds.time.encoding["chunks"] == (target_chunks["time"],)
+    xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
+
+
+def test_xarray_zarr_subpath(
+    daily_xarray_dataset,
+    netcdf_local_file_pattern_sequential,
+    pipeline,
+    tmp_target_url,
+):
+    pattern = netcdf_local_file_pattern_sequential
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToZarr(
+                target_root=tmp_target_url,
+                store_name="subpath",
+                combine_dims=pattern.combine_dim_keys,
+            )
+        )
+
+    ds = xr.open_dataset(os.path.join(tmp_target_url, "subpath"), engine="zarr")
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)

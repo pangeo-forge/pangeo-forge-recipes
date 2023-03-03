@@ -31,6 +31,8 @@ def test_schema_to_template_ds(specified_chunks):
             chunksize = var.chunksizes[dim]
             expected_chunksize = _expected_chunks(size, specified_chunks.get(dim, None))
             assert chunksize == expected_chunksize
+    # Confirm original time units have been preserved
+    assert ds.time.encoding.get("units") == dst.time.encoding.get("units")
     schema2 = dataset_to_schema(dst)
     assert schema == schema2
 
