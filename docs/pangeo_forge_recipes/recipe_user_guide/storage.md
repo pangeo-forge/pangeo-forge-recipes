@@ -1,27 +1,32 @@
 # Storage
 
-Recipes need a place to store data. This information is provided to the recipe by its `.storage_config` attribute, which is an object of type {class}`pangeo_forge_recipes.storage.StorageConfig`.
-The `StorageConfig` object looks like this
+Recipes need a place to store data. This information is provided to the recipe using the transforms in the corresponding pipeline, where storage configuration may include a *cache* location to store retrieved source data products, and a *target* location to store the recipe output. 
+Here, this is illustrated using two transforms typically used in {doc}`recipes`.
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.storage.StorageConfig
+.. autoclass:: pangeo_forge_recipes.transforms.OpenURLWithFSSpec
+    :noindex:
+```
+```{eval-rst}
+.. autoclass:: pangeo_forge_recipes.transforms.StoreToZarr
     :noindex:
 ```
 
-As shown above, the storage configuration includes three distinct parts: `target`, `cache`, and `metadata`.
-
 ## Default storage
 
-When you create a new recipe, a default `StorageConfig` will automatically be created pointing at a local a local [`tempfile.TemporaryDirectory`](https://docs.python.org/3/library/tempfile.html#tempfile.TemporaryDirectory).
+When you create a new recipe, it is common to specify storage locations pointing at a local [`tempfile.TemporaryDirectory`](https://docs.python.org/3/library/tempfile.html#tempfile.TemporaryDirectory).
 This allows you to write data to temporary local storage during the recipe development and debugging process.
 This means that any recipe can immediately be executed with minimal configuration.
-However, in a realistic "production" scenario, you will want to customize your storage locations.
+However, in a realistic "production" scenario, a separate location will be used. In all cases, the storage locations are customized using the corresponding transform parameters.
 
-## Customizing storage: the `target`
+## Customizing *target* storage: `StoreToZarr`
 
-To write a recipe's full dataset to a persistant storage location, re-assign `.storage_config` to be a {class}`pangeo_forge_recipes.storage.StorageConfig` pointing to the location(s) of your choice. The minimal requirement for instantiating `StorageConfig` is a location in which to store the final dataset produced by the recipe. This is called the ``target``. Pangeo Forge has a special class for this: {class}`pangeo_forge_recipes.storage.FSSpecTarget`.
+The minimal requirement for instantiating `StoreToZarr` is a location in which to store the final dataset produced by the recipe. This is acheieved with the following parameters:
 
-Creating a ``target`` requires two arguments:
+* `store_name` specifies the name of the generated Zarr store.
+* `target_root` specifies where the output will be stored. For example, a temporary directory created during local development.
+
+Although `target_root` may be a `str` pointing to a location, it also accepts a special class provided by Pangeo Forge for this: {class}`pangeo_forge_recipes.storage.FSSpecTarget`. Creating an ``FSSpecTarget`` requires two arguments:
 - The ``fs`` argument is an [fsspec](https://filesystem-spec.readthedocs.io/en/latest/)
   filesystem. Fsspec supports many different types of storage via its
   [built in](https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations)
@@ -35,28 +40,26 @@ import s3fs
 from pangeo_forge_recipes.storage import FSSpecTarget
 
 fs = s3fs.S3FileSystem(key="MY_AWS_KEY", secret="MY_AWS_SECRET")
-target_path = "pangeo-forge-bucket/my-dataset-v1.zarr"
-target = FSSpecTarget(fs=fs, root_path=target_path)
+target_root = FSSpecTarget(fs=fs, root_path="pangeo-forge-bucket")
 ```
 
-This target can then be assiged to a recipe as follows:
+This target can then be assiged to a recipe as follows (see also {doc}`recipes`):
 ```{code-block} python
-from pangeo_forge_recipes.storage import StorageConfig
-
-recipe.storage_config = StorageConfig(target)
+transforms = (
+    beam.Create(pattern.items())
+    | OpenURLWithFSSpec()
+    | OpenWithXarray(file_type=pattern.file_type)
+    | StoreToZarr(
+        store_name=my-dataset-v1.zarr,
+        target_root=target_root,
+        combine_dims=pattern.combine_dim_keys,
+        target_chunks={"time": 10}
+    )
 ```
 
-Once assigned, the `target` can be accessed from the recipe with:
+## Customizing storage continued: caching with `OpenURLWithFSSpec`
 
-```{code-block} python
-recipe.target
-```
-
-## Customizing storage continued: caching
-
-Oftentimes it is useful to cache input files, rather than read them directly from the data provider. Input files can be cached at a location defined by a {class}`pangeo_forge_recipes.storage.CacheFSSpecTarget` object. Some recipes require separate caching of metadata, which is provided by a third class {class}`pangeo_forge_recipes.storage.MetadataTarget`.
-
-A `StorageConfig` which declares all three storage locations is assigned as follows:
+Oftentimes it is useful to cache input files, rather than read them directly from the data provider. Input files can be cached at a location defined by a {class}`pangeo_forge_recipes.storage.CacheFSSpecTarget` object. For example, extending the previous recipe pipeline:
 
 ```{code-block} python
 
@@ -64,9 +67,16 @@ from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, Metada
 
 # define your fsspec filesystems for the target, cache, and metadata locations here
 
-target = FSSpecTarget(fs=<fsspec-filesystem-for-target>, root_path="<path-for-target>")
 cache = CacheFSSpecTarget(fs=<fsspec-filesystem-for-cache>, root_path="<path-for-cache>")
-metadata = MetadataTarget(fs=<fsspec-filesystem-for-metadata>, root_path="<path-for-metadata>")
 
-recipe.storage_config = StorageConfig(target, cache, metadata)
+transforms = (
+    beam.Create(pattern.items())
+    | OpenURLWithFSSpec(cache=cache)
+    | OpenWithXarray(file_type=pattern.file_type)
+    | StoreToZarr(
+        store_name=my-dataset-v1.zarr,
+        target_root=target_root,
+        combine_dims=pattern.combine_dim_keys,
+        target_chunks={"time": 10}
+    )
 ```

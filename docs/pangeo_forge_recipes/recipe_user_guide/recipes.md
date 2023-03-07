@@ -21,7 +21,7 @@ to {doc}`../../pangeo_forge_cloud/index`, which allows the recipe to be automati
 
 ## Recipe Pipelines
 
-A recipe is defined as a pipeline of [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to the data collection associated with a {doc}`file pattern <file_patterns>`. Specifically, each recipe pipeline contains a set of transforms, which operate on an `apache_beam.PCollection`, performing a one-to-one mapping using `apache_beam.Map` of input elements to output elements, applying the specified transformation.
+A recipe is defined as a [pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) of [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to the data collection associated with a {doc}`file pattern <file_patterns>`. Specifically, each recipe pipeline contains a set of transforms, which operate on an `apache_beam.PCollection`, performing a one-to-one mapping using `apache_beam.Map` of input elements to output elements, applying the specified transformation.
 
 To write a recipe, you define a pipeline that uses existing transforms, in combination with new transforms if required for custom processing of the input data collection.
 
