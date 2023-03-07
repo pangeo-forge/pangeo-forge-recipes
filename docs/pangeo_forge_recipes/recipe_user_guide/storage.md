@@ -1,6 +1,6 @@
 # Storage
 
-Recipes need a place to store data. This information is provided to the recipe using the transforms in the corresponding pipeline, where storage configuration may include a *cache* location to store retrieved source data products, and a *target* location to store the recipe output. 
+Recipes need a place to store data. This information is provided to the recipe using the transforms in the corresponding pipeline, where storage configuration may include a *cache* location to store retrieved source data products, and a *target* location to store the recipe output.
 Here, this is illustrated using two transforms typically used in {doc}`recipes`.
 
 ```{eval-rst}
