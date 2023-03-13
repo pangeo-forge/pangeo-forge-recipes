@@ -217,17 +217,28 @@ def _to_variable(template, target_chunks):
     return xr.Variable(dims=dims, data=data, attrs=template["attrs"], encoding=encoding)
 
 
+def determine_target_chunks(
+    schema: XarraySchema,
+    specified_chunks: Optional[Dict[str, int]] = None,
+    include_all_dims: bool = True,
+) -> Dict[str, int]:
+    # if the schema is chunked, use that
+    target_chunks = {dim: dimchunks[0] for dim, dimchunks in schema["chunks"].items()}
+    if include_all_dims:
+        for dim, dimsize in schema["dims"].items():
+            if dim not in target_chunks:
+                target_chunks[dim] = dimsize
+    # finally override with any specified chunks
+    target_chunks.update(specified_chunks or {})
+    return target_chunks
+
+
 def schema_to_template_ds(
     schema: XarraySchema, specified_chunks: Optional[Dict[str, int]] = None
 ) -> xr.Dataset:
     """Convert a schema to an xarray dataset as lazily as possible."""
 
-    # start by defaulting to the full shape for chunks
-    target_chunks = schema["dims"].copy()
-    # if the schema is chunked, use that
-    target_chunks.update({dim: dimchunks[0] for dim, dimchunks in schema["chunks"].items()})
-    # finally override with any specified chunks
-    target_chunks.update(specified_chunks or {})
+    target_chunks = determine_target_chunks(schema, specified_chunks)
 
     data_vars = {
         name: _to_variable(template, target_chunks)

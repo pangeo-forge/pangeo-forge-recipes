@@ -215,7 +215,7 @@ class PrepareZarrTarget(beam.PTransform):
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the schema.
         If chunking is present in the schema for a given dimension, the length of
-        the first chunk will be used. Otherwise, the dimension will not be chunked.
+        the first fragment will be used. Otherwise, the dimension will not be chunked.
     """
 
     target: str | FSSpecTarget
@@ -251,12 +251,17 @@ class StoreDatasetFragments(beam.PTransform):
 
 @dataclass
 class Rechunk(beam.PTransform):
-    target_chunks: Dict[str, int] = field(default_factory=dict)
+    target_chunks: Optional[Dict[str, int]]
+    schema: beam.PCollection
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         new_fragments = (
             pcoll
-            | beam.FlatMap(split_fragment, target_chunks=self.target_chunks)
+            | beam.FlatMap(
+                split_fragment,
+                target_chunks=self.target_chunks,
+                schema=beam.pvalue.AsSingleton(self.schema),
+            )
             | beam.GroupByKey()  # this has major performance implication
             | beam.MapTuple(combine_fragments)
         )
@@ -285,6 +290,9 @@ class StoreToZarr(beam.PTransform):
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
+        rechunked_datasets = indexed_datasets | Rechunk(
+            target_chunks=self.target_chunks, schema=schema
+        )
         if isinstance(self.target_root, str):
             target_root = FSSpecTarget.from_url(self.target_root)
         else:
@@ -293,4 +301,4 @@ class StoreToZarr(beam.PTransform):
         target_store = schema | PrepareZarrTarget(
             target=full_target, target_chunks=self.target_chunks
         )
-        return indexed_datasets | StoreDatasetFragments(target_store=target_store)
+        return rechunked_datasets | StoreDatasetFragments(target_store=target_store)

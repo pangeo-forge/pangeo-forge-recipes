@@ -19,10 +19,6 @@ def pipeline():
         yield p
 
 
-# TODO: this test currently passes for any chunk size without taking any care to
-# align chunk writes with tasks. This means that the test is not using any
-# concurrency. Instead of using the TestPipeline, we should use a runner with
-# actual concurrency.
 @pytest.mark.parametrize("target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}])
 def test_xarray_zarr(
     daily_xarray_dataset,
