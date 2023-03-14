@@ -25,5 +25,9 @@ with beam.Pipeline() as p:
     p | transforms
 ```
 
-By default the pipeline runs using Beam's [DirectRunner](https://beam.apache.org/documentation/runners/direct/).
-See [runners](https://beam.apache.org/documentation/#runners) for more details.
+By default the pipeline runs using Beam's [DirectRunner](https://beam.apache.org/documentation/runners/direct/), which is useful during recipe development. However, alternative Beam runners are available, for example:
+* [FlinkRunner](https://beam.apache.org/documentation/runners/flink/): execute Beam pipelines using [Apache Flink](https://flink.apache.org/).
+* [DataflowRunner](https://beam.apache.org/documentation/runners/dataflow/): uses the [Google Cloud Dataflow managed service](https://cloud.google.com/dataflow/service/dataflow-service-desc).
+* [DaskRunner](https://beam.apache.org/releases/pydoc/current/apache_beam.runners.dask.dask_runner.html): executes pipelines via [Dask.distributed](https://distributed.dask.org/en/stable/).
+
+See [here](https://beam.apache.org/documentation/#runners) for details of the available Beam runners.

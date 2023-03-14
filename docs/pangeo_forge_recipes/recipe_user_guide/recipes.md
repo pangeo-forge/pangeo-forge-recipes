@@ -21,7 +21,7 @@ to {doc}`../../pangeo_forge_cloud/index`, which allows the recipe to be automati
 
 ## Recipe Pipelines
 
-A recipe is defined as a [pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) of [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to the data collection associated with a {doc}`file pattern <file_patterns>`. Specifically, each recipe pipeline contains a set of transforms, which operate on an `apache_beam.PCollection`, performing a one-to-one mapping using `apache_beam.Map` of input elements to output elements, applying the specified transformation.
+A recipe is defined as a [pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) of [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to the data collection associated with a {doc}`file pattern <file_patterns>`. Specifically, each recipe pipeline contains a set of transforms, which operate on an [`apache_beam.PCollection`](https://beam.apache.org/documentation/programming-guide/#pcollections), performing a mapping of input elements to output elements (for example, using [`apache_beam.Map`](https://beam.apache.org/documentation/transforms/python/elementwise/map/)), applying the specified transformation.
 
 To write a recipe, you define a pipeline that uses existing transforms, in combination with new transforms if required for custom processing of the input data collection.
 
@@ -29,7 +29,7 @@ Right now, there are two categories of recipe pipelines based on a specific data
 In the future, we may add more.
 
 ```{note}
-The full API Reference documentation for the existing recipe `PTransform` implementations can be found at
+The full API Reference documentation for the existing recipe `PTransform` implementations ({class}`pangeo_forge_recipes.transforms`) can be found at
 {doc}`../api_reference`.
 ```
 
@@ -62,10 +62,10 @@ Below we give a very basic overview of how this recipe is used.
 First you must define a {doc}`file pattern <file_patterns>`.
 Once you have a {class}`FilePattern <pangeo_forge_recipes.patterns.FilePattern>` object,
 the recipe pipeline will contain at a minimum the following transforms applied to the file pattern collection:
-* `OpenURLWithFSSpec`: retrieves each pattern file using the specified URLs.
-* `OpenWithXarray`: load each pattern file into an `xarray.Dataset`:
+* {class}`pangeo_forge_recipes.transforms.OpenURLWithFSSpec`: retrieves each pattern file using the specified URLs.
+* {class}`pangeo_forge_recipes.transforms.OpenWithXarray`: load each pattern file into an [`xarray.Dataset`](https://docs.xarray.dev/en/stable/generated/xarray.Dataset.html):
   * The `file_type` is specified from the pattern.
-* `StoreToZarr`: generate a Zarr store by combining the datasets:
+* {class}`pangeo_forge_recipes.transforms.StoreToZarr`: generate a Zarr store by combining the datasets:
   * `store_name` specifies the name of the generated Zarr store.
   * `target_root` specifies where the output will be stored, in this case, the temporary directory we created.
   * `combine_dims` informs the transform of the dimension used to combine the datasets. Here we use the dimension specified in the file pattern (`time`).

@@ -50,7 +50,7 @@ transforms = (
     | OpenURLWithFSSpec()
     | OpenWithXarray(file_type=pattern.file_type)
     | StoreToZarr(
-        store_name=my-dataset-v1.zarr,
+        store_name="my-dataset-v1.zarr",
         target_root=target_root,
         combine_dims=pattern.combine_dim_keys,
         target_chunks={"time": 10}
@@ -74,7 +74,7 @@ transforms = (
     | OpenURLWithFSSpec(cache=cache)
     | OpenWithXarray(file_type=pattern.file_type)
     | StoreToZarr(
-        store_name=my-dataset-v1.zarr,
+        store_name="my-dataset-v1.zarr",
         target_root=target_root,
         combine_dims=pattern.combine_dim_keys,
         target_chunks={"time": 10}
