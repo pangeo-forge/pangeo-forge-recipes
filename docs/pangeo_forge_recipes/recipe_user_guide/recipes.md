@@ -19,23 +19,24 @@ Recipe authors (i.e. data users or data managers) can either execute their recip
 on their own computers and infrastructure, in private, or make a {doc}`../../pangeo_forge_cloud/recipe_contribution`
 to {doc}`../../pangeo_forge_cloud/index`, which allows the recipe to be automatically by via [Bakeries](../../pangeo_forge_cloud/core_concepts.md).
 
-## Recipe Classes
+## Recipe Pipelines
 
-To write a recipe, you must start from one of the existing recipe classes.
-Recipe classes are based on a specific data model for the input files and target dataset format.
-Right now, there are two distinct recipe classes implemented.
+A recipe is defined as a [pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) of [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to the data collection associated with a {doc}`file pattern <file_patterns>`. Specifically, each recipe pipeline contains a set of transforms, which operate on an [`apache_beam.PCollection`](https://beam.apache.org/documentation/programming-guide/#pcollections), performing a mapping of input elements to output elements (for example, using [`apache_beam.Map`](https://beam.apache.org/documentation/transforms/python/elementwise/map/)), applying the specified transformation.
+
+To write a recipe, you define a pipeline that uses existing transforms, in combination with new transforms if required for custom processing of the input data collection.
+
+Right now, there are two categories of recipe pipelines based on a specific data model for the input files and target dataset format.
 In the future, we may add more.
 
-TODO add rubric for choosing a recipe class.
-
-### XarrayZarr Recipe
-
 ```{note}
-The full API Reference documentation for this recipe class can be found at
-{class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe`
+The full API Reference documentation for the existing recipe `PTransform` implementations ({class}`pangeo_forge_recipes.transforms`) can be found at
+{doc}`../api_reference`.
 ```
 
-The {class}`pangeo_forge_recipes.recipes.XarrayZarrRecipe` recipe class uses
+### Xarray to Zarr Recipes
+
+
+This recipe category uses
 [Xarray](http://xarray.pydata.org/) to read the input files and
 [Zarr](https://zarr.readthedocs.io/) as the target dataset format.
 The inputs can be in any [file format Xarray can read](http://xarray.pydata.org/en/latest/user-guide/io.html),
@@ -48,7 +49,7 @@ The target Zarr dataset will conform to the
 [Xarray Zarr encoding conventions](http://xarray.pydata.org/en/latest/internals/zarr-encoding-spec.html).
 
 The best way to really understand how recipes work is to go through the relevant
-tutorials for this recipe class. These are, in order of increasing complexity
+tutorials for this recipe category. These are, in order of increasing complexity
 
 - {doc}`../tutorials/xarray_zarr/netcdf_zarr_sequential`
 - {doc}`../tutorials/xarray_zarr/cmip6-recipe`
@@ -59,29 +60,43 @@ tutorials for this recipe class. These are, in order of increasing complexity
 Below we give a very basic overview of how this recipe is used.
 
 First you must define a {doc}`file pattern <file_patterns>`.
-Once you have a {class}`file_pattern <pangeo_forge_recipes.patterns.FilePattern>` object,
-initializing an `XarrayZarrRecipe` can be as simple as this.
+Once you have a {class}`FilePattern <pangeo_forge_recipes.patterns.FilePattern>` object,
+the recipe pipeline will contain at a minimum the following transforms applied to the file pattern collection:
+* {class}`pangeo_forge_recipes.transforms.OpenURLWithFSSpec`: retrieves each pattern file using the specified URLs.
+* {class}`pangeo_forge_recipes.transforms.OpenWithXarray`: load each pattern file into an [`xarray.Dataset`](https://docs.xarray.dev/en/stable/generated/xarray.Dataset.html):
+  * The `file_type` is specified from the pattern.
+* {class}`pangeo_forge_recipes.transforms.StoreToZarr`: generate a Zarr store by combining the datasets:
+  * `store_name` specifies the name of the generated Zarr store.
+  * `target_root` specifies where the output will be stored, in this case, the temporary directory we created.
+  * `combine_dims` informs the transform of the dimension used to combine the datasets. Here we use the dimension specified in the file pattern (`time`).
+  * `target_chunks`: specifies a dictionary of required chunk size per dimension. In the event that this is not specified for a particular dimension, it will default to the corresponding full shape.
 
+For example:
 ```{code-block} python
-recipe = XarrayZarrRecipe(file_pattern)
+transforms = (
+    beam.Create(pattern.items())
+    | OpenURLWithFSSpec()
+    | OpenWithXarray(file_type=pattern.file_type)
+    | StoreToZarr(
+        store_name=store_name,
+        target_root=target_root,
+        combine_dims=pattern.combine_dim_keys,
+        target_chunks={"time": 10}
+    )
+)
 ```
 
-There are many other options we could pass, all covered in the {class}`API documentation <pangeo_forge_recipes.recipes.XarrayZarrRecipe>`. Many of these options are explored further in the {doc}`../tutorials/index`.
+The available transform options are all covered in the {doc}`../api_reference`. Many of these options are explored further in the {doc}`../tutorials/index`.
 
 All recipes need a place to store the target dataset. Refer to {doc}`storage` for how to assign this and any other required storage targets.
 
 Once your recipe is defined and has its storage targets assigned, you're ready to
 move on to {doc}`execution`.
 
-### HDF Reference Recipe
+### HDF Reference Recipes
 
-```{note}
-The full API Reference documentation for this recipe class can be found at
-{class}`pangeo_forge_recipes.recipes.HDFReferenceRecipe`
-```
-
-Like the `XarrayZarrRecipe`, this recipe allows us to more efficiently access data from a bunch of NetCDF / HDF files.
-However, this recipe does not actually copy the original source data.
+Like the Xarray to Zarr recipes, this category allows us to more efficiently access data from a bunch of NetCDF / HDF files.
+However, such a recipe does not actually copy the original source data.
 Instead, it generates metadata files which reference and index the original data, allowing it to be accessed more quickly and easily.
 For more background, see [this blog post](https://medium.com/pangeo/fake-it-until-you-make-it-reading-goes-netcdf4-data-on-aws-s3-as-zarr-for-rapid-data-access-61e33f8fe685).
 
