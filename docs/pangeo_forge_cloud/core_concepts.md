@@ -43,7 +43,7 @@ A listing of current Bakery deployments is available at:
 
 > <https://pangeo-forge.org/dashboard/bakeries>
 
-Bakery implementation templates are availble for all three major cloud providers:
+Bakery implementation templates are available for all three major cloud providers:
 
 - <https://github.com/pangeo-forge/pangeo-forge-aws-bakery>
 - <https://github.com/pangeo-forge/pangeo-forge-azure-bakery>
