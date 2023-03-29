@@ -33,6 +33,17 @@ def _store_data(vname: str, var: xr.Variable, index: Index, zgroup: zarr.Group) 
     var = xr.backends.zarr.encode_zarr_variable(var_coded)
     data = np.asarray(var.data)
     region = _region_for(var, index)
+    # check that the region evenly overlaps the zarr chunks
+    for dimsize, chunksize, region_slice in zip(zarr_array.shape, zarr_array.chunks, region):
+        if region_slice.start is None:
+            continue
+        try:
+            assert region_slice.start % chunksize == 0
+            assert (region_slice.stop % chunksize == 0) or (region_slice.stop == dimsize)
+        except AssertionError:
+            raise ValueError(
+                f"Region {region} does not align with Zarr chunks {zarr_array.chunks}."
+            )
     zarr_array[region] = data
 
 

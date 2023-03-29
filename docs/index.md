@@ -16,7 +16,7 @@ There are a number of resources available when working with Pangeo Forge:
 - **Introduction Tutorial**: {doc}`introduction_tutorial/index` - Walks you through creating, running, and staging your first Recipe.
 - **User Guides** explain core Pangeo Forge concepts in detail. They provide
   background information to aid in gaining a depth of understanding:
-  - {doc}`pangeo_forge_recipes/recipe_user_guide/index` - For learning about how to create Recipes.
+  - {doc}`pangeo_forge_recipes/recipe_user_guide/index` - For learning about how to create Recipes. A recipe is defined as a [pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) of [Apache Beam](https://beam.apache.org/) [transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to a data collection, performing one or more transformations of input elements to output elements.
   - {doc}`pangeo_forge_cloud/recipe_contribution` - For learning how to contribute recipes to Pangeo Forge Cloud.
   - {doc}`pangeo_forge_recipes/development/development_guide` - For developers seeking to contribute to Pangeo Forge core functionality.
 - **Advanced Examples** walk through examples of using Pangeo Forge Recipes:

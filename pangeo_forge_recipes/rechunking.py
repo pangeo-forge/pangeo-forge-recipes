@@ -6,8 +6,9 @@ from typing import Dict, Iterator, List, Tuple
 import numpy as np
 import xarray as xr
 
+from .aggregation import XarraySchema, determine_target_chunks
 from .chunk_grid import ChunkGrid
-from .types import CombineOp, Dimension, Index, IndexedPosition
+from .types import CombineOp, Dimension, Index, IndexedPosition, Optional
 
 # group keys are a tuple of tuples like (("lon", 1), ("time", 0))
 # the ints are chunk indexes
@@ -16,7 +17,9 @@ GroupKey = Tuple[Tuple[str, int], ...]
 
 
 def split_fragment(
-    fragment: Tuple[Index, xr.Dataset], target_chunks: Dict[str, int]
+    fragment: Tuple[Index, xr.Dataset],
+    target_chunks: Optional[Dict[str, int]] = None,
+    schema: Optional[XarraySchema] = None,
 ) -> Iterator[Tuple[GroupKey, Tuple[Index, xr.Dataset]]]:
     """Split a single indexed dataset fragment into sub-fragments, according to the
     specified target chunks
@@ -24,6 +27,14 @@ def split_fragment(
     :param fragment: the indexed fragment.
     :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
     """
+
+    if target_chunks is None and schema is None:
+        raise ValueError("Must specify either target_chunks or schema (or both).")
+    if schema is not None:
+        # we don't want to include the dims that are not getting rechunked
+        target_chunks = determine_target_chunks(schema, target_chunks, include_all_dims=False)
+    else:
+        assert target_chunks is not None
 
     index, ds = fragment
 
@@ -33,7 +44,7 @@ def split_fragment(
     fragment_slices = {}  # type: Dict[str, slice]
     # rechunked_concat_dims is used to track dimensions that are present in both
     # concat dims and target chunks
-    rechunked_concat_dims = []  # type: list[Dimension]
+    rechunked_concat_dims = []  # type: List[Dimension]
     for dim_name, chunk in target_chunks.items():
         concat_dim = Dimension(dim_name, CombineOp.CONCAT)
         if concat_dim in index:

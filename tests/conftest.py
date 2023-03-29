@@ -507,7 +507,6 @@ def dask_cluster(request):
     params=[
         pytest.param("FunctionPipelineExecutor", marks=pytest.mark.executor_function),
         pytest.param("GeneratorPipelineExecutor", marks=pytest.mark.executor_generator),
-        pytest.param("DaskPipelineExecutor", marks=pytest.mark.executor_dask),
         pytest.param("BeamPipelineExecutor", marks=pytest.mark.executor_beam),
     ],
 )
@@ -537,25 +536,6 @@ def execute_recipe_generator():
     return execute
 
 
-@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_dask)])
-def execute_recipe_dask(dask_cluster):
-    def execute(recipe):
-        with Client(dask_cluster):
-            return recipe.to_dask().compute()
-
-    return execute
-
-
-@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_prefect)])
-def execute_recipe_prefect():
-    def execute(recipe):
-        state = recipe.to_prefect().run()
-        if state.is_failed():
-            raise ValueError(f"Prefect flow run failed with message {state.message}")
-
-    return execute
-
-
 @pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_beam)])
 def execute_recipe_beam():
     beam = pytest.importorskip("apache_beam")
@@ -580,47 +560,7 @@ def pytest_collection_modifyitems(items, config):
 
 
 @pytest.fixture(
-    params=[
-        lazy_fixture("execute_recipe_function"),
-        lazy_fixture("execute_recipe_generator"),
-        lazy_fixture("execute_recipe_dask"),
-        lazy_fixture("execute_recipe_beam"),
-    ],
-)
-def execute_recipe_no_prefect(request):
-    return request.param
-
-
-@pytest.fixture(
-    params=[
-        lazy_fixture("execute_recipe_prefect"),
-        lazy_fixture("execute_recipe_prefect_dask"),
-        lazy_fixture("execute_recipe_prefect_wrapper"),
-    ],
-)
-def execute_recipe_with_prefect(request):
-    return request.param
-
-
-@pytest.fixture(
-    params=[lazy_fixture("execute_recipe_function"), lazy_fixture("execute_recipe_prefect")],
-)
-def execute_recipe_no_dask(request):
-    return request.param
-
-
-@pytest.fixture(
-    params=[lazy_fixture("execute_recipe_dask"), lazy_fixture("execute_recipe_prefect_dask")],
-)
-def execute_recipe_with_dask(request):
-    return request.param
-
-
-@pytest.fixture(
-    params=[
-        lazy_fixture("execute_recipe_no_prefect"),
-        lazy_fixture("execute_recipe_with_prefect"),
-    ],
+    params=[lazy_fixture("execute_recipe")],
 )
 def execute_recipe(request):
     return request.param

@@ -96,8 +96,6 @@ def lock_for_conflicts(conflicts, base_name="pangeo-forge", timeout=None):
         is_distributed = True
     except ValueError:
         # Don't bother with locks if we are not in a distributed context
-        # NOTE! This means we HAVE to use dask.distributed as our parallel execution enviroment
-        # This should be compatible with Prefect.
         is_distributed = False
     if is_distributed:
         locks = [Lock(f"{base_name}-{c}", global_client) for c in conflicts]

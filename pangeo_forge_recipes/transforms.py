@@ -258,7 +258,7 @@ class PrepareZarrTarget(beam.PTransform):
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the schema.
         If chunking is present in the schema for a given dimension, the length of
-        the first chunk will be used. Otherwise, the dimension will not be chunked.
+        the first fragment will be used. Otherwise, the dimension will not be chunked.
     """
 
     target: str | FSSpecTarget
@@ -294,12 +294,17 @@ class StoreDatasetFragments(beam.PTransform):
 
 @dataclass
 class Rechunk(beam.PTransform):
-    target_chunks: Dict[str, int] = field(default_factory=dict)
+    target_chunks: Optional[Dict[str, int]]
+    schema: beam.PCollection
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         new_fragments = (
             pcoll
-            | beam.FlatMap(split_fragment, target_chunks=self.target_chunks)
+            | beam.FlatMap(
+                split_fragment,
+                target_chunks=self.target_chunks,
+                schema=beam.pvalue.AsSingleton(self.schema),
+            )
             | beam.GroupByKey()  # this has major performance implication
             | beam.MapTuple(combine_fragments)
         )
@@ -385,7 +390,9 @@ class StoreToZarr(beam.PTransform):
     """Store a PCollection of Xarray datasets to Zarr.
 
     :param combine_dims: The dimensions to combine
-    :param target: Where to store the target Zarr dataset.
+    :param target_root: Location the Zarr store will be created inside.
+    :param store_name: Name for the Zarr store. It will be created with this name
+                       under `target_root`.
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the data.
     """
@@ -393,13 +400,22 @@ class StoreToZarr(beam.PTransform):
     # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
-    target: str | FSSpecTarget
+    target_root: str | FSSpecTarget
+    store_name: str
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
-        target_store = schema | PrepareZarrTarget(
-            target=self.target, target_chunks=self.target_chunks
+        rechunked_datasets = indexed_datasets | Rechunk(
+            target_chunks=self.target_chunks, schema=schema
         )
-        return indexed_datasets | StoreDatasetFragments(target_store=target_store)
+        if isinstance(self.target_root, str):
+            target_root = FSSpecTarget.from_url(self.target_root)
+        else:
+            target_root = self.target_root
+        full_target = target_root / self.store_name
+        target_store = schema | PrepareZarrTarget(
+            target=full_target, target_chunks=self.target_chunks
+        )
+        return rechunked_datasets | StoreDatasetFragments(target_store=target_store)
