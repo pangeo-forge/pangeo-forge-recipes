@@ -4,6 +4,7 @@ import pandas as pd
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
 from pangeo_forge_recipes.transforms import (
+    CombineReferences,
     OpenURLWithFSSpec,
     OpenWithKerchunk,
     OpenWithXarray,
@@ -36,8 +37,11 @@ transforms = (
     beam.Create(pattern.items())
     | OpenURLWithFSSpec()
     | OpenWithKerchunk(file_type=pattern.file_type)
-    | beam.Map(print)
-    # | WriteCombinedReference(concat_dims = ['time'], identical_dims = ['zlev','lat','lon'], target = target_path, reference_file_type='json')
+    | CombineReferences(concat_dims=["time"], identical_dims=["zlev", "lat", "lon"])
+    | WriteCombinedReference(
+        target=target_path, reference_file_type="json"
+    )  # returns <class 'kerchunk.combine.MultiZarrToZarr'>
+    # | "print" >> beam.Map(print)
 )
 
 with beam.Pipeline() as p:

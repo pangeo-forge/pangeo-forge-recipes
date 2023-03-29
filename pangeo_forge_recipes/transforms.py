@@ -325,7 +325,9 @@ def combine_refs(
     )
 
 
-def write_combined_reference(_, reference: MultiZarrToZarr, target: str | FSSpecTarget):
+def write_combined_reference(
+    _, reference: MultiZarrToZarr, target: str | FSSpecTarget, file_ext: str
+):
 
     import ujson
 
@@ -375,6 +377,7 @@ class CombineReferences(beam.PTransform):
 class WriteCombinedReference(beam.PTransform):
 
     target: str | FSSpecTarget
+    reference_file_type: str
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
 
@@ -382,6 +385,7 @@ class WriteCombinedReference(beam.PTransform):
             write_combined_reference,
             reference=beam.pvalue.AsSingleton(reference),
             target=self.target,
+            file_ext=self.reference_file_type,
         )
 
 
