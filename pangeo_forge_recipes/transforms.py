@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
-from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
+from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr, dynamic_target_chunks_from_schema
 from .combiners import CombineXarraySchemas
 from .openers import open_url, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
@@ -286,9 +286,22 @@ class StoreToZarr(beam.PTransform):
     target_root: str | FSSpecTarget
     store_name: str
     target_chunks: Dict[str, int] = field(default_factory=dict)
+    target_chunk_nbytes: Optional[int] = None
+    chunk_dim: Optional[str] = None
+
+    def __post_init__(self):
+        if self.target_chunks and self.target_chunk_nbytes:
+            raise ValueError("Cannot define both target_chunks and target_chunk_nbytes")
+        if self.target_chunk_nbytes and not self.chunk_dim:
+            raise ValueError("If target_chunk_nbytes is defined, chunk_dim must be defined as well")
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
+        if self.target_chunk_nbytes is not None:
+            self.target_chunks = schema | beam.Map(dynamic_target_chunks_from_schema, 
+                                        target_chunk_nbytes=self.target_chunk_nbytes, 
+                                        chunk_dim=self.chunk_dim)
+
         indexed_datasets = datasets | IndexItems(schema=schema)
         rechunked_datasets = indexed_datasets | Rechunk(
             target_chunks=self.target_chunks, schema=schema
