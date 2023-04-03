@@ -228,7 +228,8 @@ def determine_target_chunks(
          for dim, dimsize in schema["dims"].items():
              if dim not in target_chunks:
                  target_chunks[dim] = dimsize
-     # finally override with any specified chunks
+    # finally override with any specified chunks
+    target_chunks.update(specified_chunks or {})
     return target_chunks
 
 
