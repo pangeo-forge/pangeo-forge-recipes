@@ -224,10 +224,10 @@ def determine_target_chunks(
 ) -> Dict[str, int]:
     # if the schema is chunked, use that
     target_chunks = {dim: dimchunks[0] for dim, dimchunks in schema["chunks"].items()}
-     if include_all_dims:
-         for dim, dimsize in schema["dims"].items():
-             if dim not in target_chunks:
-                 target_chunks[dim] = dimsize
+    if include_all_dims:
+        for dim, dimsize in schema["dims"].items():
+            if dim not in target_chunks:
+                target_chunks[dim] = dimsize
     # finally override with any specified chunks
     target_chunks.update(specified_chunks or {})
     return target_chunks
