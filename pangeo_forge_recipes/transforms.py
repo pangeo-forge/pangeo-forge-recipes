@@ -298,10 +298,11 @@ class StoreToZarr(beam.PTransform):
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         if self.target_chunk_nbytes is not None:
-            self.target_chunks = schema | beam.Map(dynamic_target_chunks_from_schema, 
+            self.target_chunks = beam.pvalue.AsSingleton(
+                schema | beam.Map(dynamic_target_chunks_from_schema, 
                                         target_chunk_nbytes=self.target_chunk_nbytes, 
                                         chunk_dim=self.chunk_dim)
-
+                                        )
         indexed_datasets = datasets | IndexItems(schema=schema)
         rechunked_datasets = indexed_datasets | Rechunk(
             target_chunks=self.target_chunks, schema=schema
