@@ -299,6 +299,7 @@ def dynamic_target_chunks_from_schema(
 
     target_chunks[chunk_dim] = chunk_size
     # make sure the values are integers
-    # return {k:int(v) for k,v in target_chunks.items()} 
-    return {k:int(v) for k,v in target_chunks.items() if k==chunk_dim} # quick fix to work around https://github.com/pangeo-forge/pangeo-forge-recipes/issues/504
-
+    # return {k:int(v) for k,v in target_chunks.items()}
+    return {
+        k: int(v) for k, v in target_chunks.items() if k == chunk_dim
+    }  # quick fix to work around https://github.com/pangeo-forge/pangeo-forge-recipes/issues/504
