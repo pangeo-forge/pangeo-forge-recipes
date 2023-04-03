@@ -8,7 +8,12 @@ from typing import Dict, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
-from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr, dynamic_target_chunks_from_schema
+from .aggregation import (
+    XarraySchema,
+    dataset_to_schema,
+    dynamic_target_chunks_from_schema,
+    schema_to_zarr,
+)
 from .combiners import CombineXarraySchemas
 from .openers import open_url, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
@@ -299,10 +304,13 @@ class StoreToZarr(beam.PTransform):
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         if self.target_chunk_nbytes is not None:
             self.target_chunks = beam.pvalue.AsSingleton(
-                schema | beam.Map(dynamic_target_chunks_from_schema, 
-                                        target_chunk_nbytes=self.target_chunk_nbytes, 
-                                        chunk_dim=self.chunk_dim)
-                                        )
+                schema
+                | beam.Map(
+                    dynamic_target_chunks_from_schema,
+                    target_chunk_nbytes=self.target_chunk_nbytes,
+                    chunk_dim=self.chunk_dim,
+                )
+            )
         indexed_datasets = datasets | IndexItems(schema=schema)
         rechunked_datasets = indexed_datasets | Rechunk(
             target_chunks=self.target_chunks, schema=schema

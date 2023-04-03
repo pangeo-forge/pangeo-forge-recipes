@@ -264,37 +264,39 @@ def schema_to_zarr(
     ds.to_zarr(target_store, mode="w", compute=False)
     return target_store
 
+
 def dynamic_target_chunks_from_schema(
-    schema: XarraySchema, 
+    schema: XarraySchema,
     target_chunk_nbytes: int,
     chunk_dim: str,
 ) -> dict[str, int]:
     """Dynamically determine target_chunks from schema based on desired chunk size"""
     # convert schema to dataset
     ds = schema_to_template_ds(schema)
-    
+
     # create full chunk dictionary for all other dimensions
     target_chunks = {k: len(ds[k]) for k in ds.dims if k != chunk_dim}
-    
+
     # get size of dataset
     nbytes = ds.nbytes
-    
+
     # get size of single chunk along `chunk_dim`
-    nbytes_single = nbytes/len(ds[chunk_dim])
-    
+    nbytes_single = nbytes / len(ds[chunk_dim])
+
     if nbytes_single > target_chunk_nbytes:
         # if a single element chunk along `chunk_dim` is larger than the target, we have no other choice than exceeding that limit
         # Chunking along another dimension would work, but makes this way more complicated.
         # TODO: Should raise a warning
         chunk_size = 1
-        
+
     else:
         # determine chunksize (staying under the given limit)
-        chunk_size = target_chunk_nbytes//nbytes_single
-        
+        chunk_size = target_chunk_nbytes // nbytes_single
+
     target_chunks[chunk_dim] = chunk_size
     # make sure the values are integers
 
-    # return {k:int(v) for k,v in target_chunks.items()} 
-    return {k:int(v) for k,v in target_chunks.items() if k=='time'} # quick fix to work around https://github.com/pangeo-forge/pangeo-forge-recipes/issues/504
-
+    # return {k:int(v) for k,v in target_chunks.items()}
+    return {
+        k: int(v) for k, v in target_chunks.items() if k == "time"
+    }  # quick fix to work around https://github.com/pangeo-forge/pangeo-forge-recipes/issues/504
