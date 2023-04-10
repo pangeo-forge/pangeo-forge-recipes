@@ -159,6 +159,7 @@ def open_with_kerchunk(
         for _, other_ref in enumerate(grib_references[1:]):
             primary_refs.update(other_ref["refs"])
         ref["refs"] = primary_refs
+
     return ref
 
 

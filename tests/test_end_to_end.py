@@ -6,7 +6,15 @@ import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 
-from pangeo_forge_recipes.transforms import OpenWithXarray, StoreToZarr
+from pangeo_forge_recipes.transforms import (
+    CombineReferences,
+    DropKeys,
+    OpenURLWithFSSpec,
+    OpenWithKerchunk,
+    OpenWithXarray,
+    StoreToZarr,
+    WriteCombinedReference,
+)
 
 # from apache_beam.testing.util import assert_that, equal_to
 # from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
@@ -66,4 +74,24 @@ def test_xarray_zarr_subpath(
         )
 
     ds = xr.open_dataset(os.path.join(tmp_target_url, "subpath"), engine="zarr")
+    xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
+
+
+# @pytest.mark.parametrize("target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}])
+def test_reference(
+    daily_xarray_dataset, netcdf_local_file_pattern_sequential, pipeline, tmp_target_url
+):
+    pattern = netcdf_local_file_pattern_sequential
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenURLWithFSSpec()
+            | OpenWithKerchunk(file_type=pattern.file_type)
+            | DropKeys()
+            | CombineReferences(concat_dims=["time"], identical_dims=["zlev", "lat", "lon"])
+            | WriteCombinedReference(target=tmp_target_url, reference_file_type="json")
+        )
+
+    ds = xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr")
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)

@@ -317,7 +317,11 @@ def combine_refs(
     identical_dims: List[Dimension],
 ) -> MultiZarrToZarr:
 
+    import pdb
+
+    pdb.set_trace()
     # combine individual references into single consolidated reference
+
     return MultiZarrToZarr(
         references,
         concat_dims=concat_dims,
@@ -325,9 +329,7 @@ def combine_refs(
     )
 
 
-def write_combined_reference(
-    _, reference: MultiZarrToZarr, target: str | FSSpecTarget, file_ext: str
-):
+def write_combined_reference(reference: MultiZarrToZarr, target: str | FSSpecTarget, file_ext: str):
 
     import ujson
 
@@ -383,7 +385,6 @@ class WriteCombinedReference(beam.PTransform):
 
         return reference | beam.Map(
             write_combined_reference,
-            reference=beam.pvalue.AsSingleton(reference),
             target=self.target,
             file_ext=self.reference_file_type,
         )
