@@ -11,7 +11,7 @@ import apache_beam as beam
 from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
-from .combiners import CombineXarraySchemas
+from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
@@ -311,29 +311,11 @@ class Rechunk(beam.PTransform):
         return new_fragments
 
 
-def combine_refs(
-    references: List[dict],
-    concat_dims: List[Dimension],
-    identical_dims: List[Dimension],
-) -> MultiZarrToZarr:
-
-    import pdb
-
-    pdb.set_trace()
-    # combine individual references into single consolidated reference
-
-    return MultiZarrToZarr(
-        references,
-        concat_dims=concat_dims,
-        identical_dims=identical_dims,
-    )
-
-
 def write_combined_reference(reference: MultiZarrToZarr, target: str | FSSpecTarget, file_ext: str):
 
     import ujson
 
-    file_ext = os.path.splitext(target)[-1].lower()
+    # file_ext = os.path.splitext(target)[-1].lower()
 
     multi_kerchunk = reference.translate()
 
@@ -343,7 +325,7 @@ def write_combined_reference(reference: MultiZarrToZarr, target: str | FSSpecTar
         )
 
     if file_ext == "json":
-        with open(target, "wb") as f:
+        with open(target + "/target.json", "wb") as f:
             f.write(ujson.dumps(multi_kerchunk).encode())
 
     elif file_ext == "parquet":
@@ -369,9 +351,9 @@ class CombineReferences(beam.PTransform):
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
         return references | beam.CombineGlobally(
-            combine_refs,
-            concat_dims=self.concat_dims,
-            identical_dims=self.identical_dims,
+            CombineMultiZarrToZarr(
+                concat_dims=self.concat_dims, identical_dims=self.identical_dims
+            ),
         )
 
 

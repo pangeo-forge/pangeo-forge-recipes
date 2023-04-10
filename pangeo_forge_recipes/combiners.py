@@ -1,9 +1,10 @@
 import operator
 from dataclasses import dataclass
 from functools import reduce
-from typing import Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 import apache_beam as beam
+from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarrayCombineAccumulator, XarraySchema
 from .types import CombineOp, Dimension, Index
@@ -42,3 +43,36 @@ class CombineXarraySchemas(beam.CombineFn):
 
     def extract_output(self, accumulator) -> dict:
         return accumulator.schema
+
+
+@dataclass
+class CombineMultiZarrToZarr(beam.CombineFn):
+    """A beam ``CombineFn`` for combining Kerchunk ``MultiZarrToZarr`` objects."""
+
+    concat_dims: List[Dimension]
+    identical_dims: List[Dimension]
+
+    def create_accumulator(self):
+        return None
+
+    def add_input(self, accumulator: MultiZarrToZarr, item: dict) -> MultiZarrToZarr:
+        if not accumulator:
+            references = [item]
+        else:
+            references = [accumulator.translate(), item]
+        return MultiZarrToZarr(
+            references,
+            concat_dims=self.concat_dims,
+            identical_dims=self.identical_dims,
+        )
+
+    def merge_accumulators(self, accumulators: Sequence[MultiZarrToZarr]) -> MultiZarrToZarr:
+        references = [a.translate() for a in accumulators]
+        return MultiZarrToZarr(
+            references,
+            concat_dims=self.concat_dims,
+            identical_dims=self.identical_dims,
+        )
+
+    def extract_output(self, accumulator: MultiZarrToZarr) -> MultiZarrToZarr:
+        return accumulator
