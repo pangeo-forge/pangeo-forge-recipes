@@ -1,10 +1,12 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 import xarray as xr
 import zarr
+from kerchunk.combine import MultiZarrToZarr
 
 from .patterns import CombineOp, Index
+from .storage import FSSpecTarget
 
 
 def _region_for(var: xr.Variable, index: Index) -> Tuple[slice, ...]:
@@ -85,3 +87,29 @@ def store_dataset_fragment(
                 _store_data(vname, da.variable, index, zgroup)
     for vname, da in ds.data_vars.items():
         _store_data(vname, da.variable, index, zgroup)
+
+
+def write_combined_reference(
+    reference: MultiZarrToZarr, target: Union[str, FSSpecTarget], file_ext: str
+):
+    """Write a kerchunk combined references object to json or parquet."""
+
+    import ujson  # type: ignore
+
+    # file_ext = os.path.splitext(target)[-1].lower()
+
+    multi_kerchunk = reference.translate()
+
+    if file_ext not in ["json", "parquet"]:
+        raise NotImplementedError(
+            "Reference FileTypes other than json and parquet are not supported."
+        )
+
+    if file_ext == "json":
+        with open(target + "/target.json", "wb") as f:
+            f.write(ujson.dumps(multi_kerchunk).encode())
+
+    elif file_ext == "parquet":
+        from kerchunk import df
+
+        df.refs_to_dataframe(multi_kerchunk, target, partition=True)

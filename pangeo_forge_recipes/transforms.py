@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass, field
 
 # from functools import wraps
 from typing import Dict, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
-from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
@@ -16,7 +14,7 @@ from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
-from .writers import store_dataset_fragment
+from .writers import store_dataset_fragment, write_combined_reference
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +126,9 @@ class OpenWithKerchunk(beam.PTransform):
     """
 
     file_type: FileType = FileType.unknown
-    inline_threshold: Optional[int] = (300,)
-    netcdf3_max_chunk_size: Optional[int] = (100000000,)
-    storage_options: Optional[Dict] = (None,)
+    inline_threshold: Optional[int] = 300
+    netcdf3_max_chunk_size: Optional[int] = 100000000
+    storage_options: Optional[Dict] = None
     grib_filters: Optional[Dict] = None
 
     def expand(self, pcoll):
@@ -309,29 +307,6 @@ class Rechunk(beam.PTransform):
             | beam.MapTuple(combine_fragments)
         )
         return new_fragments
-
-
-def write_combined_reference(reference: MultiZarrToZarr, target: str | FSSpecTarget, file_ext: str):
-
-    import ujson
-
-    # file_ext = os.path.splitext(target)[-1].lower()
-
-    multi_kerchunk = reference.translate()
-
-    if file_ext not in ["json", "parquet"]:
-        raise NotImplementedError(
-            "Reference FileTypes other than json and parquet are not supported."
-        )
-
-    if file_ext == "json":
-        with open(target + "/target.json", "wb") as f:
-            f.write(ujson.dumps(multi_kerchunk).encode())
-
-    elif file_ext == "parquet":
-        from kerchunk import df
-
-        df.refs_to_dataframe(multi_kerchunk, target, partition=True)
 
 
 @dataclass
