@@ -2,6 +2,7 @@ import os
 
 import apache_beam as beam
 import fsspec
+import fsspec.implementations.reference
 import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -78,7 +79,7 @@ def test_xarray_zarr_subpath(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
-@pytest.mark.parametrize("reference_file_type", ["json", "parquet"])
+@pytest.mark.parametrize("reference_file_type", ["json"])
 def test_reference(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,
@@ -96,14 +97,12 @@ def test_reference(
             | OpenWithKerchunk(file_type=pattern.file_type)
             | DropKeys()
             | CombineReferences(concat_dims=["time"], identical_dims=["lat", "lon"])
-            # TODO: variablize file_type to test parquet as well.
             # FIXME: `WriteCombinedReference` probably needs to share an interface with
             # `StoreToZarr`, in order for `pangeo-forge-runner` to know how to dynamically
             # inject target_root argument.
             | WriteCombinedReference(target=tmp_target_url, reference_file_type=reference_file_type)
         )
-    # NOTE: tmp_target_url is a directory ending in .zarr; maybe change that.
     full_path = tmp_target_url + f"/target.{reference_file_type}"
-    of = fsspec.get_mapper("reference://", fo=full_path)
-    ds = xr.open_dataset(of, engine="zarr", backend_kwargs={"consolidated": False})
+    mapper = fsspec.get_mapper("reference://", fo=full_path)
+    ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)

@@ -92,7 +92,7 @@ def store_dataset_fragment(
 def write_combined_reference(
     reference: MultiZarrToZarr, target: Union[str, FSSpecTarget], file_ext: str
 ):
-    """Write a kerchunk combined references object to json or parquet."""
+    """Write a kerchunk combined references object to file."""
 
     import ujson  # type: ignore
 
@@ -100,16 +100,8 @@ def write_combined_reference(
 
     multi_kerchunk = reference.translate()
 
-    if file_ext not in ["json", "parquet"]:
-        raise NotImplementedError(
-            "Reference FileTypes other than json and parquet are not supported."
-        )
-
     if file_ext == "json":
         with open(target + "/target.json", "wb") as f:
             f.write(ujson.dumps(multi_kerchunk).encode())
-
-    elif file_ext == "parquet":
-        from kerchunk import df
-
-        df.refs_to_dataframe(multi_kerchunk, target, partition=True)
+    else:
+        raise NotImplementedError(f"{file_ext = } not supported.")

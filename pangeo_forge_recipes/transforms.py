@@ -336,7 +336,7 @@ class CombineReferences(beam.PTransform):
 class WriteCombinedReference(beam.PTransform):
 
     target: str | FSSpecTarget
-    reference_file_type: str
+    reference_file_type: str = "json"
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
 

@@ -12,7 +12,6 @@ dependencies:
   - codecov
   - dask
   - distributed
-  - fastparquet  # workaround for https://github.com/fsspec/kerchunk/issues/326
   - fsspec>=2022.1.0
   - gcsfs>=2022.1.0
   - graphviz  # needed for building tutorial notebooks
