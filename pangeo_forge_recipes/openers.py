@@ -91,6 +91,7 @@ def open_with_kerchunk(
     storage_options: Optional[Dict] = None,
     grib_filters: Optional[Dict] = None,
 ) -> Dict:
+    # FIXME: docstring below is inconsistent with function signature.
     """Scan through item(s) with one of Kerchunk's file readers
     (SingleHdf5ToZarr, ScanGrib etc.) and create reference objects.
 
