@@ -14,7 +14,7 @@ from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
-from .writers import store_dataset_fragment, write_combined_reference
+from .writers import ZarrWriterMixin, store_dataset_fragment, write_combined_reference
 
 logger = logging.getLogger(__name__)
 
@@ -311,14 +311,10 @@ class Rechunk(beam.PTransform):
 
 @dataclass
 class CombineReferences(beam.PTransform):
-    """Combines Kerchunk references into a single reference dataset
+    """Combines Kerchunk references into a single reference dataset.
 
     :param concat_dims: The dimensions to concatenate across
-    :param identical_dims: Shared dimensions
-    :param target: Write destination
-    :param reference_file_type: Which file type to store reference as. Either JSON or Parquet
-
-
+    :param identical_dims: Shared dimensions.
     """
 
     concat_dims: List[Dimension]
@@ -333,28 +329,27 @@ class CombineReferences(beam.PTransform):
 
 
 @dataclass
-class WriteCombinedReference(beam.PTransform):
+class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
+    """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
 
-    target: str | FSSpecTarget
+    :param reference_file_type: The storage target type. Currently only ``'json'`` is supported.
+    """
+
     reference_file_type: str = "json"
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
-
         return reference | beam.Map(
             write_combined_reference,
-            target=self.target,
-            file_ext=self.reference_file_type,
+            full_target=self.get_full_target(),
+            reference_file_type=self.reference_file_type,
         )
 
 
 @dataclass
-class StoreToZarr(beam.PTransform):
+class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
 
     :param combine_dims: The dimensions to combine
-    :param target_root: Location the Zarr store will be created inside.
-    :param store_name: Name for the Zarr store. It will be created with this name
-                       under `target_root`.
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the data.
     """
@@ -362,8 +357,6 @@ class StoreToZarr(beam.PTransform):
     # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
-    target_root: str | FSSpecTarget
-    store_name: str
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
@@ -372,12 +365,7 @@ class StoreToZarr(beam.PTransform):
         rechunked_datasets = indexed_datasets | Rechunk(
             target_chunks=self.target_chunks, schema=schema
         )
-        if isinstance(self.target_root, str):
-            target_root = FSSpecTarget.from_url(self.target_root)
-        else:
-            target_root = self.target_root
-        full_target = target_root / self.store_name
         target_store = schema | PrepareZarrTarget(
-            target=full_target, target_chunks=self.target_chunks
+            target=self.get_full_target(), target_chunks=self.target_chunks
         )
         return rechunked_datasets | StoreDatasetFragments(target_store=target_store)

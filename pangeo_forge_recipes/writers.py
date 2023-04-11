@@ -1,3 +1,5 @@
+import os
+from dataclasses import dataclass
 from typing import Tuple, Union
 
 import numpy as np
@@ -90,18 +92,43 @@ def store_dataset_fragment(
 
 
 def write_combined_reference(
-    reference: MultiZarrToZarr, target: Union[str, FSSpecTarget], file_ext: str
+    reference: MultiZarrToZarr,
+    full_target: FSSpecTarget,
+    reference_file_type: str,
 ):
     """Write a kerchunk combined references object to file."""
 
     import ujson  # type: ignore
 
-    # file_ext = os.path.splitext(target)[-1].lower()
-
     multi_kerchunk = reference.translate()
 
-    if file_ext == "json":
-        with open(target + "/target.json", "wb") as f:
+    if reference_file_type == "json":
+        outpath = os.path.join(full_target.root_path, "target.json")
+        with open(outpath, "wb") as f:
             f.write(ujson.dumps(multi_kerchunk).encode())
     else:
-        raise NotImplementedError(f"{file_ext = } not supported.")
+        # TODO: implement parquet writer
+        raise NotImplementedError(f"{reference_file_type = } not supported.")
+
+
+@dataclass
+class ZarrWriterMixin:
+    """Defines common attributes and methods for storing zarr datasets, which can be either actual
+    zarr stores or virtual (i.e. kerchunked) stores. This class should not be directly instantiated.
+    Instead, PTransforms in the `.transforms` module which write consolidated zarr stores should
+    inherit from this mixin, so that they share a common interface for target store naming.
+
+    :param target_root: Location the Zarr store will be created inside.
+    :param store_name: Name for the Zarr store. It will be created with this name
+                       under `target_root`.
+    """
+
+    target_root: Union[str, FSSpecTarget]
+    store_name: str
+
+    def get_full_target(self) -> FSSpecTarget:
+        if isinstance(self.target_root, str):
+            target_root = FSSpecTarget.from_url(self.target_root)
+        else:
+            target_root = self.target_root
+        return target_root / self.store_name

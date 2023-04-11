@@ -88,7 +88,7 @@ def test_reference(
     reference_file_type,
 ):
     pattern = netcdf_local_file_pattern_sequential
-
+    store_name = "daily-xarray-dataset"
     with pipeline as p:
         (
             p
@@ -97,12 +97,13 @@ def test_reference(
             | OpenWithKerchunk(file_type=pattern.file_type)
             | DropKeys()
             | CombineReferences(concat_dims=["time"], identical_dims=["lat", "lon"])
-            # FIXME: `WriteCombinedReference` probably needs to share an interface with
-            # `StoreToZarr`, in order for `pangeo-forge-runner` to know how to dynamically
-            # inject target_root argument.
-            | WriteCombinedReference(target=tmp_target_url, reference_file_type=reference_file_type)
+            | WriteCombinedReference(
+                target_root=tmp_target_url,
+                store_name=store_name,
+                reference_file_type=reference_file_type,
+            )
         )
-    full_path = tmp_target_url + f"/target.{reference_file_type}"
+    full_path = os.path.join(tmp_target_url, store_name, f"target.{reference_file_type}")
     mapper = fsspec.get_mapper("reference://", fo=full_path)
     ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
