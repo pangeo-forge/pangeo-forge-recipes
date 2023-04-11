@@ -128,8 +128,9 @@ def open_with_kerchunk(
     elif file_type == FileType.netcdf3:
         from kerchunk.netCDF3 import NetCDF3ToZarr
 
+        filename = url_or_file_obj.path if not isinstance(url_or_file_obj, str) else url_or_file_obj
         chunks = NetCDF3ToZarr(
-            url=url_or_file_obj,
+            filename,
             inline_threshold=inline_threshold,
             max_chunk_size=netcdf3_max_chunk_size,
             storage_options=storage_options,
