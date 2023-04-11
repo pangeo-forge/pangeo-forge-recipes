@@ -118,11 +118,10 @@ def open_with_kerchunk(
 
         h5chunks = SingleHdf5ToZarr(
             url_or_file_obj,
-            url_or_file_obj.path,
-            inline_threshold=inline_threshold[0],
-            storage_options=storage_options[0],
+            url=(url_or_file_obj.path if not isinstance(url_or_file_obj, str) else None),
+            inline_threshold=inline_threshold,
+            storage_options=storage_options,
         )
-
         ref = h5chunks.translate()
 
     elif file_type == FileType.netcdf3:
@@ -130,9 +129,9 @@ def open_with_kerchunk(
 
         chunks = NetCDF3ToZarr(
             url=url_or_file_obj,
-            inline_threshold=inline_threshold[0],
-            max_chunk_size=netcdf3_max_chunk_size[0],
-            storage_options=storage_options[0],
+            inline_threshold=inline_threshold,
+            max_chunk_size=netcdf3_max_chunk_size,
+            storage_options=storage_options,
         )
         ref = chunks.translate()
 
@@ -141,9 +140,9 @@ def open_with_kerchunk(
 
         grib_references = scan_grib(
             url=url_or_file_obj,
-            inline_threshold=inline_threshold[0],
-            filter=grib_filters[0],
-            storage_options=storage_options[0],
+            inline_threshold=inline_threshold,
+            filter=grib_filters,
+            storage_options=storage_options,
         )
 
         # Consolidate / post-process references
