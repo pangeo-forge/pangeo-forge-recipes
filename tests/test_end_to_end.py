@@ -102,14 +102,4 @@ def test_reference(
     full_path = tmp_target_url + "/target.json"
     of = fsspec.get_mapper("reference://", fo=full_path)
     ds = xr.open_dataset(of, engine="zarr", backend_kwargs={"consolidated": False})
-
-    # FIXME: this assertion fails due to NaT in first postion of ds.time, and also
-    # int -> float variable dtype casting in ds. Maybe some other issues too.
-    # xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
-
-    # FIXME: This entire pipeline does run with
-    #   ```
-    #   pytest tests/test_end_to_end.py -k "test_reference and not netcdf3" -vx
-    #   ```
-    # Note that the netcdf3 fixtures _do not_ run, possibly due to an issue with our
-    # transforms, or maybe just something in the tests.
+    xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
