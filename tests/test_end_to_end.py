@@ -78,9 +78,13 @@ def test_xarray_zarr_subpath(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
-# @pytest.mark.parametrize("target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}])
+@pytest.mark.parametrize("reference_file_type", ["json", "parquet"])
 def test_reference(
-    daily_xarray_dataset, netcdf_local_file_pattern_sequential, pipeline, tmp_target_url
+    daily_xarray_dataset,
+    netcdf_local_file_pattern_sequential,
+    pipeline,
+    tmp_target_url,
+    reference_file_type,
 ):
     pattern = netcdf_local_file_pattern_sequential
 
@@ -96,10 +100,10 @@ def test_reference(
             # FIXME: `WriteCombinedReference` probably needs to share an interface with
             # `StoreToZarr`, in order for `pangeo-forge-runner` to know how to dynamically
             # inject target_root argument.
-            | WriteCombinedReference(target=tmp_target_url, reference_file_type="json")
+            | WriteCombinedReference(target=tmp_target_url, reference_file_type=reference_file_type)
         )
     # NOTE: tmp_target_url is a directory ending in .zarr; maybe change that.
-    full_path = tmp_target_url + "/target.json"
+    full_path = tmp_target_url + f"/target.{reference_file_type}"
     of = fsspec.get_mapper("reference://", fo=full_path)
     ds = xr.open_dataset(of, engine="zarr", backend_kwargs={"consolidated": False})
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
