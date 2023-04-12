@@ -32,4 +32,6 @@ A reference recipe does not copy the original data, but instead produces and sto
 :maxdepth: 1
 
 hdf_reference/reference_cmip6
+grib_reference/reference_HRRR
+
 ```
