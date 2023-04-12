@@ -79,13 +79,11 @@ def test_xarray_zarr_subpath(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
-@pytest.mark.parametrize("reference_file_type", ["json"])
 def test_reference(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,
     pipeline,
     tmp_target_url,
-    reference_file_type,
 ):
     pattern = netcdf_local_file_pattern_sequential
     store_name = "daily-xarray-dataset"
@@ -100,10 +98,9 @@ def test_reference(
             | WriteCombinedReference(
                 target_root=tmp_target_url,
                 store_name=store_name,
-                reference_file_type=reference_file_type,
             )
         )
-    full_path = os.path.join(tmp_target_url, store_name, f"target.{reference_file_type}")
+    full_path = os.path.join(tmp_target_url, store_name, "reference.json")
     mapper = fsspec.get_mapper("reference://", fo=full_path)
     ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)

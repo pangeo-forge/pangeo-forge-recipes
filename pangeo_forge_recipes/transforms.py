@@ -339,13 +339,13 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     :param reference_file_type: The storage target type. Currently only ``'json'`` is supported.
     """
 
-    reference_file_type: str = "json"
+    output_json_fname: str = "reference.json"
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
         return reference | beam.Map(
             write_combined_reference,
             full_target=self.get_full_target(),
-            reference_file_type=self.reference_file_type,
+            output_json_fname=self.output_json_fname,
         )
 
 
