@@ -315,15 +315,19 @@ class CombineReferences(beam.PTransform):
 
     :param concat_dims: The dimensions to concatenate across
     :param identical_dims: Shared dimensions.
+    :param mzz_kwargs: Additonal kwargs passed to MultiZarrToZarr
     """
 
     concat_dims: List[Dimension]
     identical_dims: List[Dimension]
+    mzz_kwargs: dict = field(default_factory=dict)
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
         return references | beam.CombineGlobally(
             CombineMultiZarrToZarr(
-                concat_dims=self.concat_dims, identical_dims=self.identical_dims
+                concat_dims=self.concat_dims,
+                identical_dims=self.identical_dims,
+                mzz_kwargs=self.mzz_kwargs,
             ),
         )
 

@@ -1,5 +1,5 @@
 import operator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import reduce
 from typing import List, Sequence, Tuple
 
@@ -51,6 +51,7 @@ class CombineMultiZarrToZarr(beam.CombineFn):
 
     concat_dims: List[Dimension]
     identical_dims: List[Dimension]
+    mzz_kwargs: dict = field(default_factory=dict)
 
     def create_accumulator(self):
         return None
@@ -64,6 +65,7 @@ class CombineMultiZarrToZarr(beam.CombineFn):
             references,
             concat_dims=self.concat_dims,
             identical_dims=self.identical_dims,
+            **self.mzz_kwargs
         )
 
     def merge_accumulators(self, accumulators: Sequence[MultiZarrToZarr]) -> MultiZarrToZarr:
@@ -72,6 +74,7 @@ class CombineMultiZarrToZarr(beam.CombineFn):
             references,
             concat_dims=self.concat_dims,
             identical_dims=self.identical_dims,
+            **self.mzz_kwargs
         )
 
     def extract_output(self, accumulator: MultiZarrToZarr) -> MultiZarrToZarr:
