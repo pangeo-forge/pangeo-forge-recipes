@@ -91,14 +91,15 @@ def open_with_kerchunk(
     storage_options: Optional[Dict] = None,
     grib_filters: Optional[Dict] = None,
 ) -> Dict:
-    # FIXME: docstring below is inconsistent with function signature.
     """Scan through item(s) with one of Kerchunk's file readers
     (SingleHdf5ToZarr, ScanGrib etc.) and create reference objects.
 
     :param url_or_file_obj: The url or file object to be opened.
     :param file_type: Provide this if you know what type of file it is.
-    :storage_options: Storage options dict to pass to SingleHdf5ToZarr
-    :grib2_open_kwargs: Extra arguments to pass to Kerchunk's ScanGrib
+    :param inline_threshold: Internal Kerchunk kwarg.
+    :param netcdf3_max_chunk_size: Internal Kerchunk kwarg controlling sub-chunking size.
+    :storage_options: Storage options dict to pass to SingleHdf5ToZarr.
+    :grib_filters: Keyword filtering passed into Kerchunk ScanGrib.
     """
 
     if isinstance(url_or_file_obj, str):
