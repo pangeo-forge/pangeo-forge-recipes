@@ -115,7 +115,6 @@ def open_with_kerchunk(
         # work around fsspec inconsistencies
         url_or_file_obj = url_or_file_obj.open()
 
-    # import pdb; pdb.set_trace()
     if file_type == FileType.netcdf4:
         from kerchunk.hdf import SingleHdf5ToZarr
 
@@ -130,7 +129,9 @@ def open_with_kerchunk(
     elif file_type == FileType.netcdf3:
         from kerchunk.netCDF3 import NetCDF3ToZarr
 
-        filename = url_or_file_obj.path if not isinstance(url_or_file_obj, str) else url_or_file_obj
+        filename: str = (
+            url_or_file_obj.path if not isinstance(url_or_file_obj, str) else url_or_file_obj
+        )
         chunks = NetCDF3ToZarr(
             filename,
             inline_threshold=inline_threshold,
@@ -142,26 +143,22 @@ def open_with_kerchunk(
     elif file_type == FileType.grib:
         from kerchunk.grib2 import scan_grib
 
-        filename = (
-            url_or_file_obj.full_name if not isinstance(url_or_file_obj, str) else url_or_file_obj
-        )
-
-        grib_references = scan_grib(
-            url=filename,
+        url: str = url_or_file_obj.path if not isinstance(url_or_file_obj, str) else url_or_file_obj
+        grib_references: list[dict[str, dict]] = scan_grib(
+            url=url,
             inline_threshold=inline_threshold,
             filter=grib_filters,
             storage_options=storage_options,
         )
 
         # Consolidate / post-process references
-
         if len(grib_references) == 1:
             ref = grib_references[0]
-            ref["templates"] = {"u": url_or_file_obj}
+            ref["templates"] = {"u": url}
             return ref
 
         ref = grib_references[0].copy()
-        ref["templates"] = {"u": url_or_file_obj}
+        ref["templates"] = {"u": url}
 
         primary_refs = ref["refs"].copy()
         for _, other_ref in enumerate(grib_references[1:]):
