@@ -15,6 +15,7 @@ from pangeo_forge_recipes.transforms import (
     DetermineSchema,
     IndexItems,
     OpenURLWithFSSpec,
+    OpenWithKerchunk,
     OpenWithXarray,
     PrepareZarrTarget,
     Rechunk,
@@ -159,6 +160,28 @@ def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
         output = p | input | OpenWithXarray(file_type=pattern.file_type, load=False)
         loaded_dsets = output | beam.Map(manually_load)
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
+
+
+def test_OpenWithKerchunk_via_fsspec(pcoll_opened_files, pipeline):
+    input, pattern, cache_url = pcoll_opened_files
+    with pipeline as p:
+        output = p | input | OpenWithKerchunk(pattern.file_type)
+        # FIXME: very simple test case only checks if reference is a dict
+        assert isinstance(output, dict)
+        assert output, "Reference dict is Empty"
+
+
+@pytest.mark.xfail(reason="zarr parametrization of pattern fails filetype")
+def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
+    with pipeline as p:
+        output = (
+            p
+            | beam.Create(pattern_direct.items())
+            | OpenWithKerchunk(file_type=pattern_direct.file_type)
+            | beam.Map(print)
+        )
+        assert isinstance(output, dict)
+        assert output, "Reference dict is Empty"
 
 
 @pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])

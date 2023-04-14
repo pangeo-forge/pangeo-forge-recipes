@@ -90,6 +90,7 @@ def open_with_kerchunk(
     netcdf3_max_chunk_size: Optional[int] = 100000000,
     storage_options: Optional[Dict] = None,
     grib_filters: Optional[Dict] = None,
+    remote_protocol: Optional[str] = None,
 ) -> Dict:
     """Scan through item(s) with one of Kerchunk's file readers
     (SingleHdf5ToZarr, ScanGrib etc.) and create reference objects.
@@ -98,9 +99,13 @@ def open_with_kerchunk(
     :param file_type: Provide this if you know what type of file it is.
     :param inline_threshold: Internal Kerchunk kwarg.
     :param netcdf3_max_chunk_size: Internal Kerchunk kwarg controlling sub-chunking size.
-    :storage_options: Storage options dict to pass to SingleHdf5ToZarr.
-    :grib_filters: Keyword filtering passed into Kerchunk ScanGrib.
+    :param storage_options: Storage options dict to pass to SingleHdf5ToZarr.
+    :param grib_filters: Keyword filtering passed into Kerchunk ScanGrib
+    :param: Remote protocol for cloud storage. ex: 's3'
     """
+
+    if isinstance(file_type, str):
+        file_type = FileType(file_type)
 
     if isinstance(url_or_file_obj, str):
         pass
@@ -144,6 +149,10 @@ def open_with_kerchunk(
         from kerchunk.grib2 import scan_grib
 
         url: str = url_or_file_obj.path if not isinstance(url_or_file_obj, str) else url_or_file_obj
+
+        # if remote_protocol:
+        #     url = f"{remote_protocol}://{url}"
+
         grib_references: list[dict[str, dict]] = scan_grib(
             url=url,
             inline_threshold=inline_threshold,

@@ -130,6 +130,7 @@ class OpenWithKerchunk(beam.PTransform):
     netcdf3_max_chunk_size: Optional[int] = 100000000
     storage_options: Optional[Dict] = None
     grib_filters: Optional[Dict] = None
+    remote_protocol: Optional[str] = None
 
     def expand(self, pcoll):
         return pcoll | "Open with Kerchunk" >> beam.Map(
@@ -139,6 +140,7 @@ class OpenWithKerchunk(beam.PTransform):
             netcdf3_max_chunk_size=self.netcdf3_max_chunk_size,
             storage_options=self.storage_options,
             grib_filters=self.grib_filters,
+            remote_protocol=self.remote_protocol,
         )
 
 
