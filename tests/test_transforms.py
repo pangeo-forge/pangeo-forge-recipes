@@ -4,8 +4,6 @@ import xarray as xr
 import zarr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
-
-# from apache_beam.testing.util import assert_that, equal_to
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
@@ -162,26 +160,28 @@ def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
 
 
+def is_dict():
+    def _is_dict(ref_dict):
+        assert isinstance(ref_dict[0][1]["refs"], dict)
+
+    return _is_dict
+
+
 def test_OpenWithKerchunk_via_fsspec(pcoll_opened_files, pipeline):
     input, pattern, cache_url = pcoll_opened_files
     with pipeline as p:
         output = p | input | OpenWithKerchunk(pattern.file_type)
-        # FIXME: very simple test case only checks if reference is a dict
-        assert isinstance(output, dict)
-        assert output, "Reference dict is Empty"
+        assert_that(output, is_dict())
 
 
-@pytest.mark.xfail(reason="zarr parametrization of pattern fails filetype")
 def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
     with pipeline as p:
         output = (
             p
             | beam.Create(pattern_direct.items())
             | OpenWithKerchunk(file_type=pattern_direct.file_type)
-            | beam.Map(print)
         )
-        assert isinstance(output, dict)
-        assert output, "Reference dict is Empty"
+        assert_that(output, is_dict())
 
 
 @pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])

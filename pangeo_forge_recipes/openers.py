@@ -103,7 +103,6 @@ def open_with_kerchunk(
     :param grib_filters: Keyword filtering passed into Kerchunk ScanGrib
     :param: Remote protocol for cloud storage. ex: 's3'
     """
-
     if isinstance(file_type, str):
         file_type = FileType(file_type)
 
@@ -173,6 +172,9 @@ def open_with_kerchunk(
         for _, other_ref in enumerate(grib_references[1:]):
             primary_refs.update(other_ref["refs"])
         ref["refs"] = primary_refs
+
+    elif file_type == FileType.zarr:
+        raise NotImplementedError("Filetype Zarr is not supported for Reference recipes.")
 
     return ref
 
