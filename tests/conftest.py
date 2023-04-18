@@ -154,7 +154,7 @@ def start_http_server(paths, request, username=None, password=None, required_que
     this_dir = os.path.dirname(os.path.abspath(__file__))
     port = get_open_port()
     command_list = [
-        "python",
+        "python3",
         os.path.join(this_dir, "http_auth_server.py"),
         f"--port={port}",
         "--address=127.0.0.1",
