@@ -149,9 +149,9 @@ def open_with_kerchunk(
         from kerchunk.grib2 import scan_grib
 
         url: str = url_or_file_obj.path if not isinstance(url_or_file_obj, str) else url_or_file_obj
-
-        # if remote_protocol:
-        #     url = f"{remote_protocol}://{url}"
+        # This seems a bit brittle
+        if remote_protocol:
+            url = f"{remote_protocol}://{url}"
 
         grib_references: list[dict[str, dict]] = scan_grib(
             url=url,
