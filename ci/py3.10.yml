@@ -20,7 +20,7 @@ dependencies:
   - hdf5
   - intake
   - intake-xarray
-  - kerchunk>=0.1.0
+  - kerchunk>=0.1.1
   - lxml    # Optional dep of pydap
   - matplotlib  # needed for building tutorial notebooks
   - netcdf4
