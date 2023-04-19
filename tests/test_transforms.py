@@ -8,6 +8,7 @@ from apache_beam.testing.util import BeamAssertException, assert_that, is_not_em
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
+from pangeo_forge_recipes.patterns import FileType
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
 from pangeo_forge_recipes.transforms import (
     DetermineSchema,
@@ -175,6 +176,9 @@ def test_OpenWithKerchunk_via_fsspec(pcoll_opened_files, pipeline):
 
 
 def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
+    if pattern_direct.file_type == FileType.zarr:
+        pytest.skip("Zarr filetype not supported for Reference recipe.")
+
     with pipeline as p:
         output = (
             p
