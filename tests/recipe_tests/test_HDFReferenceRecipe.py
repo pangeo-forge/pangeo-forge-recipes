@@ -89,3 +89,25 @@ def test_multi(netcdf_local_file_pattern_sequential, tmpdir, with_intake, execut
         )
         ds = xr.open_dataset(m, engine="zarr", chunks={}, consolidated=False)
     assert (ds.foo == expected.foo).all()
+
+
+
+def test_inline_threshold(
+    netcdf_local_file_pattern_sequential,
+    tmpdir,
+    execute_recipe,
+):
+    # Sets a very small inline threshold to ensure that none of the variables are inlined.
+    file_pattern = netcdf_local_file_pattern_sequential
+    path = list(file_pattern.items())[0][1]
+    recipe = HDFReferenceRecipe(file_pattern, inline_threshold=1)
+    recipe = recipe.copy_pruned(nkeep=1)
+    recipe.coo_map = {"time": "cf:time"}  # ensure cftime encoding end-to-end
+    out_target = recipe.storage_config.target
+
+    execute_recipe(recipe)
+
+    fs = fsspec.filesystem(
+        "reference", fo=out_target._full_path("reference.json"), remote_protocol="file"
+    )
+    assert isinstance(fs.references["lat/0"], list)

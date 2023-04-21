@@ -33,7 +33,7 @@ def scan_file(chunk_key: ChunkKey, config: HDFReferenceRecipe):
             raise ValueError("Couldn't determine protocol")
         target_url = unstrip_protocol(fname, protocol)
         config.storage_config.metadata[ref_fname] = create_kerchunk_reference(
-            fp, target_url, file_type=config.file_pattern.file_type
+            fp, target_url, file_type=config.file_pattern.file_type, inline_threshold=config.inline_threshold,
         )
 
 
