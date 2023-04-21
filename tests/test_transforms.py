@@ -171,7 +171,7 @@ def is_dict():
 
 def is_valid_inline_threshold():
     def _is_valid_inline_threshold(references):
-        # import pdb; pdb.set_trace()
+
         assert isinstance(references[0]["refs"]["lat/0"], list)
 
     return _is_valid_inline_threshold
@@ -181,7 +181,7 @@ def test_inline_threshold(pcoll_opened_files, pipeline):
     input, pattern, cache_url = pcoll_opened_files
 
     with pipeline as p:
-        output = p | input | OpenWithKerchunk(pattern.file_type) | DropKeys()
+        output = p | input | OpenWithKerchunk(pattern.file_type, inline_threshold=1) | DropKeys()
         assert_that(output, is_valid_inline_threshold())
 
 
