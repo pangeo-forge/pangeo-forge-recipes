@@ -12,6 +12,7 @@ from pangeo_forge_recipes.patterns import FileType
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
 from pangeo_forge_recipes.transforms import (
     DetermineSchema,
+    DropKeys,
     IndexItems,
     OpenURLWithFSSpec,
     OpenWithKerchunk,
@@ -166,6 +167,22 @@ def is_dict():
         assert isinstance(ref_dict[0][1]["refs"], dict)
 
     return _is_dict
+
+
+def is_valid_inline_threshold():
+    def _is_valid_inline_threshold(references):
+        # import pdb; pdb.set_trace()
+        assert isinstance(references[0]["refs"]["lat/0"], list)
+
+    return _is_valid_inline_threshold
+
+
+def test_inline_threshold(pcoll_opened_files, pipeline):
+    input, pattern, cache_url = pcoll_opened_files
+
+    with pipeline as p:
+        output = p | input | OpenWithKerchunk(pattern.file_type) | DropKeys()
+        assert_that(output, is_valid_inline_threshold())
 
 
 def test_OpenWithKerchunk_via_fsspec(pcoll_opened_files, pipeline):
