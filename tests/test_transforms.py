@@ -2,7 +2,6 @@ import apache_beam as beam
 import pytest
 import xarray as xr
 import zarr
-from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
@@ -12,9 +11,7 @@ from pangeo_forge_recipes.patterns import FileType
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
 from pangeo_forge_recipes.transforms import (
     DetermineSchema,
-    DropKeys,
     IndexItems,
-    OpenURLWithFSSpec,
     OpenWithKerchunk,
     OpenWithXarray,
     PrepareZarrTarget,
@@ -23,26 +20,6 @@ from pangeo_forge_recipes.transforms import (
 from pangeo_forge_recipes.types import CombineOp
 
 from .data_generation import make_ds
-
-
-@pytest.fixture
-def pipeline():
-    # TODO: make this True and fix the weird ensuing type check errors
-    options = PipelineOptions(runtime_type_check=False)
-    with TestPipeline(options=options) as p:
-        yield p
-
-
-@pytest.fixture(
-    scope="module",
-    params=[
-        lazy_fixture("netcdf_local_file_pattern_sequential"),
-        lazy_fixture("netcdf_http_file_pattern_sequential_1d"),
-    ],
-    ids=["local", "http"],
-)
-def pattern(request):
-    return request.param
 
 
 # the items from these patterns are suitable to be opened directly
@@ -57,25 +34,6 @@ def pattern(request):
 )
 def pattern_direct(request):
     return request.param
-
-
-@pytest.fixture(params=[True, False], ids=["with_cache", "no_cache"])
-def cache_url(tmp_cache_url, request):
-    if request.param:
-        return tmp_cache_url
-    else:
-        return None
-
-
-@pytest.fixture
-def pcoll_opened_files(pattern, cache_url):
-    input = beam.Create(pattern.items())
-    output = input | OpenURLWithFSSpec(
-        cache=cache_url,
-        secrets=pattern.query_string_secrets,
-        open_kwargs=pattern.fsspec_open_kwargs,
-    )
-    return output, pattern, cache_url
 
 
 def test_OpenURLWithFSSpec(pcoll_opened_files):
@@ -167,22 +125,6 @@ def is_dict():
         assert isinstance(ref_dict[0][1]["refs"], dict)
 
     return _is_dict
-
-
-def is_valid_inline_threshold():
-    def _is_valid_inline_threshold(references):
-
-        assert isinstance(references[0]["refs"]["lat/0"], list)
-
-    return _is_valid_inline_threshold
-
-
-def test_inline_threshold(pcoll_opened_files, pipeline):
-    input, pattern, cache_url = pcoll_opened_files
-
-    with pipeline as p:
-        output = p | input | OpenWithKerchunk(pattern.file_type, inline_threshold=1) | DropKeys()
-        assert_that(output, is_valid_inline_threshold())
 
 
 def test_OpenWithKerchunk_via_fsspec(pcoll_opened_files, pipeline):

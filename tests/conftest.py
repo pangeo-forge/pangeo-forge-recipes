@@ -20,8 +20,11 @@ import subprocess
 import time
 
 import aiohttp
+import apache_beam as beam
 import fsspec
 import pytest
+from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.testing.test_pipeline import TestPipeline
 from dask.distributed import Client, LocalCluster
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
@@ -34,6 +37,7 @@ from pangeo_forge_recipes.patterns import (
     pattern_from_file_sequence,
 )
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
+from pangeo_forge_recipes.transforms import OpenURLWithFSSpec
 
 from .data_generation import make_ds
 
@@ -197,6 +201,45 @@ def make_http_paths(netcdf_local_paths, request):
 
 
 # Dataset + path fixtures -------------------------------------------------------------------------
+
+
+@pytest.fixture(params=[True, False], ids=["with_cache", "no_cache"])
+def cache_url(tmp_cache_url, request):
+    if request.param:
+        return tmp_cache_url
+    else:
+        return None
+
+
+@pytest.fixture(
+    scope="module",
+    params=[
+        lazy_fixture("netcdf_local_file_pattern_sequential"),
+        lazy_fixture("netcdf_http_file_pattern_sequential_1d"),
+    ],
+    ids=["local", "http"],
+)
+def pattern(request):
+    return request.param
+
+
+@pytest.fixture
+def pipeline(scope="session"):
+    # TODO: make this True and fix the weird ensuing type check errors
+    options = PipelineOptions(runtime_type_check=False)
+    with TestPipeline(options=options) as p:
+        yield p
+
+
+@pytest.fixture
+def pcoll_opened_files(pattern, cache_url):
+    input = beam.Create(pattern.items())
+    output = input | OpenURLWithFSSpec(
+        cache=cache_url,
+        secrets=pattern.query_string_secrets,
+        open_kwargs=pattern.fsspec_open_kwargs,
+    )
+    return output, pattern, cache_url
 
 
 @pytest.fixture(scope="session")

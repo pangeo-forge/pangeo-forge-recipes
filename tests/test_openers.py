@@ -3,10 +3,12 @@ from pickle import dumps, loads
 import numpy as np
 import pytest
 import xarray as xr
+from apache_beam.testing.util import assert_that
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.openers import open_url, open_with_xarray
 from pangeo_forge_recipes.patterns import FileType
+from pangeo_forge_recipes.transforms import DropKeys, OpenWithKerchunk
 
 
 @pytest.fixture(
@@ -155,3 +157,19 @@ def test_direct_open_with_xarray(public_url_and_type, load, xarray_open_kwargs):
     ds = open_with_xarray(url, file_type=file_type, load=load, xarray_open_kwargs=xr_kwargs)
     validate_fn(ds)
     is_valid_dataset(ds, in_memory=load)
+
+
+def is_valid_inline_threshold():
+    def _is_valid_inline_threshold(references):
+
+        assert isinstance(references[0]["refs"]["lat/0"], list)
+
+    return _is_valid_inline_threshold
+
+
+def test_inline_threshold(pcoll_opened_files, pipeline):
+    input, pattern, cache_url = pcoll_opened_files
+
+    with pipeline as p:
+        output = p | input | OpenWithKerchunk(pattern.file_type, inline_threshold=1) | DropKeys()
+        assert_that(output, is_valid_inline_threshold())
