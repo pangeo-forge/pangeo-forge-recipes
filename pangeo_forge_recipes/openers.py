@@ -83,8 +83,33 @@ def _set_engine(file_type, xr_open_kwargs):
     return kw
 
 
+UrlOrFileObj = Union[OpenFileType, str, zarr.storage.FSStore]
+
+
+def _preprocess_url_or_file_obj(
+    url_or_file_obj: UrlOrFileObj,
+    file_type: FileType,
+) -> UrlOrFileObj:
+    """Validate and preprocess inputs for opener functions."""
+
+    if isinstance(url_or_file_obj, str):
+        pass
+    elif isinstance(url_or_file_obj, zarr.storage.FSStore):
+        if file_type is not FileType.zarr:
+            raise ValueError(f"FSStore object can only be opened as FileType.zarr; got {file_type}")
+    elif isinstance(url_or_file_obj, io.IOBase):
+        # required to make mypy happy
+        # LocalFileOpener is a subclass of io.IOBase
+        pass
+    elif hasattr(url_or_file_obj, "open"):
+        # work around fsspec inconsistencies
+        url_or_file_obj = url_or_file_obj.open()
+
+    return url_or_file_obj
+
+
 def open_with_kerchunk(
-    url_or_file_obj: Union[OpenFileType, str, zarr.storage.FSStore],
+    url_or_file_obj: UrlOrFileObj,
     file_type: FileType = FileType.unknown,
     inline_threshold: Optional[int] = 100,
     netcdf3_max_chunk_size: Optional[int] = 100000000,
@@ -106,25 +131,20 @@ def open_with_kerchunk(
     if isinstance(file_type, str):
         file_type = FileType(file_type)
 
-    if isinstance(url_or_file_obj, str):
-        pass
-    elif isinstance(url_or_file_obj, zarr.storage.FSStore):
-        if file_type is not FileType.zarr:
-            raise ValueError(f"FSStore object can only be opened as FileType.zarr; got {file_type}")
-    elif isinstance(url_or_file_obj, io.IOBase):
-        # required to make mypy happy
-        # LocalFileOpener is a subclass of io.IOBase
-        pass
-    elif hasattr(url_or_file_obj, "open"):
-        # work around fsspec inconsistencies
-        url_or_file_obj = url_or_file_obj.open()
+    # typing/determinism here is awkward. perhaps there's a way to improve it.
+    url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
+    url_as_str = url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
+    # this seems brittle; including it because not all `url_or_file_obj` subtypes have `.full_path`
+    # attributes; notably `.full_path` is missing from local open files, making local tests fail.
+    if remote_protocol:
+        url_as_str = f"{remote_protocol}://{url_as_str}"
 
     if file_type == FileType.netcdf4:
         from kerchunk.hdf import SingleHdf5ToZarr
 
         h5chunks = SingleHdf5ToZarr(
             url_or_file_obj,
-            url=(url_or_file_obj.path if not isinstance(url_or_file_obj, str) else None),
+            url=url_as_str,
             inline_threshold=inline_threshold,
             storage_options=storage_options,
         )
@@ -133,11 +153,8 @@ def open_with_kerchunk(
     elif file_type == FileType.netcdf3:
         from kerchunk.netCDF3 import NetCDF3ToZarr
 
-        filename: str = (
-            url_or_file_obj.path if not isinstance(url_or_file_obj, str) else url_or_file_obj
-        )
         chunks = NetCDF3ToZarr(
-            filename,
+            url_as_str,
             inline_threshold=inline_threshold,
             max_chunk_size=netcdf3_max_chunk_size,
             storage_options=storage_options,
@@ -147,13 +164,8 @@ def open_with_kerchunk(
     elif file_type == FileType.grib:
         from kerchunk.grib2 import scan_grib
 
-        url: str = url_or_file_obj.path if not isinstance(url_or_file_obj, str) else url_or_file_obj
-        # This seems a bit brittle
-        if remote_protocol:
-            url = f"{remote_protocol}://{url}"
-
         grib_references: list[dict[str, dict]] = scan_grib(
-            url=url,
+            url=url_as_str,
             inline_threshold=inline_threshold,
             filter=grib_filters,
             storage_options=storage_options,
@@ -162,11 +174,11 @@ def open_with_kerchunk(
         # Consolidate / post-process references
         if len(grib_references) == 1:
             ref = grib_references[0]
-            ref["templates"] = {"u": url}
+            ref["templates"] = {"u": url_as_str}
             return ref
 
         ref = grib_references[0].copy()
-        ref["templates"] = {"u": url}
+        ref["templates"] = {"u": url_as_str}
 
         primary_refs = ref["refs"].copy()
         for _, other_ref in enumerate(grib_references[1:]):
@@ -215,18 +227,8 @@ def open_with_xarray(
         _copy_btw_filesystems(url_or_file_obj, target_opener)
         url_or_file_obj = tmp_name
 
-    if isinstance(url_or_file_obj, str):
-        pass
-    elif isinstance(url_or_file_obj, zarr.storage.FSStore):
-        if file_type is not FileType.zarr:
-            raise ValueError(f"FSStore object can only be opened as FileType.zarr; got {file_type}")
-    elif isinstance(url_or_file_obj, io.IOBase):
-        # required to make mypy happy
-        # LocalFileOpener is a subclass of io.IOBase
-        pass
-    elif hasattr(url_or_file_obj, "open"):
-        # work around fsspec inconsistencies
-        url_or_file_obj = url_or_file_obj.open()
+    url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
+
     ds = xr.open_dataset(url_or_file_obj, **kw)
     if load:
         ds.load()
