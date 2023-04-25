@@ -49,8 +49,8 @@ class CombineXarraySchemas(beam.CombineFn):
 class CombineMultiZarrToZarr(beam.CombineFn):
     """A beam ``CombineFn`` for combining Kerchunk ``MultiZarrToZarr`` objects."""
 
-    concat_dims: List[Dimension]
-    identical_dims: List[Dimension]
+    concat_dims: List[str]
+    identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
 
     def create_accumulator(self):

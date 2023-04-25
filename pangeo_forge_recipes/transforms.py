@@ -320,8 +320,8 @@ class CombineReferences(beam.PTransform):
     :param mzz_kwargs: Additonal kwargs passed to MultiZarrToZarr
     """
 
-    concat_dims: List[Dimension]
-    identical_dims: List[Dimension]
+    concat_dims: List[str]
+    identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
