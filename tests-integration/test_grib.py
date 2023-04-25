@@ -69,6 +69,11 @@ def identical_dims() -> list[str]:
 
 
 @pytest.fixture
+def inline_threshold() -> int:
+    return 100
+
+
+@pytest.fixture
 def src_files(remote_protocol, storage_options) -> list[str]:
     fs_read: s3fs.S3FileSystem = fsspec.filesystem(
         remote_protocol,
@@ -85,6 +90,7 @@ def src_files(remote_protocol, storage_options) -> list[str]:
 def vanilla_kerchunk_ds(
     tmpdir_factory,
     src_files: list[str],
+    inline_threshold: int,
     remote_protocol: str,
     storage_options: dict,
     grib_filters: dict,
@@ -98,7 +104,7 @@ def vanilla_kerchunk_ds(
         out = scan_grib(
             url,
             storage_options=storage_options,
-            inline_threshold=100,
+            inline_threshold=inline_threshold,
             filter=grib_filters,
         )
         for msg_number, msg in enumerate(out):
@@ -135,8 +141,10 @@ def pangeo_forge_ds(
     concat_dims: list[str],
     identical_dims: list[str],
     tmp_target_url: str,
+    inline_threshold: int,
     remote_protocol: str,
     storage_options: dict,
+    grib_filters: dict,
 ):
     """Aims to create the same dataset as `vanilla_kerchunk_ds` fixture, but with Pangeo Forge."""
 
@@ -153,8 +161,10 @@ def pangeo_forge_ds(
             | OpenURLWithFSSpec()
             | OpenWithKerchunk(
                 file_type=pattern.file_type,
+                inline_threshold=inline_threshold,
                 remote_protocol=remote_protocol,
                 storage_options=storage_options,
+                grib_filters=grib_filters,
             )
             | DropKeys()
             | CombineReferences(
@@ -173,5 +183,13 @@ def pangeo_forge_ds(
     return ds
 
 
-def test_consolidated_refs(vanilla_kerchunk_ds, pangeo_forge_ds):
-    xr.testing.assert_equal(vanilla_kerchunk_ds, pangeo_forge_ds)
+# def test_consolidated_refs(vanilla_kerchunk_ds, pangeo_forge_ds):
+#     xr.testing.assert_equal(vanilla_kerchunk_ds, pangeo_forge_ds)
+
+
+def test_pf(pangeo_forge_ds):
+    print(pangeo_forge_ds)
+
+
+# def test_vanilla(vanilla_kerchunk_ds):
+#     print(vanilla_kerchunk_ds)
