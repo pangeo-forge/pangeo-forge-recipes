@@ -4,6 +4,7 @@ import io
 import tempfile
 import warnings
 from typing import Dict, Optional, Union
+from urllib.parse import urlparse
 
 import xarray as xr
 import zarr
@@ -108,6 +109,23 @@ def _preprocess_url_or_file_obj(
     return url_or_file_obj
 
 
+def _url_as_str(url_or_file_obj: UrlOrFileObj, remote_protocol: Optional[str] = None) -> str:
+    as_str: str = url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
+
+    if remote_protocol and not urlparse(as_str).scheme:
+        # `.full_path` attributes (which include scheme/protocol) are not present on all
+        # subtypes of `url_or_file_obj` open files; notably `.full_path` is missing from
+        # local open files, making local tests fail. `.path` attributes (used to access
+        # string paths in the `as_str` assignment, above) appear to exist on all subtypes,
+        # but are missing scheme/protocol. therefore, we add it back here if its provided.
+        # NOTE: is there an alternative attribute to `.full_path`, which exists on all
+        # open file subtypes (and we have thus far overlooked), which includes
+        # scheme/protocol? if so, we should use that instead and drop this workaround.
+        as_str = f"{remote_protocol}://{as_str}"
+
+    return as_str
+
+
 def open_with_kerchunk(
     url_or_file_obj: UrlOrFileObj,
     file_type: FileType = FileType.unknown,
@@ -135,13 +153,8 @@ def open_with_kerchunk(
     if isinstance(file_type, str):
         file_type = FileType(file_type)
 
-    # typing/determinism here is awkward. perhaps there's a way to improve it.
     url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
-    url_as_str = url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
-    # this seems brittle; including it because not all `url_or_file_obj` subtypes have `.full_path`
-    # attributes; notably `.full_path` is missing from local open files, making local tests fail.
-    if remote_protocol:
-        url_as_str = f"{remote_protocol}://{url_as_str}"
+    url_as_str = _url_as_str(url_or_file_obj, remote_protocol)
 
     if file_type == FileType.netcdf4:
         from kerchunk.hdf import SingleHdf5ToZarr
