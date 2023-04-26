@@ -17,8 +17,6 @@ from kerchunk.grib2 import scan_grib
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
 from pangeo_forge_recipes.transforms import (
     CombineReferences,
-    DropKeys,
-    OpenURLWithFSSpec,
     OpenWithKerchunk,
     WriteCombinedReference,
 )
@@ -167,7 +165,6 @@ def pangeo_forge_ds(
         (
             p
             | beam.Create(pattern.items())
-            | OpenURLWithFSSpec()
             | OpenWithKerchunk(
                 file_type=pattern.file_type,
                 inline_threshold=inline_threshold,
@@ -175,7 +172,6 @@ def pangeo_forge_ds(
                 storage_options=storage_options,
                 grib_filters=grib_filters,
             )
-            | DropKeys()
             | CombineReferences(
                 concat_dims=concat_dims,
                 identical_dims=identical_dims,
