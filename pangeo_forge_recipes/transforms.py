@@ -76,14 +76,14 @@ def _add_keys(func):
 
 
 def _drop_keys(kvp):
-    """Function for DropKeys Method"""
+    """Function for DropKeys transform."""
     key, item = kvp
     return item
 
 
 @dataclass
 class DropKeys(beam.PTransform):
-    """Simple Method to remove keys for use in a Kerchunk Reference Recipe Pipeline"""
+    """Simple transform to remove keys for use in a Kerchunk Reference Recipe Pipeline"""
 
     def expand(self, pcoll):
         return pcoll | "Drop Keys" >> beam.Map(_drop_keys)

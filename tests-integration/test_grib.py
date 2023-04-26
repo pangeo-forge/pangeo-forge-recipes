@@ -1,5 +1,6 @@
 import glob
 import os
+from typing import Any
 
 import apache_beam as beam
 import fsspec
@@ -73,6 +74,13 @@ def inline_threshold() -> int:
     return 100
 
 
+def drop_unknown(refs: dict[str, Any]):
+    for k in list(refs):
+        if k.startswith("unknown"):
+            refs.pop(k)
+    return refs
+
+
 @pytest.fixture
 def src_files(remote_protocol, storage_options) -> list[str]:
     fs_read: s3fs.S3FileSystem = fsspec.filesystem(
@@ -121,6 +129,7 @@ def vanilla_kerchunk_ds(
         output_files,
         concat_dims=concat_dims,
         identical_dims=identical_dims,
+        preprocess=drop_unknown,
     )
     multi_kerchunk = mzz.translate()
     ds = open_reference_ds(multi_kerchunk, remote_protocol, storage_options)
@@ -170,6 +179,7 @@ def pangeo_forge_ds(
             | CombineReferences(
                 concat_dims=concat_dims,
                 identical_dims=identical_dims,
+                mzz_kwargs=dict(preprocess=drop_unknown),
             )
             | WriteCombinedReference(
                 target_root=tmp_target_url,
@@ -183,13 +193,5 @@ def pangeo_forge_ds(
     return ds
 
 
-# def test_consolidated_refs(vanilla_kerchunk_ds, pangeo_forge_ds):
-#     xr.testing.assert_equal(vanilla_kerchunk_ds, pangeo_forge_ds)
-
-
-def test_pf(pangeo_forge_ds):
-    print(pangeo_forge_ds)
-
-
-# def test_vanilla(vanilla_kerchunk_ds):
-#     print(vanilla_kerchunk_ds)
+def test_multi_message_grib(vanilla_kerchunk_ds, pangeo_forge_ds):
+    xr.testing.assert_equal(vanilla_kerchunk_ds, pangeo_forge_ds)

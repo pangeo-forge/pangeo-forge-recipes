@@ -53,29 +53,33 @@ class CombineMultiZarrToZarr(beam.CombineFn):
     identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
 
+    def to_mzz(self, references):
+        return MultiZarrToZarr(
+            references,
+            concat_dims=self.concat_dims,
+            identical_dims=self.identical_dims,
+            **self.mzz_kwargs
+        )
+
     def create_accumulator(self):
         return None
 
-    def add_input(self, accumulator: MultiZarrToZarr, item: dict) -> MultiZarrToZarr:
+    def add_input(self, accumulator: MultiZarrToZarr, item: list[dict]) -> MultiZarrToZarr:
+        # in most cases, `item` will be a single-element list containing a single reference.
+        # for grib files containing multiple messages, however, `item` will contain > 1 elements.
+        # in this case, we need to pre-compile those refs into a single ref. if we do not do this,
+        # `merge_accumulators` may hit chunk size mismatch errors.
+        item = item if not len(item) > 1 else [self.to_mzz(item).translate()]
+
         if not accumulator:
-            references = [item]
+            references = item
         else:
-            references = [accumulator.translate(), item]
-        return MultiZarrToZarr(
-            references,
-            concat_dims=self.concat_dims,
-            identical_dims=self.identical_dims,
-            **self.mzz_kwargs
-        )
+            references = [accumulator.translate()] + item
+        return self.to_mzz(references)
 
     def merge_accumulators(self, accumulators: Sequence[MultiZarrToZarr]) -> MultiZarrToZarr:
         references = [a.translate() for a in accumulators]
-        return MultiZarrToZarr(
-            references,
-            concat_dims=self.concat_dims,
-            identical_dims=self.identical_dims,
-            **self.mzz_kwargs
-        )
+        return self.to_mzz(references)
 
     def extract_output(self, accumulator: MultiZarrToZarr) -> MultiZarrToZarr:
         return accumulator

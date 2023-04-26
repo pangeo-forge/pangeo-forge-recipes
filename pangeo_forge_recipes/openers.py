@@ -116,9 +116,13 @@ def open_with_kerchunk(
     storage_options: Optional[Dict] = None,
     grib_filters: Optional[Dict] = None,
     remote_protocol: Optional[str] = None,
-) -> Dict:
-    """Scan through item(s) with one of Kerchunk's file readers
-    (SingleHdf5ToZarr, ScanGrib etc.) and create reference objects.
+) -> list[dict]:
+    """Scan through item(s) with one of Kerchunk's file readers (SingleHdf5ToZarr, scan_grib etc.)
+    and create reference objects.
+
+    All file readers return dicts, with the exception of scan_grib, which returns a list of dicts.
+    Therefore, to provide a consistent return type, this function always returns a list of dicts
+    (placing dicts inside a single-element list as needed).
 
     :param url_or_file_obj: The url or file object to be opened.
     :param file_type: Provide this if you know what type of file it is.
@@ -126,7 +130,7 @@ def open_with_kerchunk(
     :param netcdf3_max_chunk_size: Internal Kerchunk kwarg controlling sub-chunking size.
     :param storage_options: Storage options dict to pass to SingleHdf5ToZarr.
     :param grib_filters: Keyword filtering passed into Kerchunk ScanGrib
-    :param: Remote protocol for cloud storage. ex: 's3'
+    :param remote_protocol: Remote protocol for cloud storage. ex: 's3'
     """
     if isinstance(file_type, str):
         file_type = FileType(file_type)
@@ -148,7 +152,7 @@ def open_with_kerchunk(
             inline_threshold=inline_threshold,
             storage_options=storage_options,
         )
-        ref = h5chunks.translate()
+        refs = [h5chunks.translate()]
 
     elif file_type == FileType.netcdf3:
         from kerchunk.netCDF3 import NetCDF3ToZarr
@@ -159,36 +163,22 @@ def open_with_kerchunk(
             max_chunk_size=netcdf3_max_chunk_size,
             storage_options=storage_options,
         )
-        ref = chunks.translate()
+        refs = [chunks.translate()]
 
     elif file_type == FileType.grib:
         from kerchunk.grib2 import scan_grib
 
-        grib_references: list[dict[str, dict]] = scan_grib(
+        refs = scan_grib(
             url=url_as_str,
             inline_threshold=inline_threshold,
             filter=grib_filters,
             storage_options=storage_options,
         )
 
-        # Consolidate / post-process references
-        if len(grib_references) == 1:
-            ref = grib_references[0]
-            ref["templates"] = {"u": url_as_str}
-            return ref
-
-        ref = grib_references[0].copy()
-        ref["templates"] = {"u": url_as_str}
-
-        primary_refs = ref["refs"].copy()
-        for _, other_ref in enumerate(grib_references[1:]):
-            primary_refs.update(other_ref["refs"])
-        ref["refs"] = primary_refs
-
     elif file_type == FileType.zarr:
         raise NotImplementedError("Filetype Zarr is not supported for Reference recipes.")
 
-    return ref
+    return refs
 
 
 def open_with_xarray(
