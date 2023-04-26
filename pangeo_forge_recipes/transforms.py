@@ -131,9 +131,10 @@ class OpenWithKerchunk(beam.PTransform):
     storage_options: Optional[Dict] = None
     grib_filters: Optional[Dict] = None
     remote_protocol: Optional[str] = None
+    drop_keys: bool = True
 
     def expand(self, pcoll):
-        return pcoll | "Open with Kerchunk" >> beam.Map(
+        refs = pcoll | "Open with Kerchunk" >> beam.Map(
             _add_keys(open_with_kerchunk),
             file_type=self.file_type,
             inline_threshold=self.inline_threshold,
@@ -142,6 +143,7 @@ class OpenWithKerchunk(beam.PTransform):
             grib_filters=self.grib_filters,
             remote_protocol=self.remote_protocol,
         )
+        return refs if not self.drop_keys else refs | DropKeys()
 
 
 @dataclass

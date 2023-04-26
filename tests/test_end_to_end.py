@@ -13,8 +13,6 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
 from pangeo_forge_recipes.transforms import (
     CombineReferences,
-    DropKeys,
-    OpenURLWithFSSpec,
     OpenWithKerchunk,
     OpenWithXarray,
     StoreToZarr,
@@ -94,9 +92,7 @@ def test_reference_netcdf(
         (
             p
             | beam.Create(pattern.items())
-            | OpenURLWithFSSpec()
             | OpenWithKerchunk(file_type=pattern.file_type)
-            | DropKeys()
             | CombineReferences(concat_dims=["time"], identical_dims=["lat", "lon"])
             | WriteCombinedReference(
                 target_root=tmp_target_url,
@@ -125,9 +121,7 @@ def test_reference_grib(
         (
             p
             | beam.Create(pattern.items())
-            | OpenURLWithFSSpec()
             | OpenWithKerchunk(file_type=pattern.file_type)
-            | DropKeys()
             | CombineReferences(
                 concat_dims=[pattern.concat_dims[0]],
                 identical_dims=["latitude", "longitude"],
