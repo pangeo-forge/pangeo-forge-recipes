@@ -120,18 +120,20 @@ def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
 
 
-def is_dict():
-    def _is_dict(ref_dict):
-        assert isinstance(ref_dict[0][1]["refs"], dict)
+def is_list_of_refs_dicts():
+    def _is_list_of_refs_dicts(refs):
+        for r in refs[0]:
+            assert isinstance(r, dict)
+            assert "refs" in r
 
-    return _is_dict
+    return _is_list_of_refs_dicts
 
 
 def test_OpenWithKerchunk_via_fsspec(pcoll_opened_files, pipeline):
     input, pattern, cache_url = pcoll_opened_files
     with pipeline as p:
         output = p | input | OpenWithKerchunk(pattern.file_type)
-        assert_that(output, is_dict())
+        assert_that(output, is_list_of_refs_dicts())
 
 
 def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
@@ -144,7 +146,7 @@ def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
             | beam.Create(pattern_direct.items())
             | OpenWithKerchunk(file_type=pattern_direct.file_type)
         )
-        assert_that(output, is_dict())
+        assert_that(output, is_list_of_refs_dicts())
 
 
 @pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])
