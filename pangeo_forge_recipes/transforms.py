@@ -317,17 +317,15 @@ class Rechunk(beam.PTransform):
 class CombineReferences(beam.PTransform):
     """Combines Kerchunk references into a single reference dataset.
 
-    :param concat_dims: The dimensions to concatenate across
-    :param identical_dims: Shared dimensions.
-    :param mzz_kwargs: Additonal kwargs passed to MultiZarrToZarr
-    :param eager_combine: If True, pre-combine each kerchunk reference list before
-      adding it to the accumulator. Primary use case is for GRIB2 input files.
+    All parameters are passed through directly to the beam CombineFn
+    ``combiners.CombineMultiZarrToZarr``. See docstring on that object
+    for description of the parameters here.
     """
 
     concat_dims: List[str]
     identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
-    eager_combine: bool = False
+    precombine_inputs: bool = False
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
         return references | beam.CombineGlobally(
@@ -335,7 +333,7 @@ class CombineReferences(beam.PTransform):
                 concat_dims=self.concat_dims,
                 identical_dims=self.identical_dims,
                 mzz_kwargs=self.mzz_kwargs,
-                eager_combine=self.eager_combine,
+                precombine_inputs=self.precombine_inputs,
             ),
         )
 
