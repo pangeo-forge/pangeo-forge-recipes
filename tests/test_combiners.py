@@ -204,9 +204,9 @@ def test_CombineReferences(netcdf_public_http_paths_sequential_1d, pipeline):
         for url in urls:
             with fsspec.open(url) as inf:
                 h5chunks = SingleHdf5ToZarr(inf, url, inline_threshold=100)
-                yield h5chunks.translate()
+                yield [h5chunks.translate()]
 
-    refs = [ref for ref in generate_refs(urls)]
+    refs = [ref[0] for ref in generate_refs(urls)]
 
     concat_dims = ["time"]
     identical_dims = ["lat", "lon"]
