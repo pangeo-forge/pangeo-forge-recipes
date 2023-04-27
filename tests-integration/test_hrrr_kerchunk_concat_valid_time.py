@@ -176,6 +176,7 @@ def pangeo_forge_ds(
                 concat_dims=concat_dims,
                 identical_dims=identical_dims,
                 mzz_kwargs=dict(preprocess=drop_unknown),
+                eager_combine=True,
             )
             | WriteCombinedReference(
                 target_root=tmp_target_url,
