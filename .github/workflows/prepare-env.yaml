@@ -3,10 +3,18 @@ name: Prepare env
 on:
   workflow_call:
 
-# This is a pretty complicated workflow. The reason it is this way is that it
-# has been optimized to go fast fast. The specific optimizations are
+# ** What is this this workflow? **
 #
-# ## Environment building and caching ("prepare-env" job)
+#   This resuable environment building and caching ("prepare-env") workflow adds some complexity
+#   to our CI stack, in exchange for optimizing for speed. Other workflows which rely on it can
+#   load cached environments without needing to build them from scratch.
+#
+# ** How do I use it? **
+#
+#   To load a cached environment built by this workflow in another workflow, please refer to
+#   main.yaml in this directory, which demonstrates the proper use.
+#
+# ** Details **
 #
 #    This step builds and caches the test environments using conda.
 #    If there is no cache, building each environment takes 3-4 minutes.
