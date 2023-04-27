@@ -12,7 +12,7 @@ on:
 # ** How do I use it? **
 #
 #   To load a cached environment built by this workflow in another workflow, please refer to
-#   main.yaml in this directory, which demonstrates the proper use.
+#   main.yaml in this directory, which demonstrates its proper use.
 #
 # ** Details **
 #
