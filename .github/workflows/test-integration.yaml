@@ -1,4 +1,4 @@
-name: Test integration
+name: Integration tests
 
 on:
   push:
@@ -12,9 +12,6 @@ env:
 
 jobs:
   prepare-env:
-    uses: ./.github/workflows/prepare-env.yaml
-  integration-tests:
-    needs: prepare-env
     # run on:
     #  - all pushes to specified branch(es)
     #  - a PR was just labeled 'test-integration'
@@ -23,6 +20,9 @@ jobs:
       github.event_name == 'push' ||
       github.event.label.name == 'test-integration' ||
       contains( github.event.pull_request.labels.*.name, 'test-integration')
+    uses: ./.github/workflows/prepare-env.yaml
+  integration-tests:
+    needs: prepare-env
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
