@@ -121,27 +121,40 @@ class OpenWithKerchunk(beam.PTransform):
     """Open indexed items with Kerchunk. Accepts either fsspec open-file-like objects
     or string URLs that can be passed directly to Kerchunk.
 
-    :param file_type: Provide this if you know what type of file it is.
-    :param kerchunk_open_kwargs: Extra arguments to pass to Kerchunk.
+    :param drop_keys: If True, remove Pangeo Forge's FilePattern keys from the output PCollection
+      before returning. This is the default behavior, which is used for cases where the output
+      PCollection of references is passed to the ``CombineReferences`` transform for creation of a
+      Kerchunk reference dataset as the target dataset of the pipeline. If this transform is used
+      for other use cases (e.g., opening inputs for creation of another target dataset type), you
+      may want to set this option to False to preserve the keys on the output PCollection.
+    :param file_type: The type of file to be openend; e.g. "netcdf4", "netcdf3", "grib", etc.
+    :param inline_threshold: Passed to kerchunk opener.
+    :param storage_options: Storage options dict to pass to the kerchunk opener.
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "https", etc.
+    :param kerchunk_open_kwargs: Additional kwargs to pass to kerchunk opener. Any kwargs which
+      are specific to a particular input file type should be passed here;  e.g.,
+      ``{"filter": ...}`` for GRIB; ``{"max_chunk_size": ...}`` for NetCDF3, etc.
     """
 
+    # not passed to `open_with_kerchunk`
+    drop_keys: bool = True
+
+    # passed directly to `open_with_kerchunk`
     file_type: FileType = FileType.unknown
     inline_threshold: Optional[int] = 300
-    netcdf3_max_chunk_size: Optional[int] = 100000000
     storage_options: Optional[Dict] = None
-    grib_filters: Optional[Dict] = None
     remote_protocol: Optional[str] = None
-    drop_keys: bool = True
+    kerchunk_open_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(self, pcoll):
         refs = pcoll | "Open with Kerchunk" >> beam.Map(
             _add_keys(open_with_kerchunk),
             file_type=self.file_type,
             inline_threshold=self.inline_threshold,
-            netcdf3_max_chunk_size=self.netcdf3_max_chunk_size,
             storage_options=self.storage_options,
-            grib_filters=self.grib_filters,
             remote_protocol=self.remote_protocol,
+            kerchunk_open_kwargs=self.kerchunk_open_kwargs,
         )
         return refs if not self.drop_keys else refs | DropKeys()
 

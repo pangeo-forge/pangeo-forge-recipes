@@ -170,7 +170,7 @@ def pangeo_forge_ds(
                 inline_threshold=inline_threshold,
                 remote_protocol=remote_protocol,
                 storage_options=storage_options,
-                grib_filters=grib_filters,
+                kerchunk_open_kwargs={"filter": grib_filters},
             )
             | CombineReferences(
                 concat_dims=concat_dims,

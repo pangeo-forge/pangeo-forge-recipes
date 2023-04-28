@@ -54,7 +54,7 @@ with TestPipeline(options=options) as p:
             file_type=pattern.file_type,
             remote_protocol=remote_protocol,
             storage_options=storage_options,
-            grib_filters=grib_filters,
+            kerchunk_open_kwargs={"filter": grib_filters},
         )
         | CombineReferences(
             concat_dims=pattern.concat_dims,
