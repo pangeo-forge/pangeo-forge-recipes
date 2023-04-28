@@ -1,7 +1,7 @@
 sphinx==3.5.4
 pangeo-sphinx-book-theme==0.1.2
 myst-parser==0.13.6
-myst-nb==0.12.3
+myst-nb==0.17.2
 sphinx-copybutton==0.3.1
 sphinx-togglebutton==0.2.2
 sphinx-autodoc-typehints==1.12.0
