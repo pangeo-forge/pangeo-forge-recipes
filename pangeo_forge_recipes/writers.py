@@ -1,10 +1,14 @@
-from typing import Tuple
+import os
+from dataclasses import dataclass
+from typing import Tuple, Union
 
 import numpy as np
 import xarray as xr
 import zarr
+from kerchunk.combine import MultiZarrToZarr
 
 from .patterns import CombineOp, Index
+from .storage import FSSpecTarget
 
 
 def _region_for(var: xr.Variable, index: Index) -> Tuple[slice, ...]:
@@ -85,3 +89,47 @@ def store_dataset_fragment(
                 _store_data(vname, da.variable, index, zgroup)
     for vname, da in ds.data_vars.items():
         _store_data(vname, da.variable, index, zgroup)
+
+
+def write_combined_reference(
+    reference: MultiZarrToZarr,
+    full_target: FSSpecTarget,
+    output_json_fname: str,
+):
+    """Write a kerchunk combined references object to file."""
+
+    import ujson  # type: ignore
+
+    multi_kerchunk = reference.translate()
+    file_ext = os.path.splitext(output_json_fname)[-1]
+
+    if file_ext == ".json":
+        outpath = os.path.join(full_target.root_path, output_json_fname)
+        with full_target.fs.open(outpath, "wb") as f:
+            f.write(ujson.dumps(multi_kerchunk).encode())
+    else:
+        # TODO: implement parquet writer
+        raise NotImplementedError(f"{file_ext = } not supported.")
+
+
+@dataclass
+class ZarrWriterMixin:
+    """Defines common attributes and methods for storing zarr datasets, which can be either actual
+    zarr stores or virtual (i.e. kerchunked) stores. This class should not be directly instantiated.
+    Instead, PTransforms in the `.transforms` module which write consolidated zarr stores should
+    inherit from this mixin, so that they share a common interface for target store naming.
+
+    :param target_root: Location the Zarr store will be created inside.
+    :param store_name: Name for the Zarr store. It will be created with this name
+                       under `target_root`.
+    """
+
+    target_root: Union[str, FSSpecTarget]
+    store_name: str
+
+    def get_full_target(self) -> FSSpecTarget:
+        if isinstance(self.target_root, str):
+            target_root = FSSpecTarget.from_url(self.target_root)
+        else:
+            target_root = self.target_root
+        return target_root / self.store_name

@@ -4,6 +4,7 @@ import io
 import tempfile
 import warnings
 from typing import Dict, Optional, Union
+from urllib.parse import urlparse
 
 import xarray as xr
 import zarr
@@ -84,6 +85,118 @@ def _set_engine(file_type, xr_open_kwargs):
     return kw
 
 
+UrlOrFileObj = Union[OpenFileType, str, zarr.storage.FSStore]
+
+
+def _preprocess_url_or_file_obj(
+    url_or_file_obj: UrlOrFileObj,
+    file_type: FileType,
+) -> UrlOrFileObj:
+    """Validate and preprocess inputs for opener functions."""
+
+    if isinstance(url_or_file_obj, str):
+        pass
+    elif isinstance(url_or_file_obj, zarr.storage.FSStore):
+        if file_type is not FileType.zarr:
+            raise ValueError(f"FSStore object can only be opened as FileType.zarr; got {file_type}")
+    elif isinstance(url_or_file_obj, io.IOBase):
+        # required to make mypy happy
+        # LocalFileOpener is a subclass of io.IOBase
+        pass
+    elif hasattr(url_or_file_obj, "open"):
+        # work around fsspec inconsistencies
+        url_or_file_obj = url_or_file_obj.open()
+
+    return url_or_file_obj
+
+
+def _url_as_str(url_or_file_obj: UrlOrFileObj, remote_protocol: Optional[str] = None) -> str:
+    as_str: str = url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
+
+    if remote_protocol and not urlparse(as_str).scheme:
+        # `.full_path` attributes (which include scheme/protocol) are not present on all
+        # subtypes of `url_or_file_obj` open files; notably `.full_path` is missing from
+        # local open files, making local tests fail. `.path` attributes (used to access
+        # string paths in the `as_str` assignment, above) appear to exist on all subtypes,
+        # but are missing scheme/protocol. therefore, we add it back here if its provided.
+        # NOTE: is there an alternative attribute to `.full_path`, which exists on all
+        # open file subtypes (and we have thus far overlooked), which includes
+        # scheme/protocol? if so, we should use that instead and drop this workaround.
+        as_str = f"{remote_protocol}://{as_str}"
+
+    return as_str
+
+
+def open_with_kerchunk(
+    url_or_file_obj: UrlOrFileObj,
+    file_type: FileType = FileType.unknown,
+    inline_threshold: Optional[int] = 100,
+    storage_options: Optional[Dict] = None,
+    remote_protocol: Optional[str] = None,
+    kerchunk_open_kwargs: Optional[dict] = None,
+) -> list[dict]:
+    """Scan through item(s) with one of Kerchunk's file readers (SingleHdf5ToZarr, scan_grib etc.)
+    and create reference objects.
+
+    All file readers return dicts, with the exception of scan_grib, which returns a list of dicts.
+    Therefore, to provide a consistent return type, this function always returns a list of dicts
+    (placing dicts inside a single-element list as needed).
+
+    :param url_or_file_obj: The url or file object to be opened.
+    :param file_type: The type of file to be openend; e.g. "netcdf4", "netcdf3", "grib", etc.
+    :param inline_threshold: Passed to kerchunk opener.
+    :param storage_options: Storage options dict to pass to the kerchunk opener.
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "https", etc.
+    :param kerchunk_open_kwargs: Additional kwargs to pass to kerchunk opener. Any kwargs which
+      are specific to a particular input file type should be passed here;  e.g.,
+      ``{"filter": ...}`` for GRIB; ``{"max_chunk_size": ...}`` for NetCDF3, etc.
+    """
+    if isinstance(file_type, str):
+        file_type = FileType(file_type)
+
+    url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
+    url_as_str = _url_as_str(url_or_file_obj, remote_protocol)
+
+    if file_type == FileType.netcdf4:
+        from kerchunk.hdf import SingleHdf5ToZarr
+
+        h5chunks = SingleHdf5ToZarr(
+            url_or_file_obj,
+            url=url_as_str,
+            inline_threshold=inline_threshold,
+            storage_options=storage_options,
+            **(kerchunk_open_kwargs or {}),
+        )
+        refs = [h5chunks.translate()]
+
+    elif file_type == FileType.netcdf3:
+        from kerchunk.netCDF3 import NetCDF3ToZarr
+
+        chunks = NetCDF3ToZarr(
+            url_as_str,
+            inline_threshold=inline_threshold,
+            storage_options=storage_options,
+            **(kerchunk_open_kwargs or {}),
+        )
+        refs = [chunks.translate()]
+
+    elif file_type == FileType.grib:
+        from kerchunk.grib2 import scan_grib
+
+        refs = scan_grib(
+            url=url_as_str,
+            inline_threshold=inline_threshold,
+            storage_options=storage_options,
+            **(kerchunk_open_kwargs or {}),
+        )
+
+    elif file_type == FileType.zarr:
+        raise NotImplementedError("Filetype Zarr is not supported for Reference recipes.")
+
+    return refs
+
+
 def open_with_xarray(
     url_or_file_obj: Union[OpenFileType, str, zarr.storage.FSStore],
     file_type: FileType = FileType.unknown,
@@ -120,18 +233,8 @@ def open_with_xarray(
         _copy_btw_filesystems(url_or_file_obj, target_opener)
         url_or_file_obj = tmp_name
 
-    if isinstance(url_or_file_obj, str):
-        pass
-    elif isinstance(url_or_file_obj, zarr.storage.FSStore):
-        if file_type is not FileType.zarr:
-            raise ValueError(f"FSStore object can only be opened as FileType.zarr; got {file_type}")
-    elif isinstance(url_or_file_obj, io.IOBase):
-        # required to make mypy happy
-        # LocalFileOpener is a subclass of io.IOBase
-        pass
-    elif hasattr(url_or_file_obj, "open"):
-        # work around fsspec inconsistencies
-        url_or_file_obj = url_or_file_obj.open()
+    url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
+
     ds = xr.open_dataset(url_or_file_obj, **kw)
     if load:
         ds.load()

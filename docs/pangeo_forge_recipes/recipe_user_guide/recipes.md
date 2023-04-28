@@ -93,13 +93,37 @@ All recipes need a place to store the target dataset. Refer to {doc}`storage` fo
 Once your recipe is defined and has its storage targets assigned, you're ready to
 move on to {doc}`execution`.
 
-### HDF Reference Recipes
+### Reference Recipes
 
-Like the Xarray to Zarr recipes, this category allows us to more efficiently access data from a bunch of NetCDF / HDF files.
-However, such a recipe does not actually copy the original source data.
-Instead, it generates metadata files which reference and index the original data, allowing it to be accessed more quickly and easily.
-For more background, see [this blog post](https://medium.com/pangeo/fake-it-until-you-make-it-reading-goes-netcdf4-data-on-aws-s3-as-zarr-for-rapid-data-access-61e33f8fe685).
+Like the Xarray to Zarr recipes, this category of recipes allows us to efficiently access data from a
+collection of source files. Unlike the standard Zarr recipes, these reference recipes utilize
+[kerchunk](https://fsspec.github.io/kerchunk/) to generate metadata files which reference and index the
+original data, allowing it to be accessed more quickly and easily, without duplicating it.
 
-There is currently one tutorial for this recipe:
+Whereas the standard Zarr recipe creates a copy of the original dataset in the Zarr format, the
+kerchunk-based reference recipe does not copy the data and instead creates a Kerchunk mapping, which
+allows archival formats (including NetCDF, GRIB2, etc.) to be read as if they were Zarr datasets.
+More details about how Kerchunk works can be found in the
+[kerchunk docs](https://fsspec.github.io/kerchunk/detail.html)
+and [this blog post](https://medium.com/pangeo/fake-it-until-you-make-it-reading-goes-netcdf4-data-on-aws-s3-as-zarr-for-rapid-data-access-61e33f8fe685).
+
+There are currently two tutorials for reference recipes:
 
 - {doc}`../tutorials/hdf_reference/reference_cmip6`
+- {doc}`../tutorials/grib_reference/reference_HRRR`
+
+When choosing whether to create a reference recipe, it is important to consider questions such as:
+
+_**Where are the archival (i.e. source) files for this dataset currently stored?**_ If the original data
+are not already in the cloud (or some other high-bandwidth storage device, such as an on-prem data
+center), the performance benefits of using a reference recipe may be limited, because network speeds
+to access the original data will constrain I/O throughput.
+
+_**Does this dataset require preprocessing?**_ With reference recipes, modification of the underlying
+data is not possible. For example, the chunking schema of a dataset cannot be modified with Kerchunk, so
+you are limited to the chunk schema of the archival data. If you need to optimize your datasets chunking
+schema for space or time, the standard Zarr recipe is the only option. While you cannot modify chunking
+in a reference recipe, changes in the metadata (attributes, encoding, etc.) can be applied.
+
+These caveats aside, for archival data stored on highly-throughput storage devices, for which
+preprocessing is not required, reference recipes are an ideal and storage-efficient option.

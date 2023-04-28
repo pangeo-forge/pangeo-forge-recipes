@@ -1,13 +1,16 @@
 import apache_beam as beam
+import fsspec
 import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that
+from kerchunk.combine import MultiZarrToZarr
+from kerchunk.hdf import SingleHdf5ToZarr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.combiners import CombineXarraySchemas
+from pangeo_forge_recipes.combiners import CombineMultiZarrToZarr, CombineXarraySchemas
 from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index
@@ -185,3 +188,34 @@ def test_DetermineSchema_concat_merge(dimensions, dsets_pcoll_concat_merge, pipe
         input = p | pcoll
         output = input | DetermineSchema(dimensions)
         assert_that(output, has_correct_schema(expected_schema))
+
+
+def is_expected_mzz(expected_mzz):
+    def _is_expected_mzz(actual):
+        assert expected_mzz.translate() == actual[0].translate()
+
+    return _is_expected_mzz
+
+
+def test_CombineReferences(netcdf_public_http_paths_sequential_1d, pipeline):
+    urls = netcdf_public_http_paths_sequential_1d[0]
+
+    def generate_refs(urls):
+        for url in urls:
+            with fsspec.open(url) as inf:
+                h5chunks = SingleHdf5ToZarr(inf, url, inline_threshold=100)
+                yield [h5chunks.translate()]
+
+    refs = [ref[0] for ref in generate_refs(urls)]
+
+    concat_dims = ["time"]
+    identical_dims = ["lat", "lon"]
+    expected_mzz = MultiZarrToZarr(refs, concat_dims=concat_dims, identical_dims=identical_dims)
+
+    with pipeline as p:
+        input = p | beam.Create(generate_refs(urls))
+        output = input | beam.CombineGlobally(
+            CombineMultiZarrToZarr(concat_dims=concat_dims, identical_dims=identical_dims)
+        )
+
+        assert_that(output, is_expected_mzz(expected_mzz))

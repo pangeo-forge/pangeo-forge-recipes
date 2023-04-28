@@ -9,12 +9,12 @@ from typing import Dict, List, Optional, Tuple, TypeVar
 import apache_beam as beam
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
-from .combiners import CombineXarraySchemas
-from .openers import open_url, open_with_xarray
+from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
+from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
-from .writers import store_dataset_fragment
+from .writers import ZarrWriterMixin, store_dataset_fragment, write_combined_reference
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,20 @@ def _add_keys(func):
     return wrapper
 
 
+def _drop_keys(kvp):
+    """Function for DropKeys transform."""
+    key, item = kvp
+    return item
+
+
+@dataclass
+class DropKeys(beam.PTransform):
+    """Simple transform to remove keys for use in a Kerchunk Reference Recipe Pipeline"""
+
+    def expand(self, pcoll):
+        return pcoll | "Drop Keys" >> beam.Map(_drop_keys)
+
+
 # This has side effects if using a cache
 @dataclass
 class OpenURLWithFSSpec(beam.PTransform):
@@ -99,6 +113,49 @@ class OpenURLWithFSSpec(beam.PTransform):
             secrets=self.secrets,
             open_kwargs=self.open_kwargs,
         )
+
+
+@dataclass
+class OpenWithKerchunk(beam.PTransform):
+    """Open indexed items with Kerchunk. Accepts either fsspec open-file-like objects
+    or string URLs that can be passed directly to Kerchunk.
+
+    :param file_type: The type of file to be openend; e.g. "netcdf4", "netcdf3", "grib", etc.
+    :param inline_threshold: Passed to kerchunk opener.
+    :param storage_options: Storage options dict to pass to the kerchunk opener.
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "https", etc.
+    :param kerchunk_open_kwargs: Additional kwargs to pass to kerchunk opener. Any kwargs which
+      are specific to a particular input file type should be passed here;  e.g.,
+      ``{"filter": ...}`` for GRIB; ``{"max_chunk_size": ...}`` for NetCDF3, etc.
+    :param drop_keys: If True, remove Pangeo Forge's FilePattern keys from the output PCollection
+      before returning. This is the default behavior, which is used for cases where the output
+      PCollection of references is passed to the ``CombineReferences`` transform for creation of a
+      Kerchunk reference dataset as the target dataset of the pipeline. If this transform is used
+      for other use cases (e.g., opening inputs for creation of another target dataset type), you
+      may want to set this option to False to preserve the keys on the output PCollection.
+    """
+
+    # passed directly to `open_with_kerchunk`
+    file_type: FileType = FileType.unknown
+    inline_threshold: Optional[int] = 300
+    storage_options: Optional[Dict] = None
+    remote_protocol: Optional[str] = None
+    kerchunk_open_kwargs: Optional[dict] = field(default_factory=dict)
+
+    # not passed to `open_with_kerchunk`
+    drop_keys: bool = True
+
+    def expand(self, pcoll):
+        refs = pcoll | "Open with Kerchunk" >> beam.Map(
+            _add_keys(open_with_kerchunk),
+            file_type=self.file_type,
+            inline_threshold=self.inline_threshold,
+            storage_options=self.storage_options,
+            remote_protocol=self.remote_protocol,
+            kerchunk_open_kwargs=self.kerchunk_open_kwargs,
+        )
+        return refs if not self.drop_keys else refs | DropKeys()
 
 
 @dataclass
@@ -269,22 +326,68 @@ class Rechunk(beam.PTransform):
 
 
 @dataclass
-class StoreToZarr(beam.PTransform):
+class CombineReferences(beam.PTransform):
+    """Combines Kerchunk references into a single reference dataset.
+
+    :param concat_dims: Dimensions along which to concatenate inputs.
+    :param identical_dims: Dimensions shared among all inputs.
+    :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
+    :precombine_inputs: If ``True``, precombine each input with itself, using
+      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
+      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
+      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
+      into a single reference before adding to the accumulator. Also used for inputs
+      consisting of single reference, for cases where the output dataset concatenates
+      along a dimension that does not exist in the individual inputs. In this latter
+      case, precombining adds the additional dimension to the input so that its
+      dimensionality will match that of the accumulator.
+    """
+
+    concat_dims: List[str]
+    identical_dims: List[str]
+    mzz_kwargs: dict = field(default_factory=dict)
+    precombine_inputs: bool = False
+
+    def expand(self, references: beam.PCollection) -> beam.PCollection:
+        return references | beam.CombineGlobally(
+            CombineMultiZarrToZarr(
+                concat_dims=self.concat_dims,
+                identical_dims=self.identical_dims,
+                mzz_kwargs=self.mzz_kwargs,
+                precombine_inputs=self.precombine_inputs,
+            ),
+        )
+
+
+@dataclass
+class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
+    """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
+
+    :param output_json_fname: Name to give the output references file. Must end in ``.json``.
+    """
+
+    output_json_fname: str = "reference.json"
+
+    def expand(self, reference: beam.PCollection) -> beam.PCollection:
+        return reference | beam.Map(
+            write_combined_reference,
+            full_target=self.get_full_target(),
+            output_json_fname=self.output_json_fname,
+        )
+
+
+@dataclass
+class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
 
     :param combine_dims: The dimensions to combine
-    :param target_root: Location the Zarr store will be created inside.
-    :param store_name: Name for the Zarr store. It will be created with this name
-                       under `target_root`.
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the data.
     """
 
-    # TODO: make it so we don't have to explictly specify combine_dims
+    # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
-    target_root: str | FSSpecTarget
-    store_name: str
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
@@ -293,12 +396,7 @@ class StoreToZarr(beam.PTransform):
         rechunked_datasets = indexed_datasets | Rechunk(
             target_chunks=self.target_chunks, schema=schema
         )
-        if isinstance(self.target_root, str):
-            target_root = FSSpecTarget.from_url(self.target_root)
-        else:
-            target_root = self.target_root
-        full_target = target_root / self.store_name
         target_store = schema | PrepareZarrTarget(
-            target=full_target, target_chunks=self.target_chunks
+            target=self.get_full_target(), target_chunks=self.target_chunks
         )
         return rechunked_datasets | StoreDatasetFragments(target_store=target_store)
