@@ -1,4 +1,4 @@
-sphinx==3.5.4
+sphinx==4.5.0
 pangeo-sphinx-book-theme==0.1.2
 myst-parser==0.18.0
 myst-nb==0.17.2
