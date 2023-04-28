@@ -66,7 +66,6 @@ def _add_keys(func):
 
     # @wraps(func)  # doesn't work for some reason
     def wrapper(arg, **kwargs):
-
         key, item = arg
         result = func(item, **kwargs)
         return key, result
@@ -121,12 +120,6 @@ class OpenWithKerchunk(beam.PTransform):
     """Open indexed items with Kerchunk. Accepts either fsspec open-file-like objects
     or string URLs that can be passed directly to Kerchunk.
 
-    :param drop_keys: If True, remove Pangeo Forge's FilePattern keys from the output PCollection
-      before returning. This is the default behavior, which is used for cases where the output
-      PCollection of references is passed to the ``CombineReferences`` transform for creation of a
-      Kerchunk reference dataset as the target dataset of the pipeline. If this transform is used
-      for other use cases (e.g., opening inputs for creation of another target dataset type), you
-      may want to set this option to False to preserve the keys on the output PCollection.
     :param file_type: The type of file to be openend; e.g. "netcdf4", "netcdf3", "grib", etc.
     :param inline_threshold: Passed to kerchunk opener.
     :param storage_options: Storage options dict to pass to the kerchunk opener.
@@ -135,10 +128,13 @@ class OpenWithKerchunk(beam.PTransform):
     :param kerchunk_open_kwargs: Additional kwargs to pass to kerchunk opener. Any kwargs which
       are specific to a particular input file type should be passed here;  e.g.,
       ``{"filter": ...}`` for GRIB; ``{"max_chunk_size": ...}`` for NetCDF3, etc.
+    :param drop_keys: If True, remove Pangeo Forge's FilePattern keys from the output PCollection
+      before returning. This is the default behavior, which is used for cases where the output
+      PCollection of references is passed to the ``CombineReferences`` transform for creation of a
+      Kerchunk reference dataset as the target dataset of the pipeline. If this transform is used
+      for other use cases (e.g., opening inputs for creation of another target dataset type), you
+      may want to set this option to False to preserve the keys on the output PCollection.
     """
-
-    # not passed to `open_with_kerchunk`
-    drop_keys: bool = True
 
     # passed directly to `open_with_kerchunk`
     file_type: FileType = FileType.unknown
@@ -146,6 +142,9 @@ class OpenWithKerchunk(beam.PTransform):
     storage_options: Optional[Dict] = None
     remote_protocol: Optional[str] = None
     kerchunk_open_kwargs: Optional[dict] = field(default_factory=dict)
+
+    # not passed to `open_with_kerchunk`
+    drop_keys: bool = True
 
     def expand(self, pcoll):
         refs = pcoll | "Open with Kerchunk" >> beam.Map(
@@ -330,9 +329,18 @@ class Rechunk(beam.PTransform):
 class CombineReferences(beam.PTransform):
     """Combines Kerchunk references into a single reference dataset.
 
-    All parameters are passed through directly to the beam CombineFn
-    ``combiners.CombineMultiZarrToZarr``. See docstring on that object
-    for description of the parameters here.
+    :param concat_dims: Dimensions along which to concatenate inputs.
+    :param identical_dims: Dimensions shared among all inputs.
+    :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
+    :precombine_inputs: If ``True``, precombine each input with itself, using
+      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
+      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
+      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
+      into a single reference before adding to the accumulator. Also used for inputs
+      consisting of single reference, for cases where the output dataset concatenates
+      along a dimension that does not exist in the individual inputs. In this latter
+      case, precombining adds the additional dimension to the input so that its
+      dimensionality will match that of the accumulator.
     """
 
     concat_dims: List[str]
@@ -355,7 +363,7 @@ class CombineReferences(beam.PTransform):
 class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
 
-    :param reference_file_type: The storage target type. Currently only ``'json'`` is supported.
+    :param output_json_fname: Name to give the output references file. Must end in ``.json``.
     """
 
     output_json_fname: str = "reference.json"
