@@ -9,6 +9,33 @@ from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosit
 from .data_generation import make_ds
 
 
+def test_split_fragment_merge_dim():
+    """Test to check if adding a merge dimension to Index creates valid # of fragments"""
+
+    offset = 0
+    target_chunks = {"time": 1}
+
+    nt = 2
+    ds = make_ds(nt=nt)  # dataset with two time steps and two variables
+    concat_dimension = Dimension("time", CombineOp.CONCAT)
+    merge_dim = Dimension("variable", CombineOp.MERGE)
+
+    # Create an index with variable merge dim and time concat dim
+    index = Index(
+        {
+            concat_dimension: IndexedPosition(offset, dimsize=nt),
+            merge_dim: IndexedPosition(offset, dimsize=nt),
+        }
+    )
+
+    all_splits = list(split_fragment((index, ds), target_chunks=target_chunks))
+
+    # If `split_fragments` splits across time (concat_dim) and variable (merge_dim),
+    # the dataset should be split into 4 chunks
+
+    assert len(all_splits) == 4
+
+
 @pytest.mark.parametrize("offset", [0, 5])  # hypothetical offset of this fragment
 @pytest.mark.parametrize("time_chunks", [1, 3, 5, 10, 11])
 def test_split_fragment(time_chunks, offset):
@@ -185,3 +212,5 @@ def test_combine_fragments_errors():
     index1 = Index({Dimension("time", CombineOp.CONCAT): IndexedPosition(2)})
     with pytest.raises(ValueError, match="are not consistent"):
         _ = combine_fragments(group, [(index0, ds), (index1, ds)])
+
+    #
