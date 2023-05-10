@@ -2,19 +2,17 @@ import apache_beam as beam
 import pytest
 import xarray as xr
 import zarr
-from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
-
-# from apache_beam.testing.util import assert_that, equal_to
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
+from pangeo_forge_recipes.patterns import FileType
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
 from pangeo_forge_recipes.transforms import (
     DetermineSchema,
     IndexItems,
-    OpenURLWithFSSpec,
+    OpenWithKerchunk,
     OpenWithXarray,
     PrepareZarrTarget,
     Rechunk,
@@ -22,26 +20,6 @@ from pangeo_forge_recipes.transforms import (
 from pangeo_forge_recipes.types import CombineOp
 
 from .data_generation import make_ds
-
-
-@pytest.fixture
-def pipeline():
-    # TODO: make this True and fix the weird ensuing type check errors
-    options = PipelineOptions(runtime_type_check=False)
-    with TestPipeline(options=options) as p:
-        yield p
-
-
-@pytest.fixture(
-    scope="module",
-    params=[
-        lazy_fixture("netcdf_local_file_pattern_sequential"),
-        lazy_fixture("netcdf_http_file_pattern_sequential_1d"),
-    ],
-    ids=["local", "http"],
-)
-def pattern(request):
-    return request.param
 
 
 # the items from these patterns are suitable to be opened directly
@@ -56,25 +34,6 @@ def pattern(request):
 )
 def pattern_direct(request):
     return request.param
-
-
-@pytest.fixture(params=[True, False], ids=["with_cache", "no_cache"])
-def cache_url(tmp_cache_url, request):
-    if request.param:
-        return tmp_cache_url
-    else:
-        return None
-
-
-@pytest.fixture
-def pcoll_opened_files(pattern, cache_url):
-    input = beam.Create(pattern.items())
-    output = input | OpenURLWithFSSpec(
-        cache=cache_url,
-        secrets=pattern.query_string_secrets,
-        open_kwargs=pattern.fsspec_open_kwargs,
-    )
-    return output, pattern, cache_url
 
 
 def test_OpenURLWithFSSpec(pcoll_opened_files):
@@ -159,6 +118,35 @@ def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
         output = p | input | OpenWithXarray(file_type=pattern.file_type, load=False)
         loaded_dsets = output | beam.Map(manually_load)
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
+
+
+def is_list_of_refs_dicts():
+    def _is_list_of_refs_dicts(refs):
+        for r in refs[0]:
+            assert isinstance(r, dict)
+            assert "refs" in r
+
+    return _is_list_of_refs_dicts
+
+
+def test_OpenWithKerchunk_via_fsspec(pcoll_opened_files, pipeline):
+    input, pattern, cache_url = pcoll_opened_files
+    with pipeline as p:
+        output = p | input | OpenWithKerchunk(pattern.file_type)
+        assert_that(output, is_list_of_refs_dicts())
+
+
+def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
+    if pattern_direct.file_type == FileType.zarr:
+        pytest.skip("Zarr filetype not supported for Reference recipe.")
+
+    with pipeline as p:
+        output = (
+            p
+            | beam.Create(pattern_direct.items())
+            | OpenWithKerchunk(file_type=pattern_direct.file_type)
+        )
+        assert_that(output, is_list_of_refs_dicts())
 
 
 @pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])
