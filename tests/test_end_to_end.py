@@ -80,6 +80,27 @@ def test_xarray_zarr_subpath(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
+
+
+class _TestTransform(beam.PTransform):
+    """
+    Test transformation for End2End Reference Recipe.
+    """
+    from pangeo_forge_recipes.transforms import Indexed, T
+
+    @staticmethod
+    def _test_transform(item: Indexed[T]) -> Indexed[T]:
+        """
+        Drops attrs
+        """
+        index, ds = item
+        ds.attrs = ""
+        return index, ds
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(self._test_transform)
+
+
 def test_reference_netcdf(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,
@@ -93,6 +114,7 @@ def test_reference_netcdf(
             p
             | beam.Create(pattern.items())
             | OpenWithKerchunk(file_type=pattern.file_type)
+            | _TestTransform()
             | CombineReferences(concat_dims=["time"], identical_dims=["lat", "lon"])
             | WriteCombinedReference(
                 target_root=tmp_target_url,
