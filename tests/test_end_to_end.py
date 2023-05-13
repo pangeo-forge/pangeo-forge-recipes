@@ -80,12 +80,11 @@ def test_xarray_zarr_subpath(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
-
-
 class _TestTransform(beam.PTransform):
     """
     Test transformation for End2End Reference Recipe.
     """
+
     from pangeo_forge_recipes.transforms import Indexed, T
 
     @staticmethod
