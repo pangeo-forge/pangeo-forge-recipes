@@ -1,4 +1,5 @@
 import random
+from collections import namedtuple
 
 import pytest
 import xarray as xr
@@ -9,31 +10,50 @@ from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosit
 from .data_generation import make_ds
 
 
-def test_split_fragment_merge_dim():
-    """Test to check if adding a merge dimension to Index creates valid # of fragments"""
+@pytest.mark.parametrize("nt", [2])
+@pytest.mark.parametrize("nvars", [2])
+def test_split_and_combine_fragments_with_merge_dim(nt, nvars):
+    """Test if sub-fragments split from datasets with merge dims can be combined with each other."""
 
-    offset = 0
+    t_offset = var_offset = 0
     target_chunks = {"time": 1}
 
-    nt = 2
-    ds = make_ds(nt=nt)  # dataset with two time steps and two variables
-    concat_dimension = Dimension("time", CombineOp.CONCAT)
-    merge_dim = Dimension("variable", CombineOp.MERGE)
+    # create two datasets, each with with `nt` time steps, and two variables
+    ds0 = make_ds(nt=nt)
+    ds1 = make_ds(nt=nt)
 
-    # Create an index with variable merge dim and time concat dim
+    # create an index with variable merge dim and time concat dim. mocks IndexItems transform.
     index = Index(
         {
-            concat_dimension: IndexedPosition(offset, dimsize=nt),
-            merge_dim: IndexedPosition(offset, dimsize=nt),
+            Dimension("time", CombineOp.CONCAT): IndexedPosition(t_offset, dimsize=nt),
+            Dimension("variable", CombineOp.MERGE): IndexedPosition(var_offset, dimsize=nvars),
         }
     )
+    # split the two (mock indexed) datasets into sub-fragments. once split according to
+    # `target_chunks = {"time": 1}`, each list of splits should contain 2 sub-fragments
+    ds0_splits, ds1_splits = [
+        list(split_fragment((index, ds), target_chunks=target_chunks)) for ds in (ds0, ds1)
+    ]
+    assert len(ds0_splits) == len(ds1_splits) == 2
 
-    all_splits = list(split_fragment((index, ds), target_chunks=target_chunks))
+    # the splits list are nested tuples which are a bit confusing for humans to think about.
+    # create a namedtuple to help remember the structure of these tuples and cast the
+    # elements of splits list to this more descriptive type.
+    Subfragment = namedtuple("Subfragment", "groupkey, subfragment")
+    ds0_subfragments, ds1_subfragments = [
+        [Subfragment(*s) for s in split] for split in (ds0_splits, ds1_splits)
+    ]
 
-    # If `split_fragments` splits across time (concat_dim) and variable (merge_dim),
-    # the dataset should be split into 4 chunks
-
-    assert len(all_splits) == 4
+    # attempt to combine subfragments. because the initial groupkey of each list is the same,
+    # it doesn't matter which one we pass as the first argument of `combine_fragments`. this
+    # replicates the behavior of `... | beam.GroupByKey() | beam.MapTuple(combine_fragments)`
+    # in the `Rechunk` transform.
+    for i in range(len(ds0_subfragments)):
+        assert ds0_subfragments[i].groupkey == ds1_subfragments[i].groupkey
+        combine_fragments(
+            ds0_subfragments[i].groupkey,
+            [ds0_subfragments[i].subfragment, ds1_subfragments[i].subfragment],
+        )
 
 
 @pytest.mark.parametrize("offset", [0, 5])  # hypothetical offset of this fragment
