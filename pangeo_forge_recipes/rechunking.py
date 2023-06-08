@@ -22,10 +22,11 @@ def split_fragment(
     schema: Optional[XarraySchema] = None,
 ) -> Iterator[Tuple[GroupKey, Tuple[Index, xr.Dataset]]]:
     """Split a single indexed dataset fragment into sub-fragments, according to the
-    specified target chunks
+    specified target chunks. Either target_chunks or schema (or both) must be provided.
 
-    :param fragment: the indexed fragment.
-    :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
+    :param fragment: The indexed fragment.
+    :param target_chunks: Mapping of dimension name to chunksize.
+    :param schema: An XarraySchema instance.
     """
 
     if target_chunks is None and schema is None:
