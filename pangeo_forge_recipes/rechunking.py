@@ -153,6 +153,7 @@ def combine_fragments(
             f"Cannot combine fragments for elements with different combine dims: {all_indexes}"
         )
     concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
+    merge_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.MERGE]
 
     if not all(all(index[dim].indexed for index in all_indexes) for dim in concat_dims):
         raise ValueError(
@@ -176,7 +177,18 @@ def combine_fragments(
 
     concat_dims_starts_sizes.sort(key=_sort_by_speed_of_varying)
 
-    shape = [len(np.unique(item[1])) for item in concat_dims_starts_sizes]
+    # FIXME: this will not work for multiple merge dims, need to sort by merge dim name
+    merge_dim_range = sorted([index[dim].value for index in all_indexes for dim in merge_dims])
+    # FIXME: multiple merge dims
+    if merge_dim_range:
+        # if merge dim(s) exist, we expect a range of consecutive integer positions
+        assert merge_dim_range == list(range(min(merge_dim_range), max(merge_dim_range) + 1))
+
+    shape = (
+        [len(np.unique(item[1])) for item in concat_dims_starts_sizes]
+        # FIXME: multiple merge dims
+        + ([len(merge_dim_range)] if merge_dim_range else [])
+    )
 
     total_size = functools.reduce(operator.mul, shape)
     if len(fragments) != total_size:
@@ -205,8 +217,11 @@ def combine_fragments(
     for n, fragment in enumerate(fragments):
         all_datasets[n] = fragment[1]
 
-    dsets_to_concat = all_datasets.reshape(shape).tolist()
+    dsets_to_combine = all_datasets.reshape(shape).tolist()
     concat_dims_sorted = [item[0] for item in concat_dims_starts_sizes]
-    ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=concat_dims_sorted)
+    ds_combined = xr.combine_nested(
+        dsets_to_combine,
+        concat_dim=concat_dims_sorted + [None for i in range(len(merge_dims))],
+    )
 
     return first_index, ds_combined
