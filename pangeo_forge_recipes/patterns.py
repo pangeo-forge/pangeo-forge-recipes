@@ -84,11 +84,12 @@ class AutoName(Enum):
 
 
 class FileType(AutoName):
-    unknown = auto()
+    grib = auto()
     netcdf3 = auto()
     netcdf4 = auto()
-    grib = auto()
     opendap = auto()
+    tiff = auto()
+    unknown = auto()
     zarr = auto()
 
 
