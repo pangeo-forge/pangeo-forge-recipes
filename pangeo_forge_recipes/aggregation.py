@@ -24,7 +24,7 @@ class XarraySchema(TypedDict):
 
 def dataset_to_schema(ds: xr.Dataset) -> XarraySchema:
     """Convert the output of `dataset.to_dict(data=False, encoding=True)` to a schema
-    (Basically justs adds chunks, which is not part of the Xarray ouput).
+    (Basically just adds chunks, which is not part of the Xarray output).
     """
 
     # Remove redundant encoding options
