@@ -11,8 +11,7 @@ from .data_generation import make_ds
 
 
 @pytest.mark.parametrize("nt", [2])
-@pytest.mark.parametrize("nvars", [2])
-def test_split_and_combine_fragments_with_merge_dim(nt, nvars):
+def test_split_and_combine_fragments_with_merge_dim(nt):
     """Test if sub-fragments split from datasets with merge dims can be combined with each other."""
 
     t_offset = 0
