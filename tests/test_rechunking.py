@@ -15,24 +15,30 @@ from .data_generation import make_ds
 def test_split_and_combine_fragments_with_merge_dim(nt, nvars):
     """Test if sub-fragments split from datasets with merge dims can be combined with each other."""
 
-    t_offset = var_offset = 0
+    t_offset = 0
     target_chunks = {"time": 1}
 
-    # create two datasets, each with with `nt` time steps, and two variables
-    ds0 = make_ds(nt=nt)
-    ds1 = make_ds(nt=nt)
+    # create two datasets, each with with `nt` time steps, and one variable
+    ds0 = make_ds(nt=nt).drop_vars("foo")
+    assert "foo" not in ds0.data_vars
+    ds1 = make_ds(nt=nt).drop_vars("bar")
+    assert "bar" not in ds1.data_vars
 
-    # create an index with variable merge dim and time concat dim. mocks IndexItems transform.
-    index = Index(
-        {
-            Dimension("time", CombineOp.CONCAT): IndexedPosition(t_offset, dimsize=nt),
-            Dimension("variable", CombineOp.MERGE): IndexedPosition(var_offset, dimsize=nvars),
-        }
-    )
+    # replicates indexes created by IndexItems transform.
+    index0, index1 = [
+        Index(
+            {
+                Dimension("variable", CombineOp.MERGE): Position(i),
+                Dimension("time", CombineOp.CONCAT): IndexedPosition(t_offset, dimsize=nt),
+            }
+        )
+        for i in range(2)
+    ]
     # split the two (mock indexed) datasets into sub-fragments. once split according to
     # `target_chunks = {"time": 1}`, each list of splits should contain 2 sub-fragments
     ds0_splits, ds1_splits = [
-        list(split_fragment((index, ds), target_chunks=target_chunks)) for ds in (ds0, ds1)
+        list(split_fragment((index, ds), target_chunks=target_chunks))
+        for index, ds in zip([index0, index1], [ds0, ds1])
     ]
     assert len(ds0_splits) == len(ds1_splits) == 2
 
@@ -50,10 +56,12 @@ def test_split_and_combine_fragments_with_merge_dim(nt, nvars):
     # in the `Rechunk` transform.
     for i in range(len(ds0_subfragments)):
         assert ds0_subfragments[i].groupkey == ds1_subfragments[i].groupkey
-        combine_fragments(
+        _, ds_combined = combine_fragments(
             ds0_subfragments[i].groupkey,
             [ds0_subfragments[i].subfragment, ds1_subfragments[i].subfragment],
         )
+        assert "foo" in ds_combined.data_vars
+        assert "bar" in ds_combined.data_vars
 
 
 @pytest.mark.parametrize("offset", [0, 5])  # hypothetical offset of this fragment
