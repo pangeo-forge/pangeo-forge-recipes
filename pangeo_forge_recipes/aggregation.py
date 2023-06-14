@@ -25,7 +25,7 @@ class XarraySchema(TypedDict):
 
 def dataset_to_schema(ds: xr.Dataset) -> XarraySchema:
     """Convert the output of `dataset.to_dict(data=False, encoding=True)` to a schema
-    (Basically justs adds chunks, which is not part of the Xarray ouput).
+    (Basically just adds chunks, which is not part of the Xarray output).
     """
 
     # Remove redundant encoding options
@@ -233,12 +233,16 @@ def determine_target_chunks(
 ) -> Dict[str, int]:
     # if the schema is chunked, use that
     target_chunks = {dim: dimchunks[0] for dim, dimchunks in schema["chunks"].items()}
-    if include_all_dims:
-        for dim, dimsize in schema["dims"].items():
-            if dim not in target_chunks:
-                target_chunks[dim] = dimsize
-    # finally override with any specified chunks
+    for dim, dimsize in schema["dims"].items():
+        if dim not in target_chunks:
+            target_chunks[dim] = dimsize
+    # override with any specified chunks
     target_chunks.update(specified_chunks or {})
+    if not include_all_dims:
+        # remove chunks with the same size as their dimension
+        dims_to_remove = [dim for dim, cs in target_chunks.items() if cs == schema["dims"][dim]]
+        for dim in dims_to_remove:
+            del target_chunks[dim]
     return target_chunks
 
 
