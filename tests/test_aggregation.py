@@ -40,8 +40,10 @@ def test_schema_to_template_ds(specified_chunks):
     assert schema == schema2
 
 
-@pytest.mark.parametrize("specified_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}, {"time": 3},
-                                              {"time": 3, "lon": 7}])
+@pytest.mark.parametrize(
+    "specified_chunks",
+    [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}, {"time": 3}, {"time": 3, "lon": 7}],
+)
 @pytest.mark.parametrize("include_all_dims", [True, False])
 def test_determine_target_chunks(specified_chunks, include_all_dims):
     nt = 3
