@@ -1,4 +1,6 @@
+import cftime
 import pytest
+import xarray as xr
 
 from pangeo_forge_recipes.aggregation import (
     DatasetCombineError,
@@ -59,6 +61,26 @@ def test_determine_target_chunks(specified_chunks, include_all_dims):
         for name, cs in specified_chunks.items():
             if name in chunks and name in schema["dims"]:
                 assert chunks[name] != schema["dims"][name]
+
+
+def test_schema_to_template_ds_cftime():
+    ds = xr.decode_cf(
+        xr.DataArray(
+            [1],
+            dims=["time"],
+            coords={
+                "time": (
+                    "time",
+                    [1],
+                    {"units": "days since 1850-01-01 00:00:00", "calendar": "noleap"},
+                )
+            },
+        ).to_dataset(name="tas")
+    )
+    schema = dataset_to_schema(ds)
+    dst = schema_to_template_ds(schema)
+    assert ds.time.encoding.get("units") == dst.time.encoding.get("units")
+    assert isinstance(dst.time.values[0], cftime.datetime)
 
 
 def test_concat_accumulator():

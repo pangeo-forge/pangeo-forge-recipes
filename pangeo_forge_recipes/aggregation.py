@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Dict, Optional, TypedDict
 
+import cftime
 import dask.array as dsa
 import numpy as np
 import xarray as xr
@@ -208,11 +209,19 @@ def _to_variable(template, target_chunks):
     # todo: possibly override with encoding dtype once we add encoding to the schema
     dtype = template["dtype"]
     chunks = tuple(target_chunks[dim] for dim in dims)
-    # we pick zeros as the safest value to initialize empty data with
-    # will only be used for dimension coordinates
-    data = dsa.zeros(shape=shape, chunks=chunks, dtype=dtype)
-    # TODO: add more encoding
+
     encoding = template.get("encoding", {})
+
+    # special case for cftime object dtypes
+    if dtype == "object" and "calendar" in encoding and "units" in encoding:
+        value = cftime.num2date(0, units=encoding["units"], calendar=encoding["calendar"])
+        data = dsa.full(shape, value, chunks=chunks)
+    else:
+        # we pick zeros as the safest value to initialize empty data with
+        # will only be used for dimension coordinates
+        data = dsa.zeros(shape=shape, chunks=chunks, dtype=dtype)
+
+    # TODO: add more encoding
     encoding["chunks"] = chunks
     return xr.Variable(dims=dims, data=data, attrs=template["attrs"], encoding=encoding)
 
