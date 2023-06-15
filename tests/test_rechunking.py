@@ -1,63 +1,72 @@
+import itertools
 import random
 from collections import namedtuple
 
+import numpy as np
 import pytest
 import xarray as xr
 
-from pangeo_forge_recipes.rechunking import combine_fragments, split_fragment
+from pangeo_forge_recipes.rechunking import GroupKey, combine_fragments, split_fragment
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
 
+from .conftest import split_up_files_by_variable_and_day
 from .data_generation import make_ds
 
 
-@pytest.mark.parametrize("nt", [2])
-def test_split_and_combine_fragments_with_merge_dim(nt):
+@pytest.mark.parametrize(
+    "nt_resample",
+    [(2, "1D"), (5, "1D"), (10, "2D")],
+)
+@pytest.mark.parametrize("time_chunks", [1, 2])
+def test_split_and_combine_fragments_with_merge_dim(nt_resample, time_chunks):
     """Test if sub-fragments split from datasets with merge dims can be combined with each other."""
 
-    t_offset = 0
-    target_chunks = {"time": 1}
-
-    # create two datasets, each with with `nt` time steps, and one variable
-    ds0 = make_ds(nt=nt).drop_vars("foo")
-    assert "foo" not in ds0.data_vars
-    ds1 = make_ds(nt=nt).drop_vars("bar")
-    assert "bar" not in ds1.data_vars
+    target_chunks = {"time": time_chunks}
+    nt, resample = nt_resample
+    ds = make_ds(nt=nt)
+    dsets, _, _ = split_up_files_by_variable_and_day(ds, resample)
 
     # replicates indexes created by IndexItems transform.
-    index0, index1 = [
+    unique_times = np.unique([ds.time[0].values for ds in dsets])
+    time_positions = {t: i for i, t in enumerate(unique_times)}
+    indexes = [
         Index(
             {
-                Dimension("variable", CombineOp.MERGE): Position(i),
-                Dimension("time", CombineOp.CONCAT): IndexedPosition(t_offset, dimsize=nt),
+                Dimension("variable", CombineOp.MERGE): Position(
+                    (0 if "bar" in ds.data_vars else 1)
+                ),
+                Dimension("time", CombineOp.CONCAT): IndexedPosition(
+                    time_positions[ds.time[0].values], dimsize=nt
+                ),
             }
         )
-        for i in range(2)
+        for ds in dsets
     ]
-    # split the two (mock indexed) datasets into sub-fragments. once split according to
-    # `target_chunks = {"time": 1}`, each list of splits should contain 2 sub-fragments
-    ds0_splits, ds1_splits = [
-        list(split_fragment((index, ds), target_chunks=target_chunks))
-        for index, ds in zip([index0, index1], [ds0, ds1])
-    ]
-    assert len(ds0_splits) == len(ds1_splits) == 2
 
+    # split the (mock indexed) datasets into sub-fragments.
     # the splits list are nested tuples which are a bit confusing for humans to think about.
     # create a namedtuple to help remember the structure of these tuples and cast the
     # elements of splits list to this more descriptive type.
-    Subfragment = namedtuple("Subfragment", "groupkey, subfragment")
-    ds0_subfragments, ds1_subfragments = [
-        [Subfragment(*s) for s in split] for split in (ds0_splits, ds1_splits)
+    splits = [
+        list(split_fragment((index, ds), target_chunks=target_chunks))
+        for index, ds in zip(indexes, dsets)
     ]
+    Subfragment = namedtuple("Subfragment", "groupkey, subfragment")
+    subfragments = list(itertools.chain(*[[Subfragment(*s) for s in split] for split in splits]))
 
-    # attempt to combine subfragments. because the initial groupkey of each list is the same,
-    # it doesn't matter which one we pass as the first argument of `combine_fragments`. this
-    # replicates the behavior of `... | beam.GroupByKey() | beam.MapTuple(combine_fragments)`
+    # combine subfragments, starting by grouping subfragments by groupkey.
+    # replicates behavior of `... | beam.GroupByKey() | beam.MapTuple(combine_fragments)`
     # in the `Rechunk` transform.
-    for i in range(len(ds0_subfragments)):
-        assert ds0_subfragments[i].groupkey == ds1_subfragments[i].groupkey
+    groupkeys = set([sf.groupkey for sf in subfragments])
+    grouped_subfragments: dict[GroupKey, list[Subfragment]] = {g: [] for g in groupkeys}
+    for sf in subfragments:
+        grouped_subfragments[sf.groupkey].append(sf)
+
+    for groupkey in grouped_subfragments:
+        assert all([sf.groupkey == groupkey for sf in grouped_subfragments[groupkey]])
         _, ds_combined = combine_fragments(
-            ds0_subfragments[i].groupkey,
-            [ds0_subfragments[i].subfragment, ds1_subfragments[i].subfragment],
+            groupkey,
+            [sf.subfragment for sf in grouped_subfragments[groupkey]],
         )
         assert "foo" in ds_combined.data_vars
         assert "bar" in ds_combined.data_vars

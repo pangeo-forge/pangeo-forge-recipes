@@ -23,6 +23,7 @@ import aiohttp
 import apache_beam as beam
 import fsspec
 import pytest
+import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 from dask.distributed import Client, LocalCluster
@@ -61,7 +62,10 @@ def split_up_files_by_day(ds, day_param):
     return datasets, fnames
 
 
-def split_up_files_by_variable_and_day(ds, day_param):
+def split_up_files_by_variable_and_day(
+    ds: xr.Dataset,
+    day_param: str,
+) -> tuple[list[xr.Dataset], list[str], dict]:
     all_dsets = []
     all_fnames = []
     fnames_by_variable = {}
