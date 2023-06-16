@@ -179,13 +179,14 @@ def combine_fragments(
     concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
     merge_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.MERGE]
 
-    # FIXME: variable reassignment not ideal
     if merge_dims:
-        fragments = merge_fragments(concat_dims, fragments, all_indexes)
-        all_indexes = [item[0] for item in fragments]
-        all_dsets = [item[1] for item in fragments]
+        merged_fragments = merge_fragments(concat_dims, fragments, all_indexes)
+        merged_indexes = [item[0] for item in merged_fragments]
+        merged_dsets = [item[1] for item in merged_fragments]
+    else:
+        merged_fragments, merged_indexes, merged_dsets = fragments, all_indexes, all_dsets
 
-    if not all(all(index[dim].indexed for index in all_indexes) for dim in concat_dims):
+    if not all(all(index[dim].indexed for index in merged_indexes) for dim in concat_dims):
         raise ValueError(
             "All concat dimension positions must be indexed in order to combine fragments."
         )
@@ -195,8 +196,8 @@ def combine_fragments(
     dims_starts_sizes = [
         (
             dim.name,
-            [index[dim].value for index in all_indexes],
-            [ds.dims[dim.name] for ds in all_dsets],
+            [index[dim].value for index in merged_indexes],
+            [ds.dims[dim.name] for ds in merged_dsets],
         )
         for dim in concat_dims
     ]
@@ -210,11 +211,11 @@ def combine_fragments(
     shape = [len(np.unique(item[1])) for item in dims_starts_sizes]
 
     total_size = functools.reduce(operator.mul, shape)
-    if len(fragments) != total_size:
+    if len(merged_fragments) != total_size:
         # this error path is currently untested
         raise ValueError(
             "Cannot combine fragments. "
-            f"Expected a hypercube of shape {shape} but got {len(fragments)} fragments."
+            f"Expected a hypercube of shape {shape} but got {len(merged_fragments)} fragments."
         )
 
     starts_cube = [np.array(item[1]).reshape(shape) for item in dims_starts_sizes]
@@ -233,7 +234,7 @@ def combine_fragments(
 
     # some tricky workarounds to put xarray datasets into a nested list
     all_datasets = np.empty(shape, dtype="O").ravel()
-    for n, fragment in enumerate(fragments):
+    for n, fragment in enumerate(merged_fragments):
         all_datasets[n] = fragment[1]
 
     dsets_to_concat = all_datasets.reshape(shape).tolist()
