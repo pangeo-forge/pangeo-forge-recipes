@@ -22,11 +22,10 @@ def split_fragment(
     schema: Optional[XarraySchema] = None,
 ) -> Iterator[Tuple[GroupKey, Tuple[Index, xr.Dataset]]]:
     """Split a single indexed dataset fragment into sub-fragments, according to the
-    specified target chunks. Either target_chunks or schema (or both) must be provided.
+    specified target chunks
 
-    :param fragment: The indexed fragment.
-    :param target_chunks: Mapping of dimension name to chunksize.
-    :param schema: An XarraySchema instance.
+    :param fragment: the indexed fragment.
+    :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
     """
 
     if target_chunks is None and schema is None:
@@ -130,6 +129,31 @@ def _invert_meshgrid(*arrays):
     return xi
 
 
+def merge_fragments(
+    concat_dims,
+    fragments,
+    all_indexes,
+) -> List[Tuple[Index, xr.Dataset]]:
+
+    indexes_to_merge: set[Index] = set(
+        [Index({dim: index[dim]}) for index in all_indexes for dim in concat_dims]
+    )
+    merge_groups: dict[Index, list[Tuple[Index, xr.Dataset]]] = {
+        idx: [f for f in fragments if f[0][dim] == indexed_position]
+        for idx in indexes_to_merge
+        for dim, indexed_position in idx.items()
+    }
+    merged_fragments = []
+    for idx, fments in merge_groups.items():
+        dim, indexed_position = next(iter(idx.items()))
+        assert all([f[0][dim] == indexed_position for f in fments])
+        dsets = [f[1] for f in fments]
+        merged_ds = xr.merge(dsets)
+        merged_fragments.append((idx, merged_ds))
+    merged_fragments.sort(key=_sort_index_key)  # this should sort by index
+    return merged_fragments
+
+
 # TODO: figure out a type hint that beam likes
 def combine_fragments(
     group: GroupKey, fragments: List[Tuple[Index, xr.Dataset]]
@@ -155,6 +179,12 @@ def combine_fragments(
     concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
     merge_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.MERGE]
 
+    # FIXME: variable reassignment not ideal
+    if merge_dims:
+        fragments = merge_fragments(concat_dims, fragments, all_indexes)
+        all_indexes = [item[0] for item in fragments]
+        all_dsets = [item[1] for item in fragments]
+
     if not all(all(index[dim].indexed for index in all_indexes) for dim in concat_dims):
         raise ValueError(
             "All concat dimension positions must be indexed in order to combine fragments."
@@ -162,7 +192,7 @@ def combine_fragments(
 
     # now we need to unstack the 1D concat dims into an ND nested data structure
     # first step is figuring out the shape
-    concat_dims_starts_sizes = [
+    dims_starts_sizes = [
         (
             dim.name,
             [index[dim].value for index in all_indexes],
@@ -175,20 +205,9 @@ def combine_fragments(
         indexes = item[1]
         return np.diff(np.array(indexes)).tolist()
 
-    concat_dims_starts_sizes.sort(key=_sort_by_speed_of_varying)
+    dims_starts_sizes.sort(key=_sort_by_speed_of_varying)
 
-    # FIXME: this will not work for multiple merge dims, need to sort by merge dim name
-    merge_dim_range = sorted([index[dim].value for index in all_indexes for dim in merge_dims])
-    # FIXME: multiple merge dims
-    if merge_dim_range:
-        # if merge dim(s) exist, we expect a range of consecutive integer positions
-        assert merge_dim_range == list(range(min(merge_dim_range), max(merge_dim_range) + 1))
-
-    shape = (
-        [len(np.unique(item[1])) for item in concat_dims_starts_sizes]
-        # FIXME: multiple merge dims
-        + ([len(merge_dim_range)] if merge_dim_range else [])
-    )
+    shape = [len(np.unique(item[1])) for item in dims_starts_sizes]
 
     total_size = functools.reduce(operator.mul, shape)
     if len(fragments) != total_size:
@@ -198,8 +217,8 @@ def combine_fragments(
             f"Expected a hypercube of shape {shape} but got {len(fragments)} fragments."
         )
 
-    starts_cube = [np.array(item[1]).reshape(shape) for item in concat_dims_starts_sizes]
-    sizes_cube = [np.array(item[2]).reshape(shape) for item in concat_dims_starts_sizes]
+    starts_cube = [np.array(item[1]).reshape(shape) for item in dims_starts_sizes]
+    sizes_cube = [np.array(item[2]).reshape(shape) for item in dims_starts_sizes]
     try:
         # reversing order is necessary here because _sort_by_speed_of_varying puts the
         # arrays into the opposite order as wanted by np.meshgrid
@@ -217,11 +236,8 @@ def combine_fragments(
     for n, fragment in enumerate(fragments):
         all_datasets[n] = fragment[1]
 
-    dsets_to_combine = all_datasets.reshape(shape).tolist()
-    concat_dims_sorted = [item[0] for item in concat_dims_starts_sizes]
-    ds_combined = xr.combine_nested(
-        dsets_to_combine,
-        concat_dim=concat_dims_sorted + [None for i in range(len(merge_dims))],
-    )
+    dsets_to_concat = all_datasets.reshape(shape).tolist()
+    concat_dims_sorted = [item[0] for item in dims_starts_sizes]
+    ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=concat_dims_sorted)
 
     return first_index, ds_combined
