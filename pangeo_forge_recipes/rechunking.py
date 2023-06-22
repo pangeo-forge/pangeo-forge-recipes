@@ -129,36 +129,13 @@ def _invert_meshgrid(*arrays):
     return xi
 
 
-def merge_fragments(
-    concat_dims,
-    fragments,
-    all_indexes,
-) -> List[Tuple[Index, xr.Dataset]]:
-
-    indexes_to_merge: set[Index] = set(
-        [Index({dim: index[dim]}) for index in all_indexes for dim in concat_dims]
-    )
-    merge_groups: dict[Index, list[Tuple[Index, xr.Dataset]]] = {
-        idx: [f for f in fragments if f[0][dim] == indexed_position]
-        for idx in indexes_to_merge
-        for dim, indexed_position in idx.items()
-    }
-    merged_fragments = []
-    for idx, fments in merge_groups.items():
-        dim, indexed_position = next(iter(idx.items()))
-        assert all([f[0][dim] == indexed_position for f in fments])
-        dsets = [f[1] for f in fments]
-        merged_ds = xr.merge(dsets)
-        merged_fragments.append((idx, merged_ds))
-    merged_fragments.sort(key=_sort_index_key)  # this should sort by index
-    return merged_fragments
-
-
 # TODO: figure out a type hint that beam likes
 def combine_fragments(
     group: GroupKey, fragments: List[Tuple[Index, xr.Dataset]]
 ) -> Tuple[Index, xr.Dataset]:
     """Combine multiple dataset fragments into a single fragment.
+
+    Only combines concat dims; merge dims are not combined.
 
     :param group: the group key; not actually used in combining
     :param fragments: indexed dataset fragments
@@ -177,16 +154,8 @@ def combine_fragments(
             f"Cannot combine fragments for elements with different combine dims: {all_indexes}"
         )
     concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
-    merge_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.MERGE]
 
-    if merge_dims:
-        merged_fragments = merge_fragments(concat_dims, fragments, all_indexes)
-        merged_indexes = [item[0] for item in merged_fragments]
-        merged_dsets = [item[1] for item in merged_fragments]
-    else:
-        merged_fragments, merged_indexes, merged_dsets = fragments, all_indexes, all_dsets
-
-    if not all(all(index[dim].indexed for index in merged_indexes) for dim in concat_dims):
+    if not all(all(index[dim].indexed for index in all_indexes) for dim in concat_dims):
         raise ValueError(
             "All concat dimension positions must be indexed in order to combine fragments."
         )
@@ -196,8 +165,8 @@ def combine_fragments(
     dims_starts_sizes = [
         (
             dim.name,
-            [index[dim].value for index in merged_indexes],
-            [ds.dims[dim.name] for ds in merged_dsets],
+            [index[dim].value for index in all_indexes],
+            [ds.dims[dim.name] for ds in all_dsets],
         )
         for dim in concat_dims
     ]
@@ -211,11 +180,11 @@ def combine_fragments(
     shape = [len(np.unique(item[1])) for item in dims_starts_sizes]
 
     total_size = functools.reduce(operator.mul, shape)
-    if len(merged_fragments) != total_size:
+    if len(fragments) != total_size:
         # this error path is currently untested
         raise ValueError(
             "Cannot combine fragments. "
-            f"Expected a hypercube of shape {shape} but got {len(merged_fragments)} fragments."
+            f"Expected a hypercube of shape {shape} but got {len(fragments)} fragments."
         )
 
     starts_cube = [np.array(item[1]).reshape(shape) for item in dims_starts_sizes]
@@ -234,7 +203,7 @@ def combine_fragments(
 
     # some tricky workarounds to put xarray datasets into a nested list
     all_datasets = np.empty(shape, dtype="O").ravel()
-    for n, fragment in enumerate(merged_fragments):
+    for n, fragment in enumerate(fragments):
         all_datasets[n] = fragment[1]
 
     dsets_to_concat = all_datasets.reshape(shape).tolist()
