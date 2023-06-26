@@ -68,12 +68,11 @@ def test_split_and_combine_fragments_with_merge_dim(nt_resample, time_chunks):
         # grouped distinct merge dimension positional values together under the same groupkey.
         merge_position_vals = [sf.subfragment[0][merge_dim].value for sf in grouped_subfragments[g]]
         assert all([v == merge_position_vals[0] for v in merge_position_vals])
+        # now actually try to combine the fragments
         # _, ds_combined = combine_fragments(
-        #     groupkey,
-        #     [sf.subfragment for sf in grouped_subfragments[groupkey]],
+        #     g,
+        #     [sf.subfragment for sf in grouped_subfragments[g]],
         # )
-        # assert "foo" in ds_combined.data_vars
-        # assert "bar" in ds_combined.data_vars
 
 
 @pytest.mark.parametrize("offset", [0, 5])  # hypothetical offset of this fragment
