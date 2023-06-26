@@ -21,7 +21,6 @@ def annotations_to_task_kwargs(annotations: Optional[StageAnnotations]) -> Dict[
 class PrefectPipelineExecutor(PipelineExecutor[Flow]):
     @staticmethod
     def compile(pipeline: Pipeline):
-
         with Flow("pangeo-forge-recipe") as flow:
             upstream_tasks = []  # type: List[task]
             for stage in pipeline.stages:

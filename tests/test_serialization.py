@@ -39,7 +39,6 @@ def base_pattern(end_date):
 
 
 def get_new_pattern_with_next_url(end_date, nitems_per_file):
-
     fmt = "%Y-%m-%d"
 
     def increment_end_date(ndays):

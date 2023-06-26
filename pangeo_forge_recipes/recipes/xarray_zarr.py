@@ -296,7 +296,6 @@ def open_input(input_key: InputKey, *, config: XarrayZarrRecipe) -> xr.Dataset:
                 yield ds
 
     else:
-
         cache = config.storage_config.cache if config.cache_inputs else None
         bypass_open = True if config.file_pattern.file_type in non_openable_file_types else False
 
@@ -462,7 +461,6 @@ def calculate_sequence_lens(
     file_pattern: FilePattern,
     metadata_cache: Optional[MetadataTarget],
 ) -> List[int]:
-
     assert len(file_pattern.concat_dims) == 1
     concat_dim = file_pattern.concat_dims[0]
 

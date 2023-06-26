@@ -8,7 +8,6 @@ from pangeo_forge_recipes.recipes import XarrayZarrRecipe
 
 @pytest.mark.parametrize("recipe_cls", [XarrayZarrRecipe])  # HDFReferenceRecipe])
 def test_execution_context(recipe_cls, netcdf_local_file_pattern_sequential):
-
     recipe = recipe_cls(netcdf_local_file_pattern_sequential)
     ec = recipe.get_execution_context()
 

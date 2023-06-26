@@ -13,7 +13,6 @@ import click
 @click.option("--password")
 @click.option("--required-query-string")
 def serve_forever(address, port, username, password, required_query_string):
-
     port = int(port)
 
     class Handler(http.server.SimpleHTTPRequestHandler):

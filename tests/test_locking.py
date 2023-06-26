@@ -17,7 +17,6 @@ from pangeo_forge_recipes.utils import chunk_bounds_and_conflicts, lock_for_conf
 
 @pytest.mark.parametrize("n_tasks, conflicts", [(2, (0,)), (2, (1, 2)), (4, (0,))])
 def test_locks(n_tasks, conflicts, tmp_target, dask_cluster):
-
     this_client = Client(dask_cluster)
 
     @dask.delayed
@@ -52,7 +51,6 @@ def test_locks(n_tasks, conflicts, tmp_target, dask_cluster):
     ],  # just a few conflicts  # lots of conflicts!
 )
 def test_locked_array_writing(shape, zarr_chunks, write_chunks, tmp_target, dask_cluster):
-
     sequence_lens = (shape[0] // write_chunks[0]) * [write_chunks[0]]
     remainder = shape[0] % write_chunks[0]
     if remainder > 0:

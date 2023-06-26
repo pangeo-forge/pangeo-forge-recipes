@@ -36,7 +36,6 @@ def append_token(task_name: str, token: str) -> str:
 class DaskPipelineExecutor(PipelineExecutor[Delayed]):
     @staticmethod
     def compile(pipeline: Pipeline):
-
         token = dask.base.tokenize(pipeline)
 
         # we are constructing a HighLevelGraph from scratch
