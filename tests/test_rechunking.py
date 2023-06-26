@@ -29,15 +29,13 @@ def test_split_and_combine_fragments_with_merge_dim(nt_resample, time_chunks):
     # replicates indexes created by IndexItems transform.
     unique_times = np.unique([ds.time[0].values for ds in dsets])
     time_positions = {t: i for i, t in enumerate(unique_times)}
+    merge_dim = Dimension("variable", CombineOp.MERGE)
+    concat_dim = Dimension("time", CombineOp.CONCAT)
     indexes = [
         Index(
             {
-                Dimension("variable", CombineOp.MERGE): Position(
-                    (0 if "bar" in ds.data_vars else 1)
-                ),
-                Dimension("time", CombineOp.CONCAT): IndexedPosition(
-                    time_positions[ds.time[0].values], dimsize=nt
-                ),
+                merge_dim: Position((0 if "bar" in ds.data_vars else 1)),
+                concat_dim: IndexedPosition(time_positions[ds.time[0].values], dimsize=nt),
             }
         )
         for ds in dsets
@@ -62,14 +60,20 @@ def test_split_and_combine_fragments_with_merge_dim(nt_resample, time_chunks):
     for sf in subfragments:
         grouped_subfragments[sf.groupkey].append(sf)
 
-    for groupkey in grouped_subfragments:
-        assert all([sf.groupkey == groupkey for sf in grouped_subfragments[groupkey]])
-        _, ds_combined = combine_fragments(
-            groupkey,
-            [sf.subfragment for sf in grouped_subfragments[groupkey]],
-        )
-        assert "foo" in ds_combined.data_vars
-        assert "bar" in ds_combined.data_vars
+    for g in groupkeys:
+        # just confirms that grouping logic within this test is correct
+        assert all([sf.groupkey == g for sf in grouped_subfragments[g]])
+        # for each subfragment in the current group, assert that there is only merge dimension
+        # positional value present. this verifies that `split_fragments` has not incorrectly
+        # grouped distinct merge dimension positional values together under the same groupkey.
+        merge_position_vals = [sf.subfragment[0][merge_dim].value for sf in grouped_subfragments[g]]
+        assert all([v == merge_position_vals[0] for v in merge_position_vals])
+        # _, ds_combined = combine_fragments(
+        #     groupkey,
+        #     [sf.subfragment for sf in grouped_subfragments[groupkey]],
+        # )
+        # assert "foo" in ds_combined.data_vars
+        # assert "bar" in ds_combined.data_vars
 
 
 @pytest.mark.parametrize("offset", [0, 5])  # hypothetical offset of this fragment
