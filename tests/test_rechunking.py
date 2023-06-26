@@ -60,7 +60,7 @@ def test_split_and_combine_fragments_with_merge_dim(nt_resample, time_chunks):
     for sf in subfragments:
         grouped_subfragments[sf.groupkey].append(sf)
 
-    for g in groupkeys:
+    for g in sorted(groupkeys):
         # just confirms that grouping logic within this test is correct
         assert all([sf.groupkey == g for sf in grouped_subfragments[g]])
         # for each subfragment in the current group, assert that there is only merge dimension
@@ -69,10 +69,10 @@ def test_split_and_combine_fragments_with_merge_dim(nt_resample, time_chunks):
         merge_position_vals = [sf.subfragment[0][merge_dim].value for sf in grouped_subfragments[g]]
         assert all([v == merge_position_vals[0] for v in merge_position_vals])
         # now actually try to combine the fragments
-        # _, ds_combined = combine_fragments(
-        #     g,
-        #     [sf.subfragment for sf in grouped_subfragments[g]],
-        # )
+        _, ds_combined = combine_fragments(
+            g,
+            [sf.subfragment for sf in grouped_subfragments[g]],
+        )
 
 
 @pytest.mark.parametrize("offset", [0, 5])  # hypothetical offset of this fragment
