@@ -14,17 +14,17 @@ from .data_generation import make_ds
 
 
 @pytest.mark.parametrize(
-    "nt_resample",
-    [(2, "1D"), (5, "1D"), (10, "2D")],
+    "nt_dayparam",
+    [(5, "1D"), (10, "2D")],
 )
-@pytest.mark.parametrize("time_chunks", [1, 2])
-def test_split_and_combine_fragments_with_merge_dim(nt_resample, time_chunks):
+@pytest.mark.parametrize("time_chunks", [1, 2, 5])
+def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks):
     """Test if sub-fragments split from datasets with merge dims can be combined with each other."""
 
     target_chunks = {"time": time_chunks}
-    nt, resample = nt_resample
+    nt, dayparam = nt_dayparam
     ds = make_ds(nt=nt)
-    dsets, _, _ = split_up_files_by_variable_and_day(ds, resample)
+    dsets, _, _ = split_up_files_by_variable_and_day(ds, dayparam)
 
     # replicates indexes created by IndexItems transform.
     unique_times = np.unique([ds.time[0].values for ds in dsets])
@@ -49,7 +49,7 @@ def test_split_and_combine_fragments_with_merge_dim(nt_resample, time_chunks):
         list(split_fragment((index, ds), target_chunks=target_chunks))
         for index, ds in zip(indexes, dsets)
     ]
-    Subfragment = namedtuple("Subfragment", "groupkey, subfragment")
+    Subfragment = namedtuple("Subfragment", "groupkey, content")
     subfragments = list(itertools.chain(*[[Subfragment(*s) for s in split] for split in splits]))
 
     # combine subfragments, starting by grouping subfragments by groupkey.
@@ -66,12 +66,12 @@ def test_split_and_combine_fragments_with_merge_dim(nt_resample, time_chunks):
         # for each subfragment in the current group, assert that there is only merge dimension
         # positional value present. this verifies that `split_fragments` has not incorrectly
         # grouped distinct merge dimension positional values together under the same groupkey.
-        merge_position_vals = [sf.subfragment[0][merge_dim].value for sf in grouped_subfragments[g]]
+        merge_position_vals = [sf.content[0][merge_dim].value for sf in grouped_subfragments[g]]
         assert all([v == merge_position_vals[0] for v in merge_position_vals])
         # now actually try to combine the fragments
         _, ds_combined = combine_fragments(
             g,
-            [sf.subfragment for sf in grouped_subfragments[g]],
+            [sf.content for sf in grouped_subfragments[g]],
         )
 
 
@@ -102,7 +102,7 @@ def test_split_fragment(time_chunks, offset):
 
     for n in range(len(all_splits)):
         chunk_number = offset // time_chunks + n
-        assert group_keys[n] == (("time", chunk_number),)
+        assert group_keys[n] == (("time", chunk_number), ("bar", 1))
         chunk_start = time_chunks * chunk_number
         chunk_stop = min(time_chunks * (chunk_number + 1), nt_total)
         fragment_start = max(chunk_start, offset)
