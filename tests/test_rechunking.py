@@ -61,8 +61,8 @@ def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks):
     for g in sorted(groupkeys):
         # just confirms that grouping logic within this test is correct
         assert all([sf.groupkey == g for sf in grouped_subfragments[g]])
-        # for each subfragment in the current group, assert that there is only merge dimension
-        # positional value present. this verifies that `split_fragments` has not incorrectly
+        # for the merge dimension of each subfragment in the current group, assert that there
+        # is only one positional value present. this verifies that `split_fragments` has not
         # grouped distinct merge dimension positional values together under the same groupkey.
         merge_position_vals = [sf.content[0][merge_dim].value for sf in grouped_subfragments[g]]
         assert all([v == merge_position_vals[0] for v in merge_position_vals])
