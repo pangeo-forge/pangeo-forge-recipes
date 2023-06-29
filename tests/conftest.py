@@ -36,7 +36,7 @@ from pangeo_forge_recipes.patterns import (
     MergeDim,
     pattern_from_file_sequence,
 )
-from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
+from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 from pangeo_forge_recipes.transforms import OpenURLWithFSSpec
 
 from .data_generation import make_ds
@@ -490,14 +490,6 @@ def tmp_cache(tmpdir_factory):
 def tmp_cache_url(tmpdir_factory):
     path = str(tmpdir_factory.mktemp("cache"))
     return path
-
-
-@pytest.fixture()
-def tmp_metadata_target(tmpdir_factory):
-    path = str(tmpdir_factory.mktemp("cache"))
-    fs = fsspec.get_filesystem_class("file")()
-    cache = MetadataTarget(fs, path)
-    return cache
 
 
 # Execution fixtures ------------------------------------------------------------------------------

@@ -2,19 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import io
-import json
 import logging
 import os
 import re
-import secrets
-import string
-import tempfile
 import time
 import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import Iterator, Optional, Sequence, Union
+from typing import Iterator, Optional, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
@@ -190,66 +186,6 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Copying remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
-
-
-class MetadataTarget(FSSpecTarget):
-    """Target for storing metadata dictionaries as json."""
-
-    def __setitem__(self, key: str, value: dict) -> None:
-        mapper = self.get_mapper()
-        mapper[key] = json.dumps(value).encode("utf-8")
-
-    def __getitem__(self, key: str) -> dict:
-        return json.loads(self.get_mapper()[key])
-
-    def __contains__(self, item: str) -> bool:
-        return item in self.get_mapper()
-
-    def getitems(self, keys: Sequence[str]) -> dict:
-        mapper = self.get_mapper()
-        all_meta_raw = mapper.getitems(keys)
-        return {k: json.loads(raw_bytes) for k, raw_bytes in all_meta_raw.items()}
-
-
-@dataclass
-class StorageConfig:
-    """A storage configuration container for recipe classes.
-
-    :param target: The destination to which to write the output data.
-    :param cache: A location for caching source files.
-    :param metadata: A location for recipes to cache metadata about source files.
-      Required if ``nitems_per_file=None`` on concat dim in file pattern.
-    """
-
-    target: FSSpecTarget
-    cache: Optional[CacheFSSpecTarget] = None
-    metadata: Optional[MetadataTarget] = None
-
-
-tmpdir = tempfile.TemporaryDirectory()
-
-
-def _make_tmp_subdir() -> str:
-    # https://docs.python.org/3/library/secrets.html#recipes-and-best-practices
-    alphabet = string.ascii_letters + string.digits
-    subdir = "".join(secrets.choice(alphabet) for i in range(8))
-    path = os.path.join(tmpdir.name, subdir)
-    os.mkdir(path)
-    return path
-
-
-def temporary_storage_config():
-    """A factory function for setting a default storage config on
-    ``pangeo_forge_recipes.recipes.base.StorageMixin``.
-    """
-
-    fs_local = LocalFileSystem()
-
-    return StorageConfig(
-        target=FSSpecTarget(fs_local, _make_tmp_subdir()),
-        cache=CacheFSSpecTarget(fs_local, _make_tmp_subdir()),
-        metadata=MetadataTarget(fs_local, _make_tmp_subdir()),
-    )
 
 
 def _slugify(value: str) -> str:
