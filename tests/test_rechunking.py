@@ -75,6 +75,43 @@ def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks):
         )
 
 
+def test_split_fragment_possible_bug():
+    """Reproduces possible bug observed in certain parametrizations of
+    `test_split_and_combine_fragments_with_merge_dim`.
+    """
+
+    nt_total = 10  # the total size of the hypothetical dataset
+    time_chunks = 1
+    target_chunks = {"time": time_chunks}
+
+    nt = 2
+    ds = make_ds(nt=nt)  # this represents a single dataset fragment
+    dimension = Dimension("time", CombineOp.CONCAT)
+
+    offset = 1
+    index = Index([(dimension, IndexedPosition(offset, dimsize=nt_total))])
+    all_splits = list(split_fragment((index, ds), target_chunks=target_chunks))
+
+    group_keys = [item[0] for item in all_splits]
+    new_datasets = [item[1][1] for item in all_splits]
+
+    # check that new datasets time dimensions were split as expected
+    for i, nds in enumerate(new_datasets):
+        assert len(nds.time) == time_chunks
+        # this will only pass for currently hardcoded value `time_chunks = 1`,
+        # but that's okay bc it's meant to be illustrative of this particular
+        # case, not generalizable
+        assert nds.time == ds.time[i]
+
+    # based on observations of `test_split_and_combine_fragments_with_merge_dim`,
+    # i believe the `expected_group_keys` defined below this comment are correct,
+    # but the `group_keys` emitted by `split_fragments` are: `[(("time", 1),), (("time", 2),)]`.
+    # these (incorrect?) group keys are consistent with those reported in:
+    # https://github.com/pangeo-forge/pangeo-forge-recipes/pull/521#issuecomment-1612227064.
+    expected_group_keys = [(("time", 2),), (("time", 3),)]
+    assert group_keys == expected_group_keys
+
+
 @pytest.mark.parametrize("offset", [0, 5])  # hypothetical offset of this fragment
 @pytest.mark.parametrize("time_chunks", [1, 3, 5, 10, 11])
 def test_split_fragment(time_chunks, offset):
