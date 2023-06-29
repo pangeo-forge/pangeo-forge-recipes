@@ -2,7 +2,6 @@ import itertools
 import random
 from collections import namedtuple
 
-import numpy as np
 import pytest
 import xarray as xr
 
@@ -27,8 +26,7 @@ def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks):
     dsets, _, _ = split_up_files_by_variable_and_day(ds, dayparam)
 
     # replicates indexes created by IndexItems transform.
-    unique_times = np.unique([ds.time[0].values for ds in dsets])
-    time_positions = {t: i for i, t in enumerate(unique_times)}
+    time_positions = {t: i for i, t in enumerate(ds.time.values)}
     merge_dim = Dimension("variable", CombineOp.MERGE)
     concat_dim = Dimension("time", CombineOp.CONCAT)
     indexes = [
