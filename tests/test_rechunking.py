@@ -258,5 +258,3 @@ def test_combine_fragments_errors():
     index1 = Index({Dimension("time", CombineOp.CONCAT): IndexedPosition(2)})
     with pytest.raises(ValueError, match="are not consistent"):
         _ = combine_fragments(group, [(index0, ds), (index1, ds)])
-
-    #
