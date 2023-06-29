@@ -71,6 +71,15 @@ def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks):
             g,
             [sf.content for sf in grouped_subfragments[g]],
         )
+        # ensure vars are *not* combined (we only want to concat, not merge)
+        assert len([k for k in ds_combined.data_vars.keys()]) == 1
+        # check that time chunking is correct
+        if nt % time_chunks == 0:
+            assert len(ds_combined.time) == time_chunks
+        else:
+            # if `nt` is not evenly divisible by `time_chunks`, all chunks will be of
+            # `len(time_chunks)` except the last one, which will be the lenth of the remainder
+            assert len(ds_combined.time) in [time_chunks, nt % time_chunks]
 
 
 @pytest.mark.parametrize("offset", [0, 5])  # hypothetical offset of this fragment
