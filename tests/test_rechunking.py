@@ -88,7 +88,7 @@ def test_split_fragment_possible_bug():
     ds = make_ds(nt=nt)  # this represents a single dataset fragment
     dimension = Dimension("time", CombineOp.CONCAT)
 
-    offset = 1
+    offset = 2
     index = Index([(dimension, IndexedPosition(offset, dimsize=nt_total))])
     all_splits = list(split_fragment((index, ds), target_chunks=target_chunks))
 
