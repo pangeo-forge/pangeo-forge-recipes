@@ -40,13 +40,6 @@ jobs:
       matrix:
         python-version: ["3.9", "3.10"]
         dependencies: ["releases-only", "upstream-dev"]
-        pytest-mark: ["no_executor"]
-        # pytest-mark: ["no_executor", "executor_function", "executor_generator", "executor_beam"]
-        exclude:
-          - dependencies: "upstream-dev"
-            pytest-mark: "executor_function"
-          - dependencies: "upstream-dev"
-            pytest-mark: "executor_generator"
     steps:
       - uses: actions/checkout@v2
 
@@ -78,7 +71,7 @@ jobs:
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
         run: |
-          py.test tests -v -m ${{ matrix.pytest-mark }} \
+          py.test tests -v \
             --cov=pangeo_forge_recipes --cov-config .coveragerc \
             --cov-report term-missing \
             --cov-report xml \
