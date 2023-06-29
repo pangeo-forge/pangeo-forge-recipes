@@ -82,6 +82,17 @@ def split_fragment(
             for dim, chunk_slice in target_chunk_slices.items()
         )
     )
+    # extract the position along each merge dim at which this fragment resides.
+    # this will be appended to the groupkey to ensure that `combine_fragments`
+    # (which consumes the output of this function) receives groups of fragments which are
+    # homogenous in all merge dimensions. a possible value here would be `[("variable", 0)]`.
+    merge_dim_positions = sorted(
+        [
+            (dim.name, position.value)
+            for dim, position in common_index.items()
+            if dim.operation == CombineOp.MERGE
+        ]
+    )
 
     # this iteration yields new fragments, indexed by their target chunk group
     for target_chunk_group in all_chunks:
@@ -104,7 +115,12 @@ def split_fragment(
             )
         sub_fragment_ds = ds.isel(**sub_fragment_indexer)
 
-        yield tuple(sorted(target_chunk_group)), (sub_fragment_index, sub_fragment_ds)
+        yield (
+            # append the `merge_dim_positions` to the target_chunk_group before returning,
+            # to ensure correct grouping of merge dims. e.g., `(("time", 0), ("variable", 0))`.
+            tuple(sorted(target_chunk_group) + merge_dim_positions),
+            (sub_fragment_index, sub_fragment_ds),
+        )
 
 
 def _sort_index_key(item):

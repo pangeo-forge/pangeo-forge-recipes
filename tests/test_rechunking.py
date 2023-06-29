@@ -1,12 +1,85 @@
+import itertools
 import random
+from collections import namedtuple
 
 import pytest
 import xarray as xr
 
-from pangeo_forge_recipes.rechunking import combine_fragments, split_fragment
+from pangeo_forge_recipes.rechunking import GroupKey, combine_fragments, split_fragment
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
 
+from .conftest import split_up_files_by_variable_and_day
 from .data_generation import make_ds
+
+
+@pytest.mark.parametrize(
+    "nt_dayparam",
+    [(5, "1D"), (10, "2D")],
+)
+@pytest.mark.parametrize("time_chunks", [1, 2, 5])
+def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks):
+    """Test if sub-fragments split from datasets with merge dims can be combined with each other."""
+
+    target_chunks = {"time": time_chunks}
+    nt, dayparam = nt_dayparam
+    ds = make_ds(nt=nt)
+    dsets, _, _ = split_up_files_by_variable_and_day(ds, dayparam)
+
+    # replicates indexes created by IndexItems transform.
+    time_positions = {t: i for i, t in enumerate(ds.time.values)}
+    merge_dim = Dimension("variable", CombineOp.MERGE)
+    concat_dim = Dimension("time", CombineOp.CONCAT)
+    indexes = [
+        Index(
+            {
+                merge_dim: Position((0 if "bar" in ds.data_vars else 1)),
+                concat_dim: IndexedPosition(time_positions[ds.time[0].values], dimsize=nt),
+            }
+        )
+        for ds in dsets
+    ]
+
+    # split the (mock indexed) datasets into sub-fragments.
+    # the splits list are nested tuples which are a bit confusing for humans to think about.
+    # create a namedtuple to help remember the structure of these tuples and cast the
+    # elements of splits list to this more descriptive type.
+    splits = [
+        list(split_fragment((index, ds), target_chunks=target_chunks))
+        for index, ds in zip(indexes, dsets)
+    ]
+    Subfragment = namedtuple("Subfragment", "groupkey, content")
+    subfragments = list(itertools.chain(*[[Subfragment(*s) for s in split] for split in splits]))
+
+    # combine subfragments, starting by grouping subfragments by groupkey.
+    # replicates behavior of `... | beam.GroupByKey() | beam.MapTuple(combine_fragments)`
+    # in the `Rechunk` transform.
+    groupkeys = set([sf.groupkey for sf in subfragments])
+    grouped_subfragments: dict[GroupKey, list[Subfragment]] = {g: [] for g in groupkeys}
+    for sf in subfragments:
+        grouped_subfragments[sf.groupkey].append(sf)
+
+    for g in sorted(groupkeys):
+        # just confirms that grouping logic within this test is correct
+        assert all([sf.groupkey == g for sf in grouped_subfragments[g]])
+        # for the merge dimension of each subfragment in the current group, assert that there
+        # is only one positional value present. this verifies that `split_fragments` has not
+        # grouped distinct merge dimension positional values together under the same groupkey.
+        merge_position_vals = [sf.content[0][merge_dim].value for sf in grouped_subfragments[g]]
+        assert all([v == merge_position_vals[0] for v in merge_position_vals])
+        # now actually try to combine the fragments
+        _, ds_combined = combine_fragments(
+            g,
+            [sf.content for sf in grouped_subfragments[g]],
+        )
+        # ensure vars are *not* combined (we only want to concat, not merge)
+        assert len([k for k in ds_combined.data_vars.keys()]) == 1
+        # check that time chunking is correct
+        if nt % time_chunks == 0:
+            assert len(ds_combined.time) == time_chunks
+        else:
+            # if `nt` is not evenly divisible by `time_chunks`, all chunks will be of
+            # `len(time_chunks)` except the last one, which will be the lenth of the remainder
+            assert len(ds_combined.time) in [time_chunks, nt % time_chunks]
 
 
 @pytest.mark.parametrize("offset", [0, 5])  # hypothetical offset of this fragment
@@ -36,7 +109,7 @@ def test_split_fragment(time_chunks, offset):
 
     for n in range(len(all_splits)):
         chunk_number = offset // time_chunks + n
-        assert group_keys[n] == (("time", chunk_number),)
+        assert group_keys[n] == (("time", chunk_number), ("bar", 1))
         chunk_start = time_chunks * chunk_number
         chunk_stop = min(time_chunks * (chunk_number + 1), nt_total)
         fragment_start = max(chunk_start, offset)

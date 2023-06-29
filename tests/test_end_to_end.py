@@ -33,12 +33,12 @@ def pipeline():
 @pytest.mark.parametrize("target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}])
 def test_xarray_zarr(
     daily_xarray_dataset,
-    netcdf_local_file_pattern_sequential,
+    netcdf_local_file_pattern,
     pipeline,
     tmp_target_url,
     target_chunks,
 ):
-    pattern = netcdf_local_file_pattern_sequential
+    pattern = netcdf_local_file_pattern
     with pipeline as p:
         (
             p
