@@ -13,7 +13,6 @@ Objects in this module belong to the following groups, delimited by inline comme
 Note:
    Recipe fixtures are defined in their respective test modules, e.g. `test_recipes.py`
 """
-import logging
 import os
 import socket
 import subprocess
@@ -26,7 +25,6 @@ import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
-from dask.distributed import Client, LocalCluster
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
@@ -37,7 +35,7 @@ from pangeo_forge_recipes.patterns import (
     MergeDim,
     pattern_from_file_sequence,
 )
-from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget, MetadataTarget
+from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 from pangeo_forge_recipes.transforms import OpenURLWithFSSpec
 
 from .data_generation import make_ds
@@ -494,120 +492,3 @@ def tmp_cache(tmpdir_factory):
 def tmp_cache_url(tmpdir_factory):
     path = str(tmpdir_factory.mktemp("cache"))
     return path
-
-
-@pytest.fixture()
-def tmp_metadata_target(tmpdir_factory):
-    path = str(tmpdir_factory.mktemp("cache"))
-    fs = fsspec.get_filesystem_class("file")()
-    cache = MetadataTarget(fs, path)
-    return cache
-
-
-# Execution fixtures ------------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def dask_cluster(request):
-    cluster = LocalCluster(n_workers=2, threads_per_worker=1, silence_logs=False)
-
-    client = Client(cluster)
-
-    # cluster setup
-
-    def set_blosc_threads():
-        from numcodecs import blosc
-
-        blosc.use_threads = False
-
-    log_level_name = request.config.getoption("--redirect-dask-worker-logs-to-stdout")
-    level = logging.getLevelName(log_level_name)
-
-    def redirect_logs():
-        import logging
-
-        for log in ["pangeo_forge_recipes", "fsspec"]:
-            logger = logging.getLogger(log)
-            formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
-            handler = logging.StreamHandler()
-            handler.setFormatter(formatter)
-            handler.setLevel(level)
-            logger.setLevel(level)
-            logger.addHandler(handler)
-
-    client.run(set_blosc_threads)
-    client.run(redirect_logs)
-    client.close()
-    del client
-
-    yield cluster
-
-    cluster.close()
-
-
-# The fixtures below use the following pattern to only run when the marks are activated
-# Based on https://github.com/pytest-dev/pytest/issues/1368#issuecomment-466339463
-
-
-@pytest.fixture(
-    scope="session",
-    params=[
-        pytest.param("FunctionPipelineExecutor", marks=pytest.mark.executor_function),
-        pytest.param("GeneratorPipelineExecutor", marks=pytest.mark.executor_generator),
-        pytest.param("BeamPipelineExecutor", marks=pytest.mark.executor_beam),
-    ],
-)
-def Executor(request):
-    try:
-        import pangeo_forge_recipes.executors as exec_module
-
-        return getattr(exec_module, request.param)
-    except AttributeError:
-        pytest.skip(f"Couldn't import {request.param}")
-
-
-@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_function)])
-def execute_recipe_function():
-    def execute(recipe):
-        return recipe.to_function()()
-
-    return execute
-
-
-@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_generator)])
-def execute_recipe_generator():
-    def execute(recipe):
-        for f, args, kwargs in recipe.to_generator():
-            f(*args, **kwargs)
-
-    return execute
-
-
-@pytest.fixture(params=[pytest.param(0, marks=pytest.mark.executor_beam)])
-def execute_recipe_beam():
-    beam = pytest.importorskip("apache_beam")
-
-    def execute(recipe):
-        pcoll = recipe.to_beam()
-        with beam.Pipeline() as p:
-            p | pcoll
-
-    return execute
-
-
-# now mark all other tests with "no_executor"
-# https://stackoverflow.com/questions/39846230/how-to-run-only-unmarked-tests-in-pytest
-def pytest_collection_modifyitems(items, config):
-    for item in items:
-        executor_markers = [
-            marker for marker in item.iter_markers() if marker.name.startswith("executor_")
-        ]
-        if len(executor_markers) == 0:
-            item.add_marker("no_executor")
-
-
-@pytest.fixture(
-    params=[lazy_fixture("execute_recipe")],
-)
-def execute_recipe(request):
-    return request.param
