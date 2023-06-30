@@ -2,7 +2,7 @@ name: Test Tutorial Notebooks
 
 on:
   push:
-    branches: master
+    branches: main
   repository_dispatch:
     types: [run-test-tutorials-command]
   workflow_dispatch:
