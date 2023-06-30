@@ -4,7 +4,8 @@
 
 - **Major breaking change:** This release represents a nearly complete rewrite of
 the package, removing the custom recipe constructor classes and executors, and
-replacing them with a set of modular, domain-specific Apache Beam `PTransform`s, which can be flexibly composed and executed on any Apache Beam runner. The documention has
+replacing them with a set of modular, domain-specific Apache Beam `PTransform`s,
+which can be flexibly composed and executed on any Apache Beam runner. The documention has
 been updated to reflect this change. As the first release following this major
 rewrite, we expect bugs and documentation gaps to exist, and we look forward to
 community support in finding and triaging those issues. A blog post and further
