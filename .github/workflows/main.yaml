@@ -77,7 +77,7 @@ jobs:
             --cov-report xml \
             --durations=10 --durations-min=1.0
       - name: 🚦 Run Codecov
-        uses: codecov/codecov-action@v2.0.2
+        uses: codecov/codecov-action@v3.1.4
         with:
           file: ./coverage.xml
           env_vars: OS,PYTHON
