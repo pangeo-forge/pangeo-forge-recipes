@@ -2,11 +2,11 @@ name: Tests
 
 on:
   push:
-    branches: "*"
+    branches: [ "main" ]
     paths-ignore:
     - 'docs/**'
   pull_request:
-    branches: [master, beam-refactor]
+    branches: [ "main" ]
     paths-ignore:
     - 'docs/**'
 
@@ -24,10 +24,6 @@ env:
 #   - Generating the cache key
 #   - Actually loading the environment using the key
 #   - Adding the path ``/usr/share/miniconda3/envs/pangeo-forge-recipes/bin`` to $PATH
-#
-# Apart from the caching logic, we use pytest marks to parallelize execution across different
-# executors. These marks are configured in tests/conftest.py, and represent a testing regime
-# which pre-dates the beam-refactor. We may want to deprecate them.
 
 jobs:
   prepare-env:

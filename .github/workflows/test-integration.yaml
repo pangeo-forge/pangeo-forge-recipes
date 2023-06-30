@@ -2,9 +2,9 @@ name: Integration tests
 
 on:
   push:
-    branches: [ "beam-refactor" ]  # FIXME: change to default branch post-merge
+    branches: [ "main" ]
   pull_request:
-    branches: [ "beam-refactor" ]  # FIXME: change to default branch post-merge
+    branches: [ "main" ]
     types: [ opened, reopened, synchronize, labeled ]
 
 env:
