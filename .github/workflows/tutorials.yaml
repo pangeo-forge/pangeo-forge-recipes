@@ -26,9 +26,9 @@ jobs:
          - nb-path: "xarray_zarr/opendap_subset_recipe.ipynb"
          - nb-path: "xarray_zarr/terraclimate.ipynb"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         if: ${{ github.event_name != 'repository_dispatch' }}
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         if: ${{ github.event_name == 'repository_dispatch' }}
         with:
           fetch-depth: 0

@@ -30,7 +30,7 @@ jobs:
         python-version: ["3.9", "3.10"]
         dependencies: ["releases-only", "upstream-dev"]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       # generic steps to load env from cache
       - name: 🎯 Set cache number
