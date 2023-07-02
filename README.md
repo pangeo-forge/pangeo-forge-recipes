@@ -1,7 +1,7 @@
 # pangeo-forge-recipes
 
 [![PyPI version](https://badge.fury.io/py/pangeo-forge-recipes.svg)](https://badge.fury.io/py/pangeo-forge-recipes)
-![CI](https://github.com/pangeo-forge/pangeo-forge-recipes/workflows/CI/badge.svg)
+[![CI](https://github.com/pangeo-forge/pangeo-forge-recipes/actions/workflows/test-integration.yaml/badge.svg)](https://github.com/pangeo-forge/pangeo-forge-recipes/actions/workflows/test-integration.yaml)
 ![Codecov](https://img.shields.io/codecov/c/github/pangeo-forge/pangeo-forge-recipes)
 [![Documentation Status](https://readthedocs.org/projects/pangeo-forge/badge/?version=latest)](https://pangeo-forge.readthedocs.io/en/latest/?badge=latest)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
