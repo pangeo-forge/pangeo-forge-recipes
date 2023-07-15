@@ -16,10 +16,17 @@ from pangeo_forge_recipes.transforms import (
     OpenWithXarray,
     PrepareZarrTarget,
     Rechunk,
+    dynamic_target_chunks_from_schema
 )
 from pangeo_forge_recipes.types import CombineOp
 
 from .data_generation import make_ds
+
+def test_dynamic():
+    ds = make_ds()
+    schema = dataset_to_schema(ds)
+    target_chunks = dynamic_target_chunks_from_schema(schema, {"time": 1})
+    assert target_chunks == {"time": 1, "lon": 9, "lat": 9}
 
 
 # the items from these patterns are suitable to be opened directly

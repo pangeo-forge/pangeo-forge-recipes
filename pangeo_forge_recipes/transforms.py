@@ -376,6 +376,46 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
         )
 
 
+from pangeo_forge_recipes.aggregation import schema_to_template_ds
+
+def dynamic_target_chunks_from_schema(
+    schema: XarraySchema,
+    target_chunk_nbytes: int,
+    target_chunks: Dict[str,int] = None,
+) -> dict[str, int]:
+    """Dynamically determine target_chunks based on relative number of chunks for 
+    each dimension
+    Example: 
+    assume a dataset with dimensions (x, y, time, depth)
+    dynamic_target_chunks_from_schema(
+        schema,
+        1e9,
+        target_chunks={'time': 8, 'x':1, 'y':1, 'depth':-1}
+        )
+    will return a dataset with 8 times more chunks along time than along x and y dimension and 
+    the depth will only be a single chunk.
+    """
+    ds = schema_to_template_ds(schema)
+
+    # initial guess at chunks
+    target_chunks = {dim:len(ds[dim])//chunks for dim, chunks in target_chunks.items()}
+    # add the -1 
+
+
+    def check_mem_size(ds, target_chunks):
+        """Check the memory size a single chunk of each variable in the dataset, 
+        and return max"""
+        # slice the dataset to a single chunk dimensionality
+        ds = ds.isel({dim:slice(0, chunks) for dim, chunks in target_chunks.items()})
+        nbytes = [ds[var].nbytes for var in ds.data_vars]
+        return max(nbytes)
+    
+    i = 1
+    while (check_mem_size<target_chunk_nbytes) and (i<100):
+        target_chunks = {dim:chunks*i for dim, chunks in target_chunks.items()}
+
+    return target_chunks
+
 @dataclass
 class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
