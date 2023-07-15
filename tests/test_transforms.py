@@ -22,11 +22,39 @@ from pangeo_forge_recipes.types import CombineOp
 
 from .data_generation import make_ds
 
-def test_dynamic():
-    ds = make_ds()
+
+import dask.array as dsa
+
+def test_dynamic_rechunking():
+    ds = xr.DataArray(dsa.random.random([100, 100, 100]), dims=['x', 'y','z']).to_dataset(name='data')
     schema = dataset_to_schema(ds)
-    target_chunks = dynamic_target_chunks_from_schema(schema, {"time": 1})
-    assert target_chunks == {"time": 1, "lon": 9, "lat": 9}
+    target_chunks = dynamic_target_chunks_from_schema(schema, 1e6, target_chunk_length={'x':1, 'y':1, 'z':10})
+    assert target_chunks['x'] == target_chunks['z'] *10
+
+def test_dynamic_skip_dimension():
+    # Mark dimension as 'not-to-chunk' with -1
+    ds = xr.DataArray(dsa.random.random([100, 100, 100]), dims=['x', 'y','z']).to_dataset(name='data')
+    schema = dataset_to_schema(ds)
+    target_chunks = dynamic_target_chunks_from_schema(schema, 1e6, target_chunk_length={'x':1, 'y':1, 'z':10})
+    assert target_chunks['y'] == len(ds['y'])
+
+def test_dynamic_rechunking_error_dimension_missing():
+# make sure that an error is raised if some dimension is not specified
+    ds = xr.DataArray(dsa.random.random([100, 100, 100]), dims=['x', 'y','z']).to_dataset(name='data')
+    schema = dataset_to_schema(ds)
+
+    with pytest.raises(ValueError, match='blah blah'):
+        dynamic_target_chunks_from_schema(schema, 1e6, target_chunk_length={'x':1, 'z':10})
+
+def test_dynamic_rechunking_error_dimension_wrong():
+    ds = xr.DataArray(dsa.random.random([100, 100, 100]), dims=['x', 'y','z']).to_dataset(name='data')
+    schema = dataset_to_schema(ds)
+
+    with pytest.raises(ValueError, match='blah blah'):
+        dynamic_target_chunks_from_schema(schema, 1e6, target_chunk_length={'x':1, 'y_wrong':1, 'z':10})
+
+
+
 
 
 # the items from these patterns are suitable to be opened directly
