@@ -21,6 +21,7 @@ from pangeo_forge_recipes.types import CombineOp
 
 from .data_generation import make_ds
 
+
 # the items from these patterns are suitable to be opened directly
 # by open_with_xarray, bypassing fsspec
 @pytest.fixture(
