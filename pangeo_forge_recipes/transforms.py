@@ -374,62 +374,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
             output_json_fname=self.output_json_fname,
         )
 
-
-from pangeo_forge_recipes.aggregation import schema_to_template_ds
-
-def check_mem_size(ds, target_chunks):
-    """Check the memory size a single chunk of each variable in the dataset, 
-    and return max"""
-    # slice the dataset to a single chunk dimensionality
-
-
-def dynamic_target_chunks_from_schema(
-    schema: XarraySchema,
-    target_chunk_nbytes: int,
-    target_chunk_length: Dict[str,int] = None,
-) -> dict[str, int]:
-    """Dynamically determine target_chunks based on relative number of chunks for 
-    each dimension
-    Example: 
-    assume a dataset with dimensions (x, y, time, depth)
-    dynamic_target_chunks_from_schema(
-        schema,
-        1e9,
-        target_chunks={'time': 8, 'x':1, 'y':1, 'depth':-1}
-        )
-    will return a dataset with 8 times more chunks along time than along x and y 
-    dimension while the depth dimension. 
-    """
-    ds = schema_to_template_ds(schema)
-    
-    min_len = min([len(ds[dim]) for dim in ds.dims])
-    print(f'min_len: {min_len}')
-    # this is guaranteed to be an integer
-    unit_chunk = {dim: int(len(ds[dim])/min_len) for dim in ds.dims}
-    print(f'unit: {unit_chunk}')
-    
-    # now check how big the unit chunk is
-    optimal_chunks = {dim: unit_chunk[dim]/target_chunk_length[dim] for dim in target_chunk_length.keys()}
-    print(f'optimal chunks:{optimal_chunks}')
-    
-    # rescale so that the minimal value is 1
-    min_optimal = min(list(optimal_chunks.values()))
-    optimal_chunks_normalized = {dim: int(chunk/min_optimal) for dim, chunk in optimal_chunks.items()}
-    print(f'optimal_norm: {optimal_chunks_normalized}')
-
-    # Estimate the size of the `optimal_chunks_normalized` for each variable and use the largest to scale
-    # chunks to get to the target_chunk_nbytes size.
-    ds = ds.isel({dim:slice(0, chunks) for dim, chunks in optimal_chunks_normalized.items()})
-    mem_size = max([ds[var].nbytes for var in ds.data_vars])
-    scale_factor = target_chunk_nbytes / mem_size
-    power = 1/len(ds.dims) #Will this cause problems? TODO: require all dataset dimension to be specified explicitly
-    scale_factor = scale_factor ** power
-    
-    best_chunk = {
-        dim:int(scale_factor*chunks) for dim, chunks in optimal_chunks_normalized.items()
-    }
-    return best_chunk
-
 @dataclass
 class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
