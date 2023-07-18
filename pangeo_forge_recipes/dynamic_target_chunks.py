@@ -17,7 +17,7 @@ def get_memory_size(ds: xr.Dataset, chunks: Dict[str, int]) -> int:
     return mem_size
 
 
-def difference(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+def similarity(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return np.sqrt(np.sum((a - b) ** 2))
 
 
@@ -100,7 +100,7 @@ def dynamic_target_chunks_from_schema(
 
     # Find the 'closest' fit of chunk ratio to the target ratio
     # cartesian difference between vectors ok?
-    ratio_difference = [difference(ratio_normalized, r) for r in ratio_combinations]
+    ratio_difference = [similarity(ratio_normalized, r) for r in ratio_combinations]
 
     combinations_sorted = [c for _, c in sorted(zip(ratio_difference, combinations_filtered))]
 
