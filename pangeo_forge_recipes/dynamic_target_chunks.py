@@ -3,8 +3,8 @@ from typing import Dict, List, Union
 
 import numpy as np
 import xarray as xr
-
 from dask.utils import parse_bytes
+
 from pangeo_forge_recipes.aggregation import XarraySchema, schema_to_template_ds
 
 
@@ -42,22 +42,22 @@ def dynamic_target_chunks_from_schema(
     target_chunk_ratio: Dict[str, int],
     nbytes_tolerance: float = 0.2,
 ) -> dict[str, int]:
-    """Determine chunksizes based on desired chunksize (max size of any variable in the 
-    dataset) and the ratio of total chunks along each dimension of the dataset. The 
-    algorithm finds even divisors, and chooses possible combination that produce chunk 
+    """Determine chunksizes based on desired chunksize (max size of any variable in the
+    dataset) and the ratio of total chunks along each dimension of the dataset. The
+    algorithm finds even divisors, and chooses possible combination that produce chunk
     sizes close to the target. From this set of combination the chunks that most closely produce the ratio of total
-    chunks along the given dimensions.   
+    chunks along the given dimensions.
 
     Parameters
     ----------
     schema : XarraySchema
         Schema of the input dataset
     target_chunk_nbytes : Union[int, str]
-        Desired chunk size (defined as the max size of any variable in the dataset with 
+        Desired chunk size (defined as the max size of any variable in the dataset with
         chosen chunks). Can be provided as integer (bytes) or a string like '100MB'.
     nbytes_tolerance : float, optional
-        Chunksize tolerance. Resulting chunk size will be within 
-        [target_chunk_nbytes*(1-nbytes_tolerance), 
+        Chunksize tolerance. Resulting chunk size will be within
+        [target_chunk_nbytes*(1-nbytes_tolerance),
         target_chunk_nbytes*(1+nbytes_tolerance)] , by default 0.2
 
     Returns
