@@ -54,8 +54,8 @@ def dynamic_target_chunks_from_schema(
     ratio = [target_chunk_ratio[dim] for dim in dims]
     # The target ratio is defined for total chunks along a certain axis
     # This means we need to scale the ratio by the shape
-    ratio_scaled = np.array(ratio)/np.array(shape)
-    # the input ratio targets the total number of 
+    ratio_scaled = np.array(ratio) / np.array(shape)
+    # the input ratio targets the total number of
     ratio_normalized = normalize(ratio_scaled)
 
     possible_chunks = []
