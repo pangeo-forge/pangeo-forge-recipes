@@ -52,7 +52,11 @@ def dynamic_target_chunks_from_schema(
 
     dims, shape = zip(*ds.dims.items())
     ratio = [target_chunk_ratio[dim] for dim in dims]
-    ratio_normalized = normalize(np.array(ratio))
+    # The target ratio is defined for total chunks along a certain axis
+    # This means we need to scale the ratio by the shape
+    ratio_scaled = np.array(ratio)/np.array(shape)
+    # the input ratio targets the total number of 
+    ratio_normalized = normalize(ratio_scaled)
 
     possible_chunks = []
     for s, r, dim in zip(shape, ratio, dims):
@@ -93,7 +97,6 @@ def dynamic_target_chunks_from_schema(
 
     # convert the combinations into the normalized inverse
     ratio_combinations = [normalize(1 / np.array(c)) for c in combinations_filtered]
-    # ratio_combinations = [normalize(np.array(c)) for c in combinations_filtered]
 
     # Find the 'closest' fit of chunk ratio to the target ratio
     # cartesian difference between vectors ok?
