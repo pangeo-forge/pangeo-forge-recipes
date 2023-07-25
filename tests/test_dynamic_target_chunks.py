@@ -49,14 +49,17 @@ class TestDynamicTargetChunks:
             assert target_chunks[dim] == chunks
 
     def test_nbytes_str_input(self):
-        ds = _create_ds({'x':100, 'y':100, 'z':100})
+        ds = _create_ds({"x": 100, "y": 100, "z": 100})
         schema = dataset_to_schema(ds)
         target_chunks_aspect_ratio = {'x':1, 'y':1, 'z':1}
-        target_chunks_int = dynamic_target_chunks_from_schema(schema, 1e6, target_chunks_aspect_ratio=target_chunks_aspect_ratio)
-        target_chunks_str = dynamic_target_chunks_from_schema(schema, '1MB', target_chunks_aspect_ratio=target_chunks_aspect_ratio)
+        target_chunks_int = dynamic_target_chunks_from_schema(
+             schema, 1e6, target_chunks_aspect_ratio=target_chunks_aspect_ratio
+        )
+        target_chunks_str = dynamic_target_chunks_from_schema(
+             schema, '1MB', target_chunks_aspect_ratio=target_chunks_aspect_ratio
+        )
         for dim in target_chunks_aspect_ratio.keys():
             assert target_chunks_int[dim] == target_chunks_str[dim]
-
 
     def test_dynamic_rechunking_maintain_ratio(self):
         """Confirm that for a given ratio with two differently sized datasets we maintain a constant ratio
