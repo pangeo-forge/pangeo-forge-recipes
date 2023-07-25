@@ -113,7 +113,7 @@ def dynamic_target_chunks_from_schema(
         )
 
     # Now that we have cominations in the memory size range we want, we can check which is closest to our
-    # desired chunk ratio. 
+    # desired chunk ratio.
     # We can think of this as comparing the angle of two vectors.
     # To compare them we need to normalize (we dont care about the amplitude here)
 
@@ -126,9 +126,7 @@ def dynamic_target_chunks_from_schema(
     ratio_similarity = [similarity(ratio_normalized, r) for r in ratio_combinations]
 
     # sort by the mostl similar (smallest value of ratio_similarity)
-    combinations_sorted = [
-        c for _, c in sorted(zip(ratio_similarity, combinations_filtered))
-        ]
+    combinations_sorted = [c for _, c in sorted(zip(ratio_similarity, combinations_filtered))]
 
     # Return the chunk combination with the closest fit
     optimal_combination = combinations_sorted[0]
