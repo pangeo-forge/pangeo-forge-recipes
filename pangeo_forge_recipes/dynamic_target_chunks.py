@@ -38,9 +38,9 @@ def even_divisor_chunks(n: int) -> List[int]:
 
 def dynamic_target_chunks_from_schema(
     schema: XarraySchema,
-    target_chunk_nbytes: Union[int, str],  # TODO: Accept a str like `100MB`
+    target_chunk_size: Union[int, str],
     target_chunks_aspect_ratio: Dict[str, int],
-    nbytes_tolerance: float = 0.2,
+    size_tolerance: float,
 ) -> dict[str, int]:
     """Determine chunksizes based on desired chunksize (max size of any variable in the
     dataset) and the ratio of total chunks along each dimension of the dataset. The
@@ -52,21 +52,21 @@ def dynamic_target_chunks_from_schema(
     ----------
     schema : XarraySchema
         Schema of the input dataset
-    target_chunk_nbytes : Union[int, str]
+    target_chunk_size : Union[int, str]
         Desired chunk size (defined as the max size of any variable in the dataset with
         chosen chunks). Can be provided as integer (bytes) or a string like '100MB'.
-    nbytes_tolerance : float, optional
+    size_tolerance : float
         Chunksize tolerance. Resulting chunk size will be within
-        [target_chunk_nbytes*(1-nbytes_tolerance),
-        target_chunk_nbytes*(1+nbytes_tolerance)] , by default 0.2
+        [target_chunk_size*(1-size_tolerance),
+        target_chunk_size*(1+size_tolerance)]
 
     Returns
     -------
     dict[str, int]
         Target chunk dictionary. Can be passed directly to `ds.chunk()`
     """
-    if isinstance(target_chunk_nbytes, str):
-        target_chunk_nbytes = parse_bytes(target_chunk_nbytes)
+    if isinstance(target_chunk_size, str):
+        target_chunk_size = parse_bytes(target_chunk_size)
 
     ds = schema_to_template_ds(schema)
 
@@ -99,11 +99,9 @@ def dynamic_target_chunks_from_schema(
     ]
 
     # And select a subset with some form of tolerance based on the size requirement
-    tolerance = nbytes_tolerance * target_chunk_nbytes
+    tolerance = size_tolerance * target_chunk_size
     combinations_filtered = [
-        c
-        for c, s in zip(combinations, combination_sizes)
-        if abs(s - target_chunk_nbytes) < tolerance
+        c for c, s in zip(combinations, combination_sizes) if abs(s - target_chunk_size) < tolerance
     ]
 
     # If there are no matches in the range, the user has to increase the tolerance for this to work.
@@ -113,7 +111,7 @@ def dynamic_target_chunks_from_schema(
         )
 
     # Now that we have cominations in the memory size range we want, we can check which is closest to our
-    # desired chunk ratio. 
+    # desired chunk ratio.
     # We can think of this as comparing the angle of two vectors.
     # To compare them we need to normalize (we dont care about the amplitude here)
 
@@ -126,9 +124,7 @@ def dynamic_target_chunks_from_schema(
     ratio_similarity = [similarity(ratio_normalized, r) for r in ratio_combinations]
 
     # sort by the mostl similar (smallest value of ratio_similarity)
-    combinations_sorted = [
-        c for _, c in sorted(zip(ratio_similarity, combinations_filtered))
-        ]
+    combinations_sorted = [c for _, c in sorted(zip(ratio_similarity, combinations_filtered))]
 
     # Return the chunk combination with the closest fit
     optimal_combination = combinations_sorted[0]

@@ -4,12 +4,13 @@ import logging
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import Dict, List, Optional, Tuple, TypeVar
+from typing import Dict, List, Optional, Tuple, TypeVar, Union
 
 import apache_beam as beam
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
+from .dynamic_target_chunks import dynamic_target_chunks_from_schema
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
@@ -53,6 +54,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 Indexed = Tuple[Index, T]
+
 
 # TODO: replace with beam.MapTuple?
 def _add_keys(func):
@@ -291,7 +293,6 @@ class PrepareZarrTarget(beam.PTransform):
 
 @dataclass
 class StoreDatasetFragments(beam.PTransform):
-
     target_store: beam.PCollection  # side input
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
@@ -382,16 +383,51 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     :param combine_dims: The dimensions to combine
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the data.
+    :param target_chunk_aspect_ratio: Dictionary mapping dimension names to desired
+        aspect ratio of total number of chunks along each dimension.
+    :param target_chunk_size:
+    :param size_tolerance : float, optional
+        Chunksize tolerance. Resulting chunk size will be within
+        [target_chunk_size*(1-size_tolerance),
+        target_chunk_size*(1+size_tolerance)] , by default 0.2
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
-    target_chunks: Dict[str, int] = field(default_factory=dict)
+    target_chunks: Optional[Dict[Dimension, int]]
+    target_chunks_aspect_ratio: Optional[Dict[Dimension, int]]
+    target_chunk_size: Optional[Union[str, int]]
+    size_tolerance: Optional[float] = 0.2
+
+    def __post__init__(self):
+        # check that not both static and dynamic chunking are specified
+        if hasattr(self, "target_chunks") and (
+            hasattr(self, "target_chunk_size") or hasattr(self, "target_chunks_aspect_ratio")
+        ):
+            raise ValueError(
+                "Cannot specify both target_chunks and target_chunk_size or target_chunks_aspect_ratio."
+            )
+
+        # if dynamic chunking is specified, make sure both target_chunk_size
+        # and target_chunks_aspect_ratio are specified
+        if not hasattr(self, "target_chunks") and not (
+            hasattr(self, "target_chunk_size") and hasattr(self, "target_chunks_aspect_ratio")
+        ):
+            raise ValueError(
+                "Must specify both target_chunk_size and target_chunks_aspect_ratio to enable dynamic chunking."
+            )
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
+        # if dynamic chunking is chosen, set the objects target_chunks here
+        if hasattr(self, "target_chunks_aspect_ratio"):
+            self.target_chunks = dynamic_target_chunks_from_schema(
+                schema,
+                target_chunk_size=self.target_chunk_size,
+                target_chunks_aspect_ratio=self.target_chunks_aspect_ratio,
+            )
         rechunked_datasets = indexed_datasets | Rechunk(
             target_chunks=self.target_chunks, schema=schema
         )
