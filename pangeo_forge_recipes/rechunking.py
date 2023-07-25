@@ -160,7 +160,7 @@ def combine_fragments(
     :param fragments: indexed dataset fragments
     """
 
-    logger.debug(f"Combining {group = }, containing {fragments =}")
+    logger.debug(f"Combining {group = }, containing {fragments = }")
 
     # we are combining over all the concat dims found in the indexes
     # first check indexes for consistency
