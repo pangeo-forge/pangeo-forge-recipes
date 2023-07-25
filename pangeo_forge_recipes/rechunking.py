@@ -31,6 +31,8 @@ def split_fragment(
     :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
     """
 
+    logger.debug(f"Splitting {fragment = }, with {target_chunks = } and {schema = }")
+
     if target_chunks is None and schema is None:
         raise ValueError("Must specify either target_chunks or schema (or both).")
     if schema is not None:
