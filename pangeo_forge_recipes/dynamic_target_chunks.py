@@ -39,7 +39,7 @@ def even_divisor_chunks(n: int) -> List[int]:
 def dynamic_target_chunks_from_schema(
     schema: XarraySchema,
     target_chunk_nbytes: Union[int, str],  # TODO: Accept a str like `100MB`
-    target_chunk_ratio: Dict[str, int],
+    target_chunks_aspect_ratio: Dict[str, int],
     nbytes_tolerance: float = 0.2,
 ) -> dict[str, int]:
     """Determine chunksizes based on desired chunksize (max size of any variable in the 
@@ -70,19 +70,14 @@ def dynamic_target_chunks_from_schema(
 
     ds = schema_to_template_ds(schema)
 
-    if set(target_chunk_ratio.keys()) != set(ds.dims):
+    if set(target_chunks_aspect_ratio.keys()) != set(ds.dims):
         raise ValueError(
-            f"target_chunk_ratio must contain all dimensions in dataset. "
-            f"Got {target_chunk_ratio.keys()} but expected {list(ds.dims.keys())}"
+            f"target_chunks_aspect_ratio must contain all dimensions in dataset. "
+            f"Got {target_chunks_aspect_ratio.keys()} but expected {list(ds.dims.keys())}"
         )
 
     dims, shape = zip(*ds.dims.items())
-    ratio = [target_chunk_ratio[dim] for dim in dims]
-    # The target ratio is defined for total chunks along a certain axis
-    # This means we need to scale the ratio by the shape
-    ratio_scaled = np.array(ratio) / np.array(shape)
-    # the input ratio targets the total number of
-    ratio_normalized = normalize(ratio_scaled)
+    ratio = [target_chunks_aspect_ratio[dim] for dim in dims]
 
     possible_chunks = []
     for s, r, dim in zip(shape, ratio, dims):
@@ -118,17 +113,22 @@ def dynamic_target_chunks_from_schema(
         )
 
     # Now that we have cominations in the memory size range we want, we can check which is closest to our
-    # desired chunk ratio. We can think of this as comparing the angle of two vectors.
+    # desired chunk ratio. 
+    # We can think of this as comparing the angle of two vectors.
     # To compare them we need to normalize (we dont care about the amplitude here)
 
-    # convert the combinations into the normalized inverse
-    ratio_combinations = [normalize(1 / np.array(c)) for c in combinations_filtered]
+    # convert each combination into an array of resulting chunks per dimension, then normalize
+    ratio_combinations = [normalize(np.array(shape) / np.array(c)) for c in combinations_filtered]
 
-    # Find the 'closest' fit of chunk ratio to the target ratio
+    # Find the 'closest' fit between normalized ratios
     # cartesian difference between vectors ok?
-    ratio_difference = [similarity(ratio_normalized, r) for r in ratio_combinations]
+    ratio_normalized = normalize(np.array(ratio))
+    ratio_similarity = [similarity(ratio_normalized, r) for r in ratio_combinations]
 
-    combinations_sorted = [c for _, c in sorted(zip(ratio_difference, combinations_filtered))]
+    # sort by the mostl similar (smallest value of ratio_similarity)
+    combinations_sorted = [
+        c for _, c in sorted(zip(ratio_similarity, combinations_filtered))
+        ]
 
     # Return the chunk combination with the closest fit
     optimal_combination = combinations_sorted[0]

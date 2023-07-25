@@ -17,7 +17,7 @@ def _create_ds(dims_shape: Dict[str, int]) -> xr.Dataset:
 
 class TestDynamicTargetChunks:
     @pytest.mark.parametrize(
-        ("dims_shape", "target_chunk_ratio", "expected_target_chunks"),
+        ("dims_shape", "target_chunks_aspect_ratio", "expected_target_chunks"),
         [
             # make sure that for the same dataset we get smaller chunksize along a dimension if the ratio is larger
             (
@@ -28,7 +28,7 @@ class TestDynamicTargetChunks:
             (
                 {"x": 200, "y": 200, "z": 200},
                 {"x": 10, "y": 1, "z": 1},
-                {"x": 25, "y": 100, "z": 50},
+                {"x": 25, "y": 50, "z": 100},
             ),
             # test the special case where we want to just chunk along a single dimension
             (
@@ -38,11 +38,11 @@ class TestDynamicTargetChunks:
             ),
         ],
     )
-    def test_dynamic_rechunking(self, dims_shape, target_chunk_ratio, expected_target_chunks):
+    def test_dynamic_rechunking(self, dims_shape, target_chunks_aspect_ratio, expected_target_chunks):
         ds = _create_ds(dims_shape)
         schema = dataset_to_schema(ds)
         target_chunks = dynamic_target_chunks_from_schema(
-            schema, 1e6, target_chunk_ratio=target_chunk_ratio
+            schema, 1e6, target_chunks_aspect_ratio=target_chunks_aspect_ratio
         )
         print(target_chunks)
         for dim, chunks in expected_target_chunks.items():
@@ -51,10 +51,10 @@ class TestDynamicTargetChunks:
     def test_nbytes_str_input(self):
         ds = _create_ds({'x':100, 'y':100, 'z':100})
         schema = dataset_to_schema(ds)
-        target_chunk_ratio = {'x':1, 'y':1, 'z':1}
-        target_chunks_int = dynamic_target_chunks_from_schema(schema, 1e6, target_chunk_ratio=target_chunk_ratio)
-        target_chunks_str = dynamic_target_chunks_from_schema(schema, '1MB', target_chunk_ratio=target_chunk_ratio)
-        for dim in target_chunk_ratio.keys():
+        target_chunks_aspect_ratio = {'x':1, 'y':1, 'z':1}
+        target_chunks_int = dynamic_target_chunks_from_schema(schema, 1e6, target_chunks_aspect_ratio=target_chunks_aspect_ratio)
+        target_chunks_str = dynamic_target_chunks_from_schema(schema, '1MB', target_chunks_aspect_ratio=target_chunks_aspect_ratio)
+        for dim in target_chunks_aspect_ratio.keys():
             assert target_chunks_int[dim] == target_chunks_str[dim]
 
 
@@ -68,21 +68,21 @@ class TestDynamicTargetChunks:
             print(ds)
             schema = dataset_to_schema(ds)
             target_chunks = dynamic_target_chunks_from_schema(
-                schema, 1e4, target_chunk_ratio={"x": 1, "y": 4}
+                schema, 1e4, target_chunks_aspect_ratio={"x": 1, "y": 4}
             )
             ds_rechunked = ds.chunk(target_chunks)
             assert len(ds_rechunked.chunks["y"]) / len(ds_rechunked.chunks["x"]) == 4
 
     @pytest.mark.parametrize(
-        "target_chunk_ratio", [{"x": 1, "y": -1, "z": 10}, {"x": 6, "y": -1, "z": 2}]
+        "target_chunks_aspect_ratio", [{"x": 1, "y": -1, "z": 10}, {"x": 6, "y": -1, "z": 2}]
     )  # always keep y unchunked, and vary the others
     @pytest.mark.parametrize("target_chunk_nbytes", [1e6, 1e7])
-    def test_dynamic_skip_dimension(self, target_chunk_ratio, target_chunk_nbytes):
+    def test_dynamic_skip_dimension(self, target_chunks_aspect_ratio, target_chunk_nbytes):
         ds = _create_ds({"x": 100, "y": 200, "z": 300})
         # Mark dimension as 'not-to-chunk' with -1
         schema = dataset_to_schema(ds)
         target_chunks = dynamic_target_chunks_from_schema(
-            schema, target_chunk_nbytes, target_chunk_ratio=target_chunk_ratio
+            schema, target_chunk_nbytes, target_chunks_aspect_ratio=target_chunks_aspect_ratio
         )
         assert target_chunks["y"] == len(ds["y"])
 
@@ -92,16 +92,16 @@ class TestDynamicTargetChunks:
         schema = dataset_to_schema(ds)
 
         with pytest.raises(
-            ValueError, match="target_chunk_ratio must contain all dimensions in dataset."
+            ValueError, match="target_chunks_aspect_ratio must contain all dimensions in dataset."
         ):
-            dynamic_target_chunks_from_schema(schema, 1e6, target_chunk_ratio={"x": 1, "z": 10})
+            dynamic_target_chunks_from_schema(schema, 1e6, target_chunks_aspect_ratio={"x": 1, "z": 10})
 
     def test_dynamic_rechunking_error_dimension_wrong(self):
         ds = _create_ds({"x": 100, "y": 200, "z": 300})
         schema = dataset_to_schema(ds)
         with pytest.raises(
-            ValueError, match="target_chunk_ratio must contain all dimensions in dataset."
+            ValueError, match="target_chunks_aspect_ratio must contain all dimensions in dataset."
         ):
             dynamic_target_chunks_from_schema(
-                schema, 1e6, target_chunk_ratio={"x": 1, "y_wrong": 1, "z": 10}
+                schema, 1e6, target_chunks_aspect_ratio={"x": 1, "y_wrong": 1, "z": 10}
             )
