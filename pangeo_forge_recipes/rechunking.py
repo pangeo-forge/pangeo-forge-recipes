@@ -31,7 +31,7 @@ def split_fragment(
     :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
     """
 
-    logger.debug(f"Splitting {fragment = }, with {target_chunks = } and {schema = }")
+    logger.info(f"Splitting {fragment = }, with {target_chunks = } and {schema = }")
 
     if target_chunks is None and schema is None:
         raise ValueError("Must specify either target_chunks or schema (or both).")
@@ -162,7 +162,7 @@ def combine_fragments(
     :param fragments: indexed dataset fragments
     """
 
-    logger.debug(f"Combining {group = }, containing {fragments = }")
+    logger.info(f"Combining {group = }, containing {fragments = }")
 
     # we are combining over all the concat dims found in the indexes
     # first check indexes for consistency
