@@ -1,5 +1,6 @@
 import functools
 import itertools
+import logging
 import operator
 from typing import Dict, Iterator, List, Tuple
 
@@ -9,6 +10,8 @@ import xarray as xr
 from .aggregation import XarraySchema, determine_target_chunks
 from .chunk_grid import ChunkGrid
 from .types import CombineOp, Dimension, Index, IndexedPosition, Optional
+
+logger = logging.getLogger(__name__)
 
 # group keys are a tuple of tuples like (("lon", 1), ("time", 0))
 # the ints are chunk indexes
@@ -156,6 +159,8 @@ def combine_fragments(
     :param group: the group key; not actually used in combining
     :param fragments: indexed dataset fragments
     """
+
+    logger.debug(f"Combining {group = }, containing {fragments =}")
 
     # we are combining over all the concat dims found in the indexes
     # first check indexes for consistency
