@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import MISSING, dataclass, field
 
 # from functools import wraps
 from typing import Dict, List, Optional, Tuple, TypeVar, Union
@@ -396,12 +396,22 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
-    target_chunks: Dict[str, int] = field(default=None)
-    target_chunks_aspect_ratio: Dict[str, int] = field(default=None)
-    target_chunk_size: Union[str, int] = field(default=None)  # ? Should we provide a default?
+    target_chunks: Optional[Dict[str, int]] = field(default=None)
+    target_chunks_aspect_ratio: Optional[Dict[str, int]] = field(default=None)
+    target_chunk_size: Optional[Union[str, int]] = field(
+        default=None
+    )  # ? Should we provide a default?
     size_tolerance: float = 0.2
 
     def __post_init__(self):
+        # if none of the chunking parameters is specified, set the default behavior
+        # of target_chunks={}
+        if all(
+            a is None
+            for a in (self.target_chunks, self.target_chunk_size, self.target_chunks_aspect_ratio)
+        ):
+            self.target_chunks = {}
+
         # check that not both static and dynamic chunking are specified
         if self.target_chunks is not None and (
             self.target_chunk_size is not None or self.target_chunks_aspect_ratio is not None
@@ -429,7 +439,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
         # if dynamic chunking is chosen, set the objects target_chunks here
-        if self.target_chunks_aspect_ratio:
+        if self.target_chunks_aspect_ratio is not None:
             self.target_chunks = dynamic_target_chunks_from_schema(
                 schema,
                 target_chunk_size=self.target_chunk_size,

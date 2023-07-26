@@ -36,9 +36,11 @@ def even_divisor_chunks(n: int) -> List[int]:
     return divisors
 
 
-# FIXME: mypy did not correctly infer the return type of parse_bytes
-def parse_bytes_wrapper(target_chunk_size: Union[str, int]) -> int:
-    return parse_bytes(target_chunk_size)
+def _maybe_parse_bytes(target_chunk_size: Union[str, int]) -> int:
+    if isinstance(target_chunk_size, str):
+        return parse_bytes(target_chunk_size)
+    else:
+        return target_chunk_size
 
 
 def dynamic_target_chunks_from_schema(
@@ -70,8 +72,7 @@ def dynamic_target_chunks_from_schema(
     dict[str, int]
         Target chunk dictionary. Can be passed directly to `ds.chunk()`
     """
-    if isinstance(target_chunk_size, str):
-        target_chunk_size = parse_bytes_wrapper(target_chunk_size)
+    target_chunk_size = _maybe_parse_bytes(target_chunk_size)
 
     ds = schema_to_template_ds(schema)
 
