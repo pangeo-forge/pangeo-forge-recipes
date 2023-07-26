@@ -25,7 +25,7 @@ from pangeo_forge_recipes.transforms import (
 
 @pytest.fixture
 def pipeline():
-    options = PipelineOptions(runtime_type_check=False)
+    options = PipelineOptions(runtime_type_check=True)
     with TestPipeline(options=options) as p:
         yield p
 
