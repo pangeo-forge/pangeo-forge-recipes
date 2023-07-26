@@ -395,38 +395,47 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
-    target_chunks: Optional[Dict[Dimension, int]]
-    target_chunks_aspect_ratio: Optional[Dict[Dimension, int]]
-    target_chunk_size: Optional[Union[str, int]]
-    size_tolerance: Optional[float] = 0.2
+    target_chunks: Dict[str, int] = field(
+        default=None
+    )  # ? Why is this not type Dict[Dimension, int]???
+    target_chunks_aspect_ratio: Dict[str, int] = field(default=None)  # ? Same here
+    target_chunk_size: Union[str, int] = field(default=None)  # ? Should we provide a default?
+    size_tolerance: float = 0.2
 
-    def __post__init__(self):
+    def __post_init__(self):
         # check that not both static and dynamic chunking are specified
-        if hasattr(self, "target_chunks") and (
-            hasattr(self, "target_chunk_size") or hasattr(self, "target_chunks_aspect_ratio")
+        if self.target_chunks is not None and (
+            self.target_chunk_size is not None or self.target_chunks_aspect_ratio is not None
         ):
             raise ValueError(
-                "Cannot specify both target_chunks and target_chunk_size or target_chunks_aspect_ratio."
+                (
+                    "Cannot specify both target_chunks and "
+                    "target_chunk_size or target_chunks_aspect_ratio."
+                )
             )
 
         # if dynamic chunking is specified, make sure both target_chunk_size
         # and target_chunks_aspect_ratio are specified
-        if not hasattr(self, "target_chunks") and not (
-            hasattr(self, "target_chunk_size") and hasattr(self, "target_chunks_aspect_ratio")
+        if self.target_chunks is None and not (
+            self.target_chunk_size is not None and self.target_chunks_aspect_ratio is not None
         ):
             raise ValueError(
-                "Must specify both target_chunk_size and target_chunks_aspect_ratio to enable dynamic chunking."
+                (
+                    "Must specify both target_chunk_size and "
+                    "target_chunks_aspect_ratio to enable dynamic chunking."
+                )
             )
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
         # if dynamic chunking is chosen, set the objects target_chunks here
-        if hasattr(self, "target_chunks_aspect_ratio"):
+        if self.target_chunks_aspect_ratio:
             self.target_chunks = dynamic_target_chunks_from_schema(
                 schema,
                 target_chunk_size=self.target_chunk_size,
                 target_chunks_aspect_ratio=self.target_chunks_aspect_ratio,
+                size_tolerance=self.size_tolerance,
             )
         rechunked_datasets = indexed_datasets | Rechunk(
             target_chunks=self.target_chunks, schema=schema

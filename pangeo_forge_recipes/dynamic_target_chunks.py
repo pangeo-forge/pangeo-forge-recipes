@@ -36,6 +36,11 @@ def even_divisor_chunks(n: int) -> List[int]:
     return divisors
 
 
+# FIXME: mypy did not correctly infer the return type of parse_bytes
+def parse_bytes_wrapper(target_chunk_size: Union[str, int]) -> int:
+    return parse_bytes(target_chunk_size)
+
+
 def dynamic_target_chunks_from_schema(
     schema: XarraySchema,
     target_chunk_size: Union[int, str],
@@ -45,8 +50,8 @@ def dynamic_target_chunks_from_schema(
     """Determine chunksizes based on desired chunksize (max size of any variable in the
     dataset) and the ratio of total chunks along each dimension of the dataset. The
     algorithm finds even divisors, and chooses possible combination that produce chunk
-    sizes close to the target. From this set of combination the chunks that most closely produce the ratio of total
-    chunks along the given dimensions.
+    sizes close to the target. From this set of combination the chunks that most closely
+    produce the ratio of total chunks along the given dimensions.
 
     Parameters
     ----------
@@ -66,7 +71,7 @@ def dynamic_target_chunks_from_schema(
         Target chunk dictionary. Can be passed directly to `ds.chunk()`
     """
     if isinstance(target_chunk_size, str):
-        target_chunk_size = parse_bytes(target_chunk_size)
+        target_chunk_size = parse_bytes_wrapper(target_chunk_size)
 
     ds = schema_to_template_ds(schema)
 
@@ -107,11 +112,14 @@ def dynamic_target_chunks_from_schema(
     # If there are no matches in the range, the user has to increase the tolerance for this to work.
     if len(combinations_filtered) == 0:
         raise ValueError(
-            "Could not find any chunk combinations satisfying the size constraint. Consider increasing tolerance"
+            (
+                "Could not find any chunk combinations satisfying "
+                "the size constraint. Consider increasing tolerance"
+            )
         )
 
-    # Now that we have cominations in the memory size range we want, we can check which is closest to our
-    # desired chunk ratio.
+    # Now that we have cominations in the memory size range we want, we can check which is
+    # closest to our desired chunk ratio.
     # We can think of this as comparing the angle of two vectors.
     # To compare them we need to normalize (we dont care about the amplitude here)
 

@@ -16,6 +16,7 @@ from pangeo_forge_recipes.transforms import (
     OpenWithXarray,
     PrepareZarrTarget,
     Rechunk,
+    StoreToZarr,
 )
 from pangeo_forge_recipes.types import CombineOp
 
@@ -231,3 +232,51 @@ def test_rechunk(
         indexed_datasets = datasets | IndexItems(schema=schema)
         rechunked = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
         assert_that(rechunked, correct_chunks())
+
+
+class TestStoreToZarrErrors:
+    def test_static_and_dynamic_chunk_input(self):
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Cannot specify both target_chunks and "
+                "target_chunk_size or target_chunks_aspect_ratio."
+            ),
+        ):
+            StoreToZarr(
+                store_name="dummy",
+                target_root="dummy",
+                combine_dims=["dummy", "dummy"],
+                target_chunks={"a": 1},
+                target_chunks_aspect_ratio={"a": 1, "b": 10},
+            )
+
+    def test_missing_chunk_size(self):
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Must specify both target_chunk_size and "
+                "target_chunks_aspect_ratio to enable dynamic chunking."
+            ),
+        ):
+            StoreToZarr(
+                store_name="dummy",
+                target_root="dummy",
+                combine_dims=["dummy", "dummy"],
+                target_chunks_aspect_ratio={"a": 1, "b": 10},
+            )
+
+    def test_missing_aspect_ratio(self):
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Must specify both target_chunk_size and "
+                "target_chunks_aspect_ratio to enable dynamic chunking."
+            ),
+        ):
+            StoreToZarr(
+                store_name="dummy",
+                target_root="dummy",
+                combine_dims=["dummy", "dummy"],
+                target_chunk_size="100MB",
+            )
