@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import MISSING, dataclass, field
+from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Dict, List, Optional, Tuple, TypeVar, Union, cast
 
 import apache_beam as beam
 
@@ -435,21 +435,25 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 )
             )
 
-    def expand(self, datasets: beam.PCollection) -> beam.PCollection:
-        schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
-        indexed_datasets = datasets | IndexItems(schema=schema)
+    def determine_target_chunks(self, schema: XarraySchema) -> Dict[str, int]:
         # if dynamic chunking is chosen, set the objects target_chunks here
         if self.target_chunks_aspect_ratio is not None:
-            self.target_chunks = dynamic_target_chunks_from_schema(
+            target_chunks = dynamic_target_chunks_from_schema(
                 schema,
-                target_chunk_size=self.target_chunk_size,
-                target_chunks_aspect_ratio=self.target_chunks_aspect_ratio,
+                target_chunk_size=cast(Union[int, str], self.target_chunk_size),
+                target_chunks_aspect_ratio=cast(Dict[str, int], self.target_chunks_aspect_ratio),
                 size_tolerance=self.size_tolerance,
             )
-        rechunked_datasets = indexed_datasets | Rechunk(
-            target_chunks=self.target_chunks, schema=schema
-        )
+        else:
+            target_chunks = cast(Dict[str, int], self.target_chunks)
+        return target_chunks
+
+    def expand(self, datasets: beam.PCollection) -> beam.PCollection:
+        schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
+        target_chunks = self.determine_target_chunks(schema)
+        indexed_datasets = datasets | IndexItems(schema=schema)
+        rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
         target_store = schema | PrepareZarrTarget(
-            target=self.get_full_target(), target_chunks=self.target_chunks
+            target=self.get_full_target(), target_chunks=target_chunks
         )
         return rechunked_datasets | StoreDatasetFragments(target_store=target_store)
