@@ -385,7 +385,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         If a dimension is a not named, the chunks will be inferred from the data.
     :param target_chunk_aspect_ratio: Dictionary mapping dimension names to desired
         aspect ratio of total number of chunks along each dimension.
-    :param target_chunk_size:
+    :param target_chunk_size: Desired single chunks size. Can be provided as 
+        integer (bytes) or as a str like '100MB' etc.
     :param size_tolerance : float, optional
         Chunksize tolerance. Resulting chunk size will be within
         [target_chunk_size*(1-size_tolerance),
@@ -397,8 +398,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     combine_dims: List[Dimension]
     target_chunks: Dict[str, int] = field(
         default=None
-    )  # ? Why is this not type Dict[Dimension, int]???
-    target_chunks_aspect_ratio: Dict[str, int] = field(default=None)  # ? Same here
+    )
+    target_chunks_aspect_ratio: Dict[str, int] = field(default=None)
     target_chunk_size: Union[str, int] = field(default=None)  # ? Should we provide a default?
     size_tolerance: float = 0.2
 
