@@ -19,7 +19,8 @@ class TestDynamicTargetChunks:
     @pytest.mark.parametrize(
         ("dims_shape", "target_chunks_aspect_ratio", "expected_target_chunks"),
         [
-            # make sure that for the same dataset we get smaller chunksize along a dimension if the ratio is larger
+            # make sure that for the same dataset we get smaller chunksize along
+            # a dimension if the ratio is larger
             (
                 {"x": 200, "y": 200, "z": 200},
                 {"x": 1, "y": 1, "z": 10},
@@ -64,8 +65,8 @@ class TestDynamicTargetChunks:
             assert target_chunks_int[dim] == target_chunks_str[dim]
 
     def test_dynamic_rechunking_maintain_ratio(self):
-        """Confirm that for a given ratio with two differently sized datasets we maintain a constant ratio
-        between total number of chunks"""
+        """Confirm that for a given ratio with two differently sized datasets we
+        maintain a constant ratio between total number of chunks"""
         ds_equal = _create_ds({"x": 64, "y": 64})
         ds_long = _create_ds({"x": 64, "y": 256})
 
