@@ -27,7 +27,10 @@ from pangeo_forge_recipes.transforms import (
 def pipeline():
     options = PipelineOptions(runtime_type_check=True)
     with TestPipeline(options=options) as p:
-        yield p
+        # with `runtime_type_check=True`, `yield`ing here results in strange type checker errors
+        # during test teardown, even though the test itself has passed. `return`ing from here fixes
+        # that. we don't actually do any teardown from this fixture, so this is presumably okay.
+        return p
 
 
 @pytest.mark.parametrize("target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}])

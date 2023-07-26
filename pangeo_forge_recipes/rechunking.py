@@ -1,7 +1,7 @@
 import functools
 import itertools
 import operator
-from typing import Dict, Iterator, List, Tuple
+from typing import Dict, Iterator, List, Tuple, cast
 
 import numpy as np
 import xarray as xr
@@ -19,7 +19,10 @@ GroupKey = Tuple[Tuple[str, int], ...]
 def split_fragment(
     fragment: Tuple[Index, xr.Dataset],
     target_chunks: Optional[Dict[str, int]] = None,
-    schema: Optional[XarraySchema] = None,
+    # if passed, we expect schema to be an instance of .aggregation.XarraySchema, which is a
+    # TypedDict. however, TypedDict is not supported by Beam's type checker, so we use the more
+    # general hint `Dict[str, Dict]` instead. xref: https://github.com/apache/beam/issues/24704
+    schema: Optional[Dict[str, Dict]] = None,
 ) -> Iterator[Tuple[GroupKey, Tuple[Index, xr.Dataset]]]:
     """Split a single indexed dataset fragment into sub-fragments, according to the
     specified target chunks
@@ -31,8 +34,14 @@ def split_fragment(
     if target_chunks is None and schema is None:
         raise ValueError("Must specify either target_chunks or schema (or both).")
     if schema is not None:
-        # we don't want to include the dims that are not getting rechunked
-        target_chunks = determine_target_chunks(schema, target_chunks, include_all_dims=False)
+        target_chunks = determine_target_chunks(
+            # beam's type checker checks `schema` in the `split_fragment` signature, so its type
+            # can't be `XarraySchema` there (see above). here, we cast `schema` to satisfy mypy.
+            cast(XarraySchema, schema),
+            target_chunks,
+            # we don't want to include the dims that are not getting rechunked
+            include_all_dims=False,
+        )
     else:
         assert target_chunks is not None
 
