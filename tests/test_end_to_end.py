@@ -25,7 +25,7 @@ from pangeo_forge_recipes.transforms import (
 
 @pytest.fixture
 def pipeline():
-    options = PipelineOptions(runtime_type_check=True)
+    options = PipelineOptions(runtime_type_check=True, type_check_additional="all")
     with TestPipeline(options=options) as p:
         # with `runtime_type_check=True`, `yield`ing here results in strange type checker errors
         # during test teardown, even though the test itself has passed. `return`ing from here fixes

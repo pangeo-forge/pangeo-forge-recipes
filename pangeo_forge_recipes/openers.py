@@ -3,7 +3,7 @@
 import io
 import tempfile
 import warnings
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import xarray as xr
@@ -134,7 +134,7 @@ def open_with_kerchunk(
     storage_options: Optional[Dict] = None,
     remote_protocol: Optional[str] = None,
     kerchunk_open_kwargs: Optional[dict] = None,
-) -> list[dict]:
+) -> List[Dict]:
     """Scan through item(s) with one of Kerchunk's file readers (SingleHdf5ToZarr, scan_grib etc.)
     and create reference objects.
 
