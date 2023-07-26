@@ -7,6 +7,7 @@ from apache_beam.testing.util import BeamAssertException, assert_that, is_not_em
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
+from pangeo_forge_recipes.dynamic_target_chunks import dynamic_target_chunks_from_schema
 from pangeo_forge_recipes.patterns import FileType
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
 from pangeo_forge_recipes.transforms import (
@@ -234,7 +235,35 @@ def test_rechunk(
         assert_that(rechunked, correct_chunks())
 
 
-class TestStoreToZarrErrors:
+class TestStoreToZarr:
+    @pytest.mark.parametrize(
+        "target_chunks_aspect_ratio",
+        [
+            {"time": 1, "lat": 1, "lon": 1},
+            {"time": 10, "lat": 1, "lon": 1},
+            {"time": 1, "lat": -1, "lon": -1},
+        ],
+    )
+    @pytest.mark.parametrize("target_chunk_size", ["10kB", 1e4])
+    @pytest.mark.parametrize("size_tolerance", [0.2, 0.5])
+    def test_dynamic_chunking(self, target_chunks_aspect_ratio, target_chunk_size, size_tolerance):
+        ds = make_ds()
+        schema = dataset_to_schema(ds)
+        a = StoreToZarr(
+            store_name="dummy",
+            target_root="dummy",
+            combine_dims=["dummy", "dummy"],
+            target_chunks_aspect_ratio=target_chunks_aspect_ratio,
+            target_chunk_size=target_chunk_size,
+            size_tolerance=size_tolerance,
+        )
+        assert a.determine_target_chunks(schema) == dynamic_target_chunks_from_schema(
+            target_chunk_size=target_chunk_size,
+            target_chunks_aspect_ratio=target_chunks_aspect_ratio,
+            schema=schema,
+            size_tolerance=size_tolerance,
+        )
+
     def test_static_and_dynamic_chunk_input(self):
         with pytest.raises(
             ValueError,
