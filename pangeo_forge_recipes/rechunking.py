@@ -1,7 +1,7 @@
 import functools
 import itertools
 import operator
-from typing import Dict, Iterator, List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import xarray as xr
@@ -20,7 +20,7 @@ def split_fragment(
     fragment: Tuple[Index, xr.Dataset],
     target_chunks: Optional[Dict[str, int]] = None,
     schema: Optional[XarraySchema] = None,
-) -> Iterator[Tuple[GroupKey, Tuple[Index, xr.Dataset]]]:
+) -> List[Tuple[GroupKey, Tuple[Index, xr.Dataset]]]:
     """Split a single indexed dataset fragment into sub-fragments, according to the
     specified target chunks
 
@@ -94,6 +94,7 @@ def split_fragment(
         ]
     )
 
+    splits = []
     # this iteration yields new fragments, indexed by their target chunk group
     for target_chunk_group in all_chunks:
         # now we need to figure out which piece of the fragment belongs in which chunk
@@ -115,12 +116,15 @@ def split_fragment(
             )
         sub_fragment_ds = ds.isel(**sub_fragment_indexer)
 
-        yield (
-            # append the `merge_dim_positions` to the target_chunk_group before returning,
-            # to ensure correct grouping of merge dims. e.g., `(("time", 0), ("variable", 0))`.
-            tuple(sorted(target_chunk_group) + merge_dim_positions),
-            (sub_fragment_index, sub_fragment_ds),
+        splits.append(
+            (
+                # append the `merge_dim_positions` to the target_chunk_group before returning,
+                # to ensure correct grouping of merge dims. e.g., `(("time", 0), ("variable", 0))`.
+                tuple(sorted(target_chunk_group) + merge_dim_positions),
+                (sub_fragment_index, sub_fragment_ds),
+            )
         )
+    return splits
 
 
 def _sort_index_key(item):
