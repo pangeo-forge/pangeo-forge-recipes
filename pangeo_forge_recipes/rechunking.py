@@ -162,6 +162,7 @@ def combine_fragments(
     :param fragments: indexed dataset fragments
     """
     if not isinstance(fragments, list):
+        # patch for https://github.com/pangeo-forge/pangeo-forge-recipes/issues/552
         logger.info(f"Casting `fragments` from {type(fragments) = } to list")
         fragments = list(fragments)
 
