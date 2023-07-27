@@ -1,5 +1,6 @@
 import functools
 import itertools
+import logging
 import operator
 from typing import Dict, Iterator, List, Tuple
 
@@ -9,6 +10,8 @@ import xarray as xr
 from .aggregation import XarraySchema, determine_target_chunks
 from .chunk_grid import ChunkGrid
 from .types import CombineOp, Dimension, Index, IndexedPosition, Optional
+
+logger = logging.getLogger(__name__)
 
 # group keys are a tuple of tuples like (("lon", 1), ("time", 0))
 # the ints are chunk indexes
@@ -27,6 +30,8 @@ def split_fragment(
     :param fragment: the indexed fragment.
     :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
     """
+
+    logger.info(f"Splitting {fragment = }, with {target_chunks = } and {schema = }")
 
     if target_chunks is None and schema is None:
         raise ValueError("Must specify either target_chunks or schema (or both).")
@@ -156,6 +161,12 @@ def combine_fragments(
     :param group: the group key; not actually used in combining
     :param fragments: indexed dataset fragments
     """
+    if not isinstance(fragments, list):
+        # patch for https://github.com/pangeo-forge/pangeo-forge-recipes/issues/552
+        logger.info(f"Casting `fragments` from {type(fragments) = } to list")
+        fragments = list(fragments)
+
+    logger.info(f"Combining {group = }, containing {fragments = }")
 
     # we are combining over all the concat dims found in the indexes
     # first check indexes for consistency
