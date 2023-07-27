@@ -306,17 +306,6 @@ class StoreDatasetFragments(beam.PTransform):
 # - consolidate coords
 # - consolidate metadata
 
-Fragment = Tuple[Index, xr.Dataset]
-
-
-@dataclass
-class GroupFragmentsByKey(beam.PTransform):
-    def expand(
-        self,
-        pcoll: beam.PCollection[Tuple[GroupKey, Fragment]],
-    ) -> beam.PCollection[Tuple[GroupKey, List[Fragment]]]:
-        return pcoll | beam.GroupByKey()  # GroupByKey has major performance implication
-
 
 @dataclass
 class Rechunk(beam.PTransform):
@@ -331,8 +320,11 @@ class Rechunk(beam.PTransform):
                 target_chunks=self.target_chunks,
                 schema=beam.pvalue.AsSingleton(self.schema),
             )
-            | GroupFragmentsByKey()
-            | beam.MapTuple(combine_fragments)
+            # GroupByKey has major performance implication
+            | beam.GroupByKey().with_output_types(Tuple[GroupKey, List[Tuple[Index, xr.Dataset]]])
+            | beam.MapTuple(combine_fragments).with_input_types(
+                Tuple[GroupKey, List[Tuple[Index, xr.Dataset]]]
+            )
         )
         return new_fragments
 
