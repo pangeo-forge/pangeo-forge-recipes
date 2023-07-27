@@ -322,7 +322,9 @@ class Rechunk(beam.PTransform):
             )
             # GroupByKey has major performance implication
             | beam.GroupByKey().with_output_types(Tuple[GroupKey, List[Tuple[Index, xr.Dataset]]])
-            | beam.MapTuple(combine_fragments)
+            | beam.MapTuple(combine_fragments).with_input_types(
+                Tuple[GroupKey, List[Tuple[Index, xr.Dataset]]]
+            )
         )
         return new_fragments
 
