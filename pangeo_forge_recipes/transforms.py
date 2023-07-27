@@ -7,13 +7,12 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
-import xarray as xr
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
-from .rechunking import GroupKey, combine_fragments, split_fragment
+from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
 from .writers import ZarrWriterMixin, store_dataset_fragment, write_combined_reference
 
@@ -320,11 +319,8 @@ class Rechunk(beam.PTransform):
                 target_chunks=self.target_chunks,
                 schema=beam.pvalue.AsSingleton(self.schema),
             )
-            # GroupByKey has major performance implication
-            | beam.GroupByKey().with_output_types(Tuple[GroupKey, List[Tuple[Index, xr.Dataset]]])
-            | beam.MapTuple(combine_fragments).with_input_types(
-                Tuple[GroupKey, List[Tuple[Index, xr.Dataset]]]
-            )
+            | beam.GroupByKey()  # this has major performance implication
+            | beam.MapTuple(combine_fragments)
         )
         return new_fragments
 
