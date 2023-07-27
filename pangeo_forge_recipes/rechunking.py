@@ -161,9 +161,9 @@ def combine_fragments(
     :param group: the group key; not actually used in combining
     :param fragments: indexed dataset fragments
     """
-    if not isinstance(fragments, list):
-        logger.info(f"Casting `fragments` from {type(fragments) = } to list")
-        fragments = list(fragments)
+    # if not isinstance(fragments, list):
+    #     logger.info(f"Casting `fragments` from {type(fragments) = } to list")
+    #     fragments = list(fragments)
 
     logger.info(f"Combining {group = }, containing {fragments = }")
 
