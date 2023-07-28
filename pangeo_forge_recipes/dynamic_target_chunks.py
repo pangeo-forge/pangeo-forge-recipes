@@ -53,7 +53,7 @@ def dynamic_target_chunks_from_schema(
     dataset) and the ratio of total chunks along each dimension of the dataset. The
     algorithm finds even divisors, and chooses possible combination that produce chunk
     sizes close to the target. From this set of combination the chunks that most closely
-    produce the ratio of total chunks along the given dimensions.
+    produce the aspect ratio of total chunks along the given dimensions is returned.
 
     Parameters
     ----------
