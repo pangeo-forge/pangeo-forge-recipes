@@ -12,7 +12,7 @@ from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
-from .rechunking import combine_fragments, split_fragment
+from .rechunking import combine_fragments, consolidate_dimension_coordinates, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
 from .writers import ZarrWriterMixin, store_dataset_fragment, write_combined_reference
 
@@ -326,6 +326,23 @@ class Rechunk(beam.PTransform):
 
 
 @dataclass
+class ConsolidateDimensionCoordinates(beam.PTransform):
+    """
+    :param target_store: The destination to store in
+
+
+    """
+
+    target_store: beam.PCollection  # side input
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(
+            consolidate_dimension_coordinates,
+            target_store=beam.pvalue.AsSingleton(self.target_store),
+        )
+
+
+@dataclass
 class CombineReferences(beam.PTransform):
     """Combines Kerchunk references into a single reference dataset.
 
@@ -383,12 +400,16 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     :param combine_dims: The dimensions to combine
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the data.
+    :param consolidate_dimension_coordinates: Whether to rewrite coordinate variables as a
+    single chunk. We recommend consolidating coordinate variables to avoid
+    many small read requests to get the coordinates in xarray.
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
     target_chunks: Dict[str, int] = field(default_factory=dict)
+    consolidate_coords: bool = True
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
@@ -399,4 +420,10 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(), target_chunks=self.target_chunks
         )
-        return rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+
+        stored_fragments = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+        return (
+            stored_fragments
+            if not self.consolidate_coords
+            else stored_fragments | ConsolidateDimensionCoordinates(target_store=target_store)
+        )

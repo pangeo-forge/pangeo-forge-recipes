@@ -6,6 +6,7 @@ from typing import Dict, Iterator, List, Tuple
 
 import numpy as np
 import xarray as xr
+import zarr
 
 from .aggregation import XarraySchema, determine_target_chunks
 from .chunk_grid import ChunkGrid
@@ -238,3 +239,40 @@ def combine_fragments(
     ds_combined = xr.combine_nested(dsets_to_concat, concat_dim=concat_dims_sorted)
 
     return first_index, ds_combined
+
+
+def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
+    return list(
+        set(itertools.chain(*(group[var].attrs.get("_ARRAY_DIMENSIONS", []) for var in group)))
+    )
+
+
+def consolidate_dimension_coordinates(
+    item: Tuple[Index, xr.Dataset], target_store: zarr.storage.FSStore
+) -> None:
+    """Consolidate dimension coordinates chunking
+
+    :param target_store: Input target store
+    :type target_store: zarr.storage.FSStore
+    """
+
+    group = zarr.open_group(target_store)
+
+    dims = (dim for dim in _gather_coordinate_dimensions(group) if dim in group)
+    for dim in dims:
+        arr = group[dim]
+        attrs = dict(arr.attrs)
+        data = arr[:]
+        new = group.array(
+            dim,
+            data,
+            chunks=arr.shape,
+            dtype=arr.dtype,
+            compressor=arr.compressor,
+            fill_value=arr.fill_value,
+            order=arr.order,
+            filters=arr.filters,
+            overwrite=True,
+        )
+
+        new.attrs.update(attrs)
