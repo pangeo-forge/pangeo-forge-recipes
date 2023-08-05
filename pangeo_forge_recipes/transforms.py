@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import logging
+import random
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import Dict, List, Optional, Tuple, TypeVar
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
-from .openers import open_url, open_with_kerchunk, open_with_xarray
+from .openers import open_url, open_urls, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
@@ -60,18 +61,30 @@ def _add_keys(func):
     """Convenience decorator to remove and re-add keys to items in a Map"""
     annotations = func.__annotations__.copy()
     arg_name, annotation = next(iter(annotations.items()))
-    annotations[arg_name] = Tuple[Index, annotation]
     return_annotation = annotations["return"]
-    annotations["return"] = Tuple[Index, return_annotation]
 
     # @wraps(func)  # doesn't work for some reason
-    def wrapper(arg, **kwargs):
+    def wrapper(arg: tuple, **kwargs):
         key, item = arg
         result = func(item, **kwargs)
         return key, result
 
-    wrapper.__annotations__ = annotations
-    return wrapper
+    def iterable_wrapper(arg: tuple[tuple], **kwargs):
+        for inner_item in arg:
+            key, item = inner_item
+            result = func(item, **kwargs)
+            yield key, result
+
+    if return_annotation != Iterator:
+        annotations[arg_name] = Tuple[Index, annotation]
+        annotations["return"] = Tuple[Index, return_annotation]
+        wrapper.__annotations__ = annotations
+        return wrapper
+    else:
+        annotations[arg_name] = Iterable[Tuple[Index, annotation]]
+        annotations["return"] = Iterator[Tuple[Index, return_annotation]]
+        iterable_wrapper.__annotations__ = annotations
+        return iterable_wrapper
 
 
 def _drop_keys(kvp):
@@ -82,7 +95,7 @@ def _drop_keys(kvp):
 
 @dataclass
 class DropKeys(beam.PTransform):
-    """Simple transform to remove keys for use in a Kerchunk Reference Recipe Pipeline"""
+    """Simple transform to remove keys."""
 
     def expand(self, pcoll):
         return pcoll | "Drop Keys" >> beam.Map(_drop_keys)
@@ -96,22 +109,41 @@ class OpenURLWithFSSpec(beam.PTransform):
     :param cache: If provided, data will be cached at this url path before opening.
     :param secrets: If provided these secrets will be injected into the URL as a query string.
     :param open_kwargs: Extra arguments passed to fsspec.open.
+    :param max_concurrency: The maximum number of concurrent
     """
 
     cache: Optional[str | CacheFSSpecTarget] = None
     secrets: Optional[dict] = None
     open_kwargs: Optional[dict] = None
+    max_concurrency: Optional[int] = None
+
+    @staticmethod
+    def _assign_concurrency_group(elem, max_concurrency: int):
+        return (random.randint(0, max_concurrency - 1), elem)
 
     def expand(self, pcoll):
         if isinstance(self.cache, str):
             cache = CacheFSSpecTarget.from_url(self.cache)
         else:
             cache = self.cache
-        return pcoll | "Open with fsspec" >> beam.Map(
-            _add_keys(open_url),
+
+        kws = dict(
             cache=cache,
             secrets=self.secrets,
             open_kwargs=self.open_kwargs,
+        )
+        return (
+            pcoll | "Open with fsspec" >> beam.Map(_add_keys(open_url), **kws)
+            if not self.max_concurrency
+            else (
+                pcoll
+                # TODO: factor next three stages into a standalone PTransform
+                # so they can be reused elsewhere (e.g. OpenWithKerchunk)
+                | beam.Map(self._assign_concurrency_group, self.max_concurrency)
+                | beam.GroupByKey()
+                | DropKeys()
+                | "Open with fsspec" >> beam.FlatMap(_add_keys(open_urls), **kws)
+            )
         )
 
 
