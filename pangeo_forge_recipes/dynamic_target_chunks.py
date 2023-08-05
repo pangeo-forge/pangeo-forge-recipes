@@ -1,4 +1,5 @@
 import itertools
+import warnings
 from typing import Dict, List, Union
 
 import numpy as np
@@ -48,6 +49,8 @@ def dynamic_target_chunks_from_schema(
     target_chunk_size: Union[int, str],
     target_chunks_aspect_ratio: Dict[str, int],
     size_tolerance: float,
+    default_ratio: int = -1,
+    allow_extra_dims: bool = False,
 ) -> dict[str, int]:
     """Determine chunksizes based on desired chunksize (max size of any variable in the
     dataset) and the ratio of total chunks along each dimension of the dataset. The
@@ -66,21 +69,48 @@ def dynamic_target_chunks_from_schema(
         Chunksize tolerance. Resulting chunk size will be within
         [target_chunk_size*(1-size_tolerance),
         target_chunk_size*(1+size_tolerance)]
+    default_ratio : int, optional
+        Default ratio to use for dimensions not specified in `target_chunks_aspect_ratio`
+        , by default -1, meaning that the ommited dimension will not be chunked.
+    allow_extra_dims : bool, optional
+        If True, allow the user to specify `target_chunks_aspect_ratio` with dims that
+        might not be present in the dataset. This is useful for more complex workflows
+        where a single recipe should be used for datasets with different naming schemes
+        TODO: Write examples and mention CMIP6, by default False
 
     Returns
     -------
     dict[str, int]
         Target chunk dictionary. Can be passed directly to `ds.chunk()`
+
     """
     target_chunk_size = _maybe_parse_bytes(target_chunk_size)
 
     ds = schema_to_template_ds(schema)
 
-    if set(target_chunks_aspect_ratio.keys()) != set(ds.dims):
+    missing_dims = set(ds.dims) - set(target_chunks_aspect_ratio.keys())
+    extra_dims = set(target_chunks_aspect_ratio.keys()) - set(ds.dims)
+
+    if not allow_extra_dims and len(extra_dims) > 0:
         raise ValueError(
-            f"target_chunks_aspect_ratio must contain all dimensions in dataset. "
-            f"Got {target_chunks_aspect_ratio.keys()} but expected {list(ds.dims.keys())}"
+            f"target_chunks_aspect_ratio contains dimensions not present in dataset. "
+            f"Got {list(extra_dims)} but expected {list(ds.dims.keys())}. You can pass "
+            "additional dimensions by setting allow_extra_dims=True"
         )
+    elif allow_extra_dims and len(extra_dims) > 0:
+        # trim extra dimension out of target_chunks_aspect_ratio
+        warnings.warn(f"Trimming dimensions {list(extra_dims)} from target_chunks_aspect_ratio")
+        target_chunks_aspect_ratio = {
+            dim: v for dim, v in target_chunks_aspect_ratio.items() if dim in ds.dims
+        }
+
+    if len(missing_dims) > 0:
+        # set default ratio for missing dimensions
+        warnings.warn(
+            f"dimensions {list(missing_dims)} are not specified in target_chunks_aspect_ratio."
+            f"Setting default value of {default_ratio} for these dimensions."
+        )
+        target_chunks_aspect_ratio.update({dim: default_ratio for dim in missing_dims})
 
     dims, shape = zip(*ds.dims.items())
     ratio = [target_chunks_aspect_ratio[dim] for dim in dims]
