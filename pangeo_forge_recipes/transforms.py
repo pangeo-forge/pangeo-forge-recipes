@@ -380,17 +380,29 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
 class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
 
-    :param combine_dims: The dimensions to combine
-    :param target_chunks: Dictionary mapping dimension names to chunks sizes.
+    :param combine_dims: List[Dimension]
+        The dimensions to combine
+    :param target_chunks: Dict[str, int], optional
+        Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the data.
-    :param target_chunk_aspect_ratio: Dictionary mapping dimension names to desired
-        aspect ratio of total number of chunks along each dimension.
-    :param target_chunk_size: Desired single chunks size. Can be provided as
+    :param target_chunks_aspect_ratio: Dict[str, int], optional
+        Dictionary mapping dimension names to desired
+        aspect ratio of total number of chunks along each dimension. Dimensions present
+        in the dataset but not in target_chunks_aspect_ratio will be filled with 
+        default_ratio. If allow_extra_dims is true, target_chunks_aspect_ratio can contain
+        dimensions not present in the dataset, which will be removed in the ouput.
+    :param target_chunk_size: Union[str, int], optional
+        Desired single chunks size. Can be provided as
         integer (bytes) or as a str like '100MB' etc.
     :param size_tolerance : float, optional
         Chunksize tolerance. Resulting chunk size will be within
         [target_chunk_size*(1-size_tolerance),
         target_chunk_size*(1+size_tolerance)] , by default 0.2
+    :param default_ratio : int, optional
+        , by default -1
+    :param allow_extra_dims: bool, optional
+        Allow to pass dimensions not present in the dataset to be passed in 
+        target_chunks_aspect_ratio, by default False
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
@@ -400,7 +412,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     target_chunks_aspect_ratio: Optional[Dict[str, int]] = field(default=None)
     target_chunk_size: Optional[Union[str, int]] = field(
         default=None
-    )  # ? Should we provide a default?
+    )
     size_tolerance: float = 0.2
     default_ratio: int = -1
     allow_extra_dims: bool = False
