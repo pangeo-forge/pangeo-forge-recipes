@@ -263,6 +263,7 @@ def test_dynamic_chunking(self, target_chunks_aspect_ratio, target_chunk_size, s
         size_tolerance=size_tolerance,
     )
 
+
 def test_static_and_dynamic_chunk_input(self):
     with pytest.raises(
         ValueError,
@@ -279,6 +280,7 @@ def test_static_and_dynamic_chunk_input(self):
             target_chunks_aspect_ratio={"a": 1, "b": 10},
         )
 
+
 def test_missing_chunk_size(self):
     with pytest.raises(
         ValueError,
@@ -293,6 +295,7 @@ def test_missing_chunk_size(self):
             combine_dims=["dummy", "dummy"],
             target_chunks_aspect_ratio={"a": 1, "b": 10},
         )
+
 
 def test_missing_aspect_ratio(self):
     with pytest.raises(
