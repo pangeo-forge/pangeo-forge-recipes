@@ -462,7 +462,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
 
     def expand(self, datasets: beam.PCollection) -> beam.PCollection:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
-        target_chunks = beam.pvalue.AsSingleton(schema | beam.Map(self.determine_target_chunks))
+        target_chunks = beam.pvalue.AsSingleton(schema | beam.Map(self._get_target_chunks))
         indexed_datasets = datasets | IndexItems(schema=schema)
         rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
         target_store = schema | PrepareZarrTarget(
