@@ -43,7 +43,6 @@ def _maybe_parse_bytes(target_chunk_size: Union[str, int]) -> int:
     else:
         return target_chunk_size
 
-
 def dynamic_target_chunks_from_schema(
     schema: XarraySchema,
     target_chunk_size: Union[int, str],
@@ -63,20 +62,26 @@ def dynamic_target_chunks_from_schema(
     schema : XarraySchema
         Schema of the input dataset
     target_chunk_size : Union[int, str]
-        Desired chunk size (defined as the max size of any variable in the dataset with
-        chosen chunks). Can be provided as integer (bytes) or a string like '100MB'.
+        Desired single chunks size. Can be provided as
+        integer (bytes) or as a str like '100MB' etc.
+    target_chunks_aspect_ratio: Dict[str, int]
+        Dictionary mapping dimension names to desired
+        aspect ratio of total number of chunks along each dimension. Dimensions present
+        in the dataset but not in target_chunks_aspect_ratio will be filled with
+        default_ratio. If allow_extra_dims is true, target_chunks_aspect_ratio can contain
+        dimensions not present in the dataset, which will be removed in the ouput.
+        A value of -1 can be passed to entirely prevent chunking along that dimension.
     size_tolerance : float
         Chunksize tolerance. Resulting chunk size will be within
         [target_chunk_size*(1-size_tolerance),
         target_chunk_size*(1+size_tolerance)]
     default_ratio : int, optional
-        Default ratio to use for dimensions not specified in `target_chunks_aspect_ratio`
-        , by default -1, meaning that the ommited dimension will not be chunked.
+        Default value to use for dimensions on the dataset not specified in
+        target_chunks_aspect_ratio, by default -1, meaning that the ommited dimension will 
+        not be chunked.
     allow_extra_dims : bool, optional
-        If True, allow the user to specify `target_chunks_aspect_ratio` with dims that
-        might not be present in the dataset. This is useful for more complex workflows
-        where a single recipe should be used for datasets with different naming schemes
-        TODO: Write examples and mention CMIP6, by default False
+        Allow to pass dimensions not present in the dataset to be passed in
+        target_chunks_aspect_ratio, by default False
 
     Returns
     -------
