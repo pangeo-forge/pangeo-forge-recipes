@@ -298,8 +298,8 @@ def test_missing_aspect_ratio():
     with pytest.raises(
         ValueError,
         match=(
-            "Must specify both target_chunk_size and "
-            "target_chunks_aspect_ratio to enable dynamic chunking."
+            "To enable dynamic chunking, both `target_chunk_size` and"
+            " `target_chunks_aspect_ratio` must be specified."
         ),
     ):
         StoreToZarr(
