@@ -452,7 +452,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 default_ratio=self.default_ratio,
                 allow_extra_dims=self.allow_extra_dims,
             )
-            print(f"Dynamically determined target_chunks: {target_chunks}")
+            logger.info(f"Dynamically determined target_chunks: {target_chunks}")
         else:
             target_chunks = cast(Dict[str, int], self.target_chunks)
         return target_chunks
