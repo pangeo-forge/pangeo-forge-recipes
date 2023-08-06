@@ -391,6 +391,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         in the dataset but not in target_chunks_aspect_ratio will be filled with
         default_ratio. If allow_extra_dims is true, target_chunks_aspect_ratio can contain
         dimensions not present in the dataset, which will be removed in the ouput.
+        A value of -1 can be passed to entirely prevent chunking along that dimension.
     :param target_chunk_size: Union[str, int], optional
         Desired single chunks size. Can be provided as
         integer (bytes) or as a str like '100MB' etc.
@@ -399,7 +400,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         [target_chunk_size*(1-size_tolerance),
         target_chunk_size*(1+size_tolerance)] , by default 0.2
     :param default_ratio : int, optional
-        , by default -1
+        Default value to use for dimensions on the dataset not specified in
+        target_chunks_aspect_ratio, by default -1
     :param allow_extra_dims: bool, optional
         Allow to pass dimensions not present in the dataset to be passed in
         target_chunks_aspect_ratio, by default False
