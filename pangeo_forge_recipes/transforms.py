@@ -426,15 +426,10 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         ):
             self.target_chunks = {}
 
-        # check that not both static and dynamic chunking are specified
-        if self.target_chunks is not None and (
-            self.target_chunk_size is not None or self.target_chunks_aspect_ratio is not None
-        ):
+        if self.target_chunks and (self.target_chunk_size or self.target_chunks_aspect_ratio):
             raise ValueError(
-                (
-                    "Cannot specify both target_chunks and "
-                    "target_chunk_size or target_chunks_aspect_ratio."
-                )
+                "If `target_chunks` is given, both of the dynamic chunking options "
+                "(`target_chunk_size` and `target_chunks_aspect_ratio`) must be None."
             )
 
         # if dynamic chunking is specified, make sure both target_chunk_size
