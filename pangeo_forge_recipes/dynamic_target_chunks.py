@@ -43,6 +43,7 @@ def _maybe_parse_bytes(target_chunk_size: Union[str, int]) -> int:
     else:
         return target_chunk_size
 
+
 def dynamic_target_chunks_from_schema(
     schema: XarraySchema,
     target_chunk_size: Union[int, str],
@@ -77,7 +78,7 @@ def dynamic_target_chunks_from_schema(
         target_chunk_size*(1+size_tolerance)]
     default_ratio : int, optional
         Default value to use for dimensions on the dataset not specified in
-        target_chunks_aspect_ratio, by default -1, meaning that the ommited dimension will 
+        target_chunks_aspect_ratio, by default -1, meaning that the ommited dimension will
         not be chunked.
     allow_extra_dims : bool, optional
         Allow to pass dimensions not present in the dataset to be passed in
