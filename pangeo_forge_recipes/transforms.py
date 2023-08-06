@@ -440,7 +440,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 "`target_chunks_aspect_ratio` must be specified."
             )
 
-    def determine_target_chunks(self, schema: XarraySchema) -> Dict[str, int]:
+    def _get_target_chunks(self, schema: XarraySchema) -> Dict[str, int]:
         # if dynamic chunking is chosen, set the objects target_chunks here
         # We need to explicitly cast the types here because we know
         # that for the combinations chosen here (dynamic vs static chunking)
