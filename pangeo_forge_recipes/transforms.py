@@ -402,6 +402,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         default=None
     )  # ? Should we provide a default?
     size_tolerance: float = 0.2
+    default_ratio: int = -1
+    allow_extra_dims: bool = False
 
     def __post_init__(self):
         # if none of the chunking parameters is specified, set the default behavior
@@ -447,6 +449,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 target_chunk_size=cast(Union[int, str], self.target_chunk_size),
                 target_chunks_aspect_ratio=cast(Dict[str, int], self.target_chunks_aspect_ratio),
                 size_tolerance=self.size_tolerance,
+                default_ratio=self.default_ratio,
+                allow_extra_dims=self.allow_extra_dims,
             )
             print(f"Dynamically determined target_chunks: {target_chunks}")
         else:
