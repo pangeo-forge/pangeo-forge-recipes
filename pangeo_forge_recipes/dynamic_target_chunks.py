@@ -52,10 +52,11 @@ def dynamic_target_chunks_from_schema(
     default_ratio: int = -1,
     allow_extra_dims: bool = False,
 ) -> dict[str, int]:
-    """Determine chunksizes based on desired chunk size and the ratio of total chunks along each dimension of the dataset. The
-    algorithm finds even divisors, and chooses possible combinations that produce chunk
-    sizes close to the target. From this set of combinations the chunks that most closely
-    resemble the aspect ratio of total chunks along the given dimensions is returned.
+    """Determine chunksizes based on desired chunk size and the ratio of total chunks
+    along each dimension of the dataset. The algorithm finds even divisors, and chooses
+    possible combinations that produce chunk sizes close to the target. From this set
+    of combinations the chunks that most closely resemble the aspect ratio of total
+    chunks along the given dimensions is returned.
 
     Parameters
     ----------
