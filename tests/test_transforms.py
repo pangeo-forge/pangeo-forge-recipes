@@ -245,7 +245,7 @@ def test_rechunk(
 )
 @pytest.mark.parametrize("target_chunk_size", ["10kB", 1e4])
 @pytest.mark.parametrize("size_tolerance", [0.2, 0.5])
-def test_dynamic_chunking(self, target_chunks_aspect_ratio, target_chunk_size, size_tolerance):
+def test_dynamic_chunking(target_chunks_aspect_ratio, target_chunk_size, size_tolerance):
     ds = make_ds()
     schema = dataset_to_schema(ds)
     a = StoreToZarr(
@@ -256,7 +256,7 @@ def test_dynamic_chunking(self, target_chunks_aspect_ratio, target_chunk_size, s
         target_chunk_size=target_chunk_size,
         size_tolerance=size_tolerance,
     )
-    assert a.determine_target_chunks(schema) == dynamic_target_chunks_from_schema(
+    assert a._get_target_chunks(schema) == dynamic_target_chunks_from_schema(
         target_chunk_size=target_chunk_size,
         target_chunks_aspect_ratio=target_chunks_aspect_ratio,
         schema=schema,
@@ -264,13 +264,10 @@ def test_dynamic_chunking(self, target_chunks_aspect_ratio, target_chunk_size, s
     )
 
 
-def test_static_and_dynamic_chunk_input(self):
+def test_static_and_dynamic_chunk_input():
     with pytest.raises(
         ValueError,
-        match=(
-            "Cannot specify both target_chunks and "
-            "target_chunk_size or target_chunks_aspect_ratio."
-        ),
+        match=("If `target_chunks` is given, both of the dynamic chunking options"),
     ):
         StoreToZarr(
             store_name="dummy",
@@ -281,7 +278,7 @@ def test_static_and_dynamic_chunk_input(self):
         )
 
 
-def test_missing_chunk_size(self):
+def test_missing_chunk_size():
     with pytest.raises(
         ValueError,
         match=(
@@ -297,7 +294,7 @@ def test_missing_chunk_size(self):
         )
 
 
-def test_missing_aspect_ratio(self):
+def test_missing_aspect_ratio():
     with pytest.raises(
         ValueError,
         match=(
