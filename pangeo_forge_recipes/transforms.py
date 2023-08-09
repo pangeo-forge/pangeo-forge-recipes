@@ -5,13 +5,13 @@ import random
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import Dict, List, Optional, Tuple, TypeVar
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
-from .openers import open_url, open_urls, open_with_kerchunk, open_with_xarray
+from .openers import OpenFileType, open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
@@ -75,6 +75,10 @@ def _add_keys(func):
     return wrapper
 
 
+# FIXME: can `_add_keys_iter` this be made into a generic wrapper to replace `_open_urls`?
+# i.e.: `FlatMap(_add_keys_iter(open_url))` instead of `FlatMap(_open_urls)`?
+# if so, do that. if not, remove before merge
+
 # def _add_keys_iter(func: Callable):
 #     """Convenience decorator to iteratively remove and re-add keys to items in a FlatMap"""
 #     annotations = func.__annotations__.copy()
@@ -108,6 +112,24 @@ class DropKeys(beam.PTransform):
         return pcoll | "Drop Keys" >> beam.Map(_drop_keys)
 
 
+def _open_urls(
+    keyed_urls: Iterable,
+    cache: Optional[CacheFSSpecTarget] = None,
+    secrets: Optional[Dict] = None,
+    open_kwargs: Optional[Dict] = None,
+) -> Iterator[OpenFileType]:
+    """Calls `open_url` in a serial loop across an input collection of keyed urls."""
+
+    for elem in keyed_urls:
+        key, url = elem
+        opened_url = open_url(url, cache, secrets, open_kwargs)
+        yield key, opened_url
+
+
+def _assign_concurrency_group(elem, max_concurrency: int):
+    return (random.randint(0, max_concurrency - 1), elem)
+
+
 # This has side effects if using a cache
 @dataclass
 class OpenURLWithFSSpec(beam.PTransform):
@@ -123,10 +145,6 @@ class OpenURLWithFSSpec(beam.PTransform):
     secrets: Optional[dict] = None
     open_kwargs: Optional[dict] = None
     max_concurrency: Optional[int] = None
-
-    @staticmethod
-    def _assign_concurrency_group(elem, max_concurrency: int):
-        return (random.randint(0, max_concurrency - 1), elem)
 
     def expand(self, pcoll):
         if isinstance(self.cache, str):
@@ -146,10 +164,10 @@ class OpenURLWithFSSpec(beam.PTransform):
                 pcoll
                 # TODO: factor next three stages into a standalone PTransform
                 # so they can be reused elsewhere (e.g. OpenWithKerchunk)
-                | beam.Map(self._assign_concurrency_group, self.max_concurrency)
+                | beam.Map(_assign_concurrency_group, self.max_concurrency)
                 | beam.GroupByKey()
                 | DropKeys()
-                | f"Open with fsspec ({self.max_concurrency=})" >> beam.FlatMap(open_urls, **kws)
+                | f"Open with fsspec ({self.max_concurrency=})" >> beam.FlatMap(_open_urls, **kws)
             )
         )
 
