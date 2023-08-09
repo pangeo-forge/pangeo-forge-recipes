@@ -233,13 +233,25 @@ def pipeline(scope="session"):
         yield p
 
 
+@pytest.fixture(
+    params=[True, False],
+    ids=["concurrency_limit", "no_concurrency_limit"],
+)
+def max_concurrency(request):
+    if request.param:
+        return 2
+    else:
+        return None
+
+
 @pytest.fixture
-def pcoll_opened_files(pattern, cache_url):
+def pcoll_opened_files(pattern, cache_url, max_concurrency):
     input = beam.Create(pattern.items())
     output = input | OpenURLWithFSSpec(
         cache=cache_url,
         secrets=pattern.query_string_secrets,
         open_kwargs=pattern.fsspec_open_kwargs,
+        max_concurrency=max_concurrency,
     )
     return output, pattern, cache_url
 

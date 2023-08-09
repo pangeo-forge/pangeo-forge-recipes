@@ -3,7 +3,7 @@
 import io
 import tempfile
 import warnings
-from typing import Dict, Iterator, Optional, Union
+from typing import Dict, Iterable, Iterator, Optional, Union
 from urllib.parse import urlparse
 
 import xarray as xr
@@ -37,15 +37,17 @@ def open_url(
 
 
 def open_urls(
-    urls: tuple[str],
+    keyed_urls: Iterable,
     cache: Optional[CacheFSSpecTarget] = None,
     secrets: Optional[Dict] = None,
     open_kwargs: Optional[Dict] = None,
 ) -> Iterator[OpenFileType]:
     """Calls `open_url` in a serial loop across an input collection of urls."""
 
-    for url in urls:
-        yield open_url(url, cache, secrets, open_kwargs)
+    for elem in keyed_urls:
+        key, url = elem
+        opened_url = open_url(url, cache, secrets, open_kwargs)
+        yield key, opened_url
 
 
 OPENER_MAP = {

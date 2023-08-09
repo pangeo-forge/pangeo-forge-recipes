@@ -5,7 +5,7 @@ import random
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
+from typing import Dict, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
@@ -61,30 +61,37 @@ def _add_keys(func):
     """Convenience decorator to remove and re-add keys to items in a Map"""
     annotations = func.__annotations__.copy()
     arg_name, annotation = next(iter(annotations.items()))
+    annotations[arg_name] = Tuple[Index, annotation]
     return_annotation = annotations["return"]
+    annotations["return"] = Tuple[Index, return_annotation]
 
     # @wraps(func)  # doesn't work for some reason
-    def wrapper(arg: tuple, **kwargs):
+    def wrapper(arg, **kwargs):
         key, item = arg
         result = func(item, **kwargs)
         return key, result
 
-    def iterable_wrapper(arg: tuple[tuple], **kwargs):
-        for inner_item in arg:
-            key, item = inner_item
-            result = func(item, **kwargs)
-            yield key, result
+    wrapper.__annotations__ = annotations
+    return wrapper
 
-    if return_annotation != Iterator:
-        annotations[arg_name] = Tuple[Index, annotation]
-        annotations["return"] = Tuple[Index, return_annotation]
-        wrapper.__annotations__ = annotations
-        return wrapper
-    else:
-        annotations[arg_name] = Iterable[Tuple[Index, annotation]]
-        annotations["return"] = Iterator[Tuple[Index, return_annotation]]
-        iterable_wrapper.__annotations__ = annotations
-        return iterable_wrapper
+
+# def _add_keys_iter(func: Callable):
+#     """Convenience decorator to iteratively remove and re-add keys to items in a FlatMap"""
+#     annotations = func.__annotations__.copy()
+#     arg_name, annotation = next(iter(annotations.items()))
+#     return_annotation = annotations["return"]
+
+#     annotations[arg_name] = Iterable[Tuple[Index, annotation]]
+#     annotations["return"] = Iterator[Tuple[Index, return_annotation]]
+
+#     def iterable_wrapper(arg: Iterable[tuple], **kwargs):
+#         for inner_item in arg:
+#             key, item = inner_item
+#             result = func(item, **kwargs)
+#             return key, result
+
+#     iterable_wrapper.__annotations__ = annotations
+#     return iterable_wrapper
 
 
 def _drop_keys(kvp):
@@ -109,7 +116,7 @@ class OpenURLWithFSSpec(beam.PTransform):
     :param cache: If provided, data will be cached at this url path before opening.
     :param secrets: If provided these secrets will be injected into the URL as a query string.
     :param open_kwargs: Extra arguments passed to fsspec.open.
-    :param max_concurrency: The maximum number of concurrent
+    :param max_concurrency: Max concurrency for this transform.
     """
 
     cache: Optional[str | CacheFSSpecTarget] = None
@@ -142,7 +149,7 @@ class OpenURLWithFSSpec(beam.PTransform):
                 | beam.Map(self._assign_concurrency_group, self.max_concurrency)
                 | beam.GroupByKey()
                 | DropKeys()
-                | "Open with fsspec" >> beam.FlatMap(_add_keys(open_urls), **kws)
+                | f"Open with fsspec ({self.max_concurrency=})" >> beam.FlatMap(open_urls, **kws)
             )
         )
 
