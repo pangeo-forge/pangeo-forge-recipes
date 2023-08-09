@@ -5,7 +5,7 @@ import random
 from dataclasses import dataclass, field
 
 # from functools import wraps
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, TypeVar
+from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
 
 import apache_beam as beam
 
@@ -79,12 +79,10 @@ def _add_keys_iter(func: Callable):
     """Convenience decorator to iteratively remove and re-add keys to items in a FlatMap"""
     annotations = func.__annotations__.copy()
     arg_name, annotation = next(iter(annotations.items()))
-    annotations[arg_name] = Tuple[Index, annotation]
     return_annotation = annotations["return"]
-    # without `type: ignore` on next line, mypy complains with
-    #   error: Variable "return_annotation" is not valid as a type  [valid-type]
-    #   See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
-    # is there any way to satisfy mypy here, or do we need to just keep the ignore?
+
+    # mypy doesn't view `annotation` and `return_annotation` as valid types, so ignore
+    annotations[arg_name] = Iterable[Tuple[Index, annotation]]  # type: ignore
     annotations["return"] = Iterator[Tuple[Index, return_annotation]]  # type: ignore
 
     def iterable_wrapper(arg, **kwargs):
