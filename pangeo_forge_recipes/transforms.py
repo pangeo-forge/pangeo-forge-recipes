@@ -420,10 +420,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(), target_chunks=self.target_chunks
         )
-
-        stored_fragments = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
-        return (
-            stored_fragments
-            if not self.consolidate_coords
-            else stored_fragments | ConsolidateDimensionCoordinates(target_store=target_store)
-        )
+        rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+        if self.consolidate_coords:
+            ConsolidateDimensionCoordinates(target_store=target_store)
+        return target_store
