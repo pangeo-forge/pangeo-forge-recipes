@@ -9,6 +9,85 @@ kernelspec:
 
 # File Patterns
 
+## Pangeo Forge Pulls Data
+
+A central concept in Pangeo Forge is that data are "pulled", not "pushed" to
+the storage location. You tell Pangeo Forge where to find your data; when you
+execute a recipe, the data will automatically be downloaded and transformed.
+You cannot "upload" data to Pangeo Forge. This is deliberate.
+
+There are basically two ways to tell Pangeo Forge where to find your data:
+- Specify **file paths on your computer**: e.g. `/data/temperature/temperature_01.nc`;
+  This works find if you are just running Pangeo Forge locally; however, it won't
+  work with {doc}`../pangeo_forge_cloud/index` because those files are not accessible
+  from the cloud. _File paths are different on every computer._
+- Specify a **location on the internet via a [URL](https://developer.mozilla.org/en-US/docs/Learn/Common_questions/What_is_a_URL)**,
+  e.g.`http://data-provider.org/data/temperature/temperature_01.nc`.
+  URLs are more general than file paths because they are _the same on every computer_.
+  Using URLs means that your recipe can be run anywhere on the internet.
+  This is a requirement for Pangeo Forge Cloud.
+
+For recipes built from public, open data, it's always best to try to get the data
+from its original, authoritative source. For example, if you want to use satellite
+data from NASA, you need to find the URLs which point to that data on NASA's servers.
+
+## Supported Transfer Protocols
+
+Pangeo Forge supports a huge range of different transfer protocols for accessing
+URL-based data files, thanks to the [filesystem-spec](https://filesystem-spec.readthedocs.io/)
+framework. A full list of protocols can be found in the fsspec docs
+([built-in implementations](https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations) |
+[other implementations](https://filesystem-spec.readthedocs.io/en/latest/api.html#other-known-implementations)).
+
+Some of the most important protocols commonly used with Pangeo Forge recipes are
+- [Local Filesystem](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.local.LocalFileSystem)
+- [HTTP](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.http.HTTPFileSystem)
+- [FTP](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.ftp.FTPFileSystem)
+- [SSH / SFTP](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.sftp.SFTPFileSystem)
+- [S3](https://s3fs.readthedocs.io/en/latest/)
+- [Google Cloud Storage](https://gcsfs.readthedocs.io/en/latest/)
+- [Azure Datalake / Azure BLOB Storage](https://github.com/fsspec/adlfs)
+
+In order for Pangeo Forge to pull your data, it should be accessible over the public internet
+via one of those protocols.
+
+## Globus
+
+Many scientific datasets stored on secure HPC systems and servers are accessible
+via the [Globus](https://www.globus.org/) file transfer service.
+Globus uses a proprietary file transfer protocol, making it somewhat challenging
+to integrate with an open-data system like Pangeo Forge.
+In general, Globus file transfers require interaction with the Globus APIs,
+which requires accounts and authentication.
+Full support for Globus is on our roadmap. In the meantime, we recommend the
+following workaround.
+
+To ingest files from Globus with Pangeo Forge, you must create a
+_fully public Guest Collection and access the files via HTTPS_.
+The specific steps are as follows:
+- Verify that the Globus endpoint you want to transfer from uses
+  **Globus Connect Server V5**. This method _will not work_ with earlier Globus
+  versions (e.g. V4).
+- Open the [Globus App](https://app) and use the File Manager to navigate to
+  the directory you want to share.
+- Create a Public Guest Collection. Follow the Globus HOWTO instructions for
+  - [Creating a Guest Collection](https://docs.globus.org/how-to/share-files/)
+  - [Share data from a Guest Collection](https://docs.globus.org/how-to/guest-collection-share-and-access/).
+    Under "Share With", you need to choose _public (anonymous) - make data accessible to everyone._
+- Your data are now accessible via HTTPS. However, you need to figure out the URL.
+  The easiest way to do this is via the Globus App. Right click on a specific file
+  (not a directory!) within your Guest Collection and click "Get Link", then
+  choose the option for "download the file directly". It should show an HTTPS link.
+  Based on this link, you should be able to infer the relevant pattern for all
+  your URLs.
+  (For more details on HTTPS URLs, review the Globus docs on
+  [HTTPS Access to Collections](https://docs.globus.org/globus-connect-server/v5/https-access-collections/).)
+
+From here on, you should be able to point to your Globus files using standard
+HTTPS URLs. You can proceed to create a File Pattern for your recipe.
+
+## What are File Patterns?
+
 File patterns are the starting point for any Pangeo Forge recipe:
 they are the raw "ingredients" upon which the recipe will act.
 The point of file patterns is to describe how many individual source files are
