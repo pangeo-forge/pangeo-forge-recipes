@@ -423,4 +423,5 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         if self.consolidate_coords:
             ConsolidateDimensionCoordinates(target_store=target_store)
+
         return target_store
