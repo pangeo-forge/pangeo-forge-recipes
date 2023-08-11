@@ -57,11 +57,13 @@ def test_xarray_zarr(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
-def test_xarray_zarr_subpath(
+@pytest.mark.parametrize("consolidate_coords", [True, False])
+def test_xarray_zarr_consolidate_coords(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,
     pipeline,
     tmp_target_url,
+    consolidate_coords,
 ):
     pattern = netcdf_local_file_pattern_sequential
     with pipeline as p:
@@ -73,9 +75,11 @@ def test_xarray_zarr_subpath(
                 target_root=tmp_target_url,
                 store_name="subpath",
                 combine_dims=pattern.combine_dim_keys,
+                consolidate_coords=consolidate_coords,
             )
         )
-
+    # TODO: This test needs to check if the consolidate_coords transform
+    # within StoreToZarr is considating the chunks of the coordinates
     ds = xr.open_dataset(os.path.join(tmp_target_url, "subpath"), engine="zarr")
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 

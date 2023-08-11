@@ -247,9 +247,7 @@ def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
     )
 
 
-def consolidate_dimension_coordinates(
-    item: Tuple[Index, xr.Dataset], target_store: zarr.storage.FSStore
-) -> None:
+def consolidate_dimension_coordinates(_, target_store: zarr.storage.FSStore) -> None:
     """Consolidate dimension coordinates chunking
 
     :param target_store: Input target store

@@ -89,6 +89,7 @@ def store_dataset_fragment(
                 _store_data(vname, da.variable, index, zgroup)
     for vname, da in ds.data_vars.items():
         _store_data(vname, da.variable, index, zgroup)
+    return target_store
 
 
 def write_combined_reference(
