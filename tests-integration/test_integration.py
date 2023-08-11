@@ -6,7 +6,6 @@ from textwrap import dedent
 from typing import Type
 
 import pytest
-import xarray as xr
 from conftest import RecipeIntegrationTests
 from pytest import TempPathFactory
 
@@ -73,9 +72,5 @@ def test_integration(
         ]
         proc = subprocess.run(cmd, capture_output=True, cwd=tmpdir)
         assert proc.returncode == 0
-        target_root = Path(config_dict["TargetStorage"]["root_path"])
-        # TODO: explain what we're doing here with full_path
-        full_path = next(target_root.iterdir()).absolute().as_posix()
-        ds = xr.open_dataset(full_path, engine="zarr")  # TODO: support kerchunk
-        t = test_cls(ds=ds)
+        t = test_cls(target_root=config_dict["TargetStorage"]["root_path"])
         t.test_ds()

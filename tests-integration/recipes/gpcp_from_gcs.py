@@ -23,7 +23,7 @@ recipe = (
     | OpenURLWithFSSpec()
     | OpenWithXarray(file_type=pattern.file_type, xarray_open_kwargs={"decode_coords": "all"})
     | StoreToZarr(
-        store_name="gpcp",
+        store_name="gpcp.zarr",
         combine_dims=pattern.combine_dim_keys,
     )
 )
