@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import logging
 import random
+import sys
 from dataclasses import dataclass, field
-
-# from functools import wraps
 from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
+
+# PEP612 Concatenate & ParamSpec are useful for annotating decorators, but their import
+# differs between Python versions 3.9 & 3.10. See: https://stackoverflow.com/a/71990006
+if sys.version_info < (3, 10):
+    from typing_extensions import Concatenate, ParamSpec
+else:
+    from typing import Concatenate, ParamSpec
 
 import apache_beam as beam
 
@@ -55,9 +61,16 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 Indexed = Tuple[Index, T]
 
+R = TypeVar("R")
+IndexedReturn = Tuple[Index, R]
+
+P = ParamSpec("P")
+
 
 # TODO: replace with beam.MapTuple?
-def _add_keys(func: Callable) -> Callable:
+def _add_keys(
+    func: Callable[Concatenate[T, P], R],
+) -> Callable[Concatenate[Indexed, P], IndexedReturn]:
     """Convenience decorator to remove and re-add keys to items in a Map"""
     annotations = func.__annotations__.copy()
     arg_name, annotation = next(iter(annotations.items()))
@@ -66,7 +79,7 @@ def _add_keys(func: Callable) -> Callable:
     annotations["return"] = Tuple[Index, return_annotation]
 
     # @wraps(func)  # doesn't work for some reason
-    def wrapper(arg, *args, **kwargs):
+    def wrapper(arg, *args: P.args, **kwargs: P.kwargs):
         key, item = arg
         result = func(item, *args, **kwargs)
         return key, result
@@ -75,7 +88,9 @@ def _add_keys(func: Callable) -> Callable:
     return wrapper
 
 
-def _add_keys_iter(func: Callable) -> Callable:
+def _add_keys_iter(
+    func: Callable[Concatenate[T, P], R],
+) -> Callable[Concatenate[Iterable[Indexed], P], Iterator[IndexedReturn]]:
     """Convenience decorator to iteratively remove and re-add keys to items in a FlatMap"""
     annotations = func.__annotations__.copy()
     arg_name, annotation = next(iter(annotations.items()))
@@ -85,7 +100,7 @@ def _add_keys_iter(func: Callable) -> Callable:
     annotations[arg_name] = Iterable[Tuple[Index, annotation]]  # type: ignore
     annotations["return"] = Iterator[Tuple[Index, return_annotation]]  # type: ignore
 
-    def iterable_wrapper(arg, *args, **kwargs):
+    def iterable_wrapper(arg, *args: P.args, **kwargs: P.kwargs):
         for inner_item in arg:
             key, item = inner_item
             result = func(item, *args, **kwargs)
