@@ -66,9 +66,9 @@ def _add_keys(func: Callable) -> Callable:
     annotations["return"] = Tuple[Index, return_annotation]
 
     # @wraps(func)  # doesn't work for some reason
-    def wrapper(arg, **kwargs):
+    def wrapper(arg, *args, **kwargs):
         key, item = arg
-        result = func(item, **kwargs)
+        result = func(item, *args, **kwargs)
         return key, result
 
     wrapper.__annotations__ = annotations
@@ -85,10 +85,10 @@ def _add_keys_iter(func: Callable) -> Callable:
     annotations[arg_name] = Iterable[Tuple[Index, annotation]]  # type: ignore
     annotations["return"] = Iterator[Tuple[Index, return_annotation]]  # type: ignore
 
-    def iterable_wrapper(arg, **kwargs):
+    def iterable_wrapper(arg, *args, **kwargs):
         for inner_item in arg:
             key, item = inner_item
-            result = func(item, **kwargs)
+            result = func(item, *args, **kwargs)
             yield key, result
 
     iterable_wrapper.__annotations__ = annotations
@@ -119,31 +119,31 @@ class MapWithConcurrencyLimit(beam.PTransform):
     number of concurrent calls. Useful for situations where the provided function requests data
     from an external service that does not support an unlimited number of concurrent requests.
 
-    :param map_func: The function to pass to beam.Map (in the case of no concurrency limit)
+    :param fn: Callable object passed to beam.Map (in the case of no concurrency limit)
       or beam.FlatMap (if max_concurrency is specified).
-    :param op_name: The name of the operation performed by `map_func`.
-    :param map_func_kws: Kwargs passed to all invocations of `map_func`.
-    :param max_concurrency: The maximum number of concurrent invocations of `map_func`.
+    :param args: Positional arguments passed to all invocations of `fn`.
+    :param kwargs: Keyword arguments passed to all invocations of `fn`.
+    :param max_concurrency: The maximum number of concurrent invocations of `fn`.
       If unspecified, no limit is imposed by this transform (therefore the concurrency
       limit will be set by the Beam Runner's configuration).
     """
 
-    map_func: Callable
-    op_name: str
-    map_func_kws: Optional[dict] = field(default_factory=dict)
+    fn: Callable
+    args: Optional[list] = field(default_factory=list)
+    kwargs: Optional[dict] = field(default_factory=dict)
     max_concurrency: Optional[int] = None
 
     def expand(self, pcoll):
         return (
-            pcoll | self.op_name >> beam.Map(_add_keys(self.map_func), **self.map_func_kws)
+            pcoll | self.fn.__name__ >> beam.Map(_add_keys(self.fn), *self.args, **self.kwargs)
             if not self.max_concurrency
             else (
                 pcoll
                 | beam.Map(_assign_concurrency_group, self.max_concurrency)
                 | beam.GroupByKey()
                 | DropKeys()
-                | f"{self.op_name} (max_concurrency={self.max_concurrency})"
-                >> beam.FlatMap(_add_keys_iter(self.map_func), **self.map_func_kws)
+                | f"{self.fn.__name__} (max_concurrency={self.max_concurrency})"
+                >> beam.FlatMap(_add_keys_iter(self.fn), *self.args, **self.kwargs)
             )
         )
 
@@ -176,9 +176,8 @@ class OpenURLWithFSSpec(beam.PTransform):
             open_kwargs=self.open_kwargs,
         )
         return pcoll | MapWithConcurrencyLimit(
-            map_func=open_url,
-            op_name="Open with fsspec",
-            map_func_kws=kws,
+            open_url,
+            kwargs=kws,
             max_concurrency=self.max_concurrency,
         )
 
