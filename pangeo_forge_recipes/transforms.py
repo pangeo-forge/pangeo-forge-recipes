@@ -57,7 +57,7 @@ Indexed = Tuple[Index, T]
 
 
 # TODO: replace with beam.MapTuple?
-def _add_keys(func: Callable):
+def _add_keys(func: Callable) -> Callable:
     """Convenience decorator to remove and re-add keys to items in a Map"""
     annotations = func.__annotations__.copy()
     arg_name, annotation = next(iter(annotations.items()))
@@ -75,7 +75,7 @@ def _add_keys(func: Callable):
     return wrapper
 
 
-def _add_keys_iter(func: Callable):
+def _add_keys_iter(func: Callable) -> Callable:
     """Convenience decorator to iteratively remove and re-add keys to items in a FlatMap"""
     annotations = func.__annotations__.copy()
     arg_name, annotation = next(iter(annotations.items()))
