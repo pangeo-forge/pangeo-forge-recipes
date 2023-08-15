@@ -1,4 +1,4 @@
-# Recipes User Guide
+# User Guide
 
 Welcome to the User Guide for the `pangeo-forge-recipes` Python package.
 This package is an important part of the broader Pangeo Forge infrastructure.

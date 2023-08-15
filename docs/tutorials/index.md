@@ -1,4 +1,4 @@
-# Recipe Tutorials
+# Advanced Tutorials
 
 These tutorials are deep dives into how to develop and debug Pangeo Forge recipes.
 
