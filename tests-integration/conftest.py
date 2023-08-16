@@ -1,7 +1,5 @@
 import json
 import subprocess
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from pathlib import Path
 
 import fsspec
@@ -41,66 +39,6 @@ def open_reference_ds(
         chunks=chunks,
     )
     return ds
-
-
-@dataclass
-class RecipeIntegrationTests(ABC):
-
-    target_root: str
-
-    @property
-    def ds(self) -> xr.Dataset:
-        # TODO: make it clearer what's going on here; fix mypy ignores
-        dir = Path(self.target_root).joinpath(self.store_name)  # type: ignore
-        if self.store_name.endswith(".zarr"):  # type: ignore
-            return xr.open_dataset(dir.as_posix(), engine="zarr")
-        else:
-            return open_reference_ds(
-                dir / "reference.json",
-                self.remote_protocol,  # type: ignore
-                self.storage_options,  # type: ignore
-                self.chunks,  # type: ignore
-            )
-
-    @abstractmethod
-    def test_ds(self):
-        pass
-
-
-class hrrr_kerchunk_concat_step(RecipeIntegrationTests):
-
-    store_name = "hrrr-concat-step"
-
-    def test_ds(self):
-        ds = self.ds.set_coords(("latitude", "longitude"))
-        assert ds.attrs["centre"] == "kwbc"
-        assert len(ds["step"]) == 4
-        assert len(ds["time"]) == 1
-        assert "t" in ds.data_vars
-        for coord in ["time", "surface", "latitude", "longitude"]:
-            assert coord in ds.coords
-
-
-class hrrr_kerchunk_concat_valid_time(RecipeIntegrationTests):
-    ...
-
-
-@pytest.fixture(
-    params=[
-        (docs_src / "recipes" / "hrrr_kerchunk_concat_step.py", hrrr_kerchunk_concat_step),
-        (
-            docs_src / "recipes" / "hrrr_kerchunk_concat_valid_time.py",
-            hrrr_kerchunk_concat_valid_time,
-        ),
-    ],
-    ids=[
-        "gpcp_from_gcs",
-        "hrrr_kerchunk_concat_step",
-        "hrrr_kerchunk_concat_valid_time",
-    ],
-)
-def recipe_modules_with_test_cls(request):
-    return request.param
 
 
 @pytest.fixture
