@@ -1,10 +1,6 @@
 """Integration test that replicates the results of the following tutorial:
 
 https://projectpythia.org/kerchunk-cookbook/notebooks/case_studies/HRRR.html
-
-To verify that dataset built by the Pangeo Forge pipeline is correct, this test replicates
-the dataset produced by the above-linked tutorial using the same methods demonstrated therein,
-and then compares the output of the Pangeo Forge pipeline to this expected output.
 """
 from typing import Any
 
@@ -65,6 +61,6 @@ recipe = (
         precombine_inputs=True,
     )
     | WriteCombinedReference(
-        store_name="hrrr-kerchunk-concat-valid-time",
+        store_name="hrrr-concat-valid-time",
     )
 )
