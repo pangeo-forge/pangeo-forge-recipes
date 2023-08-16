@@ -2,6 +2,27 @@
 
 These tutorials are deep dives into how to develop and debug Pangeo Forge recipes.
 
+`````{tabs}
+````{tab} Python
+
+```{literalinclude} ../../docs_src/runner-config/local.py
+---
+language: python
+---
+```
+
+````
+````{tab} JSON
+
+```{literalinclude} ../../docs_src/runner-config/local.json
+---
+language: json
+---
+```
+
+````
+`````
+
 ```{toctree}
 :maxdepth: 1
 

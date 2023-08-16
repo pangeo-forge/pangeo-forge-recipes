@@ -17,6 +17,7 @@ extensions = [
     "sphinx_togglebutton",
     "sphinxext.opengraph",
     "sphinx_panels",
+    "sphinx_tabs.tabs",
 ]
 
 extlinks = {
