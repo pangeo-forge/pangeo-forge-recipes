@@ -1,4 +1,5 @@
 import json
+import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,10 +7,16 @@ from pathlib import Path
 import fsspec
 import pytest
 import xarray as xr
+import yaml
 from fsspec.implementations.reference import ReferenceFileSystem
 from pytest_lazyfixture import lazy_fixture
 
 docs_src = Path(__file__).parent.parent / "docs_src"
+
+
+@pytest.fixture
+def recipes_dir():
+    return Path(__file__).parent.parent / "docs_src" / "recipes"
 
 
 def open_reference_ds(
@@ -60,17 +67,6 @@ class RecipeIntegrationTests(ABC):
         pass
 
 
-class gpcp_from_gcs(RecipeIntegrationTests):
-
-    store_name = "gpcp.zarr"
-
-    def test_ds(self):
-        assert self.ds.title == (
-            "Global Precipitation Climatatology Project (GPCP) "
-            "Climate Data Record (CDR), Daily V1.3"
-        )
-
-
 class hrrr_kerchunk_concat_step(RecipeIntegrationTests):
 
     store_name = "hrrr-concat-step"
@@ -91,7 +87,6 @@ class hrrr_kerchunk_concat_valid_time(RecipeIntegrationTests):
 
 @pytest.fixture(
     params=[
-        (docs_src / "recipes" / "gpcp_from_gcs.py", gpcp_from_gcs),
         (docs_src / "recipes" / "hrrr_kerchunk_concat_step.py", hrrr_kerchunk_concat_step),
         (
             docs_src / "recipes" / "hrrr_kerchunk_concat_valid_time.py",
@@ -159,3 +154,25 @@ def confpath_python(tmpdir, target_and_cache_tmppaths):
 )
 def confpath(request):
     return request.param
+
+
+def bake_recipe(recipe_module: Path, confpath: str, tmpdir: Path):
+    (tmpdir / "feedstock").mkdir(parents=True)
+
+    with recipe_module.open() as src:
+        with (tmpdir / "feedstock" / recipe_module.name).open(mode="w") as dst:
+            dst.write(src.read())
+
+    meta_yaml = {"recipes": [{"id": "my-recipe", "object": f"{recipe_module.stem}:recipe"}]}
+    with (tmpdir / "feedstock" / "meta.yaml").open(mode="w") as dst:
+        yaml.safe_dump(meta_yaml, dst)
+
+    cmd = [
+        "pangeo-forge-runner",
+        "bake",
+        "--repo=.",
+        f"-f={confpath}",
+        f"--Bake.job_name={'abc'}",  # TODO: make this a unique identifier
+    ]
+    proc = subprocess.run(cmd, capture_output=True, cwd=tmpdir.absolute().as_posix())
+    assert proc.returncode == 0
