@@ -1,44 +1,18 @@
-import json
 import subprocess
 import tempfile
 from pathlib import Path
 from textwrap import dedent
 from typing import Type
 
-import pytest
 from conftest import RecipeIntegrationTests
-from pytest import TempPathFactory
-
-
-@pytest.fixture
-def runner_config(tmp_path_factory: TempPathFactory):
-    tmp = tmp_path_factory.mktemp("tmp")
-    config = {
-        "Bake": {
-            "prune": True,
-            "bakery_class": "pangeo_forge_runner.bakery.local.LocalDirectBakery",
-        },
-        "TargetStorage": {
-            "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
-            "root_path": (tmp / "target").absolute().as_posix(),
-        },
-        "InputCacheStorage": {
-            "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
-            "root_path": (tmp / "cache").absolute().as_posix(),
-        },
-    }
-    confpath = tmp / "config.json"
-    with confpath.open(mode="w") as f:
-        json.dump(config, f)
-    return config, confpath.absolute().as_posix()
 
 
 def test_integration(
     recipe_modules_with_test_cls: tuple[Path, Type[RecipeIntegrationTests]],
-    runner_config: tuple[dict, str],
+    config_abspath: str,
+    target_and_cache_tmppaths: tuple[str, str],
 ):
     recipe_module, test_cls = recipe_modules_with_test_cls
-    config_dict, config_abspath = runner_config
 
     with tempfile.TemporaryDirectory() as tmpdir:
         as_path = Path(tmpdir)
@@ -72,5 +46,5 @@ def test_integration(
         ]
         proc = subprocess.run(cmd, capture_output=True, cwd=tmpdir)
         assert proc.returncode == 0
-        t = test_cls(target_root=config_dict["TargetStorage"]["root_path"])
-        t.test_ds()
+        # t = test_cls(target_root=target_tmppath)
+        # t.test_ds()

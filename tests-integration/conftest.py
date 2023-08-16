@@ -7,8 +7,9 @@ import fsspec
 import pytest
 import xarray as xr
 from fsspec.implementations.reference import ReferenceFileSystem
+from pytest_lazyfixture import lazy_fixture
 
-recipes = Path(__file__).parent.parent / "docs_src" / "recipes"
+docs_src = Path(__file__).parent.parent / "docs_src"
 
 
 def open_reference_ds(
@@ -90,9 +91,12 @@ class hrrr_kerchunk_concat_valid_time(RecipeIntegrationTests):
 
 @pytest.fixture(
     params=[
-        (recipes / "gpcp_from_gcs.py", gpcp_from_gcs),
-        (recipes / "hrrr_kerchunk_concat_step.py", hrrr_kerchunk_concat_step),
-        (recipes / "hrrr_kerchunk_concat_valid_time.py", hrrr_kerchunk_concat_valid_time),
+        (docs_src / "recipes" / "gpcp_from_gcs.py", gpcp_from_gcs),
+        (docs_src / "recipes" / "hrrr_kerchunk_concat_step.py", hrrr_kerchunk_concat_step),
+        (
+            docs_src / "recipes" / "hrrr_kerchunk_concat_valid_time.py",
+            hrrr_kerchunk_concat_valid_time,
+        ),
     ],
     ids=[
         "gpcp_from_gcs",
@@ -101,4 +105,57 @@ class hrrr_kerchunk_concat_valid_time(RecipeIntegrationTests):
     ],
 )
 def recipe_modules_with_test_cls(request):
+    return request.param
+
+
+@pytest.fixture
+def tmpdir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return tmp_path_factory.mktemp("tmp")
+
+
+@pytest.fixture
+def target_and_cache_tmppaths(tmpdir: Path):
+    return ((tmpdir / "target").absolute().as_posix(), (tmpdir / "cache").absolute().as_posix())
+
+
+def rewrite_config_with_tmppaths(
+    fname: str,
+    tmpdir: Path,
+    target_and_cache_tmppaths: tuple[str, str],
+) -> str:
+    dstpath = tmpdir / fname
+    tmp_target, tmp_cache = target_and_cache_tmppaths
+
+    with open(docs_src / "runner-config" / fname) as src:
+        with dstpath.open(mode="w") as dst:
+            if Path(fname).suffix == ".json":
+                c = json.load(src)
+                c["TargetStorage"]["root_path"] = tmp_target
+                c["InputCacheStorage"]["root_path"] = tmp_cache
+                json.dump(c, dst)
+            else:
+                c = src.read().replace("./target", tmp_target).replace("./cache", tmp_cache)
+                dst.write(c)
+
+    return dstpath.absolute().as_posix()
+
+
+@pytest.fixture
+def confpath_json(tmpdir, target_and_cache_tmppaths):
+    return rewrite_config_with_tmppaths("local.json", tmpdir, target_and_cache_tmppaths)
+
+
+@pytest.fixture
+def confpath_python(tmpdir, target_and_cache_tmppaths):
+    return rewrite_config_with_tmppaths("local.py", tmpdir, target_and_cache_tmppaths)
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        lazy_fixture("confpath_json"),
+        lazy_fixture("confpath_python"),
+    ],
+)
+def confpath(request):
     return request.param
