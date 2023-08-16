@@ -8,7 +8,7 @@ import pytest
 import xarray as xr
 from fsspec.implementations.reference import ReferenceFileSystem
 
-examples = Path(__file__).parent.parent / "examples"
+recipes = Path(__file__).parent.parent / "docs_src" / "recipes"
 
 
 def open_reference_ds(
@@ -90,9 +90,9 @@ class hrrr_kerchunk_concat_valid_time(RecipeIntegrationTests):
 
 @pytest.fixture(
     params=[
-        (examples / "gpcp_from_gcs.py", gpcp_from_gcs),
-        (examples / "hrrr_kerchunk_concat_step.py", hrrr_kerchunk_concat_step),
-        (examples / "hrrr_kerchunk_concat_valid_time.py", hrrr_kerchunk_concat_valid_time),
+        (recipes / "gpcp_from_gcs.py", gpcp_from_gcs),
+        (recipes / "hrrr_kerchunk_concat_step.py", hrrr_kerchunk_concat_step),
+        (recipes / "hrrr_kerchunk_concat_valid_time.py", hrrr_kerchunk_concat_valid_time),
     ],
     ids=[
         "gpcp_from_gcs",
