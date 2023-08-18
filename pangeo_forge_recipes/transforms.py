@@ -552,8 +552,4 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             target=self.get_full_target(), target_chunks=target_chunks
         )
         rechunked_datasets | StoreDatasetFragments(target_store=target_store)
-        # trying to force target store return in-line after the store TODO: Move this upstream
-        finished_target_store = beam.pvalue.AsSingleton(
-            beam.Create([target_store]) | beam.Map(lambda x: x)
-        )
-        return finished_target_store
+        return target_store
