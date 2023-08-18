@@ -238,6 +238,7 @@ class DetermineSchema(beam.PTransform):
                     | _NestDim(last_dim)
                     | beam.CombinePerKey(CombineXarraySchemas(last_dim))
                 )
+        logger.info(f"Determined {schemas =}")
         return schemas
 
 
