@@ -3,5 +3,8 @@ def get_injection_specs():
         "StoreToZarr": {
             "target_root": "OUTPUT_ROOT",
         },
+        "WriteCombinedReference": {
+            "target_root": "OUTPUT_ROOT",
+        },
         "OpenURLWithFSSpec": {"cache": "CACHE_ROOT"},
     }
