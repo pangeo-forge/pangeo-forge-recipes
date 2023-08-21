@@ -1,11 +1,85 @@
-[tool.black]
-line-length = 100
-
-# pyproject.toml
 [build-system]
 requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.0"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "pangeo-forge-recipes"
+dynamic = ["version"]
+requires-python = ">=3.8"
+description = "Pipeline tools for building and publishing analysis ready datasets."
+readme = "README.md"
+authors = [
+  { name = "Ryan Abernathey", email = "rpa@ldeo.columbia.edu" }
+]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Scientific/Engineering",
+]
+license = { text = "Apache-2.0" }
+keywords = ["pangeo", "data"]
+dependencies = [
+    "setuptools",
+    "dask >= 2021.11.2",
+    "distributed >= 2021.11.2",
+    "cftime",
+    "h5py >= 3.3.0",
+    "intake >= 0.6.4",
+    "intake-xarray >= 0.4.1",
+    "xarray >=0.18.0",
+    "netcdf4",
+    "h5netcdf",
+    "zarr >= 2.12.0",
+    "numcodecs >= 0.9.0",
+    "fsspec[http] >= 2021.6.0",
+    "kerchunk >= 0.0.7",
+    "mypy_extensions >= 0.4.2"
+]
+
+[project.optional-dependencies]
+dev = [
+    "click",
+    "pytest",
+    "pytest-sugar",
+    "pytest-cov",
+    "pytest-lazy-fixture",
+    "scipy"
+]
+
+
+[project.urls]
+Homepage = "https://github.com/pangeo-forge/pangeo-forge-recipes"
+Tracker = "https://github.com/pangeo-forge/pangeo-forge-recipes/issues"
+Documentation = "https://pangeo-forge.readthedocs.io/en/latest/"
+
 [tool.setuptools_scm]
 write_to = "pangeo_forge_recipes/_version.py"
 write_to_template = "__version__ = '{version}'"
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+known_first_party = "pangeo_forge_recipes"
+known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "kerchunk", "numpy", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "setuptools", "ujson", "xarray", "zarr"]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true
+line_length = 100
+
+[tool.pytest.ini_options]
+log_cli = false
+timeout = 30
+timeout_method = "signal"
+addopts = "--ignore-glob=tests/recipe_tests/*"
+markers = [
+    "no_executor: Tests that do not use an executor fixture.",
+    "executor_function: Tests that use the Python function executor.",
+]
