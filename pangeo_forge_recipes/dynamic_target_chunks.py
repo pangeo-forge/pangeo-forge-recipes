@@ -1,4 +1,5 @@
 import itertools
+import logging
 import warnings
 from typing import Dict, List, Union
 
@@ -7,6 +8,8 @@ import xarray as xr
 from dask.utils import parse_bytes
 
 from pangeo_forge_recipes.aggregation import XarraySchema, schema_to_template_ds
+
+logger = logging.getLogger(__name__)
 
 
 def get_memory_size(ds: xr.Dataset, chunks: Dict[str, int]) -> int:
@@ -50,6 +53,7 @@ def even_divisor_algo(
     target_chunks_aspect_ratio: Dict[str, int],
     size_tolerance: float,
 ) -> Dict[str, int]:
+    logger.info("Running primary dynamic chunking algorithm using even divisors")
 
     dims, shape = zip(*ds.dims.items())
     ratio = [target_chunks_aspect_ratio[dim] for dim in dims]
@@ -111,6 +115,7 @@ def iterative_ratio_increase_algo(
     target_chunks_aspect_ratio: Dict[str, int],
     size_tolerance: float,
 ) -> Dict[str, int]:
+    logger.info("Running secondary dynamic chunking")
     # Alternative algorithm that starts with a normalized chunk aspect ratio and iteratively scales
     # it until the desired chunk size is reached.
 
@@ -146,6 +151,7 @@ def iterative_ratio_increase_algo(
     max_chunks = scale_and_normalize_chunks(
         ds, target_chunks_aspect_ratio, 1
     )  # largest possible chunk size for each dimension
+    logger.info(f"{max_chunks=}")
     max_scale_factor = min(
         max_chunks.values()
     )  # only scale down chunks until one of them reaches 1
@@ -175,6 +181,7 @@ def iterative_ratio_increase_algo(
     # check if the resulting chunk size is within tolerance
     lower_bound = target_chunk_size * (1 - size_tolerance)
     upper_bound = target_chunk_size * (1 + size_tolerance)
+    logger.info(f"{optimal_size=} {lower_bound=} {upper_bound=}")
     if not (optimal_size >= lower_bound and optimal_size <= upper_bound):
         raise ValueError(
             (
