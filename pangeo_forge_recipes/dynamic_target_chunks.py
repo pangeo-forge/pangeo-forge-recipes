@@ -55,23 +55,33 @@ def even_divisor_algo(
 ) -> Dict[str, int]:
     logger.info("Running primary dynamic chunking algorithm using even divisors")
 
-    dims, shape = zip(*ds.dims.items())
-    ratio = [target_chunks_aspect_ratio[dim] for dim in dims]
+    # filter out the dimensions that are unchunked
+    target_chunks_aspect_ratio_chunked_only = {
+        dim: ratio for dim, ratio in target_chunks_aspect_ratio.items() if ratio != -1
+    }
+    print(f"{target_chunks_aspect_ratio_chunked_only=}")
+    unchunked_dims = [
+        dim
+        for dim in target_chunks_aspect_ratio.keys()
+        if dim not in target_chunks_aspect_ratio_chunked_only.keys()
+    ]
+    print(f"{unchunked_dims=}")
 
     possible_chunks = []
-    for s, r, dim in zip(shape, ratio, dims):
-        if r > 0:
-            # Get a list of all the even divisors
-            possible_chunks.append(even_divisor_chunks(s))
-        elif r == -1:
+    for dim, s in ds.dims.items():
+        if dim in unchunked_dims:
             # Always keep this dimension unchunked
             possible_chunks.append([s])
+        else:
+            # Get a list of all the even divisors
+            possible_chunks.append(even_divisor_chunks(s))
 
-    combinations = [p for p in itertools.product(*possible_chunks)]
-    # Check the size of each combination on the dataset
-    combination_sizes = [
-        get_memory_size(ds, {dim: chunk for dim, chunk in zip(dims, c)}) for c in combinations
+    combinations = [
+        {dim: chunk for dim, chunk in zip(ds.dims.keys(), c)}
+        for c in itertools.product(*possible_chunks)
     ]
+    # Check the size of each combination on the dataset
+    combination_sizes = [get_memory_size(ds, c) for c in combinations]
 
     # And select a subset with some form of tolerance based on the size requirement
     tolerance = size_tolerance * target_chunk_size
@@ -93,20 +103,42 @@ def even_divisor_algo(
     # We can think of this as comparing the angle of two vectors.
     # To compare them we need to normalize (we dont care about the amplitude here)
 
+    # For the size estimation we needed the chunk combinations to be complete
+    # (cover all dimensions, even the unchunked ones). To find the closest fit
+    # to the desired aspect ratio we need to remove the unchunked dimensions.
+
+    combinations_filtered_chunked_only = [
+        {dim: chunk for dim, chunk in c.items() if dim not in unchunked_dims}
+        for c in combinations_filtered
+    ]
+
     # convert each combination into an array of resulting chunks per dimension, then normalize
-    ratio_combinations = [normalize(np.array(shape) / np.array(c)) for c in combinations_filtered]
+    dims_chunked_only = list(
+        target_chunks_aspect_ratio_chunked_only.keys()
+    )  # the order of these does matter
+
+    shape_chunked_only = np.array([ds.dims[dim] for dim in dims_chunked_only])
+    ratio = [
+        shape_chunked_only / np.array([c[dim] for dim in dims_chunked_only])
+        for c in combinations_filtered_chunked_only
+    ]
+    ratio_normalized = [normalize(r) for r in ratio]
 
     # Find the 'closest' fit between normalized ratios
     # cartesian difference between vectors ok?
-    ratio_normalized = normalize(np.array(ratio))
-    ratio_similarity = [similarity(ratio_normalized, r) for r in ratio_combinations]
+    target_ratio_normalized = normalize(
+        np.array([target_chunks_aspect_ratio_chunked_only[dim] for dim in dims_chunked_only])
+    )
+    ratio_similarity = [similarity(target_ratio_normalized, r) for r in ratio_normalized]
 
-    # sort by the mostl similar (smallest value of ratio_similarity)
-    combinations_sorted = [c for _, c in sorted(zip(ratio_similarity, combinations_filtered))]
+    # sort by similarity and return the corresponding full combination
+    # (including the unchunked dimensions)
+    combinations_sorted = [
+        c for _, c in sorted(zip(ratio_similarity, combinations_filtered), key=lambda a: a[0])
+    ]
 
     # Return the chunk combination with the closest fit
-    optimal_combination = combinations_sorted[0]
-    return {dim: chunk for dim, chunk in zip(dims, optimal_combination)}
+    return combinations_sorted[0]
 
 
 def iterative_ratio_increase_algo(

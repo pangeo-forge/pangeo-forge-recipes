@@ -25,14 +25,14 @@ def _create_ds(dims_shape: Dict[str, int]) -> xr.Dataset:
         # make sure that for the same dataset we get smaller chunksize along
         # a dimension if the ratio is larger
         (
-            {"x": 200, "y": 200, "z": 200},
+            {"x": 300, "y": 300, "z": 300},
             {"x": 1, "y": 1, "z": 10},
-            {"x": 50, "y": 100, "z": 25},
+            {"x": 100, "y": 100, "z": 12},
         ),
         (
-            {"x": 200, "y": 200, "z": 200},
+            {"x": 300, "y": 300, "z": 300},
             {"x": 10, "y": 1, "z": 1},
-            {"x": 25, "y": 50, "z": 100},
+            {"x": 12, "y": 100, "z": 100},
         ),
         # test the special case where we want to just chunk along a single dimension
         (
@@ -49,6 +49,7 @@ def test_dynamic_rechunking(dims_shape, target_chunks_aspect_ratio, expected_tar
         schema, 1e6, target_chunks_aspect_ratio=target_chunks_aspect_ratio, size_tolerance=0.2
     )
     print(target_chunks)
+    print(expected_target_chunks)
     for dim, chunks in expected_target_chunks.items():
         assert target_chunks[dim] == chunks
 
@@ -121,6 +122,30 @@ def test_missing_dimensions(default_ratio):
         size_tolerance=0.2,
     )
     assert chunks_from_default == chunks_explicit
+
+
+def test_permuted_dimensions():
+    ds = _create_ds({"x": 100, "y": 200, "z": 300})
+    schema = dataset_to_schema(ds)
+    size_tolerance = 0.2
+    target_chunk_size = 1e6
+    target_chunks = dynamic_target_chunks_from_schema(
+        schema,
+        target_chunk_size,
+        target_chunks_aspect_ratio={"x": 1, "y": 2, "z": 10},
+        size_tolerance=size_tolerance,
+    )
+    target_chunks_permuted = dynamic_target_chunks_from_schema(
+        schema,
+        target_chunk_size,
+        target_chunks_aspect_ratio={
+            "z": 10,
+            "y": 2,
+            "x": 1,
+        },
+        size_tolerance=size_tolerance,
+    )
+    assert target_chunks == target_chunks_permuted
 
 
 def test_error_extra_dimensions_not_allowed():
