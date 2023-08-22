@@ -152,13 +152,13 @@ def iterative_ratio_increase_algo(
         ds, target_chunks_aspect_ratio, 1
     )  # largest possible chunk size for each dimension
     logger.info(f"{max_chunks=}")
-    max_scale_factor = min(
-        max_chunks.values()
-    )  # only scale down chunks until one of them reaches 1
-
+    max_scale_factor = max(max_chunks.values())
+    logger.info(f"{max_scale_factor=}")
     # Compute the size for each scaling factor and choose the
     # closest fit to the desired chunk size
     scale_factors = np.arange(1, max_scale_factor + 1)
+    # TODO: There is probably a smarter way (binary search?) to narrow this
+    # TODO: range down and speed this up. For now this should work.
     sizes = np.array(
         [
             get_memory_size(
@@ -167,6 +167,9 @@ def iterative_ratio_increase_algo(
             for scale_factor in scale_factors
         ]
     )
+    logger.info(f"{sizes=}")
+    logger.info(f" Min size{sizes[-1]}")
+    logger.info(f" Max size{sizes[0]}")
 
     size_mismatch = abs(sizes - target_chunk_size)
 
