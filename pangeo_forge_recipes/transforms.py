@@ -488,6 +488,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     :param allow_extra_dims: bool, optional
         Allow to pass dimensions not present in the dataset to be passed in
         target_chunks_aspect_ratio, by default False
+    :param allow_fallback_algo : bool, optional
+        If True, allows the use of secondary algorithm if finding chunking
+        scheme with even divisors fails.
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
@@ -499,6 +502,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     size_tolerance: float = 0.2
     default_ratio: int = -1
     allow_extra_dims: bool = False
+    allow_fallback_algo: bool = False
 
     def __post_init__(self):
         # if none of the chunking parameters is specified, set the default behavior
@@ -537,6 +541,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 size_tolerance=self.size_tolerance,
                 default_ratio=self.default_ratio,
                 allow_extra_dims=self.allow_extra_dims,
+                allow_fallback_algo=self.allow_fallback_algo,
             )
             logger.info(f"Dynamically determined target_chunks: {target_chunks}")
         else:

@@ -5,7 +5,11 @@ import pytest
 import xarray as xr
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.dynamic_target_chunks import dynamic_target_chunks_from_schema
+from pangeo_forge_recipes.dynamic_target_chunks import (
+    dynamic_target_chunks_from_schema,
+    even_divisor_algo,
+    iterative_ratio_increase_algo,
+)
 
 
 def _create_ds(dims_shape: Dict[str, int]) -> xr.Dataset:
@@ -108,6 +112,7 @@ def test_missing_dimensions(default_ratio):
             1e6,
             target_chunks_aspect_ratio={"x": 1, "z": 10},
             size_tolerance=0.2,
+            default_ratio=default_ratio,
         )
     chunks_explicit = dynamic_target_chunks_from_schema(
         schema,
@@ -149,3 +154,84 @@ def test_extra_dimensions_allowed():
         size_tolerance=0.2,
     )
     assert chunks_with_extra == chunks_without_extra
+
+
+def test_non_int_ratio_input():
+    ds = _create_ds({"x": 1, "y": 2, "z": 3})
+    schema = dataset_to_schema(ds)
+    with pytest.raises(ValueError, match="Ratio value must be an integer. Got 1.5 for dimension y"):
+        dynamic_target_chunks_from_schema(
+            schema,
+            1e6,
+            target_chunks_aspect_ratio={"x": 1, "y": 1.5, "z": 10},
+            size_tolerance=0.2,
+        )
+
+
+def test_large_negative_ratio_input():
+    ds = _create_ds({"x": 1, "y": 2, "z": 3})
+    schema = dataset_to_schema(ds)
+    with pytest.raises(
+        ValueError, match="Ratio value can only be larger than 0 or -1. Got -100 for dimension y"
+    ):
+        dynamic_target_chunks_from_schema(
+            schema,
+            1e6,
+            target_chunks_aspect_ratio={"x": 1, "y": -100, "z": 10},
+            size_tolerance=0.2,
+        )
+
+
+def test_algo_comparison():
+    """test that we get the same result from both algorithms for a known simple case"""
+    ds = _create_ds({"x": 100, "y": 100, "z": 100})
+    target_chunk_size = 4e5
+    target_chunks_aspect_ratio = {"x": -1, "y": 2, "z": 10}
+    size_tolerance = 0.01
+    chunks_a = even_divisor_algo(
+        ds,
+        target_chunk_size,
+        target_chunks_aspect_ratio=target_chunks_aspect_ratio,
+        size_tolerance=size_tolerance,
+    )
+    chunks_b = iterative_ratio_increase_algo(
+        ds,
+        target_chunk_size,
+        target_chunks_aspect_ratio=target_chunks_aspect_ratio,
+        size_tolerance=size_tolerance,
+    )
+    assert chunks_a == chunks_b
+
+
+def test_allow_fallback_algo():
+    """test that we get a ValueError when we can't find a solution"""
+    # create a dataset that has
+    ds = _create_ds({"x": 100, "z": 1111})
+    schema = dataset_to_schema(ds)
+    target_chunk_size = 7e4
+    target_chunks_aspect_ratio = {"x": -1, "z": 1}
+    size_tolerance = 0.1
+
+    msg = (
+        "Could not find any chunk combinations satisfying the size constraint."
+        " Consider increasing size_tolerance or enabling allow_fallback_algo."
+    )
+    with pytest.raises(ValueError, match=msg):
+        dynamic_target_chunks_from_schema(
+            schema,
+            target_chunk_size,
+            target_chunks_aspect_ratio=target_chunks_aspect_ratio,
+            size_tolerance=size_tolerance,
+            allow_fallback_algo=False,
+        )
+    with pytest.warns(
+        UserWarning, match="Primary algorithm using even divisors along each dimension failed with"
+    ):
+        target_chunks = dynamic_target_chunks_from_schema(
+            schema,
+            target_chunk_size,
+            target_chunks_aspect_ratio=target_chunks_aspect_ratio,
+            size_tolerance=size_tolerance,
+            allow_fallback_algo=True,
+        )
+    assert target_chunks == {"x": 100, "z": 85}
