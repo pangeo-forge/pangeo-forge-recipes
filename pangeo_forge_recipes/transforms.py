@@ -112,20 +112,6 @@ def _add_keys_iter(
     return iterable_wrapper
 
 
-def _drop_keys(kvp):
-    """Function for DropKeys transform."""
-    key, item = kvp
-    return item
-
-
-@dataclass
-class DropKeys(beam.PTransform):
-    """Simple transform to remove keys."""
-
-    def expand(self, pcoll):
-        return pcoll | "Drop Keys" >> beam.Map(_drop_keys)
-
-
 def _assign_concurrency_group(elem, max_concurrency: int):
     return (random.randint(0, max_concurrency - 1), elem)
 
@@ -158,7 +144,7 @@ class MapWithConcurrencyLimit(beam.PTransform):
                 pcoll
                 | beam.Map(_assign_concurrency_group, self.max_concurrency)
                 | beam.GroupByKey()
-                | DropKeys()
+                | beam.Values()
                 | f"{self.fn.__name__} (max_concurrency={self.max_concurrency})"
                 >> beam.FlatMap(_add_keys_iter(self.fn), *self.args, **self.kwargs)
             )
@@ -239,7 +225,8 @@ class OpenWithKerchunk(beam.PTransform):
             remote_protocol=self.remote_protocol,
             kerchunk_open_kwargs=self.kerchunk_open_kwargs,
         )
-        return refs if not self.drop_keys else refs | DropKeys()
+
+        return refs if not self.drop_keys else refs | beam.Values()
 
 
 @dataclass
