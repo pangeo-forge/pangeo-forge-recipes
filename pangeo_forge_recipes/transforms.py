@@ -411,19 +411,8 @@ class Rechunk(beam.PTransform):
 
 @dataclass
 class ConsolidateDimensionCoordinates(beam.PTransform):
-    """
-    :param target_store: The destination to store in
-
-
-    """
-
-    target_store: beam.PCollection  # side input
-
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(
-            consolidate_dimension_coordinates,
-            target_store=beam.pvalue.AsSingleton(self.target_store),
-        )
+        return pcoll | beam.Map(consolidate_dimension_coordinates)
 
 
 @dataclass
@@ -515,4 +504,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         )
         # TODO: optionally use `singleton_target_store` to
         # consolidate metadata and/or coordinate dims here
+        if self.consolidate_coords:
+            singleton_target_store | ConsolidateDimensionCoordinates()
+
         return singleton_target_store
