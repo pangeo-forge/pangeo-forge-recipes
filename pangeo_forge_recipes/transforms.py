@@ -460,6 +460,33 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
         )
 
 
+class SampleSingleton(beam.PTransform):
+    """Receive an input PCollection of any size, sample a single value from it,
+    and emit a singleton PCollection containing the single sampled value.
+    """
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return (
+            pcoll
+            | beam.combiners.Sample.FixedSizeGlobally(1)
+            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+        )
+
+
+def _consolidate_zarr_metadata(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+    """Consolidate zarr metadata, passing the zarr store through once complete."""
+    zarr.consolidate_metadata(store)
+    return store
+
+
+class ConsolidateZarrMetadata(beam.PTransform):
+    def expand(
+        self,
+        pcoll: beam.PCollection[zarr.storage.FSStore],
+    ) -> beam.PCollection[zarr.storage.FSStore]:
+        return pcoll | beam.Map(_consolidate_zarr_metadata)
+
+
 @dataclass
 class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
@@ -473,6 +500,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
     target_chunks: Dict[str, int] = field(default_factory=dict)
+    consolidate_metadata: bool = True
 
     def expand(
         self,
@@ -488,10 +516,10 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         )
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (
-            n_target_stores
-            | beam.combiners.Sample.FixedSizeGlobally(1)
-            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+            n_target_stores | SampleSingleton()
+            if not self.consolidate_metadata
+            else n_target_stores | SampleSingleton() | ConsolidateZarrMetadata()
         )
-        # TODO: optionally use `singleton_target_store` to
-        # consolidate metadata and/or coordinate dims here
+        # TODO: optionally pipe `singleton_target_store` to
+        # ConsolidateCoordinateDimensions transform before returning
         return singleton_target_store
