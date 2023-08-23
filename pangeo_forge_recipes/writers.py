@@ -91,8 +91,6 @@ def store_dataset_fragment(
         _store_data(vname, da.variable, index, zgroup)
     return target_store
 
-    return target_store
-
 
 def write_combined_reference(
     reference: MultiZarrToZarr,
