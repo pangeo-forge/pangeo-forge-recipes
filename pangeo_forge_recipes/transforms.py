@@ -405,4 +405,11 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             target=self.get_full_target(), target_chunks=self.target_chunks
         )
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
-        return n_target_stores | beam.combiners.Sample.FixedSizeGlobally(1)
+        singleton_target_store = (
+            n_target_stores
+            | beam.combiners.Sample.FixedSizeGlobally(1)
+            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+        )
+        # TODO: optionally use `singleton_target_store` to
+        # consolidate metadata and/or coordinate dims here
+        return singleton_target_store
