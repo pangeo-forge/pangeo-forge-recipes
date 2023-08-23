@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import apache_beam as beam
 import pytest
 import xarray as xr
@@ -234,17 +236,22 @@ def test_rechunk(
         assert_that(rechunked, correct_chunks())
 
 
+@pytest.mark.parametrize("consolidate", [True, False])
 def test_StoreToZarr_emits_openable_fsstore(
     pipeline,
     netcdf_local_file_pattern_sequential,
     tmp_target_url,
+    consolidate,
 ):
-    def _open_zarr(store):
-        return xr.open_dataset(store, engine="zarr")
+    def _open_zarr(store, consolidated):
+        return xr.open_dataset(store, engine="zarr", consolidated=consolidated)
 
+    @dataclass
     class OpenZarrStore(beam.PTransform):
+        consolidated: bool
+
         def expand(self, pcoll):
-            return pcoll | beam.Map(_open_zarr)
+            return pcoll | beam.Map(_open_zarr, consolidated=self.consolidated)
 
     def is_xrdataset():
         def _is_xr_dataset(actual):
@@ -261,6 +268,7 @@ def test_StoreToZarr_emits_openable_fsstore(
             target_root=tmp_target_url,
             store_name="test.zarr",
             combine_dims=pattern.combine_dim_keys,
+            consolidate_metadata=consolidate,
         )
-        open_store = target_store | OpenZarrStore()
+        open_store = target_store | OpenZarrStore(consolidated=consolidate)
         assert_that(open_store, is_xrdataset())

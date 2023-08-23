@@ -494,6 +494,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     :param combine_dims: The dimensions to combine
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the data.
+    :param consolidate_metadata: Whether to consolidate metadata in the resulting
+        Zarr dataset. Defaults to ``True``.
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
