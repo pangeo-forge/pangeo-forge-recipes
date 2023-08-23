@@ -14,6 +14,8 @@ else:
     from typing import Concatenate, ParamSpec
 
 import apache_beam as beam
+import xarray as xr
+import zarr
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
@@ -548,7 +550,10 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             target_chunks = cast(Dict[str, int], self.target_chunks)
         return target_chunks
 
-    def expand(self, datasets: beam.PCollection) -> beam.PCollection:
+    def expand(
+        self,
+        datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
+    ) -> beam.PCollection[zarr.storage.FSStore]:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         target_chunks = beam.pvalue.AsSingleton(schema | beam.Map(self._get_target_chunks))
         indexed_datasets = datasets | IndexItems(schema=schema)
@@ -556,5 +561,12 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(), target_chunks=target_chunks
         )
-        rechunked_datasets | StoreDatasetFragments(target_store=target_store)
-        return target_store
+        n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+        singleton_target_store = (
+            n_target_stores
+            | beam.combiners.Sample.FixedSizeGlobally(1)
+            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+        )
+        # TODO: optionally use `singleton_target_store` to
+        # consolidate metadata and/or coordinate dims here
+        return singleton_target_store
