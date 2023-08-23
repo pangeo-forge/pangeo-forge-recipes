@@ -7,7 +7,7 @@ from apache_beam.testing.util import BeamAssertException, assert_that, is_not_em
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.patterns import FileType
+from pangeo_forge_recipes.patterns import FilePattern, FileType
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
 from pangeo_forge_recipes.transforms import (
     DetermineSchema,
@@ -16,6 +16,7 @@ from pangeo_forge_recipes.transforms import (
     OpenWithXarray,
     PrepareZarrTarget,
     Rechunk,
+    StoreToZarr,
 )
 from pangeo_forge_recipes.types import CombineOp
 
@@ -231,3 +232,35 @@ def test_rechunk(
         indexed_datasets = datasets | IndexItems(schema=schema)
         rechunked = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
         assert_that(rechunked, correct_chunks())
+
+
+def test_StoreToZarr_emits_openable_fsstore(
+    pipeline,
+    netcdf_local_file_pattern_sequential,
+    tmp_target_url,
+):
+    def _open_zarr(store):
+        return xr.open_dataset(store, engine="zarr")
+
+    class OpenZarrStore(beam.PTransform):
+        def expand(self, pcoll):
+            return pcoll | beam.Map(_open_zarr)
+
+    def is_xrdataset():
+        def _is_xr_dataset(actual):
+            assert len(actual) == 1
+            item = actual[0]
+            assert isinstance(item, xr.Dataset)
+
+        return _is_xr_dataset
+
+    pattern: FilePattern = netcdf_local_file_pattern_sequential
+    with pipeline as p:
+        datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
+        target_store = datasets | StoreToZarr(
+            target_root=tmp_target_url,
+            store_name="test.zarr",
+            combine_dims=pattern.combine_dim_keys,
+        )
+        open_store = target_store | OpenZarrStore()
+        assert_that(open_store, is_xrdataset())

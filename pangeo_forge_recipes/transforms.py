@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import logging
+import random
+import sys
 from dataclasses import dataclass, field
+from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
 
-# from functools import wraps
-from typing import Dict, List, Optional, Tuple, TypeVar
+# PEP612 Concatenate & ParamSpec are useful for annotating decorators, but their import
+# differs between Python versions 3.9 & 3.10. See: https://stackoverflow.com/a/71990006
+if sys.version_info < (3, 10):
+    from typing_extensions import Concatenate, ParamSpec
+else:
+    from typing import Concatenate, ParamSpec
 
 import apache_beam as beam
+import xarray as xr
+import zarr
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
@@ -54,9 +63,16 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 Indexed = Tuple[Index, T]
 
+R = TypeVar("R")
+IndexedReturn = Tuple[Index, R]
+
+P = ParamSpec("P")
+
 
 # TODO: replace with beam.MapTuple?
-def _add_keys(func):
+def _add_keys(
+    func: Callable[Concatenate[T, P], R],
+) -> Callable[Concatenate[Indexed, P], IndexedReturn]:
     """Convenience decorator to remove and re-add keys to items in a Map"""
     annotations = func.__annotations__.copy()
     arg_name, annotation = next(iter(annotations.items()))
@@ -65,13 +81,35 @@ def _add_keys(func):
     annotations["return"] = Tuple[Index, return_annotation]
 
     # @wraps(func)  # doesn't work for some reason
-    def wrapper(arg, **kwargs):
+    def wrapper(arg, *args: P.args, **kwargs: P.kwargs):
         key, item = arg
-        result = func(item, **kwargs)
+        result = func(item, *args, **kwargs)
         return key, result
 
     wrapper.__annotations__ = annotations
     return wrapper
+
+
+def _add_keys_iter(
+    func: Callable[Concatenate[T, P], R],
+) -> Callable[Concatenate[Iterable[Indexed], P], Iterator[IndexedReturn]]:
+    """Convenience decorator to iteratively remove and re-add keys to items in a FlatMap"""
+    annotations = func.__annotations__.copy()
+    arg_name, annotation = next(iter(annotations.items()))
+    return_annotation = annotations["return"]
+
+    # mypy doesn't view `annotation` and `return_annotation` as valid types, so ignore
+    annotations[arg_name] = Iterable[Tuple[Index, annotation]]  # type: ignore
+    annotations["return"] = Iterator[Tuple[Index, return_annotation]]  # type: ignore
+
+    def iterable_wrapper(arg, *args: P.args, **kwargs: P.kwargs):
+        for inner_item in arg:
+            key, item = inner_item
+            result = func(item, *args, **kwargs)
+            yield key, result
+
+    iterable_wrapper.__annotations__ = annotations
+    return iterable_wrapper
 
 
 def _drop_keys(kvp):
@@ -82,10 +120,49 @@ def _drop_keys(kvp):
 
 @dataclass
 class DropKeys(beam.PTransform):
-    """Simple transform to remove keys for use in a Kerchunk Reference Recipe Pipeline"""
+    """Simple transform to remove keys."""
 
     def expand(self, pcoll):
         return pcoll | "Drop Keys" >> beam.Map(_drop_keys)
+
+
+def _assign_concurrency_group(elem, max_concurrency: int):
+    return (random.randint(0, max_concurrency - 1), elem)
+
+
+@dataclass
+class MapWithConcurrencyLimit(beam.PTransform):
+    """A transform which maps calls to the provided function, optionally limiting the maximum
+    number of concurrent calls. Useful for situations where the provided function requests data
+    from an external service that does not support an unlimited number of concurrent requests.
+
+    :param fn: Callable object passed to beam.Map (in the case of no concurrency limit)
+      or beam.FlatMap (if max_concurrency is specified).
+    :param args: Positional arguments passed to all invocations of `fn`.
+    :param kwargs: Keyword arguments passed to all invocations of `fn`.
+    :param max_concurrency: The maximum number of concurrent invocations of `fn`.
+      If unspecified, no limit is imposed by this transform (therefore the concurrency
+      limit will be set by the Beam Runner's configuration).
+    """
+
+    fn: Callable
+    args: Optional[list] = field(default_factory=list)
+    kwargs: Optional[dict] = field(default_factory=dict)
+    max_concurrency: Optional[int] = None
+
+    def expand(self, pcoll):
+        return (
+            pcoll | self.fn.__name__ >> beam.Map(_add_keys(self.fn), *self.args, **self.kwargs)
+            if not self.max_concurrency
+            else (
+                pcoll
+                | beam.Map(_assign_concurrency_group, self.max_concurrency)
+                | beam.GroupByKey()
+                | DropKeys()
+                | f"{self.fn.__name__} (max_concurrency={self.max_concurrency})"
+                >> beam.FlatMap(_add_keys_iter(self.fn), *self.args, **self.kwargs)
+            )
+        )
 
 
 # This has side effects if using a cache
@@ -96,22 +173,29 @@ class OpenURLWithFSSpec(beam.PTransform):
     :param cache: If provided, data will be cached at this url path before opening.
     :param secrets: If provided these secrets will be injected into the URL as a query string.
     :param open_kwargs: Extra arguments passed to fsspec.open.
+    :param max_concurrency: Max concurrency for this transform.
     """
 
     cache: Optional[str | CacheFSSpecTarget] = None
     secrets: Optional[dict] = None
     open_kwargs: Optional[dict] = None
+    max_concurrency: Optional[int] = None
 
     def expand(self, pcoll):
         if isinstance(self.cache, str):
             cache = CacheFSSpecTarget.from_url(self.cache)
         else:
             cache = self.cache
-        return pcoll | "Open with fsspec" >> beam.Map(
-            _add_keys(open_url),
+
+        kws = dict(
             cache=cache,
             secrets=self.secrets,
             open_kwargs=self.open_kwargs,
+        )
+        return pcoll | MapWithConcurrencyLimit(
+            open_url,
+            kwargs=kws,
+            max_concurrency=self.max_concurrency,
         )
 
 
@@ -411,7 +495,10 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     target_chunks: Dict[str, int] = field(default_factory=dict)
     consolidate_coords: bool = True
 
-    def expand(self, datasets: beam.PCollection) -> beam.PCollection:
+    def expand(
+        self,
+        datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
+    ) -> beam.PCollection[zarr.storage.FSStore]:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
         rechunked_datasets = indexed_datasets | Rechunk(
@@ -420,14 +507,12 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(), target_chunks=self.target_chunks
         )
-
-        if self.consolidate_coords:
-            _target_store = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
-
-            _target_store | beam.combiners.Sample.FixedSizeGlobally(
-                1
-            ) | ConsolidateDimensionCoordinates(target_store=target_store)
-        else:
-            rechunked_datasets | StoreDatasetFragments(target_store=target_store)
-
-        return target_store
+        n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+        singleton_target_store = (
+            n_target_stores
+            | beam.combiners.Sample.FixedSizeGlobally(1)
+            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+        )
+        # TODO: optionally use `singleton_target_store` to
+        # consolidate metadata and/or coordinate dims here
+        return singleton_target_store
