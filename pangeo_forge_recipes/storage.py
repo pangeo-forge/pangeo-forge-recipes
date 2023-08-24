@@ -270,14 +270,9 @@ def file_opener(
         logger.info(f"Opening '{fname}' directly.")
         opener = _get_opener(fname, secrets, **open_kwargs)
     if copy_to_local:
-        _, suffix = os.path.splitext(fname)
-        ntf = tempfile.NamedTemporaryFile(suffix=suffix)
-        tmp_name = ntf.name
-        logger.info(f"Copying '{fname}' to local file '{tmp_name}'")
-        target_opener = open(tmp_name, mode="wb")
-        _copy_btw_filesystems(opener, target_opener)
-        yield tmp_name
-        ntf.close()  # cleans up the temporary file
+        logger.info(f"Copying '{fname}' to local file")
+        with _get_opener("simplecache::" + fname, secrets, **open_kwargs) as fp:
+            yield fp.name
     else:
         logger.debug(f"file_opener entering first context for {opener}")
         with opener as fp:
