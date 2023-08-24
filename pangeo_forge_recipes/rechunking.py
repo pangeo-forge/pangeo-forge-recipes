@@ -247,12 +247,10 @@ def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
     )
 
 
-def consolidate_dimension_coordinates(singleton_target_store: zarr.storage.FSStore) -> None:
-    """Consolidate dimension coordinates chunking
-
-    :param target_store: Input target store
-    :type target_store: zarr.storage.FSStore
-    """
+def consolidate_dimension_coordinates(
+    singleton_target_store: zarr.storage.FSStore,
+) -> zarr.storage.FSStore:
+    """Consolidate dimension coordinates chunking"""
     group = zarr.open_group(singleton_target_store)
 
     dims = (dim for dim in _gather_coordinate_dimensions(group) if dim in group)
@@ -273,3 +271,4 @@ def consolidate_dimension_coordinates(singleton_target_store: zarr.storage.FSSto
         )
 
         new.attrs.update(attrs)
+    return singleton_target_store

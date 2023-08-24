@@ -79,7 +79,8 @@ def test_xarray_zarr_consolidate_coords(
             )
         )
     # TODO: This test needs to check if the consolidate_coords transform
-    # within StoreToZarr is considating the chunks of the coordinates
+    # within StoreToZarr is consolidating the chunks of the coordinates
+
     ds = xr.open_dataset(os.path.join(tmp_target_url, "subpath"), engine="zarr")
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 

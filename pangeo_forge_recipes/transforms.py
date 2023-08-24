@@ -411,7 +411,7 @@ class Rechunk(beam.PTransform):
 
 @dataclass
 class ConsolidateDimensionCoordinates(beam.PTransform):
-    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+    def expand(self, pcoll: beam.PCollection[zarr.storage.FSStore]) -> beam.PCollection:
         return pcoll | beam.Map(consolidate_dimension_coordinates)
 
 
@@ -466,6 +466,19 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
         )
 
 
+class SampleSingleton(beam.PTransform):
+    """Receive an input PCollection of any size, sample a single value from it,
+    and emit a singleton PCollection containing the single sampled value.
+    """
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return (
+            pcoll
+            | beam.combiners.Sample.FixedSizeGlobally(1)
+            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+        )
+
+
 @dataclass
 class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
@@ -497,14 +510,11 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             target=self.get_full_target(), target_chunks=self.target_chunks
         )
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+
         singleton_target_store = (
-            n_target_stores
-            | beam.combiners.Sample.FixedSizeGlobally(1)
-            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+            n_target_stores | SampleSingleton()
+            if not self.consolidate_coords
+            else n_target_stores | SampleSingleton() | ConsolidateDimensionCoordinates()
         )
-        # TODO: optionally use `singleton_target_store` to
-        # consolidate metadata and/or coordinate dims here
-        if self.consolidate_coords:
-            singleton_target_store | ConsolidateDimensionCoordinates()
 
         return singleton_target_store
