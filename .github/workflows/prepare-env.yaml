@@ -62,7 +62,7 @@ jobs:
       - name: 🎯 Set environment file
         id: env-file
         run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         name: 🗃 Cache environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
