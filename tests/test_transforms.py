@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 
 import apache_beam as beam
@@ -243,6 +244,22 @@ def test_StoreToZarr_emits_openable_fsstore(
     tmp_target_url,
     consolidate,
 ):
+    def is_consolidated():
+        def _is_consolidated(actual):
+            assert len(actual) == 1
+            item: zarr.storage.FSSTore = actual[0]
+            assert ".zmetadata" in os.listdir(item.path)
+
+        return _is_consolidated
+
+    def is_not_consolidated():
+        def _is_not_consolidated(actual):
+            assert len(actual) == 1
+            item = actual[0]  # noqa: F841
+            ...
+
+        return _is_not_consolidated
+
     def _open_zarr(store, consolidated):
         return xr.open_dataset(store, engine="zarr", consolidated=consolidated)
 
@@ -270,5 +287,10 @@ def test_StoreToZarr_emits_openable_fsstore(
             combine_dims=pattern.combine_dim_keys,
             consolidate_metadata=consolidate,
         )
+        if consolidate:
+            assert_that(target_store, is_consolidated(), label="is_consolidated")
+        else:
+            assert_that(target_store, is_not_consolidated(), label="is_not_consolidated")
+
         open_store = target_store | OpenZarrStore(consolidated=consolidate)
-        assert_that(open_store, is_xrdataset())
+        assert_that(open_store, is_xrdataset(), label="is_xrdataset")
