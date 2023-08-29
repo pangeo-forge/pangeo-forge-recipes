@@ -385,11 +385,6 @@ class StoreDatasetFragments(beam.PTransform):
         )
 
 
-# TODO
-# - consolidate coords
-# - consolidate metadata
-
-
 @dataclass
 class Rechunk(beam.PTransform):
     target_chunks: Optional[Dict[str, int]]
@@ -409,7 +404,20 @@ class Rechunk(beam.PTransform):
         return new_fragments
 
 
-@dataclass
+def _consolidate_zarr_metadata(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+    """Consolidate zarr metadata, passing the zarr store through once complete."""
+    zarr.consolidate_metadata(store)
+    return store
+
+
+class ConsolidateZarrMetadata(beam.PTransform):
+    def expand(
+        self,
+        pcoll: beam.PCollection[zarr.storage.FSStore],
+    ) -> beam.PCollection[zarr.storage.FSStore]:
+        return pcoll | beam.Map(_consolidate_zarr_metadata)
+
+
 class ConsolidateDimensionCoordinates(beam.PTransform):
     def expand(self, pcoll: beam.PCollection[zarr.storage.FSStore]) -> beam.PCollection:
         return pcoll | beam.Map(consolidate_dimension_coordinates)
@@ -483,12 +491,14 @@ class SampleSingleton(beam.PTransform):
 class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
 
-    :param combine_dims: The dimensions to combine
-    :param target_chunks: Dictionary mapping dimension names to chunks sizes.
-        If a dimension is a not named, the chunks will be inferred from the data.
-    :param consolidate_dimension_coordinates: Whether to rewrite coordinate variables as a
-    single chunk. We recommend consolidating coordinate variables to avoid
-    many small read requests to get the coordinates in xarray.
+     :param combine_dims: The dimensions to combine
+     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
+         If a dimension is a not named, the chunks will be inferred from the data.
+     :param consolidate_dimension_coordinates: Whether to rewrite coordinate variables as a
+     single chunk. We recommend consolidating coordinate variables to avoid
+     many small read requests to get the coordinates in xarray. Defaults to ``True``.
+    :param consolidate_metadata: Whether to consolidate metadata in the resulting
+         Zarr dataset. Defaults to ``True``.
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
@@ -496,6 +506,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     combine_dims: List[Dimension]
     target_chunks: Dict[str, int] = field(default_factory=dict)
     consolidate_coords: bool = True
+    consolidate_metadata: bool = True
 
     def expand(
         self,
@@ -515,6 +526,11 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             n_target_stores | SampleSingleton()
             if not self.consolidate_coords
             else n_target_stores | SampleSingleton() | ConsolidateDimensionCoordinates()
+        )
+        singleton_target_store = (
+            n_target_stores | SampleSingleton()
+            if not self.consolidate_metadata
+            else n_target_stores | SampleSingleton() | ConsolidateZarrMetadata()
         )
 
         return singleton_target_store
