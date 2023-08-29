@@ -274,5 +274,6 @@ def schema_to_zarr(
     """Initialize a zarr group based on a schema."""
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks)
     # using mode="w" makes this function idempotent
-    ds.to_zarr(target_store, mode="w", compute=False)
+    # NOTE: consolidated=False to move option to consolidate metadata later in StoreToZarr
+    ds.to_zarr(target_store, mode="w", compute=False, consolidated=False)
     return target_store
