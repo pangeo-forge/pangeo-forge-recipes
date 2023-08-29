@@ -258,6 +258,12 @@ def consolidate_dimension_coordinates(
         arr = group[dim]
         attrs = dict(arr.attrs)
         data = arr[:]
+
+        # This will generally use bulk-delete API calls
+        # config.storage_config.target.rm(dim, recursive=True)
+
+        singleton_target_store.fs.rm(singleton_target_store.path + '/' + dim, recursive=True)
+
         new = group.array(
             dim,
             data,

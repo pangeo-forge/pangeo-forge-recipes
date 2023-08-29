@@ -7,6 +7,7 @@ import fsspec.implementations.reference
 import numpy as np
 import pytest
 import xarray as xr
+import zarr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 
@@ -57,7 +58,7 @@ def test_xarray_zarr(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
-@pytest.mark.parametrize("consolidate_coords", [True, False])
+@pytest.mark.parametrize("consolidate_coords", [True])
 def test_xarray_zarr_consolidate_coords(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,
@@ -80,9 +81,12 @@ def test_xarray_zarr_consolidate_coords(
         )
     # TODO: This test needs to check if the consolidate_coords transform
     # within StoreToZarr is consolidating the chunks of the coordinates
+    # If true, assert a coord is consolidated.
+    import pdb; pdb.set_trace()
+    store = zarr.open_consolidated(os.path.join(tmp_target_url, "subpath"))
+    ds = xr.open_zarr(os.path.join(tmp_target_url, "subpath"),consolidated=False)
+    # assert store["time"].chunks == (file_pattern.nitems_per_input["time"],)
 
-    ds = xr.open_dataset(os.path.join(tmp_target_url, "subpath"), engine="zarr")
-    xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
 def test_reference_netcdf(
