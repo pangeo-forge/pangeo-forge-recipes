@@ -17,7 +17,6 @@ import apache_beam as beam
 import xarray as xr
 import zarr
 
-
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
 from .openers import open_url, open_with_kerchunk, open_with_xarray

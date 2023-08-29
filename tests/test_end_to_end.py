@@ -82,11 +82,12 @@ def test_xarray_zarr_consolidate_coords(
     # TODO: This test needs to check if the consolidate_coords transform
     # within StoreToZarr is consolidating the chunks of the coordinates
     # If true, assert a coord is consolidated.
-    import pdb; pdb.set_trace()
-    store = zarr.open_consolidated(os.path.join(tmp_target_url, "subpath"))
-    ds = xr.open_zarr(os.path.join(tmp_target_url, "subpath"),consolidated=False)
-    # assert store["time"].chunks == (file_pattern.nitems_per_input["time"],)
+    import pdb
 
+    pdb.set_trace()
+    store = zarr.open_consolidated(os.path.join(tmp_target_url, "subpath"))
+    ds = xr.open_zarr(os.path.join(tmp_target_url, "subpath"), consolidated=False)
+    # assert store["time"].chunks == (file_pattern.nitems_per_input["time"],)
 
 
 def test_reference_netcdf(
