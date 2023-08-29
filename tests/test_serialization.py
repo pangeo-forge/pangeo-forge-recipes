@@ -1,7 +1,8 @@
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Optional
 
+import aiohttp
 import pandas as pd
 import pytest
 from fsspec.implementations.local import LocalFileSystem
@@ -99,6 +100,35 @@ def test_recipe_sha256_hash_exclude(base_pattern, recipe_cls, tmpdir_factory):
     custom_storage_config = StorageConfig(target=FSSpecTarget(local_fs, custom_target_path))
     recipe_1.storage_config = custom_storage_config
 
+    assert recipe_0.sha256 == recipe_1.sha256
+
+
+@pytest.mark.parametrize("recipe_cls", [XarrayZarrRecipe, HDFReferenceRecipe])
+def test_recipe_sha256_hash_exclude_fsspec_open_kwargs(base_pattern, recipe_cls, tmpdir_factory):
+    recipe_0 = recipe_cls(base_pattern)
+    recipe_1 = recipe_cls(base_pattern)
+
+    assert recipe_0.sha256 == recipe_1.sha256
+
+    # Specify fsspec_open_kwargs that will be excluded,
+    # e.g. client_kwargs containing certain aiohttp objects
+    # that can't be easily hashed. This avoids subsequent errors in
+    # `serialization.either_encode_or_hash()`.
+    def aio_file_pattern(client_kwargs):
+        return FilePattern(
+            base_pattern.format_function,
+            base_pattern.combine_dims[0],
+            fsspec_open_kwargs={"client_kwargs": client_kwargs},
+        )
+
+    # Recipe hash computation, including file pattern computation, occurs with replace()
+    replace(
+        recipe_1,
+        file_pattern=aio_file_pattern({"auth": aiohttp.BasicAuth(login="test", password="test")}),
+    )
+    assert recipe_0.sha256 == recipe_1.sha256
+
+    replace(recipe_1, file_pattern=aio_file_pattern({"timeout": aiohttp.ClientTimeout(total=1800)}))
     assert recipe_0.sha256 == recipe_1.sha256
 
 
