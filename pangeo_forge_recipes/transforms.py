@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import random
 import sys
 from dataclasses import dataclass, field
@@ -68,6 +67,16 @@ R = TypeVar("R")
 IndexedReturn = Tuple[Index, R]
 
 P = ParamSpec("P")
+
+
+class EmptyDefault:
+    """Default for values that must be set or injected."""
+
+    pass
+
+
+def empty_default():
+    return EmptyDefault()
 
 
 # TODO: replace with beam.MapTuple?
@@ -435,11 +444,15 @@ class CombineReferences(beam.PTransform):
 class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
 
+    :param store_name: Name for the Zarr store. It will be created with
+        this name under `target_root`.
+    :param target_root: Root path the Zarr store will be created inside;
+        `store_name` will be appended to this prefix to create a full path.
     :param output_json_fname: Name to give the output references file. Must end in ``.json``.
     """
 
     store_name: str
-    target_root: Union[str, FSSpecTarget] = field(default_factory=os.getcwd)
+    target_root: Union[str, FSSpecTarget, EmptyDefault] = field(default_factory=empty_default)
     output_json_fname: str = "reference.json"
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
@@ -467,7 +480,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
     store_name: str
-    target_root: Union[str, FSSpecTarget] = field(default_factory=os.getcwd)
+    target_root: Union[str, FSSpecTarget, EmptyDefault] = field(default_factory=empty_default)
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
     def expand(
