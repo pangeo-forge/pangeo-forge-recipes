@@ -438,6 +438,8 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     :param output_json_fname: Name to give the output references file. Must end in ``.json``.
     """
 
+    store_name: str
+    target_root: Union[str, FSSpecTarget] = field(default_factory=os.getcwd)
     output_json_fname: str = "reference.json"
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
