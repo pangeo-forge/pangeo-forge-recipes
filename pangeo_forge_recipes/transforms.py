@@ -452,7 +452,7 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """
 
     store_name: str
-    target_root: Union[str, FSSpecTarget, EmptyDefault] = field(default_factory=empty_default)
+    target_root: Union[str, FSSpecTarget, EmptyDefault] = field(default_factory=EmptyDefault)
     output_json_fname: str = "reference.json"
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
