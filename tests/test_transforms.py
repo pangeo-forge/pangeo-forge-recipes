@@ -268,21 +268,27 @@ def test_StoreToZarr_emits_openable_fsstore(
         assert_that(open_store, is_xrdataset())
 
 
+@pytest.mark.parametrize("with_kws", [True, False])
 def test_StoreToZarr_dynamic_chunking_interface(
     pipeline: beam.Pipeline,
     netcdf_local_file_pattern_sequential: FilePattern,
     tmp_target_url: str,
     daily_xarray_dataset: xr.Dataset,
+    with_kws: bool,
 ):
     def has_dynamically_set_chunks():
         def _has_dynamically_set_chunks(actual):
             assert len(actual) == 1
             item = actual[0]
             assert isinstance(item, xr.Dataset)
-            # we've dynamically set the number of timesteps per chunk to be equal to
-            # the length of the full time dimension of the aggregate dataset, therefore
-            # if this worked, there should only be one chunk
-            assert len(item.chunks["time"]) == 1
+            if not with_kws:
+                # we've dynamically set the number of timesteps per chunk to be equal to
+                # the length of the full time dimension of the aggregate dataset, therefore
+                # if this worked, there should only be one chunk
+                assert len(item.chunks["time"]) == 1
+            else:
+                # in this case, we've passed the kws {"divisor": 2}, so we expect two time chunks
+                assert len(item.chunks["time"]) == 2
 
         return _has_dynamically_set_chunks
 
@@ -290,8 +296,10 @@ def test_StoreToZarr_dynamic_chunking_interface(
 
     time_len = len(daily_xarray_dataset.time)
 
-    def dynamic_chunking_fn(schema: XarraySchema):
-        return {"time": time_len}
+    def dynamic_chunking_fn(schema: XarraySchema, divisor: int = 1):
+        return {"time": int(time_len / divisor)}
+
+    kws = {} if not with_kws else {"dynamic_chunking_fn_kwargs": {"divisor": 2}}
 
     with pipeline as p:
         datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
@@ -300,6 +308,7 @@ def test_StoreToZarr_dynamic_chunking_interface(
             store_name="test.zarr",
             combine_dims=pattern.combine_dim_keys,
             dynamic_chunking_fn=dynamic_chunking_fn,
+            **kws,
         )
         open_store = target_store | OpenZarrStore()
         assert_that(open_store, has_dynamically_set_chunks())
