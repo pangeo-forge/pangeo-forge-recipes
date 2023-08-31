@@ -58,7 +58,7 @@ def test_xarray_zarr(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
-@pytest.mark.parametrize("consolidate_coords", [True])
+@pytest.mark.parametrize("consolidate_coords", [True, False])
 def test_xarray_zarr_consolidate_coords(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,
