@@ -437,14 +437,16 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     :param output_json_fname: Name to give the output references file. Must end in ``.json``.
     """
 
-    output_file_name: str =  "reference"
+    output_file_name: str = "reference"
     output_file_type: str = "json"
+
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
         return reference | beam.Map(
             write_combined_reference,
             full_target=self.get_full_target(),
-            output_file_name = self.output_file_name,
-            output_file_type = self.output_file_type         )
+            output_file_name=self.output_file_name,
+            output_file_type=self.output_file_type,
+        )
 
 
 @dataclass

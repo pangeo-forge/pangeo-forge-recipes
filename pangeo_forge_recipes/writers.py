@@ -2,11 +2,11 @@ import os
 from dataclasses import dataclass
 from typing import Tuple, Union
 
+import fsspec
 import numpy as np
 import xarray as xr
-import fsspec 
-from fsspec.implementations.reference import LazyReferenceMapper
 import zarr
+from fsspec.implementations.reference import LazyReferenceMapper
 from kerchunk.combine import MultiZarrToZarr
 
 from .patterns import CombineOp, Index
@@ -99,13 +99,13 @@ def write_combined_reference(
     reference: MultiZarrToZarr,
     full_target: FSSpecTarget,
     output_file_name: str,
-    output_file_type: str
+    output_file_type: str,
 ):
     """Write a kerchunk combined references object to file."""
 
     import ujson  # type: ignore
 
-    outpath = os.path.join(full_target.root_path, output_file_name, ".",output_file_type)
+    outpath = os.path.join(full_target.root_path, output_file_name, ".", output_file_type)
 
     if output_file_type == "json":
         multi_kerchunk = reference.translate()
@@ -118,9 +118,7 @@ def write_combined_reference(
         os.makedirs(outpath)
         out = LazyReferenceMapper.create(1000, "combined.parq", fs)
 
-        mzz = MultiZarrToZarr(
-            reference,
-            remote_protocol="memory").translate()
+        mzz = MultiZarrToZarr(reference, remote_protocol="memory").translate()
         out.flush()
 
     else:
