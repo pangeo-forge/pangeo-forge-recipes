@@ -4,6 +4,8 @@ from typing import Tuple, Union
 
 import numpy as np
 import xarray as xr
+import fsspec 
+from fsspec.implementations.reference import LazyReferenceMapper
 import zarr
 from kerchunk.combine import MultiZarrToZarr
 
@@ -96,22 +98,34 @@ def store_dataset_fragment(
 def write_combined_reference(
     reference: MultiZarrToZarr,
     full_target: FSSpecTarget,
-    output_json_fname: str,
+    output_file_name: str,
+    output_file_type: str
 ):
     """Write a kerchunk combined references object to file."""
 
     import ujson  # type: ignore
 
-    multi_kerchunk = reference.translate()
-    file_ext = os.path.splitext(output_json_fname)[-1]
+    outpath = os.path.join(full_target.root_path, output_file_name, ".",output_file_type)
 
-    if file_ext == ".json":
-        outpath = os.path.join(full_target.root_path, output_json_fname)
+    if output_file_type == "json":
+        multi_kerchunk = reference.translate()
         with full_target.fs.open(outpath, "wb") as f:
             f.write(ujson.dumps(multi_kerchunk).encode())
+    elif output_file_type == "parquet":
+
+        fs = fsspec.filesystem("file")
+        out = LazyReferenceMapper.create(1000, outpath, fs)
+        os.makedirs(outpath)
+        out = LazyReferenceMapper.create(1000, "combined.parq", fs)
+
+        mzz = MultiZarrToZarr(
+            reference,
+            remote_protocol="memory").translate()
+        out.flush()
+
     else:
         # TODO: implement parquet writer
-        raise NotImplementedError(f"{file_ext = } not supported.")
+        raise NotImplementedError(f"{output_file_type = } not supported.")
 
 
 @dataclass
