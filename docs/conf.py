@@ -17,7 +17,6 @@ extensions = [
     "sphinx_togglebutton",
     "sphinxext.opengraph",
     "sphinx_panels",
-    "sphinx_tabs.tabs",
 ]
 
 extlinks = {
@@ -31,7 +30,8 @@ master_doc = "index"
 # we always have to manually run the notebooks because they are slow / expensive
 jupyter_execute_notebooks = "auto"
 execution_excludepatterns = [
-    "tutorials/*",
+    "tutorials/xarray_zarr/*",
+    "tutorials/hdf_reference/*",
     "introduction_tutorial/*",
 ]
 

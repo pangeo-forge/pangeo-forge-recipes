@@ -44,10 +44,7 @@ If you are new to Pangeo Forge and looking to get involved, we suggest starting 
 :maxdepth: 3
 
 what_is_pangeo_forge
-installation
 introduction_tutorial/index
-tutorials/index
-user_guide/index
-api_reference
-development/index
+pangeo_forge_recipes/index
+pangeo_forge_cloud/index
 ```

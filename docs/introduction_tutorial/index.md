@@ -5,7 +5,7 @@ Welcome to the Pangeo Forge introduction tutorial!
 ## The Structure
 This tutorial is split into three parts:
 
-1. {doc}`part1`
+1. {doc}`intro_tutorial_part1`
 2. {doc}`intro_tutorial_part2`
 3. {doc}`intro_tutorial_part3`
 
@@ -26,7 +26,7 @@ For the tutorial feel free to pick the environment that makes the most sense to 
 ```{toctree}
 :maxdepth: 1
 
-part1
+intro_tutorial_part1
 intro_tutorial_part2
 intro_tutorial_part3
 ```
