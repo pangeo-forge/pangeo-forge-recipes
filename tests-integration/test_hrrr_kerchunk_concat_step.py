@@ -1,8 +1,9 @@
 from pathlib import Path
 
-from conftest import bake_recipe, open_reference_ds
+from conftest import bake_recipe, open_reference_ds, skipif_runner_080_or_below
 
 
+@skipif_runner_080_or_below
 def test(recipes_dir: Path, confpath_json: str, tmpdir: Path):
 
     bake_recipe(recipes_dir / "hrrr_kerchunk_concat_step.py", confpath_json, tmpdir)

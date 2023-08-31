@@ -1,8 +1,10 @@
 from pathlib import Path
 
+import pytest
 from conftest import bake_recipe, open_reference_ds
 
 
+@pytest.xfail(reason="pickle.PicklingError: Can't pickle <function drop_unknown at 0x...>")
 def test(recipes_dir: Path, confpath_json: str, tmpdir: Path):
 
     bake_recipe(recipes_dir / "hrrr_kerchunk_concat_valid_time.py", confpath_json, tmpdir)

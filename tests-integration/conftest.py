@@ -1,5 +1,6 @@
 import json
 import subprocess
+from importlib import metadata
 from pathlib import Path
 
 import fsspec
@@ -7,9 +8,18 @@ import pytest
 import xarray as xr
 import yaml
 from fsspec.implementations.reference import ReferenceFileSystem
+from packaging import version
 from pytest_lazyfixture import lazy_fixture
 
 docs_src = Path(__file__).parent.parent / "docs_src"
+
+runner_version = metadata.version("pangeo-forge-runner")
+skipif_runner_080_or_below = pytest.mark.skipif(
+    version.parse(runner_version) <= version.parse("0.8.0"),
+    reason="""\
+    pangeo-forge-runner <= 0.8.0 does not support injections for reference pipelines.
+    """,
+)
 
 
 @pytest.fixture
