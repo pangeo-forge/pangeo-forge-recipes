@@ -527,10 +527,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             if not self.consolidate_coords
             else n_target_stores | SampleSingleton() | ConsolidateDimensionCoordinates()
         )
-        singleton_target_store = (
-            n_target_stores | SampleSingleton()
+        return (
+            singleton_target_store
             if not self.consolidate_metadata
-            else n_target_stores | SampleSingleton() | ConsolidateZarrMetadata()
+            else singleton_target_store | ConsolidateZarrMetadata()
         )
-
-        return singleton_target_store
