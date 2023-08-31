@@ -27,10 +27,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10"]
         dependencies: ["releases-only", "upstream-dev"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v2
 
       # generic steps to load env from cache
       - name: 🎯 Set cache number
@@ -40,7 +40,7 @@ jobs:
       - name: 🎯 Set environment file
         id: env-file
         run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
-      - uses: actions/cache@v3
+      - uses: actions/cache@v2
         name: 🗃 Loaded Cached environment
         with:
           path: /usr/share/miniconda3/envs/pangeo-forge-recipes
@@ -53,10 +53,11 @@ jobs:
         run: echo "/usr/share/miniconda3/envs/pangeo-forge-recipes/bin" >> $GITHUB_PATH
 
       # custom testing steps unique to this workflow
-      - name: 🌈 Install pangeo-forge-recipes package
+      - name: 🌈 Install pangeo-forge-recipes & pangeo-forge-runner
         shell: bash -l {0}
         run: |
           python -m pip install --no-deps -e  .
+          python -m pip install "git+https://github.com/pangeo-forge/pangeo-forge-runner.git#egg=pangeo_forge_runner"
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
         run: |
