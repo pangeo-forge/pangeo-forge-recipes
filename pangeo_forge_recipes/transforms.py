@@ -306,7 +306,8 @@ class DetermineSchema(beam.PTransform):
                 schemas = (
                     schemas
                     | f"Nest {last_dim.name}" >> _NestDim(last_dim)
-                    | f"Combine {last_dim.name}" >> beam.CombinePerKey(CombineXarraySchemas(last_dim))
+                    | f"Combine {last_dim.name}"
+                    >> beam.CombinePerKey(CombineXarraySchemas(last_dim))
                 )
         return schemas
 
