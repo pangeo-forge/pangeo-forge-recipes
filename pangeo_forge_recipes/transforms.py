@@ -69,14 +69,17 @@ IndexedReturn = Tuple[Index, R]
 P = ParamSpec("P")
 
 
-class EmptyDefault:
-    """Default for values that must be set or injected."""
+class RequiredAtRuntimeDefault:
+    """Sentinel class to use as default for transform attributes which are required to run a
+    pipeline, but may not be available (or preferable) to define during recipe develoment; for
+    example, the ``target_root`` kwarg of a transform that writes data to a target location. By
+    using this sentinel as the default value for such an kwarg, a recipe module can define all
+    required arguments on the transform (and therefore be importable, satisfy type-checkers, be
+    unit-testable, etc.) before it is deployed, with the understanding that the attribute using
+    this sentinel as default will be re-assigned to the desired value at deploy time.
+    """
 
     pass
-
-
-def empty_default():
-    return EmptyDefault()
 
 
 # TODO: replace with beam.MapTuple?
@@ -452,7 +455,9 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """
 
     store_name: str
-    target_root: Union[str, FSSpecTarget, EmptyDefault] = field(default_factory=empty_default)
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
     output_json_fname: str = "reference.json"
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
@@ -480,7 +485,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
     store_name: str
-    target_root: Union[str, FSSpecTarget, EmptyDefault] = field(default_factory=empty_default)
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
     target_chunks: Dict[str, int] = field(default_factory=dict)
 
     def expand(
