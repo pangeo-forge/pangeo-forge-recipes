@@ -6,7 +6,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.aggregation import dataset_to_schema
+from pangeo_forge_recipes.aggregation import XarraySchema, dataset_to_schema
 from pangeo_forge_recipes.patterns import FilePattern, FileType
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
 from pangeo_forge_recipes.transforms import (
@@ -234,18 +234,20 @@ def test_rechunk(
         assert_that(rechunked, correct_chunks())
 
 
+class OpenZarrStore(beam.PTransform):
+    @staticmethod
+    def _open_zarr(store):
+        return xr.open_dataset(store, engine="zarr", chunks={})
+
+    def expand(self, pcoll):
+        return pcoll | beam.Map(self._open_zarr)
+
+
 def test_StoreToZarr_emits_openable_fsstore(
     pipeline,
     netcdf_local_file_pattern_sequential,
     tmp_target_url,
 ):
-    def _open_zarr(store):
-        return xr.open_dataset(store, engine="zarr")
-
-    class OpenZarrStore(beam.PTransform):
-        def expand(self, pcoll):
-            return pcoll | beam.Map(_open_zarr)
-
     def is_xrdataset():
         def _is_xr_dataset(actual):
             assert len(actual) == 1
@@ -264,3 +266,40 @@ def test_StoreToZarr_emits_openable_fsstore(
         )
         open_store = target_store | OpenZarrStore()
         assert_that(open_store, is_xrdataset())
+
+
+def test_StoreToZarr_dynamic_chunking_interface(
+    pipeline: beam.Pipeline,
+    netcdf_local_file_pattern_sequential: FilePattern,
+    tmp_target_url: str,
+    daily_xarray_dataset: xr.Dataset,
+):
+    def has_dynamically_set_chunks():
+        def _has_dynamically_set_chunks(actual):
+            assert len(actual) == 1
+            item = actual[0]
+            assert isinstance(item, xr.Dataset)
+            # we've dynamically set the number of timesteps per chunk to be equal to
+            # the length of the full time dimension of the aggregate dataset, therefore
+            # if this worked, there should only be one chunk
+            assert len(item.chunks["time"]) == 1
+
+        return _has_dynamically_set_chunks
+
+    pattern: FilePattern = netcdf_local_file_pattern_sequential
+
+    time_len = len(daily_xarray_dataset.time)
+
+    def dynamic_chunking_fn(schema: XarraySchema):
+        return {"time": time_len}
+
+    with pipeline as p:
+        datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
+        target_store = datasets | StoreToZarr(
+            target_root=tmp_target_url,
+            store_name="test.zarr",
+            combine_dims=pattern.combine_dim_keys,
+            dynamic_chunking_fn=dynamic_chunking_fn,
+        )
+        open_store = target_store | OpenZarrStore()
+        assert_that(open_store, has_dynamically_set_chunks())

@@ -451,15 +451,25 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
 class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
 
-    :param combine_dims: The dimensions to combine
+    :param combine_dims: The dimensions to combine.
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
-        If a dimension is a not named, the chunks will be inferred from the data.
+      If a dimension is a not named, the chunks will be inferred from the data.
+    :param dynamic_chunking_fn: Optionally provide a function that takes an ``XarraySchema``
+      as its first argument and returns a dynamically generated chunking dict. If provided,
+      ``target_chunks`` cannot also be passed.
+    :param dynamic_chunking_fn_kwargs: Optional keyword arguments for ``dynamic_chunking_fn``.
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
     target_chunks: Dict[str, int] = field(default_factory=dict)
+    dynamic_chunking_fn: Optional[Callable[[XarraySchema], dict]] = None
+    dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
+
+    def __post_init__(self):
+        if self.target_chunks and self.dynamic_chunking_fn:
+            raise ValueError("Passing both `target_chunks` and `dynamic_chunking_fn` not allowed.")
 
     def expand(
         self,
@@ -467,11 +477,17 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     ) -> beam.PCollection[zarr.storage.FSStore]:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
-        rechunked_datasets = indexed_datasets | Rechunk(
-            target_chunks=self.target_chunks, schema=schema
+        target_chunks = (
+            self.target_chunks
+            if not self.dynamic_chunking_fn
+            else beam.pvalue.AsSingleton(
+                schema | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
+            )
         )
+        rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
         target_store = schema | PrepareZarrTarget(
-            target=self.get_full_target(), target_chunks=self.target_chunks
+            target=self.get_full_target(),
+            target_chunks=target_chunks,
         )
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (
