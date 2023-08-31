@@ -312,3 +312,24 @@ def test_StoreToZarr_dynamic_chunking_interface(
         )
         open_store = target_store | OpenZarrStore()
         assert_that(open_store, has_dynamically_set_chunks())
+
+
+def test_StoreToZarr_dynamic_chunking_with_target_chunks_raises(
+    netcdf_local_file_pattern_sequential: FilePattern,
+):
+    def fn(schema):
+        pass
+
+    pattern: FilePattern = netcdf_local_file_pattern_sequential
+
+    with pytest.raises(
+        ValueError,
+        match="Passing both `target_chunks` and `dynamic_chunking_fn` not allowed",
+    ):
+        _ = StoreToZarr(
+            target_root="target_root",
+            store_name="test.zarr",
+            combine_dims=pattern.combine_dim_keys,
+            target_chunks={"time": 1},
+            dynamic_chunking_fn=fn,
+        )
