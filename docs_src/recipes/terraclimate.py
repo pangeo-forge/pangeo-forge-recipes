@@ -54,44 +54,43 @@ pattern = FilePattern(
 )
 
 
-def _apply_mask(key, da):
-    """helper function to mask DataArrays based on a threshold value"""
-    mask_opts = {
-        "PDSI": ("lt", 10),
-        "aet": ("lt", 32767),
-        "def": ("lt", 32767),
-        "pet": ("lt", 32767),
-        "ppt": ("lt", 32767),
-        "ppt_station_influence": None,
-        "q": ("lt", 2147483647),
-        "soil": ("lt", 32767),
-        "srad": ("lt", 32767),
-        "swe": ("lt", 10000),
-        "tmax": ("lt", 200),
-        "tmax_station_influence": None,
-        "tmin": ("lt", 200),
-        "tmin_station_influence": None,
-        "vap": ("lt", 300),
-        "vap_station_influence": None,
-        "vpd": ("lt", 300),
-        "ws": ("lt", 200),
-    }
-    if mask_opts.get(key, None):
-        op, val = mask_opts[key]
-        if op == "lt":
-            da = da.where(da < val)
-        elif op == "neq":
-            da = da.where(da != val)
-    return da
-
-
 class Munge(beam.PTransform):
     """
     Apply cleaning transformations to Datasets
     """
 
     @staticmethod
-    def _preproc(item: Indexed[xr.Dataset]) -> Indexed[xr.Dataset]:
+    def _apply_mask(key, da):
+        """helper function to mask DataArrays based on a threshold value"""
+        mask_opts = {
+            "PDSI": ("lt", 10),
+            "aet": ("lt", 32767),
+            "def": ("lt", 32767),
+            "pet": ("lt", 32767),
+            "ppt": ("lt", 32767),
+            "ppt_station_influence": None,
+            "q": ("lt", 2147483647),
+            "soil": ("lt", 32767),
+            "srad": ("lt", 32767),
+            "swe": ("lt", 10000),
+            "tmax": ("lt", 200),
+            "tmax_station_influence": None,
+            "tmin": ("lt", 200),
+            "tmin_station_influence": None,
+            "vap": ("lt", 300),
+            "vap_station_influence": None,
+            "vpd": ("lt", 300),
+            "ws": ("lt", 200),
+        }
+        if mask_opts.get(key, None):
+            op, val = mask_opts[key]
+            if op == "lt":
+                da = da.where(da < val)
+            elif op == "neq":
+                da = da.where(da != val)
+        return da
+
+    def _preproc(self, item: Indexed[xr.Dataset]) -> Indexed[xr.Dataset]:
         """custom preprocessing function for terraclimate data"""
         import xarray as xr
 
@@ -205,7 +204,7 @@ class Munge(beam.PTransform):
         if station_influence is not None:
             ds[f"{var}_station_influence"] = station_influence
         with xr.set_options(keep_attrs=True):
-            ds[var] = _apply_mask(var, ds[var])
+            ds[var] = self._apply_mask(var, ds[var])
         if rename:
             ds = ds.rename(rename)
         return index, ds
