@@ -1,6 +1,19 @@
 # Release Notes
 
-## v0.10.0 - 2023-01-30
+## v0.10.1 - 2023-08-31
+
+- Add sentinel as default for transform keyword arguments that are required at runtime and which
+recipe developers may not want to set in recipe modules. This allows recipe modules to be importable
+(i.e., unit-testable) and type-checkable during development. {pull}`588`
+- `StoreToZarr` now emits a `zarr.storage.FSStore` which can be consumed by downstream transforms.
+This is useful for opening and testing the completed zarr store, adding it to a catalog, etc. {pull}`574`
+- Concurrency limiting transform added. This base transform can be used to limit concurrency for
+calls to external services. It is now used internally to allow `OpenURLWithFSSpec` to be limited
+to a specified maximum concurrency. {pull}`557`
+- Various packaging, testing, and maintenance upgrades {pull}`565` {pull}`567` {pull}`576`
+- Patched deserialization bug that affected rechunking on GCP Dataflow {pull}`548`
+
+## v0.10.0 - 2023-06-30
 
 - **Major breaking change:** This release represents a nearly complete rewrite of
 the package, removing the custom recipe constructor classes and executors, and
