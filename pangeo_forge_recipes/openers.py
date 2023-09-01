@@ -41,7 +41,6 @@ OPENER_MAP = {
     FileType.netcdf4: dict(engine="h5netcdf"),
     FileType.zarr: dict(engine="zarr"),
     FileType.opendap: dict(engine="netcdf4"),
-    FileType.tiff: dict(engine="rasterio"),
 }
 
 
