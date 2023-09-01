@@ -6,7 +6,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
-from pangeo_forge_recipes.aggregation import XarraySchema, dataset_to_schema
+from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.patterns import FilePattern, FileType
 from pangeo_forge_recipes.storage import CacheFSSpecTarget
 from pangeo_forge_recipes.transforms import (
@@ -296,7 +296,8 @@ def test_StoreToZarr_dynamic_chunking_interface(
 
     time_len = len(daily_xarray_dataset.time)
 
-    def dynamic_chunking_fn(schema: XarraySchema, divisor: int = 1):
+    def dynamic_chunking_fn(template_ds: xr.Dataset, divisor: int = 1):
+        assert isinstance(template_ds, xr.Dataset)
         return {"time": int(time_len / divisor)}
 
     kws = {} if not with_kws else {"dynamic_chunking_fn_kwargs": {"divisor": 2}}
@@ -317,7 +318,7 @@ def test_StoreToZarr_dynamic_chunking_interface(
 def test_StoreToZarr_dynamic_chunking_with_target_chunks_raises(
     netcdf_local_file_pattern_sequential: FilePattern,
 ):
-    def fn(schema):
+    def fn(template_ds):
         pass
 
     pattern: FilePattern = netcdf_local_file_pattern_sequential

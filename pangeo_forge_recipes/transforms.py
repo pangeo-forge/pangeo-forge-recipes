@@ -17,7 +17,7 @@ import apache_beam as beam
 import xarray as xr
 import zarr
 
-from .aggregation import XarraySchema, dataset_to_schema, schema_to_zarr
+from .aggregation import XarraySchema, dataset_to_schema, schema_to_template_ds, schema_to_zarr
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
@@ -479,9 +479,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         `store_name` will be appended to this prefix to create a full path.
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
       If a dimension is a not named, the chunks will be inferred from the data.
-    :param dynamic_chunking_fn: Optionally provide a function that takes an ``XarraySchema``
-      as its first argument and returns a dynamically generated chunking dict. If provided,
-      ``target_chunks`` cannot also be passed.
+    :param dynamic_chunking_fn: Optionally provide a function that takes an ``xarray.Dataset``
+      template dataset as its first argument and returns a dynamically generated chunking dict.
+      If provided, ``target_chunks`` cannot also be passed.
     :param dynamic_chunking_fn_kwargs: Optional keyword arguments for ``dynamic_chunking_fn``.
     """
 
@@ -493,7 +493,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         default_factory=RequiredAtRuntimeDefault
     )
     target_chunks: Dict[str, int] = field(default_factory=dict)
-    dynamic_chunking_fn: Optional[Callable[[XarraySchema], dict]] = None
+    dynamic_chunking_fn: Optional[Callable[[xr.Dataset], dict]] = None
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -510,7 +510,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             self.target_chunks
             if not self.dynamic_chunking_fn
             else beam.pvalue.AsSingleton(
-                schema | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
+                schema
+                | beam.Map(schema_to_template_ds)
+                | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
             )
         )
         rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
