@@ -70,6 +70,19 @@ IndexedReturn = Tuple[Index, R]
 P = ParamSpec("P")
 
 
+class RequiredAtRuntimeDefault:
+    """Sentinel class to use as default for transform attributes which are required to run a
+    pipeline, but may not be available (or preferable) to define during recipe develoment; for
+    example, the ``target_root`` kwarg of a transform that writes data to a target location. By
+    using this sentinel as the default value for such an kwarg, a recipe module can define all
+    required arguments on the transform (and therefore be importable, satisfy type-checkers, be
+    unit-testable, etc.) before it is deployed, with the understanding that the attribute using
+    this sentinel as default will be re-assigned to the desired value at deploy time.
+    """
+
+    pass
+
+
 # TODO: replace with beam.MapTuple?
 def _add_keys(
     func: Callable[Concatenate[T, P], R],
@@ -113,20 +126,6 @@ def _add_keys_iter(
     return iterable_wrapper
 
 
-def _drop_keys(kvp):
-    """Function for DropKeys transform."""
-    key, item = kvp
-    return item
-
-
-@dataclass
-class DropKeys(beam.PTransform):
-    """Simple transform to remove keys."""
-
-    def expand(self, pcoll):
-        return pcoll | "Drop Keys" >> beam.Map(_drop_keys)
-
-
 def _assign_concurrency_group(elem, max_concurrency: int):
     return (random.randint(0, max_concurrency - 1), elem)
 
@@ -159,7 +158,7 @@ class MapWithConcurrencyLimit(beam.PTransform):
                 pcoll
                 | beam.Map(_assign_concurrency_group, self.max_concurrency)
                 | beam.GroupByKey()
-                | DropKeys()
+                | beam.Values()
                 | f"{self.fn.__name__} (max_concurrency={self.max_concurrency})"
                 >> beam.FlatMap(_add_keys_iter(self.fn), *self.args, **self.kwargs)
             )
@@ -240,7 +239,8 @@ class OpenWithKerchunk(beam.PTransform):
             remote_protocol=self.remote_protocol,
             kerchunk_open_kwargs=self.kerchunk_open_kwargs,
         )
-        return refs if not self.drop_keys else refs | DropKeys()
+
+        return refs if not self.drop_keys else refs | beam.Values()
 
 
 @dataclass
@@ -448,9 +448,17 @@ class CombineReferences(beam.PTransform):
 class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
 
+    :param store_name: Name for the Zarr store. It will be created with
+        this name under `target_root`.
+    :param target_root: Root path the Zarr store will be created inside;
+        `store_name` will be appended to this prefix to create a full path.
     :param output_json_fname: Name to give the output references file. Must end in ``.json``.
     """
 
+    store_name: str
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
     output_json_fname: str = "reference.json"
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
@@ -465,10 +473,12 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
 class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
 
-    :param combine_dims: List[Dimension]
-        The dimensions to combine
-    :param target_chunks: Dict[str, int], optional
-        Dictionary mapping dimension names to chunks sizes.
+    :param combine_dims: The dimensions to combine
+    :param store_name: Name for the Zarr store. It will be created with
+        this name under `target_root`.
+    :param target_root: Root path the Zarr store will be created inside;
+        `store_name` will be appended to this prefix to create a full path.
+    :param target_chunks: Dictionary mapping dimension names to chunks sizes.
         If a dimension is a not named, the chunks will be inferred from the data.
     :param target_chunks_aspect_ratio: Dict[str, int], optional
         Dictionary mapping dimension names to desired
@@ -498,6 +508,10 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
+    store_name: str
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
     target_chunks: Optional[Dict[str, int]] = field(default=None)
     target_chunks_aspect_ratio: Optional[Dict[str, int]] = field(default=None)
     target_chunk_size: Optional[Union[str, int]] = field(default=None)
