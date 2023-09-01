@@ -4,7 +4,7 @@ import logging
 import random
 import sys
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
+from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union
 
 # PEP612 Concatenate & ParamSpec are useful for annotating decorators, but their import
 # differs between Python versions 3.9 & 3.10. See: https://stackoverflow.com/a/71990006
@@ -67,6 +67,19 @@ R = TypeVar("R")
 IndexedReturn = Tuple[Index, R]
 
 P = ParamSpec("P")
+
+
+class RequiredAtRuntimeDefault:
+    """Sentinel class to use as default for transform attributes which are required to run a
+    pipeline, but may not be available (or preferable) to define during recipe develoment; for
+    example, the ``target_root`` kwarg of a transform that writes data to a target location. By
+    using this sentinel as the default value for such an kwarg, a recipe module can define all
+    required arguments on the transform (and therefore be importable, satisfy type-checkers, be
+    unit-testable, etc.) before it is deployed, with the understanding that the attribute using
+    this sentinel as default will be re-assigned to the desired value at deploy time.
+    """
+
+    pass
 
 
 # TODO: replace with beam.MapTuple?
@@ -434,9 +447,17 @@ class CombineReferences(beam.PTransform):
 class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
 
+    :param store_name: Name for the Zarr store. It will be created with
+        this name under `target_root`.
+    :param target_root: Root path the Zarr store will be created inside;
+        `store_name` will be appended to this prefix to create a full path.
     :param output_json_fname: Name to give the output references file. Must end in ``.json``.
     """
 
+    store_name: str
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
     output_json_fname: str = "reference.json"
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
@@ -451,7 +472,11 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
 class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
 
-    :param combine_dims: The dimensions to combine.
+    :param combine_dims: The dimensions to combine
+    :param store_name: Name for the Zarr store. It will be created with
+        this name under `target_root`.
+    :param target_root: Root path the Zarr store will be created inside;
+        `store_name` will be appended to this prefix to create a full path.
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
       If a dimension is a not named, the chunks will be inferred from the data.
     :param dynamic_chunking_fn: Optionally provide a function that takes an ``XarraySchema``
@@ -463,6 +488,10 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     # TODO: make it so we don't have to explicitly specify combine_dims
     # Could be inferred from the pattern instead
     combine_dims: List[Dimension]
+    store_name: str
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
     target_chunks: Dict[str, int] = field(default_factory=dict)
     dynamic_chunking_fn: Optional[Callable[[XarraySchema], dict]] = None
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
