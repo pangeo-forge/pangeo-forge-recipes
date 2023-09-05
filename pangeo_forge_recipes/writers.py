@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 from typing import List, Tuple, Union
+from typing import Protocol, Tuple, Union
 
 import fsspec
 import numpy as np
@@ -135,22 +136,27 @@ def write_combined_reference(
         raise NotImplementedError(f"{output_file_type = } not supported.")
 
 
-@dataclass
-class ZarrWriterMixin:
-    """Defines common attributes and methods for storing zarr datasets, which can be either actual
-    zarr stores or virtual (i.e. kerchunked) stores. This class should not be directly instantiated.
-    Instead, PTransforms in the `.transforms` module which write consolidated zarr stores should
-    inherit from this mixin, so that they share a common interface for target store naming.
-
-    :param target_root: Location the Zarr store will be created inside.
-    :param store_name: Name for the Zarr store. It will be created with this name
-                       under `target_root`.
+class ZarrWriterProtocol(Protocol):
+    """Protocol for mixin typing, following best practices described in:
+    https://mypy.readthedocs.io/en/stable/more_types.html#mixin-classes.
+    When used as a type hint for the `self` argument on mixin classes, this protocol just tells type
+    checkers that the given method is expected to be called in the context of a class which defines
+    the attributes declared here. This satisfies type checkers without the need to define these
+    attributes more than once in an inheritance heirarchy.
     """
 
-    target_root: Union[str, FSSpecTarget]
     store_name: str
+    target_root: Union[str, FSSpecTarget]
 
-    def get_full_target(self) -> FSSpecTarget:
+
+class ZarrWriterMixin:
+    """Defines common methods relevant to storing zarr datasets, which can be either actual zarr
+    stores or virtual (i.e. kerchunked) stores. This class should not be directly instantiated.
+    Instead, PTransforms in the `.transforms` module which write zarr stores should inherit from
+    this mixin, so that they share a common interface for target store naming.
+    """
+
+    def get_full_target(self: ZarrWriterProtocol) -> FSSpecTarget:
         if isinstance(self.target_root, str):
             target_root = FSSpecTarget.from_url(self.target_root)
         else:
