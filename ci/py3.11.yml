@@ -12,6 +12,7 @@ dependencies:
   - codecov
   - dask
   - distributed
+  - fastparquet
   - fsspec>=2022.1.0
   - gcsfs>=2022.1.0
   - graphviz  # needed for building tutorial notebooks

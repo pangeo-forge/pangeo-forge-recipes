@@ -440,10 +440,13 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     output_file_name: str = "reference"
     output_file_type: str = "json"
 
+    concat_dims: List[str] = field(default_factory=list)
+
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
         return reference | beam.Map(
             write_combined_reference,
             full_target=self.get_full_target(),
+            concat_dims=self.concat_dims,
             output_file_name=self.output_file_name,
             output_file_type=self.output_file_type,
         )

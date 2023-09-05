@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 import fsspec
 import numpy as np
@@ -98,14 +98,16 @@ def store_dataset_fragment(
 def write_combined_reference(
     reference: MultiZarrToZarr,
     full_target: FSSpecTarget,
+    concat_dims: List[str],
     output_file_name: str,
     output_file_type: str,
+    refs_per_component: int = 1000,
 ):
     """Write a kerchunk combined references object to file."""
 
     import ujson  # type: ignore
 
-    outpath = os.path.join(full_target.root_path, output_file_name, ".", output_file_type)
+    outpath = os.path.join(full_target.root_path, output_file_name + "." + output_file_type)
 
     if output_file_type == "json":
         multi_kerchunk = reference.translate()
@@ -114,11 +116,19 @@ def write_combined_reference(
     elif output_file_type == "parquet":
 
         fs = fsspec.filesystem("file")
-        out = LazyReferenceMapper.create(1000, outpath, fs)
-        os.makedirs(outpath)
-        out = LazyReferenceMapper.create(1000, "combined.parq", fs)
+        if os.path.exists(outpath):
+            import shutil
 
-        mzz = MultiZarrToZarr(reference, remote_protocol="memory").translate()
+            shutil.rmtree(outpath)
+
+        os.makedirs(outpath)
+
+        out = LazyReferenceMapper.create(refs_per_component, outpath, fs)
+
+        MultiZarrToZarr(
+            [reference.translate()], concat_dims=concat_dims, remote_protocol="memory", out=out
+        ).translate()
+
         out.flush()
 
     else:
