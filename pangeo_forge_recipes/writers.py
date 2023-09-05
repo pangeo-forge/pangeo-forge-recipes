@@ -1,7 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import List, Tuple, Union
-from typing import Protocol, Tuple, Union
+from typing import List, Protocol, Tuple, Union
 
 import fsspec
 import numpy as np
