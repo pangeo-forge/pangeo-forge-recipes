@@ -113,6 +113,7 @@ def test_reference_netcdf(
         mapper = fsspec.get_mapper("reference://", fo=full_path)
         ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
         xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
+
     elif output_file_type == "parquet":
         fs = ReferenceFileSystem(
             full_path, remote_protocol="file", target_protocol="file", lazy=True

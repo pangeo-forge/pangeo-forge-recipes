@@ -132,7 +132,6 @@ def write_combined_reference(
         out.flush()
 
     else:
-        # TODO: implement parquet writer
         raise NotImplementedError(f"{output_file_type = } not supported.")
 
 

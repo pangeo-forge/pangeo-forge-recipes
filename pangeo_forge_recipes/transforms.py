@@ -434,12 +434,14 @@ class CombineReferences(beam.PTransform):
 class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
 
-    :param output_json_fname: Name to give the output references file. Must end in ``.json``.
+    :param output_file_name: Name to give the output references file.
+    :param output_file_type: Filetype to store reference files as. Options are: "parquet" or "json".
+    :param concat_dims: concat_dims kwarg to pass to write_combined_reference if using
+    .parquet as a storage format.
     """
 
     output_file_name: str = "reference"
     output_file_type: str = "json"
-
     concat_dims: List[str] = field(default_factory=list)
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
