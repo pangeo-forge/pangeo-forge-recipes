@@ -1,5 +1,4 @@
 import os
-from dataclasses import dataclass
 from typing import List, Protocol, Tuple, Union
 
 import fsspec
