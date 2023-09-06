@@ -119,6 +119,7 @@ def write_combined_reference(
         # Creates empty parquet store to be written to
         if os.path.exists(outpath):
             import shutil
+
             shutil.rmtree(outpath)
         os.makedirs(outpath)
 
