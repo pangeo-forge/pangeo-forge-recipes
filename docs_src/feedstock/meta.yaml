@@ -1,0 +1,3 @@
+recipes:
+  - id: "gpcp-from-gcs"
+    object: "gpcp_from_gcs:recipe"
