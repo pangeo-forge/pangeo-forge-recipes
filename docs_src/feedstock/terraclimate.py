@@ -12,6 +12,7 @@ This is an advanced example that illustrates the following concepts
 """
 import apache_beam as beam
 import xarray as xr
+import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim
 from pangeo_forge_recipes.transforms import Indexed, OpenURLWithFSSpec, OpenWithXarray, StoreToZarr
@@ -213,6 +214,22 @@ class Munge(beam.PTransform):
         return pcoll | beam.Map(self._preproc)
 
 
+def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+    # This fails integration test if not imported here
+    # TODO: see if --setup-file option for runner fixes this
+    import xarray as xr
+
+    ds = xr.open_dataset(store, engine="zarr", chunks={})
+    assert "soil" in ds.data_vars
+    assert "srad" in ds.data_vars
+    assert len(ds.time) == 24
+
+
+class TestDataset(beam.PTransform):
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(test_ds)
+
+
 recipe = (
     beam.Create(pattern.items())
     | OpenURLWithFSSpec()
@@ -223,4 +240,5 @@ recipe = (
         combine_dims=pattern.combine_dim_keys,
         target_chunks={"lat": 1024, "lon": 1024, "time": 12},
     )
+    | TestDataset()
 )
