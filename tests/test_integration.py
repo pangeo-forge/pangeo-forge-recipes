@@ -15,29 +15,25 @@ pytestmark = pytest.mark.skipif(
 DOCS_SRC = Path(__file__).parent.parent / "docs_src"
 
 
-@pytest.fixture
-def tmpdir(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return tmp_path_factory.mktemp("tmp")
-
-
 # TODO: test that json and python configs in docs_src are identical
 # this way we can confidently use just one of the two
 @pytest.fixture
-def confpath(tmpdir: Path):
+def confpath(tmp_path_factory: pytest.TempPathFactory):
+    tmp = tmp_path_factory.mktemp("tmp")
     fname = "local.json"
-    dstpath = tmpdir / fname
+    dstpath = tmp / fname
     with open(DOCS_SRC / "runner-config" / fname) as src:
         with dstpath.open(mode="w") as dst:
             c = json.load(src)
-            c["TargetStorage"]["root_path"] = (tmpdir / "target").absolute().as_posix()
-            c["InputCacheStorage"]["root_path"] = (tmpdir / "cache").absolute().as_posix()
+            c["TargetStorage"]["root_path"] = (tmp / "target").absolute().as_posix()
+            c["InputCacheStorage"]["root_path"] = (tmp / "cache").absolute().as_posix()
             json.dump(c, dst)
 
     return dstpath.absolute().as_posix()
 
 
 @pytest.mark.parametrize("recipe_id", ["gpcp-from-gcs"])
-def test_integration(recipe_id: str, confpath: str, tmpdir: Path):
+def test_integration(recipe_id: str, confpath: str):
     cmd = [
         "pangeo-forge-runner",
         "bake",
@@ -46,5 +42,5 @@ def test_integration(recipe_id: str, confpath: str, tmpdir: Path):
         f"--Bake.recipe_id={recipe_id}",
         f"--Bake.job_name={'abc'}",  # TODO: make this a unique identifier
     ]
-    proc = subprocess.run(cmd, capture_output=True, cwd=tmpdir.absolute().as_posix())
+    proc = subprocess.run(cmd, capture_output=True)
     assert proc.returncode == 0
