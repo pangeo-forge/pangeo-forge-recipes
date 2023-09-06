@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-from pytest_lazyfixture import lazy_fixture
 
 # Run only when the `--run-integration` option is passed.
 # See also `pytest_addoption` in conftest. Reference:
@@ -40,62 +39,27 @@ def bake_recipe(recipe_module: Path, confpath: str, tmpdir: Path):
 
 
 @pytest.fixture
-def recipes_dir():
-    return Path(__file__).parent.parent / "docs_src" / "recipes"
-
-
-@pytest.fixture
 def tmpdir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return tmp_path_factory.mktemp("tmp")
 
 
+# TODO: test that json and python configs in docs_src are identical
+# this way we can confidently use just one of the two
 @pytest.fixture
-def target_and_cache_tmppaths(tmpdir: Path):
-    return ((tmpdir / "target").absolute().as_posix(), (tmpdir / "cache").absolute().as_posix())
-
-
-def rewrite_config_with_tmppaths(
-    fname: str,
-    tmpdir: Path,
-    target_and_cache_tmppaths: tuple[str, str],
-) -> str:
+def confpath(tmpdir: Path):
+    fname = "local.json"
+    tmp_target = (tmpdir / "target").absolute().as_posix()
+    tmp_cache = (tmpdir / "cache").absolute().as_posix()
     dstpath = tmpdir / fname
-    tmp_target, tmp_cache = target_and_cache_tmppaths
-
     with open(DOCS_SRC / "runner-config" / fname) as src:
         with dstpath.open(mode="w") as dst:
-            if Path(fname).suffix == ".json":
-                c = json.load(src)
-                c["TargetStorage"]["root_path"] = tmp_target
-                c["InputCacheStorage"]["root_path"] = tmp_cache
-                json.dump(c, dst)
-            else:
-                c = src.read().replace("./target", tmp_target).replace("./cache", tmp_cache)
-                dst.write(c)
+            c = json.load(src)
+            c["TargetStorage"]["root_path"] = tmp_target
+            c["InputCacheStorage"]["root_path"] = tmp_cache
+            json.dump(c, dst)
 
     return dstpath.absolute().as_posix()
 
 
-@pytest.fixture
-def confpath_json(tmpdir, target_and_cache_tmppaths):
-    return rewrite_config_with_tmppaths("local.json", tmpdir, target_and_cache_tmppaths)
-
-
-@pytest.fixture
-def confpath_python(tmpdir, target_and_cache_tmppaths):
-    return rewrite_config_with_tmppaths("local.py", tmpdir, target_and_cache_tmppaths)
-
-
-@pytest.fixture(
-    scope="session",
-    params=[
-        lazy_fixture("confpath_json"),
-        lazy_fixture("confpath_python"),
-    ],
-)
-def confpath(request):
-    return request.param
-
-
-def test_integration(recipes_dir: Path, confpath: str, tmpdir: Path):
-    bake_recipe(recipes_dir / "gpcp_from_gcs.py", confpath, tmpdir)
+def test_integration(confpath: str, tmpdir: Path):
+    bake_recipe(DOCS_SRC / "feedstock" / "gpcp_from_gcs.py", confpath, tmpdir)
