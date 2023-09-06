@@ -20,6 +20,7 @@ https://psl.noaa.gov/thredds/catalog/Datasets/NARR/pressure/catalog.html
 """
 import apache_beam as beam
 import xarray as xr
+import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
 from pangeo_forge_recipes.transforms import Indexed, OpenWithXarray, StoreToZarr
@@ -49,6 +50,20 @@ class SetProjectionAsCoord(beam.PTransform):
         return pcoll | beam.Map(self._set_projection_as_coord)
 
 
+def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+    # This fails integration test if not imported here
+    # TODO: see if --setup-file option for runner fixes this
+    import xarray as xr
+
+    ds = xr.open_dataset(store, engine="zarr", chunks={})
+    assert "air" in ds.data_vars
+
+
+class TestDataset(beam.PTransform):
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(test_ds)
+
+
 recipe = (
     beam.Create(pattern.items())
     | OpenWithXarray(file_type=pattern.file_type)
@@ -58,4 +73,5 @@ recipe = (
         combine_dims=pattern.combine_dim_keys,
         target_chunks={"time": 1},
     )
+    | TestDataset()
 )
