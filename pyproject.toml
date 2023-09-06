@@ -62,8 +62,8 @@ Documentation = "https://pangeo-forge.readthedocs.io/en/latest/"
 write_to = "pangeo_forge_recipes/_version.py"
 write_to_template = "__version__ = '{version}'"
 
-[tool.setuptools]
-py_modules = ["pangeo_forge_recipes"]
+[tool.setuptools.packages.find]
+exclude = ["docs_src"]
 
 [tool.black]
 line-length = 100
