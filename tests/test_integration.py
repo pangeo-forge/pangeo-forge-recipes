@@ -32,8 +32,17 @@ def confpath(tmp_path_factory: pytest.TempPathFactory):
     return dstpath.absolute().as_posix()
 
 
-@pytest.mark.parametrize("recipe_id", ["gpcp-from-gcs"])
+@pytest.mark.parametrize(
+    "recipe_id",
+    [
+        p.stem.replace("_", "-")
+        for p in (DOCS_SRC / "feedstock").iterdir()
+        if p.suffix == ".py" and not p.stem.startswith("_")
+    ],
+)
 def test_integration(recipe_id: str, confpath: str):
+    if not recipe_id == "gpcp-from-gcs":
+        pytest.skip(f"Skipping {recipe_id}")
     cmd = [
         "pangeo-forge-runner",
         "bake",
