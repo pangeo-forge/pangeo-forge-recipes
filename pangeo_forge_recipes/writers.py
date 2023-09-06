@@ -114,8 +114,6 @@ def write_combined_reference(
 
     elif output_file_type == "parquet":
 
-
-
         # Creates empty parquet store to be written to
         if os.path.exists(outpath):
             import shutil
@@ -127,8 +125,7 @@ def write_combined_reference(
         fs = fsspec.filesystem("file")
         out = LazyReferenceMapper.create(refs_per_component, outpath, fs)
 
-
-        # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet. 
+        # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
         MultiZarrToZarr(
             [reference.translate()], concat_dims=concat_dims, remote_protocol="memory", out=out
         ).translate()
