@@ -42,6 +42,7 @@ transforms = (
     | OpenURLWithFSSpec()
     | OpenWithXarray(file_type=pattern.file_type)
     | StoreToZarr(
+        store_name="noaa-oisst.zarr",
         combine_dims=pattern.combine_dim_keys,
     )
     | TestDataset()
