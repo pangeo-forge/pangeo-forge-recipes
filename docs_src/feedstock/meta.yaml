@@ -1,3 +1,7 @@
 recipes:
   - id: "gpcp-from-gcs"
     object: "gpcp_from_gcs:recipe"
+  - id: "noaa-oisst"
+    object: "noaa_oisst:recipe"
+  - id: "terraclimate"
+    object: "terraclimate:recipe"
