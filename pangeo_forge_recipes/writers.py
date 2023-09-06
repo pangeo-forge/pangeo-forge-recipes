@@ -112,22 +112,25 @@ def write_combined_reference(
         multi_kerchunk = reference.translate()
         with full_target.fs.open(outpath, "wb") as f:
             f.write(ujson.dumps(multi_kerchunk).encode())
+
     elif output_file_type == "parquet":
 
+        # kwargs to pass to MultiZarrToZarr
         fs = fsspec.filesystem("file")
-        if os.path.exists(outpath):
-            import shutil
-
-            shutil.rmtree(outpath)
-
-        os.makedirs(outpath)
-
         out = LazyReferenceMapper.create(refs_per_component, outpath, fs)
 
+        # Creates empty parquet store to be written to
+        if os.path.exists(outpath):
+            import shutil
+            shutil.rmtree(outpath)
+        os.makedirs(outpath)
+
+        # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet. 
         MultiZarrToZarr(
             [reference.translate()], concat_dims=concat_dims, remote_protocol="memory", out=out
         ).translate()
 
+        # call to write reference to empty parquet store
         out.flush()
 
     else:
