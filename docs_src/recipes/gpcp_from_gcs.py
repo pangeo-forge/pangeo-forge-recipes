@@ -1,5 +1,6 @@
 import apache_beam as beam
 import pandas as pd
+import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
 from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, StoreToZarr
@@ -18,6 +19,26 @@ def make_url(time):
 concat_dim = ConcatDim("time", dates, nitems_per_file=1)
 pattern = FilePattern(make_url, concat_dim)
 
+
+class TestDataset(beam.PTransform):
+    """Test data written to zarr store."""
+
+    @staticmethod
+    def _test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+        import xarray as xr
+
+        ds = xr.open_dataset(store, engine="zarr", chunks={})
+        print(ds)
+        assert ds.title == (
+            "Global Precipitation Climatatology Project (GPCP) "
+            "Climate Data Record (CDR), Daily V1.3"
+        )
+        return store
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | "Test dataset" >> beam.Map(self._test_ds)
+
+
 recipe = (
     beam.Create(pattern.items())
     | OpenURLWithFSSpec()
@@ -26,4 +47,5 @@ recipe = (
         store_name="gpcp.zarr",
         combine_dims=pattern.combine_dim_keys,
     )
+    | TestDataset()
 )
