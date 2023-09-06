@@ -7,6 +7,7 @@ from typing import Any
 import apache_beam as beam
 import fsspec
 import s3fs
+import zarr
 
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
 from pangeo_forge_recipes.transforms import (
@@ -45,6 +46,20 @@ pattern: FilePattern = pattern_from_file_sequence(
     file_type="grib",
 )
 
+
+def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+    import xarray as xr
+
+    ds = xr.open_dataset(store, engine="zarr", chunks={})
+    # TODO: more detailed asserts
+    assert "t2m" in ds.data_vars
+
+
+class TestDataset(beam.PTransform):
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(test_ds)
+
+
 recipe = (
     beam.Create(pattern.items())
     | OpenWithKerchunk(
@@ -63,4 +78,5 @@ recipe = (
     | WriteCombinedReference(
         store_name="hrrr-concat-valid-time",
     )
+    | TestDataset()
 )
