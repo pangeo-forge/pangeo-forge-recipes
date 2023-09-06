@@ -20,23 +20,21 @@ concat_dim = ConcatDim("time", dates, nitems_per_file=1)
 pattern = FilePattern(make_url, concat_dim)
 
 
+def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+    # This fails integration test if not imported here
+    # TODO: see if --setup-file option for runner fixes this
+    import xarray as xr
+
+    ds = xr.open_dataset(store, engine="zarr", chunks={})
+    assert ds.title == (
+        "Global Precipitation Climatatology Project (GPCP) " "Climate Data Record (CDR), Daily V1.3"
+    )
+    return store
+
+
 class TestDataset(beam.PTransform):
-    """Test data written to zarr store."""
-
-    @staticmethod
-    def _test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
-        import xarray as xr
-
-        ds = xr.open_dataset(store, engine="zarr", chunks={})
-        print(ds)
-        assert ds.title == (
-            "Global Precipitation Climatatology Project (GPCP) "
-            "Climate Data Record (CDR), Daily V1.3"
-        )
-        return store
-
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | "Test dataset" >> beam.Map(self._test_ds)
+        return pcoll | beam.Map(test_ds)
 
 
 recipe = (

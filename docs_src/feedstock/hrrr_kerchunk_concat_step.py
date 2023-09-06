@@ -5,6 +5,7 @@ HRRR data. Based on prior discussion and examples provided in:
 """
 
 import apache_beam as beam
+import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
 from pangeo_forge_recipes.transforms import (
@@ -28,6 +29,25 @@ identical_dims = ["time", "surface", "latitude", "longitude", "y", "x"]
 grib_filters = {"typeOfLevel": "surface", "shortName": "t"}
 
 
+def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+    import xarray as xr
+
+    ds = xr.open_dataset(store, engine="zarr", chunks={})
+    ds = ds.set_coords(("latitude", "longitude"))
+    assert ds.attrs["centre"] == "kwbc"
+    assert len(ds["step"]) == 4
+    assert len(ds["time"]) == 1
+    assert "t" in ds.data_vars
+    for coord in ["time", "surface", "latitude", "longitude"]:
+        assert coord in ds.coords
+    return store
+
+
+class TestDataset(beam.PTransform):
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(test_ds)
+
+
 recipe = (
     beam.Create(pattern.items())
     | OpenWithKerchunk(
@@ -44,4 +64,5 @@ recipe = (
     | WriteCombinedReference(
         store_name="hrrr-concat-step",
     )
+    | TestDataset()
 )
