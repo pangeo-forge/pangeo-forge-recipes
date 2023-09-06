@@ -70,4 +70,4 @@ jobs:
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
         run: |
-          pytest --timeout=600 tests-integration/ -v
+          pytest --timeout=600 -vvxs tests/test_integration.py --run-integration
