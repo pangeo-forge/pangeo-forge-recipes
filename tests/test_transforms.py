@@ -264,3 +264,17 @@ def test_StoreToZarr_emits_openable_fsstore(
         )
         open_store = target_store | OpenZarrStore()
         assert_that(open_store, is_xrdataset())
+
+
+def test_StoreToZarr_target_root_default_unrunnable(
+    pipeline,
+    netcdf_local_file_pattern_sequential,
+):
+    pattern: FilePattern = netcdf_local_file_pattern_sequential
+    with pytest.raises(TypeError, match=r"unsupported operand"):
+        with pipeline as p:
+            datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
+            _ = datasets | StoreToZarr(
+                store_name="test.zarr",
+                combine_dims=pattern.combine_dim_keys,
+            )
