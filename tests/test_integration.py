@@ -48,8 +48,6 @@ def test_integration(recipe_id: str, confpath: str):
     }
     if recipe_id in xfails:
         pytest.xfail(xfails[recipe_id])
-    elif recipe_id != "gpcp-from-gcs":
-        pytest.skip()
 
     cmd = [
         "pangeo-forge-runner",
@@ -58,6 +56,7 @@ def test_integration(recipe_id: str, confpath: str):
         f"-f={confpath}",
         f"--Bake.recipe_id={recipe_id}",
         f"--Bake.job_name={'abc'}",  # TODO: make this a unique identifier
+        "--prune",
     ]
     proc = subprocess.run(cmd, capture_output=True)
     assert proc.returncode == 0
