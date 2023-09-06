@@ -32,11 +32,6 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     return store
 
 
-class TestDataset(beam.PTransform):
-    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(test_ds)
-
-
 recipe = (
     beam.Create(pattern.items())
     | OpenURLWithFSSpec()
@@ -45,5 +40,5 @@ recipe = (
         store_name="gpcp.zarr",
         combine_dims=pattern.combine_dim_keys,
     )
-    | TestDataset()
+    | "Test dataset" >> beam.Map(test_ds)
 )

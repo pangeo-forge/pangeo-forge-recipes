@@ -59,11 +59,6 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     assert "air" in ds.data_vars
 
 
-class TestDataset(beam.PTransform):
-    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(test_ds)
-
-
 recipe = (
     beam.Create(pattern.items())
     | OpenWithXarray(file_type=pattern.file_type)
@@ -73,5 +68,5 @@ recipe = (
         combine_dims=pattern.combine_dim_keys,
         target_chunks={"time": 1},
     )
-    | TestDataset()
+    | "Test dataset" >> beam.Map(test_ds)
 )

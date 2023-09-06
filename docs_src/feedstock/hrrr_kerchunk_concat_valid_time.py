@@ -55,11 +55,6 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     assert "t2m" in ds.data_vars
 
 
-class TestDataset(beam.PTransform):
-    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(test_ds)
-
-
 recipe = (
     beam.Create(pattern.items())
     | OpenWithKerchunk(
@@ -78,5 +73,5 @@ recipe = (
     | WriteCombinedReference(
         store_name="hrrr-concat-valid-time",
     )
-    | TestDataset()
+    | "Test dataset" >> beam.Map(test_ds)
 )

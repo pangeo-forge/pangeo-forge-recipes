@@ -225,11 +225,6 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     assert len(ds.time) == 24
 
 
-class TestDataset(beam.PTransform):
-    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(test_ds)
-
-
 recipe = (
     beam.Create(pattern.items())
     | OpenURLWithFSSpec()
@@ -240,5 +235,5 @@ recipe = (
         combine_dims=pattern.combine_dim_keys,
         target_chunks={"lat": 1024, "lon": 1024, "time": 12},
     )
-    | TestDataset()
+    | "Test dataset" >> beam.Map(test_ds)
 )
