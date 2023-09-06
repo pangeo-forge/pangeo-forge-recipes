@@ -122,10 +122,11 @@ def write_combined_reference(
         # Creates empty parquet store to be written to
         if os.path.exists(outpath):
             import shutil
+
             shutil.rmtree(outpath)
         os.makedirs(outpath)
 
-        # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet. 
+        # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
         MultiZarrToZarr(
             [reference.translate()], concat_dims=concat_dims, remote_protocol="memory", out=out
         ).translate()
