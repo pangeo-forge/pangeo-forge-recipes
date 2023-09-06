@@ -107,7 +107,6 @@ def write_combined_reference(
     import ujson  # type: ignore
 
     outpath = os.path.join(full_target.root_path, output_file_name + "." + output_file_type)
-
     if output_file_type == "json":
         multi_kerchunk = reference.translate()
         with full_target.fs.open(outpath, "wb") as f:
@@ -115,15 +114,18 @@ def write_combined_reference(
 
     elif output_file_type == "parquet":
 
-        # kwargs to pass to MultiZarrToZarr
-        fs = fsspec.filesystem("file")
-        out = LazyReferenceMapper.create(refs_per_component, outpath, fs)
+
 
         # Creates empty parquet store to be written to
         if os.path.exists(outpath):
             import shutil
             shutil.rmtree(outpath)
         os.makedirs(outpath)
+
+        # kwargs to pass to MultiZarrToZarr
+        fs = fsspec.filesystem("file")
+        out = LazyReferenceMapper.create(refs_per_component, outpath, fs)
+
 
         # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet. 
         MultiZarrToZarr(
