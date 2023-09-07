@@ -25,13 +25,9 @@ classifiers = [
 license = { text = "Apache-2.0" }
 keywords = ["pangeo", "data"]
 dependencies = [
-    "setuptools",
     "dask >= 2021.11.2",
-    "distributed >= 2021.11.2",
     "cftime",
     "h5py >= 3.3.0",
-    "intake >= 0.6.4",
-    "intake-xarray >= 0.4.1",
     "xarray >=0.18.0",
     "netcdf4",
     "h5netcdf",
@@ -39,7 +35,6 @@ dependencies = [
     "numcodecs >= 0.9.0",
     "fsspec[http] >= 2021.6.0",
     "kerchunk >= 0.0.7",
-    "mypy_extensions >= 0.4.2"
 ]
 
 [project.optional-dependencies]
