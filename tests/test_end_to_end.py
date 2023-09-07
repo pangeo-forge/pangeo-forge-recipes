@@ -105,6 +105,11 @@ def test_reference_netcdf(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
+@pytest.mark.xfail(
+    "Requires cfgrib, which should be installed via conda. "
+    "FIXME: Setup separate testing environment for `requires-conda` tests. "
+    "NOTE: The HRRR integration tests would also fall into this category."
+)
 def test_reference_grib(
     pipeline,
     tmp_target_url,
