@@ -64,6 +64,14 @@ jobs:
         shell: bash -l {0}
         run: |
           python -m pip install --no-deps -e  .
+
+      # workaround for https://github.com/conda-forge/apache-beam-feedstock/issues/67
+      # this can be removed once that bug is fixed
+      - name: 🔧 Workaround broken beam conda release with pip install
+        shell: bash -l {0}
+        run: |
+          python -m pip install -U apache-beam
+
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
         run: |
