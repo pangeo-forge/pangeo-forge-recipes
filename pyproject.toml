@@ -67,7 +67,7 @@ line-length = 100
 
 [tool.isort]
 known_first_party = "pangeo_forge_recipes"
-known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "kerchunk", "numpy", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "setuptools", "ujson", "xarray", "zarr"]
+known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "kerchunk", "numpy", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "ujson", "xarray", "zarr"]
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
