@@ -32,7 +32,7 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     return store
 
 
-transforms = (
+recipe = (
     beam.Create(pattern.items())
     | OpenURLWithFSSpec()
     | OpenWithXarray(file_type=pattern.file_type)
