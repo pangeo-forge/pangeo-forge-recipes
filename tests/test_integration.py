@@ -15,10 +15,25 @@ pytestmark = pytest.mark.skipif(
 EXAMPLES = Path(__file__).parent.parent / "examples"
 
 
-# TODO: test that json and python configs in examples are identical
-# this way we can confidently use just one of the two
+def test_python_json_configs_identical():
+    """We provide examples of both Python and JSON config. By ensuring they are
+    identical, we can confidently use just one of them for the integration tests.
+    """
+    from pangeo_forge_runner.commands.base import BaseCommand  # type: ignore
+
+    python_, json_ = BaseCommand(), BaseCommand()
+    python_.load_config_file((EXAMPLES / "runner-config" / "local.py").absolute().as_posix())
+    json_.load_config_file((EXAMPLES / "runner-config" / "local.json").absolute().as_posix())
+
+    assert python_.config and json_.config  # make sure we actually loaded something
+    assert python_.config == json_.config
+
+
 @pytest.fixture
 def confpath(tmp_path_factory: pytest.TempPathFactory):
+    """The JSON config is easier to modify with tempdirs, so we use that here for
+    convenience. But we know it's the same as the Python config, because we test that.
+    """
     tmp = tmp_path_factory.mktemp("tmp")
     fname = "local.json"
     dstpath = tmp / fname
@@ -41,6 +56,8 @@ def confpath(tmp_path_factory: pytest.TempPathFactory):
     ],
 )
 def test_integration(recipe_id: str, confpath: str):
+    """Run the example recipes in the ``examples/feedstock`` directory."""
+
     xfails = {
         "hrrr-kerchunk-concat-step": "WriteCombineReference doesn't return zarr.storage.FSStore",
         "hrrr-kerchunk-concat-valid-time": "Can't serialize drop_unknown callback function.",
