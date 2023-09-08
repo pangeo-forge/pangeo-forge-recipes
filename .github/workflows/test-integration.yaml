@@ -35,7 +35,7 @@ jobs:
           "git+https://github.com/pangeo-forge/pangeo-forge-runner.git@injections#egg=pangeo_forge_runner",
         ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: 🔁 Setup Python
         id: setup-python
         uses: actions/setup-python@v4
