@@ -45,8 +45,8 @@ If you are new to Pangeo Forge and looking to get involved, we suggest starting 
 what_is_pangeo_forge
 introduction_tutorial/index
 installation
-recipe_user_guide/index
-tutorials/index
+user_guide/index
+examples/index
 api_reference
 development/index
 ```
