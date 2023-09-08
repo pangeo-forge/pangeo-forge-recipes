@@ -17,14 +17,13 @@ There are a number of resources available when working with Pangeo Forge:
 - **User Guides** explain core Pangeo Forge concepts in detail. They provide
   background information to aid in gaining a depth of understanding:
   - {doc}`pangeo_forge_recipes/recipe_user_guide/index` - For learning about how to create Recipes. A recipe is defined as a [pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) of [Apache Beam](https://beam.apache.org/) [transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to a data collection, performing one or more transformations of input elements to output elements.
-  - {doc}`pangeo_forge_cloud/recipe_contribution` - For learning how to contribute recipes to Pangeo Forge Cloud.
-  - {doc}`pangeo_forge_recipes/development/development_guide` - For developers seeking to contribute to Pangeo Forge core functionality.
+  - {doc}`development/development_guide` - For developers seeking to contribute to Pangeo Forge core functionality.
 - **Advanced Examples** walk through examples of using Pangeo Forge Recipes:
-  - {doc}`pangeo_forge_recipes/tutorials/index` - Are in-depth demonstrations of using Pangeo Forge Recipes with real world datasets. They are a good next step after the Introduction Tutorial.
+  - {doc}`tutorials/index` - Are in-depth demonstrations of using Pangeo Forge Recipes with real world datasets. They are a good next step after the Introduction Tutorial.
 - **References** are the complete technical documentation of Pangeo Forge features.  They are useful when you want to review a particular functionality in depth,
 but assume you already have a working knowledge of the framework:
-  - {doc}`pangeo_forge_recipes/api_reference`
-  - {doc}`pangeo_forge_cloud/pr_checks_reference`
+  - {doc}`api_reference`
+  - {doc}`pr_checks_reference`
 
 
 ## Connecting with the Community
@@ -41,10 +40,13 @@ If you are new to Pangeo Forge and looking to get involved, we suggest starting 
 ## Site Contents
 
 ```{toctree}
-:maxdepth: 3
+:maxdepth: 2
 
 what_is_pangeo_forge
 introduction_tutorial/index
-pangeo_forge_recipes/index
-pangeo_forge_cloud/index
+installation
+recipe_user_guide/index
+tutorials/index
+api_reference
+development/index
 ```
