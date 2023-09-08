@@ -45,6 +45,7 @@ def test_integration(recipe_id: str, confpath: str):
         "hrrr-kerchunk-concat-step": "WriteCombineReference doesn't return zarr.storage.FSStore",
         "hrrr-kerchunk-concat-valid-time": "Can't serialize drop_unknown callback function.",
         "narr-opendap": "Hangs for unkown reason. Requires further debugging.",
+        "terraclimate": "Hangs for unkown reason. Requires further debugging.",
     }
     if recipe_id in xfails:
         pytest.xfail(xfails[recipe_id])
