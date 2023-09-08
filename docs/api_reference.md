@@ -30,15 +30,6 @@
 ```
 
 ```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.patterns.DimKey
-    :members:
-```
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.patterns.DimVal
-    :members:
-```
-
-```{eval-rst}
 .. autoclass:: pangeo_forge_recipes.patterns.CombineOp
     :members:
 ```
