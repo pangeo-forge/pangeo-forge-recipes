@@ -1,5 +1,7 @@
 import json
+import os
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -67,14 +69,13 @@ def test_integration(recipe_id: str, confpath: str):
     if recipe_id in xfails:
         pytest.xfail(xfails[recipe_id])
 
-    cmd = [
-        "pangeo-forge-runner",
-        "bake",
-        f"--repo={EXAMPLES.absolute().as_posix()}",
-        f"-f={confpath}",
-        f"--Bake.recipe_id={recipe_id}",
-        f"--Bake.job_name={'abc'}",  # TODO: make this a unique identifier
-        "--prune",
-    ]
-    proc = subprocess.run(cmd, capture_output=True)
+    bake_script = (EXAMPLES / "runner-commands" / "bake.sh").absolute().as_posix()
+    cmd = ["sh", bake_script]
+    env = os.environ.copy() | {
+        "REPO": EXAMPLES.absolute().as_posix(),
+        "CONFIG_FILE": confpath,
+        "RECIPE_ID": recipe_id,
+        "JOB_NAME": f"{recipe_id}-{str(int(time.time()))}",
+    }
+    proc = subprocess.run(cmd, capture_output=True, env=env)
     assert proc.returncode == 0
