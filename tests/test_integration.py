@@ -12,17 +12,17 @@ pytestmark = pytest.mark.skipif(
     reason="Only run when --run-integration is given",
 )
 
-DOCS_SRC = Path(__file__).parent.parent / "docs_src"
+EXAMPLES = Path(__file__).parent.parent / "examples"
 
 
-# TODO: test that json and python configs in docs_src are identical
+# TODO: test that json and python configs in examples are identical
 # this way we can confidently use just one of the two
 @pytest.fixture
 def confpath(tmp_path_factory: pytest.TempPathFactory):
     tmp = tmp_path_factory.mktemp("tmp")
     fname = "local.json"
     dstpath = tmp / fname
-    with open(DOCS_SRC / "runner-config" / fname) as src:
+    with open(EXAMPLES / "runner-config" / fname) as src:
         with dstpath.open(mode="w") as dst:
             c = json.load(src)
             c["TargetStorage"]["root_path"] = (tmp / "target").absolute().as_posix()
@@ -36,7 +36,7 @@ def confpath(tmp_path_factory: pytest.TempPathFactory):
     "recipe_id",
     [
         p.stem.replace("_", "-")
-        for p in (DOCS_SRC / "feedstock").iterdir()
+        for p in (EXAMPLES / "feedstock").iterdir()
         if p.suffix == ".py" and not p.stem.startswith("_")
     ],
 )
@@ -53,7 +53,7 @@ def test_integration(recipe_id: str, confpath: str):
     cmd = [
         "pangeo-forge-runner",
         "bake",
-        f"--repo={DOCS_SRC.absolute().as_posix()}",
+        f"--repo={EXAMPLES.absolute().as_posix()}",
         f"-f={confpath}",
         f"--Bake.recipe_id={recipe_id}",
         f"--Bake.job_name={'abc'}",  # TODO: make this a unique identifier
