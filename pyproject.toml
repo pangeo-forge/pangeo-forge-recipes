@@ -78,8 +78,3 @@ line_length = 100
 log_cli = false
 timeout = 30
 timeout_method = "signal"
-addopts = "--ignore-glob=tests/recipe_tests/*"
-markers = [
-    "no_executor: Tests that do not use an executor fixture.",
-    "executor_function: Tests that use the Python function executor.",
-]
