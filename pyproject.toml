@@ -42,10 +42,10 @@ dependencies = [
 dev = [
     "click",
     "pytest",
-    "pytest-sugar",
-    "pytest-timeout",
     "pytest-cov",
     "pytest-lazy-fixture",
+    "pytest-sugar",
+    "pytest-timeout",
     "scipy"
 ]
 
