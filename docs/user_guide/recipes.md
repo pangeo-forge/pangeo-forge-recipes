@@ -3,22 +3,6 @@
 A recipe defines how to transform data in one format / location into another format / location.
 The primary way people contribute to Pangeo Forge is by writing / maintaining recipes.
 
-```{note}
-The Recipe API is under active development and may change. Make sure the version of the documentation you are reading matches your installed version of `pangeo-forge-recipes`. All released versions of `pangeo-forge-recipes` are supported in {doc}`../../pangeo_forge_cloud/index`. If you are starting a new recipe development cycle, it is recommend that you use the latest released version.
-```
-
-## The Recipe Object
-
-A Recipe is a Python object which encapsulates a workflow for transforming data.
-A Recipe knows how to take a {doc}`file pattern <file_patterns>`, which describes a collection of source files ("inputs"),
-and turn it into a single analysis-ready, cloud-optimized dataset.
-Creating a recipe does not actually cause any data to be read or written; the
-recipe is just the _description_ of the transformation.
-To actually do the work, the recipe must be {doc}`executed <execution>`.
-Recipe authors (i.e. data users or data managers) can either execute their recipes
-on their own computers and infrastructure, in private, or make a {doc}`../../pangeo_forge_cloud/recipe_contribution`
-to {doc}`../../pangeo_forge_cloud/index`, which allows the recipe to be automatically by via [Bakeries](../../pangeo_forge_cloud/core_concepts.md).
-
 ## Recipe Pipelines
 
 A recipe is defined as a [pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) of [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to the data collection associated with a {doc}`file pattern <file_patterns>`. Specifically, each recipe pipeline contains a set of transforms, which operate on an [`apache_beam.PCollection`](https://beam.apache.org/documentation/programming-guide/#pcollections), performing a mapping of input elements to output elements (for example, using [`apache_beam.Map`](https://beam.apache.org/documentation/transforms/python/elementwise/map/)), applying the specified transformation.
