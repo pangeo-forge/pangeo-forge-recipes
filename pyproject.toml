@@ -42,9 +42,10 @@ dependencies = [
 dev = [
     "click",
     "pytest",
-    "pytest-sugar",
     "pytest-cov",
     "pytest-lazy-fixture",
+    "pytest-sugar",
+    "pytest-timeout",
     "scipy"
 ]
 
@@ -58,12 +59,15 @@ Documentation = "https://pangeo-forge.readthedocs.io/en/latest/"
 write_to = "pangeo_forge_recipes/_version.py"
 write_to_template = "__version__ = '{version}'"
 
+[tool.setuptools.packages.find]
+exclude = ["docs_src"]
+
 [tool.black]
 line-length = 100
 
 [tool.isort]
 known_first_party = "pangeo_forge_recipes"
-known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "kerchunk", "numpy", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "ujson", "xarray", "zarr"]
+known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "kerchunk", "numpy", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "xarray", "zarr"]
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
@@ -74,8 +78,3 @@ line_length = 100
 log_cli = false
 timeout = 30
 timeout_method = "signal"
-addopts = "--ignore-glob=tests/recipe_tests/*"
-markers = [
-    "no_executor: Tests that do not use an executor fixture.",
-    "executor_function: Tests that use the Python function executor.",
-]
