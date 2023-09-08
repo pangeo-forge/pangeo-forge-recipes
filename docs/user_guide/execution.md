@@ -8,11 +8,31 @@ Once you have created a recipe object (see {doc}`recipes`) you have two
 options for executing it. In the subsequent code, we will assume that a
 recipe has already been initialized in the variable `recipe`.
 
+These tutorials are deep dives into how to develop and debug Pangeo Forge recipes.
 
-## Recipe Executors
+`````{tabs}
+````{tab} Python
 
-A recipe is an abstract description of a transformation pipeline.
-We currently support the following execution mechanism.
+```{literalinclude} ../../examples/runner-config/local.py
+```
+
+````
+````{tab} JSON
+
+```{literalinclude} ../../examples/runner-config/local.json
+---
+language: json
+---
+```
+
+````
+`````
+
+```{literalinclude} ../../examples/runner-commands/bake.sh
+---
+language: bash
+---
+```
 
 ### Beam PTransform
 
