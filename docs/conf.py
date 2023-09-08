@@ -7,14 +7,15 @@ author = "Pangeo Community"
 # -- General configuration ---------------------------------------------------
 
 extensions = [
-    "myst_nb",
+    "myst_parser",
     "sphinx.ext.autodoc",
-    "sphinx.ext.extlinks",
+    # "sphinx.ext.extlinks",
     "sphinx.ext.graphviz",
     "sphinx_autodoc_typehints",
     "sphinx_copybutton",
     "sphinx_togglebutton",
     "sphinxext.opengraph",
+    "sphinx_tabs.tabs",
 ]
 
 extlinks = {
