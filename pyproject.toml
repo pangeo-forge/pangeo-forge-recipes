@@ -62,6 +62,9 @@ write_to_template = "__version__ = '{version}'"
 [tool.setuptools.packages.find]
 exclude = ["docs_src"]
 
+[tool.setuptools.package-data]
+pangeo_forge_recipes = ["py.typed"]
+
 [tool.black]
 line-length = 100
 
