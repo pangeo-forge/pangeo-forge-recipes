@@ -81,7 +81,7 @@ def test_xarray_zarr_subpath(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
-@pytest.mark.parametrize("output_file_name", ["reference.json","reference.parquet"])
+@pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
 def test_reference_netcdf(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,

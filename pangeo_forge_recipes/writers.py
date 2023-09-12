@@ -100,13 +100,13 @@ def write_combined_reference(
     concat_dims: List[str],
     output_file_name: str,
     refs_per_component: int = 1000,
-)->FSSpecTarget: 
+) -> FSSpecTarget:
     """Write a kerchunk combined references object to file."""
 
     import ujson  # type: ignore
+
     file_ext = os.path.splitext(output_file_name)[-1]
-    
-    # import pdb;pdb.set_trace()
+
     outpath = full_target._full_path(output_file_name)
 
     if file_ext == ".json":
@@ -120,7 +120,7 @@ def write_combined_reference(
         if full_target.exists(output_file_name):
             full_target.rm(output_file_name, recursive=True)
         full_target.makedir(output_file_name)
-        
+
         # kwargs to pass to MultiZarrToZarr
         fs = fsspec.filesystem("file")
         out = LazyReferenceMapper.create(refs_per_component, outpath, fs)
@@ -137,6 +137,8 @@ def write_combined_reference(
         raise NotImplementedError(f"{file_ext = } not supported.")
 
     return full_target
+
+
 class ZarrWriterProtocol(Protocol):
     """Protocol for mixin typing, following best practices described in:
     https://mypy.readthedocs.io/en/stable/more_types.html#mixin-classes.

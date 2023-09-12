@@ -449,7 +449,7 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
         this name under `target_root`.
     :param target_root: Root path the Zarr store will be created inside;
         `store_name` will be appended to this prefix to create a full path.
-    :param output_file_name: Name to give the output references file. Should have a .json or .parquet suffix.
+    :param output_file_name: Name to give the output references file (.json or .parquet suffix.)
     :param concat_dims: concat_dims kwarg to pass to write_combined_reference if using
     .parquet as a storage format.
     """
