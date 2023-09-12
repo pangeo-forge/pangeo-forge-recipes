@@ -117,15 +117,12 @@ class FSSpecTarget(AbstractTarget):
         """Check that the file is in the cache."""
         return self.fs.exists(self._full_path(path))
 
-    def rm(self, path: str, recursive: Optional[bool] = False) -> None:
+    def rm(self, path: str) -> None:
         """Remove file from the cache."""
-        self.fs.rm(self._full_path(path), recursive=recursive)
+        self.fs.rm(self._full_path(path))
 
     def size(self, path: str) -> int:
         return self.fs.size(self._full_path(path))
-
-    def makedir(self, path: str) -> None:
-        self.fs.makedir(self._full_path(path))
 
     @contextmanager
     def open(self, path: str, **kwargs) -> Iterator[OpenFileType]:
