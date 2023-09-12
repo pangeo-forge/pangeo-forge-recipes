@@ -449,10 +449,7 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
         this name under `target_root`.
     :param target_root: Root path the Zarr store will be created inside;
         `store_name` will be appended to this prefix to create a full path.
-    :param target_chunks: Dictionary mapping dimension names to chunks sizes.
-        If a dimension is a not named, the chunks will be inferred from the data.
-    :param output_file_name: Name to give the output references file.
-    :param output_file_type: Filetype to store reference files as. Options are: "parquet" or "json".
+    :param output_file_name: Name to give the output references file. Should have a .json or .parquet suffix.
     :param concat_dims: concat_dims kwarg to pass to write_combined_reference if using
     .parquet as a storage format.
     """
@@ -461,8 +458,7 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
-    output_file_name: str = "reference"
-    output_file_type: str = "json"
+    output_file_name: str = "reference.json"
     concat_dims: List[str] = field(default_factory=list)
 
     def expand(self, reference: beam.PCollection) -> beam.PCollection:
@@ -471,7 +467,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
             full_target=self.get_full_target(),
             concat_dims=self.concat_dims,
             output_file_name=self.output_file_name,
-            output_file_type=self.output_file_type,
         )
 
 

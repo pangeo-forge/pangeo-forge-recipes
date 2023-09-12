@@ -81,14 +81,13 @@ def test_xarray_zarr_subpath(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
-@pytest.mark.parametrize("output_file_type", ["json", "parquet"])
+@pytest.mark.parametrize("output_file_name", ["reference.json","reference.parquet"])
 def test_reference_netcdf(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,
     pipeline,
     tmp_target_url,
-    output_file_type,
-    output_file_name="reference",
+    output_file_name,
 ):
     pattern = netcdf_local_file_pattern_sequential
     store_name = "daily-xarray-dataset"
@@ -103,18 +102,18 @@ def test_reference_netcdf(
                 store_name=store_name,
                 concat_dims=["time"],
                 output_file_name=output_file_name,
-                output_file_type=output_file_type,
             )
         )
 
-    full_path = os.path.join(tmp_target_url, store_name, output_file_name + "." + output_file_type)
+    full_path = os.path.join(tmp_target_url, store_name, output_file_name)
+    file_ext = os.path.splitext(output_file_name)[-1]
 
-    if output_file_type == "json":
+    if file_ext == ".json":
         mapper = fsspec.get_mapper("reference://", fo=full_path)
         ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
         xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
-    elif output_file_type == "parquet":
+    elif file_ext == ".parquet":
         fs = ReferenceFileSystem(
             full_path, remote_protocol="file", target_protocol="file", lazy=True
         )
