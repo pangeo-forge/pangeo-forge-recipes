@@ -9,70 +9,41 @@ on:
     branches: [ "main" ]
     paths-ignore:
     - 'docs/**'
+  schedule:
+    - cron: '0 4 * * *'  # run once a day at 4 AM
 
 env:
   PYTEST_ADDOPTS: "--color=yes"
 
-# This our primary testing workflow.
-#
-# It also serves as an example for how to reference the separate prepare-env workflow.
-# This workflow does not even attempt to build environments. It dispatches that resposibility
-# to the prepare-env workflow and then loads the environments which that workflow has cached.
-#
-# Note that all of the steps listed under the comment ``# generic steps to load env from cache``
-# are required to load the environment. They include:
-#   - Generating the cache key
-#   - Actually loading the environment using the key
-#   - Adding the path ``/usr/share/miniconda3/envs/pangeo-forge-recipes/bin`` to $PATH
-
 jobs:
-  prepare-env:
-    uses: ./.github/workflows/prepare-env.yaml
   run-tests:
-    needs: prepare-env
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11"]
-        dependencies: ["releases-only", "upstream-dev"]
     steps:
-      - uses: actions/checkout@v3
-
-      # generic steps to load env from cache
-      - name: 🎯 Set cache number
-        id: cache-number
-        # cache will last 3 days by default
-        run: echo CACHE_NUMBER=`expr $(date +'%j') / 3` >> $GITHUB_ENV
-      - name: 🎯 Set environment file
-        id: env-file
-        run: echo "env_file=ci/py${{ matrix.python-version }}.yml" >> $GITHUB_ENV
-      - uses: actions/cache@v3
-        name: 🗃 Loaded Cached environment
+      - uses: actions/checkout@v4
+      - name: 🔁 Setup Python
+        id: setup-python
+        uses: actions/setup-python@v4
         with:
-          path: /usr/share/miniconda3/envs/pangeo-forge-recipes
-          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles( env.env_file ) }}-${{ matrix.dependencies }}-${{ env.CACHE_NUMBER }}
-        id: conda-cache
-      - name: 🤿  Bail out if no cache hit
-        if: steps.conda-cache.outputs.cache-hit != 'true'
-        run: false
-      - name: 🎯 Set path to include conda python
-        run: echo "/usr/share/miniconda3/envs/pangeo-forge-recipes/bin" >> $GITHUB_PATH
-
-      # custom testing steps unique to this workflow
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: 🎯 Check cache hit
+        run: echo '${{ steps.setup-python.outputs.cache-hit }}'
       - name: 🌈 Install pangeo-forge-recipes package
         shell: bash -l {0}
         run: |
-          python -m pip install --no-deps -e  .
-
-      # workaround for https://github.com/conda-forge/apache-beam-feedstock/issues/67
-      # this can be removed once that bug is fixed
-      - name: 🔧 Workaround broken beam conda release with pip install
+          python -m pip install -e  ".[dev]"
+      - name: 🧑‍💻 On the nightly run, test upstream dev versions
+        if: |
+          github.event_name == 'schedule'
         shell: bash -l {0}
         run: |
-          python -m pip uninstall apache-beam -y
-          python -m pip install apache-beam
-
+          python -m pip install -Ur ci/requirements-upstream-dev.txt
+          python -m pip install -U --pre apache-beam
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
         run: |
@@ -82,6 +53,9 @@ jobs:
             --cov-report xml \
             --durations=10 --durations-min=1.0
       - name: 🚦 Run Codecov
+        if: |
+          github.event_name == 'push' ||
+          github.event_name == 'pull_request'
         uses: codecov/codecov-action@v3.1.4
         with:
           file: ./coverage.xml

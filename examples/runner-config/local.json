@@ -1,0 +1,13 @@
+{
+  "Bake": {
+    "bakery_class": "pangeo_forge_runner.bakery.local.LocalDirectBakery"
+  },
+  "TargetStorage": {
+    "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
+    "root_path": "./target"
+  },
+  "InputCacheStorage": {
+    "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
+    "root_path": "./cache"
+  }
+}
