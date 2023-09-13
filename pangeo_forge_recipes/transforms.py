@@ -469,7 +469,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
             output_file_name=self.output_file_name,
         )
 
-
 @dataclass
 class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     """Store a PCollection of Xarray datasets to Zarr.
