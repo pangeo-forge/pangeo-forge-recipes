@@ -49,4 +49,5 @@ user_guide/index
 examples/index
 api_reference
 development/index
+ecosystem
 ```
