@@ -28,6 +28,7 @@ dependencies = [
     "apache-beam",
     "cftime",
     "dask >= 2021.11.2",
+    "fastparquet",
     "fsspec[http] >= 2021.6.0",
     "h5netcdf",
     "h5py >= 3.3.0",
