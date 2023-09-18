@@ -85,7 +85,7 @@ def test_schema_to_template_ds_cftime():
     assert isinstance(dst.time.values[0], cftime.datetime)
 
 def test_schema_to_template_ds_attrs():
-    
+
     attrs = {'test_attr_key': 'test_attr_value'}
     ds = xr.decode_cf(
         xr.DataArray(
@@ -102,7 +102,6 @@ def test_schema_to_template_ds_attrs():
     
     schema = dataset_to_schema(ds)
     dst = schema_to_template_ds(schema, attrs=attrs)
-    import pdb; pdb.set_trace()
     assert dst.attrs['pangeo-forge:test_attr_key'] == 'test_attr_value'
     assert dst.attrs['original_attrs_key'] == 'original_attrs_value'
 
