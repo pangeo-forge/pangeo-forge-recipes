@@ -265,7 +265,7 @@ def schema_to_template_ds(
     }
     dataset_attrs = schema["attrs"]
 
-    if bool(attrs) & isinstance(attrs, dict):
+    if attrs and isinstance(attrs, dict):
         for k, v in attrs.items():  # type: ignore
             dataset_attrs[f"pangeo-forge:{k}"] = v
 
