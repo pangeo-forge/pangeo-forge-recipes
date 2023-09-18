@@ -247,7 +247,9 @@ def determine_target_chunks(
 
 
 def schema_to_template_ds(
-    schema: XarraySchema, specified_chunks: Optional[Dict[str, int]] = None, attrs: Optional[Dict[str]] = None
+    schema: XarraySchema,
+    specified_chunks: Optional[Dict[str, int]] = None,
+    attrs: Optional[Dict[str]] = None,
 ) -> xr.Dataset:
     """Convert a schema to an xarray dataset as lazily as possible."""
 
@@ -264,8 +266,8 @@ def schema_to_template_ds(
     dataset_attrs = schema["attrs"]
 
     if bool(attrs):
-        for k, v in attrs.items(): 
-            dataset_attrs[f"pangeo-forge:{k}"] = v 
+        for k, v in attrs.items():
+            dataset_attrs[f"pangeo-forge:{k}"] = v
 
     ds = xr.Dataset(data_vars=data_vars, coords=coords, attrs=dataset_attrs)
     return ds
