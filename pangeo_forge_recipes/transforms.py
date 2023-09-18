@@ -362,7 +362,7 @@ class PrepareZarrTarget(beam.PTransform):
 
     target: str | FSSpecTarget
     target_chunks: Dict[str, int] = field(default_factory=dict)
-    attrs: Dict[str] = field(default_factory=dict)
+    attrs: Dict[str, str] = field(default_factory=dict)
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         if isinstance(self.target, str):
@@ -492,7 +492,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         default_factory=RequiredAtRuntimeDefault
     )
     target_chunks: Dict[str, int] = field(default_factory=dict)
-    attrs: Dict[str] = field(default_factory=dict)
+    attrs: Dict[str, str] = field(default_factory=dict)
 
     def expand(
         self,

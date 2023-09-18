@@ -249,7 +249,7 @@ def determine_target_chunks(
 def schema_to_template_ds(
     schema: XarraySchema,
     specified_chunks: Optional[Dict[str, int]] = None,
-    attrs: Optional[Dict[str]] = None,
+    attrs: Optional[Dict[str, str]] = None,
 ) -> xr.Dataset:
     """Convert a schema to an xarray dataset as lazily as possible."""
 
@@ -277,7 +277,7 @@ def schema_to_zarr(
     schema: XarraySchema,
     target_store: zarr.storage.FSStore,
     target_chunks: Optional[Dict[str, int]] = None,
-    attrs: Optional[Dict[str]] = None,
+    attrs: Optional[Dict[str, str]] = None,
 ) -> zarr.storage.FSStore:
     """Initialize a zarr group based on a schema."""
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
