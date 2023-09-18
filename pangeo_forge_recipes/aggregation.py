@@ -265,8 +265,8 @@ def schema_to_template_ds(
     }
     dataset_attrs = schema["attrs"]
 
-    if bool(attrs):
-        for k, v in attrs.items():
+    if bool(attrs) & isinstance(attrs, dict):
+        for k, v in attrs.items():  # type: ignore
             dataset_attrs[f"pangeo-forge:{k}"] = v
 
     ds = xr.Dataset(data_vars=data_vars, coords=coords, attrs=dataset_attrs)
