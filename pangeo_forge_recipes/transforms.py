@@ -357,10 +357,12 @@ class PrepareZarrTarget(beam.PTransform):
         If a dimension is a not named, the chunks will be inferred from the schema.
         If chunking is present in the schema for a given dimension, the length of
         the first fragment will be used. Otherwise, the dimension will not be chunked.
+    :param attrs: Extra group-level attributes to inject into the dataset.
     """
 
     target: str | FSSpecTarget
     target_chunks: Dict[str, int] = field(default_factory=dict)
+    attrs: Dict[str, str] = field(default_factory=dict)
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         if isinstance(self.target, str):
@@ -369,7 +371,7 @@ class PrepareZarrTarget(beam.PTransform):
             target = self.target
         store = target.get_mapper()
         initialized_target = pcoll | beam.Map(
-            schema_to_zarr, target_store=store, target_chunks=self.target_chunks
+            schema_to_zarr, target_store=store, target_chunks=self.target_chunks, attrs=self.attrs
         )
         return initialized_target
 
@@ -483,6 +485,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
       template dataset as its first argument and returns a dynamically generated chunking dict.
       If provided, ``target_chunks`` cannot also be passed.
     :param dynamic_chunking_fn_kwargs: Optional keyword arguments for ``dynamic_chunking_fn``.
+    :param attrs: Extra group-level attributes to inject into the dataset.
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
@@ -495,6 +498,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     target_chunks: Dict[str, int] = field(default_factory=dict)
     dynamic_chunking_fn: Optional[Callable[[xr.Dataset], dict]] = None
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
+    attrs: Dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.target_chunks and self.dynamic_chunking_fn:
@@ -519,6 +523,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(),
             target_chunks=target_chunks,
+            attrs=self.attrs,
         )
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (
