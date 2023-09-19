@@ -125,7 +125,10 @@ def write_combined_reference(
 
         # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
         MultiZarrToZarr(
-            [reference.translate()], concat_dims=concat_dims, remote_protocol=full_target.fs.protocol, out=out
+            [reference.translate()],
+            concat_dims=concat_dims,
+            remote_protocol=full_target.fs.protocol,
+            out=out,
         ).translate()
 
         # call to write reference to empty parquet store
