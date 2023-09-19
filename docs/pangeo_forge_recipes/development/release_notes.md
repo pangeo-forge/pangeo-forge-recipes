@@ -1,5 +1,13 @@
 # Release Notes
 
+## v0.10.2 - 2023-09-19
+
+- Fix bug preventing use of multiple merge dims {pull}`591`
+- Add parquet storage target for reference recipes {pull}`620`
+- Support addition of dataset-level attrs for zarr recipes {pull}`622`
+- Integration testing upgrades {pull}`590` {pull}`605` {pull}`607` {pull}`611`
+- Add missing `py.typed` marker for mypy compatibility {pull}`613`
+
 ## v0.10.1 - 2023-08-31
 
 - Add sentinel as default for transform keyword arguments that are required at runtime and which
