@@ -1,7 +1,6 @@
 import os
 from typing import List, Protocol, Tuple, Union
 
-import fsspec
 import numpy as np
 import xarray as xr
 import zarr
