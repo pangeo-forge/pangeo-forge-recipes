@@ -247,7 +247,9 @@ def determine_target_chunks(
 
 
 def schema_to_template_ds(
-    schema: XarraySchema, specified_chunks: Optional[Dict[str, int]] = None
+    schema: XarraySchema,
+    specified_chunks: Optional[Dict[str, int]] = None,
+    attrs: Optional[Dict[str, str]] = None,
 ) -> xr.Dataset:
     """Convert a schema to an xarray dataset as lazily as possible."""
 
@@ -261,8 +263,13 @@ def schema_to_template_ds(
     coords = {
         name: _to_variable(template, target_chunks) for name, template in schema["coords"].items()
     }
+    dataset_attrs = schema["attrs"]
 
-    ds = xr.Dataset(data_vars=data_vars, coords=coords, attrs=schema["attrs"])
+    if attrs and isinstance(attrs, dict):
+        for k, v in attrs.items():  # type: ignore
+            dataset_attrs[f"pangeo-forge:{k}"] = v
+
+    ds = xr.Dataset(data_vars=data_vars, coords=coords, attrs=dataset_attrs)
     return ds
 
 
@@ -270,9 +277,10 @@ def schema_to_zarr(
     schema: XarraySchema,
     target_store: zarr.storage.FSStore,
     target_chunks: Optional[Dict[str, int]] = None,
+    attrs: Optional[Dict[str, str]] = None,
 ) -> zarr.storage.FSStore:
     """Initialize a zarr group based on a schema."""
-    ds = schema_to_template_ds(schema, specified_chunks=target_chunks)
+    ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
     # using mode="w" makes this function idempotent
     ds.to_zarr(target_store, mode="w", compute=False)
     return target_store
