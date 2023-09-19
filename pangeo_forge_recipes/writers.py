@@ -121,9 +121,7 @@ def write_combined_reference(
             full_target.rm(output_file_name, recursive=True)
         full_target.makedir(output_file_name)
 
-        # kwargs to pass to MultiZarrToZarr
-        fs = fsspec.filesystem("file")
-        out = LazyReferenceMapper.create(refs_per_component, outpath, fs)
+        out = LazyReferenceMapper.create(refs_per_component, outpath, full_target.fs)
 
         # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
         MultiZarrToZarr(
