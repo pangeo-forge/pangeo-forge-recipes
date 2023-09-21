@@ -43,11 +43,11 @@ If you are new to Pangeo Forge and looking to get involved, we suggest starting 
 :maxdepth: 2
 
 what_is_pangeo_forge
-introduction_tutorial/index
 installation
 user_guide/index
 examples/index
 api_reference
-development/index
+development
+release_notes
 ecosystem
 ```
