@@ -122,7 +122,7 @@ def write_combined_reference(
 
         out = LazyReferenceMapper.create(refs_per_component, outpath, full_target.fs)
 
-        # Grabs first protocol if there are multiple options: Based off of logic in fsspec: 
+        # Grabs first protocol if there are multiple options: Based off of logic in fsspec:
         # https://github.com/fsspec/filesystem_spec/blob/b8aeb13361e89f22f323bbc93c8308ff2ffede19/fsspec/spec.py#L1410-L1414
         remote_protocol = (
             full_target.fs.protocol
