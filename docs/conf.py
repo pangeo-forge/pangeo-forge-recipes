@@ -9,7 +9,7 @@ author = "Pangeo Community"
 extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
-    # "sphinx.ext.extlinks",
+    "sphinx.ext.extlinks",
     "sphinx.ext.graphviz",
     "sphinx_autodoc_typehints",
     "sphinx_copybutton",
@@ -19,8 +19,8 @@ extensions = [
 ]
 
 extlinks = {
-    "issue": ("https://github.com/pangeo-forge/pangeo-forge-recipes/issues/%s", "GH issue "),
-    "pull": ("https://github.com/pangeo-forge/pangeo-forge-recipes/pull/%s", "GH PR "),
+    "issue": ("https://github.com/pangeo-forge/pangeo-forge-recipes/issues/%s", "GH issue %s"),
+    "pull": ("https://github.com/pangeo-forge/pangeo-forge-recipes/pull/%s", "GH PR %s"),
 }
 
 exclude_patterns = ["_build"]
