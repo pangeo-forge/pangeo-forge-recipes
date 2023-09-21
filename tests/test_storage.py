@@ -91,6 +91,43 @@ def test_caching_only_truncates_long_fnames_for_local_fs(fs_cls, fname_longer_th
         assert len(fname_in_full_path) > POSIX_MAX_FNAME_LENGTH
 
 
+@pytest.mark.parametrize("verify_existing", [True, False])
+def test_cache_no_verify_existing(tmpdir_factory: pytest.TempdirFactory, verify_existing: bool):
+    tmp_src = tmpdir_factory.mktemp("src")
+    tmp_dst = tmpdir_factory.mktemp("dst")
+    cache = CacheFSSpecTarget(LocalFileSystem(), tmp_dst, verify_existing=verify_existing)
+    src_fname = str(tmp_src / "source.txt")
+
+    # write the source file
+    with open(src_fname, mode="w") as f:
+        f.write("0")
+
+    # cache it
+    cache.cache_file(src_fname, secrets=None)
+
+    # overwrite source with new data
+    with open(src_fname, mode="w") as f:
+        f.write("00")
+
+    # cache it again
+    cache.cache_file(src_fname, secrets=None)
+
+    # open from cache
+    cached_fname = cache._full_path(src_fname)
+    with open(cached_fname) as f:
+        if not verify_existing:
+            # if we *do not* verify the existing cache, the second caching operation will be
+            # skipped due to the presence of the cached filename already existing in the cache.
+            # we expect the data to reflect the data contained in the initial source file.
+            assert f.read() == "0"
+        else:
+            # if we *do verify* the length of the existing data, we will recognize that the source
+            # file has changed since the first caching operation, and therefore the second caching
+            # operation will recognize the inconsistent lengths of the source data between the first
+            # and second caching operations, and re-cache the data the second time around.
+            assert f.read() == "00"
+
+
 def test_suffix(tmp_path):
     assert str((FSSpecTarget(LocalFileSystem(), tmp_path) / "test").root_path) == str(
         tmp_path / "test"
