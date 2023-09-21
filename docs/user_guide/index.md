@@ -1,4 +1,4 @@
-# User Guide
+# Recipe Composition
 
 Welcome to the User Guide for the `pangeo-forge-recipes` Python package.
 
