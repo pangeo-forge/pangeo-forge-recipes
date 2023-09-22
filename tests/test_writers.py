@@ -18,7 +18,7 @@ def temp_store(tmp_path):
 
 @pytest.fixture(params=["s3", "https"])
 def fsspec_target(request):
-    return FSSpecTarget(fsspec.filesystem(request.param))
+    return FSSpecTarget(fsspec.filesystem(request.param, anon=True))
 
 
 def test_store_dataset_fragment(temp_store):
