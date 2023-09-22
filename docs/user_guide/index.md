@@ -1,26 +1,25 @@
 # Recipe Composition
 
-Welcome to the User Guide for the `pangeo-forge-recipes` Python package.
+A recipe defines how to transform data in one format / location into another format / location.
 
-## File Patterns
+A recipe is defined as a set of composite
+[Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms)
+applied to the data collection associated with a {doc}`file pattern <file_patterns>`.
 
-{doc}`file_patterns` are the starting point for any Pangeo Forge recipe.
-they are the raw "ingredients" upon which the recipe will act.
-The point of file patterns is to describe how many individual source files are
-organized logically as part of a larger dataset.
+Specifically, a recipe is a set of transforms which operate on an `FilePattern` materialized in the form
+of an [`apache_beam.PCollection`](https://beam.apache.org/documentation/programming-guide/#pcollections).
 
-## Recipe Object
+To write a recipe, you define a set of transforms using a combination of built-in Apache Beam transforms,
+`pangeo-forge-recipes` transforms, and your own custom transforms for data pre-processing as needed.
 
-The central object in `pangeo_forge_recipes` is a {doc}``Recipe Object <recipes>``.
-A Recipe Object defines how to transform data in one format / location into another format / location.
-The primary way people contribute to Pangeo Forge is by writing / maintaining Recipes.
-For information about how recipes work see {doc}`recipes`.
-The {doc}`../tutorials/index` provide deep dives into how to develop and debug Recipes.
+```{note}
+The full API Reference documentation for the existing recipe `PTransform` implementations ({class}`pangeo_forge_recipes.transforms`) can be found at
+{doc}`../api_reference`.
+```
 
-## Recipe Execution
+## Deployment
 
-There are several different ways to execute Recipes.
-See {doc}`execution` for details.
+There are several different ways to execute recipes. See {doc}`../deployment` for details.
 
 ## Index
 
@@ -28,8 +27,9 @@ See {doc}`execution` for details.
 :maxdepth: 1
 :glob:
 
-file_patterns
 recipes
+file_patterns
+openers
 storage
-execution
+examples/index
 ```

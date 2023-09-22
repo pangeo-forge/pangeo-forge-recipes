@@ -1,7 +1,6 @@
 # Storage
 
 Recipes need a place to store data. This information is provided to the recipe using the transforms in the corresponding pipeline, where storage configuration may include a *cache* location to store retrieved source data products, and a *target* location to store the recipe output.
-Here, this is illustrated using two transforms typically used in {doc}`recipes`.
 
 ```{eval-rst}
 .. autoclass:: pangeo_forge_recipes.transforms.OpenURLWithFSSpec
@@ -43,7 +42,7 @@ fs = s3fs.S3FileSystem(key="MY_AWS_KEY", secret="MY_AWS_SECRET")
 target_root = FSSpecTarget(fs=fs, root_path="pangeo-forge-bucket")
 ```
 
-This target can then be assiged to a recipe as follows (see also {doc}`recipes`):
+This target can then be assiged to a recipe as follows (see also {doc}`examples/index`):
 ```{code-block} python
 transforms = (
     beam.Create(pattern.items())
@@ -55,6 +54,7 @@ transforms = (
         combine_dims=pattern.combine_dim_keys,
         target_chunks={"time": 10}
     )
+)
 ```
 
 ## Customizing storage continued: caching with `OpenURLWithFSSpec`

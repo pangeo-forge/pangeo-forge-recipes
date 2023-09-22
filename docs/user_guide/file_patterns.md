@@ -7,7 +7,11 @@ kernelspec:
   name: python3
 ---
 
-# File Patterns
+# `FilePatterns`
+
+`FilePatterns` are the starting point for any Pangeo Forge recipe. They are the raw "ingredients"
+upon which the recipe will act. The point of file patterns is to describe how many individual source
+files are organized logically as part of a larger dataset.
 
 ## Pangeo Forge Pulls Data
 
@@ -19,7 +23,7 @@ You cannot "upload" data to Pangeo Forge. This is deliberate.
 There are basically two ways to tell Pangeo Forge where to find your data:
 - Specify **file paths on your computer**: e.g. `/data/temperature/temperature_01.nc`;
   This works find if you are just running Pangeo Forge locally; however, it won't
-  work with {doc}`../pangeo_forge_cloud/index` because those files are not accessible
+  work when deploying to cloud resources, because those files are not accessible
   from the cloud. _File paths are different on every computer._
 - Specify a **location on the internet via a [URL](https://developer.mozilla.org/en-US/docs/Learn/Common_questions/What_is_a_URL)**,
   e.g.`http://data-provider.org/data/temperature/temperature_01.nc`.
@@ -261,9 +265,7 @@ concatenated, and we don't need to provide any hints about these.
 
 ### Inspect a `FilePattern`
 
-Normally at this point we would just move on and pass our FilePattern
-object to a {doc}`recipe <recipes>` constructor.
-But we can also inspect the FilePattern manually to understand how it works.
+We can inspect the FilePattern manually to understand how it works.
 It isn't necessary to do any of these things to create a recipe; however digging into
 a FilePattern's internals may be helpful in debugging a complex recipe.
 

@@ -29,7 +29,6 @@ what_is_pangeo_forge
 installation
 user_guide/index
 deployment
-examples/index
 ecosystem
 api_reference
 development

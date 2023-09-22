@@ -35,9 +35,9 @@ change is forthcoming.
 
 ## v0.9 - 2022-05-11
 
-- **Breaking changes:** Deprecated `XarrayZarrRecipe` manual stage methods. Manual execution can be
-performed with any of the executors described in {doc}`../recipe_user_guide/execution`. Also deprecated
-`FilePattern(..., is_opendap=True)` kwarg, which is superseded by `FilePattern(..., file_type="opendap")`. {pull}`362`
+- **Breaking changes:** Deprecated `XarrayZarrRecipe` manual stage methods.
+Also deprecated `FilePattern(..., is_opendap=True)` kwarg, which is superseded by
+`FilePattern(..., file_type="opendap")`. {pull}`362`
 - Added `serialization` module along with `BaseRecipe.sha256` and `FilePattern.sha256` methods.
 Collectively, this provides for generation of deterministic hashes for both recipe and file
 pattern instances. Checking these hashes against those from a prior version of the recipe can be
@@ -50,7 +50,6 @@ prior version of that pattern, the pattern hash can be used to determine the ind
 begin appending. This is demonstrated in the tests. {pull}`349`
 - Created new Prefect executor which wraps the Dask executor in a single Task.
 This should mitigate problems related to large numbers of Prefect Tasks ({issue}`347`).
-See {doc}`../recipe_user_guide/execution` for details.
 - Implemented feature to cap cached filename lengths at 255 bytes on local filesystems, to
 accomodate the POSIX filename length limit. Cached filename lengths are not truncated on any other
 filesystem. {pull}`353`

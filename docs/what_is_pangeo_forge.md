@@ -6,11 +6,14 @@ Pangeo Forge is an open source framework for data Extraction, Transformation, an
 The goal of Pangeo Forge is to make it easy to extract data from traditional data
 archives and deposit in cloud object storage in [analysis-ready, cloud-optimized (ARCO)](https://ieeexplore.ieee.org/abstract/document/9354557) format.
 
-Pangeo Forge is made of two main components:
+Pangeo Forge is made of three official components:
 
-- {doc}`pangeo_forge_recipes/index` - an open source Python package, which allows you
+- `pangeo-forge-recipes` - an open source Python package, which allows you
   to create and run ETL pipelines ("recipes") and run them from your own computers.
-- {doc}`pangeo_forge_cloud/index` - a cloud-based automation framework with runs these recipes in the cloud from code stored in GitHub.
+- `pangeo-forge` CLI - TODO
+- GitHub Action - TODO
+
+There is also a growing {doc}`ecosystem` of third-party extensions.
 
 Pangeo Forge is inspired directly by [Conda Forge](https://conda-forge.org/), a
 community-led collection of recipes for building conda packages.
@@ -83,4 +86,4 @@ Please reach out if you're interested in helping with this effort.
 
 ### How can I help with development?
 
-Check out our {doc}`pangeo_forge_recipes/development/development_guide` for how to get started!
+Check out our {doc}`development` for how to get started!
