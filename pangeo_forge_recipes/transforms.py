@@ -415,6 +415,7 @@ class Rechunk(beam.PTransform):
 @dataclass
 class CombineReferences(beam.PTransform):
     """Combines Kerchunk references into a single reference dataset.
+
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
     :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
@@ -448,13 +449,14 @@ class CombineReferences(beam.PTransform):
 @dataclass
 class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
-    :param store_name: Name for the Zarr store. It will be created with
-        this name under `target_root`.
-    :param target_root: Root path the Zarr store will be created inside;
-        `store_name` will be appended to this prefix to create a full path.
-    :param output_file_name: Name to give the output references file (.json or .parquet suffix.)
+
+    :param store_name: Zarr store will be created with this name under ``target_root``.
+    :param target_root: Root path the Zarr store will be created inside; ``store_name``
+        will be appended to this prefix to create a full path.
+    :param output_file_name: Name to give the output references file
+        (``.json`` or ``.parquet`` suffix).
     :param concat_dims: concat_dims kwarg to pass to write_combined_reference if using
-    .parquet as a storage format.
+        .parquet as a storage format.
     """
 
     store_name: str

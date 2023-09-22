@@ -99,8 +99,7 @@ class FilePattern:
 
     :param format_function: A function that takes one argument for each
       combine_op and returns a string representing the filename / url paths.
-      Each argument name should correspond to a ``name`` in the ``combine_dims``
-      list.
+      Each argument name should correspond to a ``name`` in the ``combine_dims`` list.
     :param combine_dims: A sequence of either concat or merge dimensions. The outer
       product of the keys is used to generate the full list of file paths.
     :param fsspec_open_kwargs: Extra options for opening the inputs with fsspec.
@@ -290,13 +289,12 @@ class FilePattern:
         self,
         old_pattern_last_hash: bytes,
     ) -> Optional[Index]:
-        """
-        Given the last hash of the merkle tree of a previous pattern, determine which (if any)
+        """Given the last hash of the merkle tree of a previous pattern, determine which (if any)
         ``Index`` key of the current pattern to begin data processing from, in order to append to
         a dataset built using the previous pattern.
 
         :param old_pattern_last_hash: The last hash of the merkle tree for the ``FilePattern``
-        instance which was used to build the existing dataset.
+            instance which was used to build the existing dataset.
         """
         for k, h in zip(self, self.get_merkle_list()):
             if h == old_pattern_last_hash:
