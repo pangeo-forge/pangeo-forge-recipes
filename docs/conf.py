@@ -7,7 +7,7 @@ author = "Pangeo Community"
 # -- General configuration ---------------------------------------------------
 
 extensions = [
-    "myst_parser",
+    "myst_nb",
     "sphinx.ext.autodoc",
     "sphinx.ext.extlinks",
     "sphinx.ext.graphviz",
