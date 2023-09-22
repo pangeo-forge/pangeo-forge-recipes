@@ -23,13 +23,13 @@ See [here](https://beam.apache.org/documentation/#runners) for details of the av
 `````{tabs}
 ````{tab} Python
 
-```{literalinclude} ../../examples/runner-config/local.py
+```{literalinclude} ../examples/runner-config/local.py
 ```
 
 ````
 ````{tab} JSON
 
-```{literalinclude} ../../examples/runner-config/local.json
+```{literalinclude} ../examples/runner-config/local.json
 ---
 language: json
 ---
@@ -38,7 +38,7 @@ language: json
 ````
 `````
 
-```{literalinclude} ../../examples/runner-commands/bake.sh
+```{literalinclude} ../examples/runner-commands/bake.sh
 ---
 language: bash
 ---
