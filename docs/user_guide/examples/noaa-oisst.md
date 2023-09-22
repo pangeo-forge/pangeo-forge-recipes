@@ -1,4 +1,4 @@
 # NOAA OISST
 
-```{literalinclude} ../../examples/feedstock/noaa_oisst.py
+```{literalinclude} ../../../examples/feedstock/noaa_oisst.py
 ```

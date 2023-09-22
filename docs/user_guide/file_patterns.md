@@ -207,7 +207,7 @@ arguments may passed to `FilePattern` instances as appropriate:
 `fsspec_open_kwargs` will depend on the configuration of the source file server, but are likely to conform to one of the following
 two formats:
 
-    ```ipython3
+    ```python
     fsspec_open_kwargs={"username": "<your-username>", "password": "<your-password>"}
     fsspec_open_kwargs={"auth": aiohttp.BasicAuth("<your-username>", "<your-password>")}
     ```

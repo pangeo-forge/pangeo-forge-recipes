@@ -18,27 +18,12 @@ There is also a growing {doc}`ecosystem` of third-party extensions.
 Pangeo Forge is inspired directly by [Conda Forge](https://conda-forge.org/), a
 community-led collection of recipes for building conda packages.
 We hope that Pangeo Forge can play the same role for datasets.
+
 ## The Pangeo Forge Paper
 
-We wrote a long academic paper about Pangeo Forge.
+We wrote [a long academic paper about Pangeo Forge](https://doi.org/10.3389/fclim.2021.782909).
 This is the best thing to read if you want a deep dive into why we created
-Pangeo Forge and how it works.
-
-````{panels}
-:column: col-lg-12 p-2
-**Pangeo Forge: Crowdsourcing Analysis-Ready, Cloud Optimized Data Production**
-
-Stern Charles, Abernathey Ryan, Hamman Joseph, Wegener Rachel, Lepore Chiara, Harkins Sean, Merose Alexander
-
-_Frontiers in Climate_, 10 February 2022
-
-<https://doi.org/10.3389/fclim.2021.782909>
-
-**Abstract:**
-Pangeo Forge is a new community-driven platform that accelerates science by providing high-level recipe frameworks alongside cloud compute infrastructure for extracting data from provider archives, transforming it into analysis-ready, cloud-optimized (ARCO) data stores, and providing a human- and machine-readable catalog for browsing and loading. In abstracting the scientific domain logic of data recipes from cloud infrastructure concerns, Pangeo Forge aims to open a door for a broader community of scientists to participate in ARCO data production. A wholly open-source platform composed of multiple modular components, Pangeo Forge presents a foundation for the practice of reproducible, cloud-native, big-data ocean, weather, and climate science without relying on proprietary or cloud-vendor-specific tooling.
-````
-
-If you use Pangeo Forge in academic work, please cite this paper.
+Pangeo Forge and how it works. If you use Pangeo Forge in academic work, please cite this paper.
 
 ````{admonition} Bibtex entry for Pangeo Forge paper
 :class: dropdown
@@ -57,7 +42,6 @@ ISSN={2624-9553},
 ```
 
 ````
-
 
 
 ## Frequently Asked Questions

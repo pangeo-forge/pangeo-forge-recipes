@@ -27,7 +27,6 @@ There are several different ways to execute recipes. See {doc}`../deployment` fo
 :maxdepth: 1
 :glob:
 
-recipes
 file_patterns
 openers
 storage
