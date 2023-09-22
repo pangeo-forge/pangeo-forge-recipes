@@ -20,14 +20,14 @@ See [here](https://beam.apache.org/documentation/#runners) for details of the av
 
 ## `pangeo-forge` CLI
 
-`````{tabs}
-````{tab} Python
+`````{tab-set}
+````{tab-item} Python
 
 ```{literalinclude} ../examples/runner-config/local.py
 ```
 
 ````
-````{tab} JSON
+````{tab-item} JSON
 
 ```{literalinclude} ../examples/runner-config/local.json
 ---
