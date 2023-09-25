@@ -6,12 +6,19 @@ archives and deposit in cloud object storage in [analysis-ready, cloud-optimized
 
 Pangeo Forge is made of three official components:
 
-- `pangeo-forge-recipes` - an open source Python package, which allows you
-  to create and run ETL pipelines ("recipes") and run them from your own computers.
-- `pangeo-forge` CLI - TODO
-- GitHub Action - TODO
+- `pangeo-forge-recipes` **Python SDK** - A Python toolkit, built on
+  [Apache Beam](https://beam.apache.org), that provides components for concisely and expressively
+  composing parallelizable ETL pipelines ("recipes") that can be run on your local machine
+  or cloud infrastructure. See {doc}`user_guide/index` for more on composing recipes,
+  and {doc}`deployment` for ways to run them.
+- `pangeo-forge` **Command Line Interface (CLI)** - A utility for managing the configuration
+  and deployment of version-controlled recipes. See {doc}`deployment` for details.
+- **Deploy Recipe Action** - A Github Action that wraps the CLI, providing an interface
+for configuration and deployment of recipes in response to to GitHub Event triggers.
+See {doc}`deployment` for details.
 
-There is also a growing {doc}`ecosystem` of third-party extensions.
+A growing {doc}`ecosystem` of third-party extensions provide additional reusable components for
+customization of recipes.
 
 Pangeo Forge is inspired directly by [Conda Forge](https://conda-forge.org/), a community-led
 collection of recipes for building conda packages. We hope that Pangeo Forge can play a similar
@@ -20,8 +27,8 @@ role for datasets.
 ## The Pangeo Forge Paper
 
 We wrote [a long academic paper about Pangeo Forge](https://doi.org/10.3389/fclim.2021.782909).
-This is the best thing to read if you want a deep dive into why we created
-Pangeo Forge and how it works. If you use Pangeo Forge in academic work, please cite this paper.
+This is the best thing to read if you want a deep dive into why we created Pangeo Forge.
+If you use Pangeo Forge in academic work, please cite this paper.
 
 ````{admonition} Bibtex entry for Pangeo Forge paper
 :class: dropdown
@@ -41,24 +48,32 @@ ISSN={2624-9553},
 
 ````
 
+```{note}
+As noted in the paper, _"Pangeo Forge follows an agile development model, characterized by rapid
+iteration, frequent releases, and continuous feedback from users."_ Readers should therefore be
+mindful that while core principles including reproducibility, collaboration, and provenance
+transparency remain consistent over time, implementation details and project scope have evolved
+since publication.
+```
+
 
 ## Frequently Asked Questions
 
 ### Is Pangeo Forge the right tool for my dataset?
 
-Pangeo Forge is currently focused primarily on multidimensional array data
-(e.g. data that fit the NetCDF data model and can be opened by Xarray.)
+Pangeo Forge is currently focused primarily on multidimensional array data;
+i.e., data that fit the NetCDF data model and can be opened by Xarray.
 This includes NetCDF, GRIB, HDF4/5, Zarr, OPeNDAP, and many other obscure formats.
-Pangeo Forge is _not_ currently focused on tabular data
-(e.g. data that can be opened by Pandas; CSV, SQL, Parquet, Arrow, etc.)
-This data model and these formats are very well supported by other ETL tools in the modern data stack.
+Pangeo Forge is _not_ currently focused on tabular data;
+i.e., data that can be opened by Pandas, CSV, SQL, Parquet, Arrow, etc. This data model and
+these formats are very well supported by other ETL tools in the modern data stack.
 
 So if you want to do ETL on multidimensional array data, Pangeo Forge is for you!
-For more feedback, [open an issue](https://github.com/pangeo-forge/staged-recipes/issues) in staged recipes.
 
 ### How is Pangeo Forge funded?
 
-Right now, the development of Pangeo Forge is funded exclusively by the US National Science Foundation
+Right now, the development of Pangeo Forge is funded exclusively by the US National Science
+Foundation (NSF)
 EarthCube program, via award [2026932](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2026932)
 to Lamont Doherty Earth Observatory. The lead PI of the award is Ryan Abernathey.
 
@@ -74,11 +89,13 @@ Check out our {doc}`development` for how to get started!
 
 Pangeo Forge is a community run effort with a variety of roles:
 
-- **Recipe contributors** — contributors who write recipes to define the data conversions. This can be
-anyone with a desire to create analysis ready cloud-optimized (ARCO) data. To get involved, see {doc}
-`pangeo_forge_cloud/recipe_contribution`.
-- **Pangeo Forge developers** - scientists and software developers who maintain and enhance the
-open-source code base which makes Pangeo Forge run. See {doc}`development`.
+- **Recipe developers** — Data engineers and enthusiasts who write recipes to define the data conversions.
+This can be anyone with a desire to create analysis ready cloud-optimized (ARCO) data. Explore
+{doc}`user_guide/index` for more on this role.
+- **Data users** - Analysts, scientists, and domain experts who use the ARCO data produced by Pangeo Forge
+in their work and research.
+- **Tooling developers** - Scientists and software developers who maintain and enhance the
+open-source code base which makes Pangeo Forge run. See {doc}`development` for more.
 
 
 ## Site Contents
