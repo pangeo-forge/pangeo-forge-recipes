@@ -7,11 +7,14 @@ kernelspec:
   name: python3
 ---
 
-# `FilePatterns`
+# File patterns
 
 `FilePatterns` are the starting point for any Pangeo Forge recipe. They are the raw "ingredients"
 upon which the recipe will act. The point of file patterns is to describe how many individual source
 files are organized logically as part of a larger dataset.
+
+Specifically, a recipe is a set of transforms which operate on an `FilePattern` materialized in the form
+of an [`apache_beam.PCollection`](https://beam.apache.org/documentation/programming-guide/#pcollections).
 
 ## Pangeo Forge Pulls Data
 

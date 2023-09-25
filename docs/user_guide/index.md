@@ -1,25 +1,25 @@
 # Recipe Composition
 
-A recipe defines how to transform data in one format / location into another format / location.
-
-A recipe is defined as a set of composite
+A recipe describes the steps to transform archival source data in one
+format / location into analysis-ready, cloud-optimized (ARCO) data in another format /
+location. Technically, a recipe is as a set of composite
 [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms)
 applied to the data collection associated with a {doc}`file pattern <file_patterns>`.
+To write a recipe:
 
-Specifically, a recipe is a set of transforms which operate on an `FilePattern` materialized in the form
-of an [`apache_beam.PCollection`](https://beam.apache.org/documentation/programming-guide/#pcollections).
+1. Define a {doc}`file pattern <file_patterns>` for your source data.
+2. Define a set of transforms to apply to the source data, using a combination of:
+    - Built-in Apache Beam transforms
+    - `pangeo-forge-recipes` core transforms, such as {doc}`openers` and {doc}`writers`
+    - Third-party extensions from the Pangeo Forge {doc}`../ecosystem`
+    - Your own transforms, such as custom {doc}`preprocess`
+3. Put all of this code into a Python module (i.e., a file with `.py` extension). See {doc}`examples/index`.
 
-To write a recipe, you define a set of transforms using a combination of built-in Apache Beam transforms,
-`pangeo-forge-recipes` transforms, and your own custom transforms for data pre-processing as needed.
 
 ```{note}
-The full API Reference documentation for the existing recipe `PTransform` implementations ({class}`pangeo_forge_recipes.transforms`) can be found at
-{doc}`../api_reference`.
+API Reference for the core {class}`pangeo_forge_recipes.transforms`
+can be found in {doc}`../api_reference`.
 ```
-
-## Deployment
-
-There are several different ways to execute recipes. See {doc}`../deployment` for details.
 
 ## Index
 
@@ -29,6 +29,7 @@ There are several different ways to execute recipes. See {doc}`../deployment` fo
 
 file_patterns
 openers
-storage
+preprocess
+writers
 examples/index
 ```
