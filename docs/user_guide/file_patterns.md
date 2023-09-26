@@ -9,14 +9,17 @@ kernelspec:
 
 # File patterns
 
-`FilePatterns` are the starting point for any Pangeo Forge recipe. They are the raw "ingredients"
-upon which the recipe will act. The point of file patterns is to describe how many individual source
-files are organized logically as part of a larger dataset.
+## Overview
 
-Specifically, a recipe is a set of transforms which operate on an `FilePattern` materialized in the form
-of an [`apache_beam.PCollection`](https://beam.apache.org/documentation/programming-guide/#pcollections).
+`FilePattern`s are the starting point for any Pangeo Forge recipe. They are the raw "ingredients"
+upon which the recipe will act. The point of file patterns is to describe:
 
-## Pangeo Forge Pulls Data
+- Where the individual source files are located; and
+- How they should be organized logically as part of an aggregate dataset.
+(In this respect, file patterns are conceptually similar to
+[NcML](https://docs.unidata.ucar.edu/netcdf-java/current/userguide/ncml_aggregation.html) documents.)
+
+## Pangeo Forge _Pulls_ Data
 
 A central concept in Pangeo Forge is that data are "pulled", not "pushed" to
 the storage location. You tell Pangeo Forge where to find your data; when you
@@ -32,13 +35,12 @@ There are basically two ways to tell Pangeo Forge where to find your data:
   e.g.`http://data-provider.org/data/temperature/temperature_01.nc`.
   URLs are more general than file paths because they are _the same on every computer_.
   Using URLs means that your recipe can be run anywhere on the internet.
-  This is a requirement for Pangeo Forge Cloud.
 
 For recipes built from public, open data, it's always best to try to get the data
 from its original, authoritative source. For example, if you want to use satellite
 data from NASA, you need to find the URLs which point to that data on NASA's servers.
 
-## Supported Transfer Protocols
+### Supported Transfer Protocols
 
 Pangeo Forge supports a huge range of different transfer protocols for accessing
 URL-based data files, thanks to the [filesystem-spec](https://filesystem-spec.readthedocs.io/)
@@ -58,7 +60,7 @@ Some of the most important protocols commonly used with Pangeo Forge recipes are
 In order for Pangeo Forge to pull your data, it should be accessible over the public internet
 via one of those protocols.
 
-## Globus
+### Globus
 
 Many scientific datasets stored on secure HPC systems and servers are accessible
 via the [Globus](https://www.globus.org/) file transfer service.
@@ -93,19 +95,10 @@ The specific steps are as follows:
 From here on, you should be able to point to your Globus files using standard
 HTTPS URLs. You can proceed to create a File Pattern for your recipe.
 
-## What are File Patterns?
-
-File patterns are the starting point for any Pangeo Forge recipe:
-they are the raw "ingredients" upon which the recipe will act.
-The point of file patterns is to describe how many individual source files are
-organized logically as part of a larger dataset.
-In this respect, file patterns are conceptually similar to
-[NCML](https://www.unidata.ucar.edu/software/netcdf-java/v4.5/ncml/index.htm) documents.
+## Example: Create a `FilePattern`
 
 First we will describe a simple example of how to create a file pattern.
 Then we will dive deeper into the API.
-
-## Example
 
 Imagine we have a set of file paths which look like this
 
@@ -299,5 +292,7 @@ together with the index
 pattern[index]
 ```
 
+## From file pattern to `PCollection`
 
-## File Patterns API
+Specifically, a recipe is a set of transforms which operate on an `FilePattern` materialized in the form
+of an [`apache_beam.PCollection`](https://beam.apache.org/documentation/programming-guide/#pcollections).
