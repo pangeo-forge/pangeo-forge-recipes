@@ -11,7 +11,7 @@ Pangeo Forge is made of three official components:
   composing parallelizable ETL pipelines ("recipes") that can be run on your local machine
   or cloud infrastructure. See {doc}`user_guide/index` for more on composing recipes,
   and {doc}`deployment` for ways to run them.
-- `pangeo-forge` **Command Line Interface (CLI)** - A utility for managing the configuration
+- `pangeo-forge-runner` **Command Line Interface (CLI)** - A utility for managing the configuration
   and deployment of version-controlled recipes. See {doc}`deployment` for details.
 - **Deploy Recipe Action** - A Github Action that wraps the CLI, providing an interface
 for configuration and deployment of recipes in response to to GitHub Event triggers.
