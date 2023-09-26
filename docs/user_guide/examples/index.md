@@ -9,7 +9,7 @@ including NetCDF, OPeNDAP, GRIB, Zarr, and, via [rasterio](https://rasterio.read
 GeoTIFF and other geospatial raster formats.
 
 The target Zarr dataset can be written to any storage location supported
-by [filesystem-spec](https://filesystem-spec.readthedocs.io/); see {doc}`../storage`
+by [filesystem-spec](https://filesystem-spec.readthedocs.io/); see {doc}`../writers`
 for more details. The target Zarr dataset will conform to the
 [Xarray Zarr encoding conventions](http://xarray.pydata.org/en/latest/internals/zarr-encoding-spec.html).
 
@@ -51,10 +51,10 @@ transforms = (
 
 The available transform options are all covered in the {doc}`../../api_reference`. Many of these options are explored further in the {doc}`../index`.
 
-All recipes need a place to store the target dataset. Refer to {doc}`../storage` for how to assign this and any other required storage targets.
+All recipes need a place to store the target dataset. Refer to {doc}`../writers` for how to assign this and any other required storage targets.
 
 Once your recipe is defined and has its storage targets assigned, you're ready to
-move on to {doc}`../../deployment`.
+move on to {doc}`../../deployment/index`.
 
 ## Reference Recipes
 

@@ -10,12 +10,12 @@ Pangeo Forge is made of three official components:
   [Apache Beam](https://beam.apache.org), that provides components for concisely and expressively
   composing parallelizable ETL pipelines ("recipes") that can be run on your local machine
   or cloud infrastructure. See {doc}`user_guide/index` for more on composing recipes,
-  and {doc}`deployment` for ways to run them.
+  and {doc}`deployment/index` for ways to run them.
 - `pangeo-forge-runner` **Command Line Interface (CLI)** - A utility for managing the configuration
-  and deployment of version-controlled recipes. See {doc}`deployment` for details.
+  and deployment of version-controlled recipes. See {doc}`deployment/cli` for details.
 - **Deploy Recipe Action** - A Github Action that wraps the CLI, providing an interface
 for configuration and deployment of recipes in response to to GitHub Event triggers.
-See {doc}`deployment` for details.
+See {doc}`deployment/action` for details.
 
 A growing {doc}`ecosystem` of third-party extensions provide additional reusable components for
 customization of recipes.
@@ -106,7 +106,8 @@ open-source code base which makes Pangeo Forge run. See {doc}`development` for m
 self
 installation
 user_guide/index
-deployment
+deployment/index
+advanced/index
 ecosystem
 api_reference
 development
