@@ -9,7 +9,8 @@ To write a recipe:
 
 1. Define a {doc}`file pattern <file_patterns>` for your source data.
 2. Define a set of transforms to apply to the source data, using a combination of:
-    - Built-in Apache Beam transforms
+    - Standard transforms from Apache Beam's
+      [Python transform catalog](https://beam.apache.org/documentation/transforms/python/overview/)
     - `pangeo-forge-recipes` core transforms, such as {doc}`openers` and {doc}`writers`
     - Third-party extensions from the Pangeo Forge {doc}`../ecosystem`
     - Your own transforms, such as custom {doc}`preprocess`
