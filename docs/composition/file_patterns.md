@@ -19,22 +19,12 @@ upon which the recipe will act. The point of file patterns is to describe:
 (In this respect, file patterns are conceptually similar to
 [NcML](https://docs.unidata.ucar.edu/netcdf-java/current/userguide/ncml_aggregation.html) documents.)
 
-## Pangeo Forge _Pulls_ Data
+### Pangeo Forge Pulls Data
 
 A central concept in Pangeo Forge is that data are "pulled", not "pushed" to
 the storage location. You tell Pangeo Forge where to find your data; when you
-execute a recipe, the data will automatically be downloaded and transformed.
+execute a recipe, the data will automatically be fetched and transformed.
 You cannot "upload" data to Pangeo Forge. This is deliberate.
-
-There are basically two ways to tell Pangeo Forge where to find your data:
-- Specify **file paths on your computer**: e.g. `/data/temperature/temperature_01.nc`;
-  This works find if you are just running Pangeo Forge locally; however, it won't
-  work when deploying to cloud resources, because those files are not accessible
-  from the cloud. _File paths are different on every computer._
-- Specify a **location on the internet via a [URL](https://developer.mozilla.org/en-US/docs/Learn/Common_questions/What_is_a_URL)**,
-  e.g.`http://data-provider.org/data/temperature/temperature_01.nc`.
-  URLs are more general than file paths because they are _the same on every computer_.
-  Using URLs means that your recipe can be run anywhere on the internet.
 
 For recipes built from public, open data, it's always best to try to get the data
 from its original, authoritative source. For example, if you want to use satellite
@@ -47,23 +37,14 @@ URL-based data files, thanks to the [filesystem-spec](https://filesystem-spec.re
 framework. A full list of protocols can be found in the fsspec docs
 ([built-in implementations](https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations) |
 [other implementations](https://filesystem-spec.readthedocs.io/en/latest/api.html#other-known-implementations)).
-
-Some of the most important protocols commonly used with Pangeo Forge recipes are
-- [Local Filesystem](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.local.LocalFileSystem)
-- [HTTP](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.http.HTTPFileSystem)
-- [FTP](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.ftp.FTPFileSystem)
-- [SSH / SFTP](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.sftp.SFTPFileSystem)
-- [S3](https://s3fs.readthedocs.io/en/latest/)
-- [Google Cloud Storage](https://gcsfs.readthedocs.io/en/latest/)
-- [Azure Datalake / Azure BLOB Storage](https://github.com/fsspec/adlfs)
-
 In order for Pangeo Forge to pull your data, it should be accessible over the public internet
-via one of those protocols.
+via one of these protocols.
 
 ## Example: Create a `FilePattern`
 
-First we will describe a simple example of how to create a file pattern.
-Then we will dive deeper into the API.
+Let's explore a simple example of how to create a file pattern.
+
+### Source data
 
 Imagine we have a set of file paths which look like this
 
@@ -92,7 +73,7 @@ At this point, we don't really care what is _inside_ these files
 We are just interested in the logical organization of the files themselves;
 this is what a {class}`pangeo_forge_recipes.patterns.FilePattern` is meant to describe.
 
-### Create a `FilePattern`
+### Format function
 
 The starting point for creating a file pattern is to write a function which maps
 the keys for each dimension into full file paths. This function might look something
@@ -105,6 +86,8 @@ def make_full_path(variable, time):
 # check that it works
 make_full_path("humidity", 3)
 ```
+
+### Combine dimensions
 
 We now need to define the "combine dimensions" of the file pattern.
 Comine dimensions are one of two types:
@@ -157,7 +140,7 @@ and type of combine dimensions they support.
 ``ConcatDim`` and allows at most one ``MergeDim``.
 
 
-### Extra keyword arguments for `FilePattern`
+### Keyword arguments
 
 `FilePattern` objects carry all of the information needed to open source files. The following additional keyword
 arguments may passed to `FilePattern` instances as appropriate:
