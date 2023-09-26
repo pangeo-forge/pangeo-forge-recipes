@@ -170,43 +170,6 @@ developing your recipe. If your source files require authentication via `fsspec_
 mechanism for securely handling such recipe secrets on GitHub.
 ```
 
-### Specifying `nitems_per_file` in a `ConcatDim`
-
-FilePatterns are deliberately very simple. However, there is one case where
-we can annotate the FilePattern with a bit of extra information.
-Combining files over a `ConcatDim` usually involves concatenating many records
-belonging to a single physical or logical dimension in a sequence; for example,
-if the `ConcatDim` is time, and we have one record per day, the recipe will
-arrange every record in sequence in the target dataset.
-An important piece of information is *how many records along the concat dim are in each file?*
-For example, does the file `http://data-provider.org/data/temperature/temperature_01.txt`
-have one record of daily temperature? Ten?
-In general, Pangeo Forge does not assume there is a constant, known number of
-records in each file; instead it will discover this information by peeking into each file.
-But _if we know a-priori that there is a fixed number of records per file_, we can
-provide this as a hint, via `nitems_per_file` keyword in `ConcatDim`.
-Providing this hint will allow Pangeo Forge to work more quickly because it
-doesn't have to peek into the files.
-
-To be concrete, let's redefine our `ConcatDim` from the example above, now
-assuming that there are 5 records per file in the `time` dimension.
-
-```{code-cell} ipython3
-time_concat_dim_fixed = ConcatDim("time", list(range(1, 11)), nitems_per_file=5)
-pattern = FilePattern(make_full_path, variable_merge_dim, time_concat_dim_fixed)
-pattern.concat_sequence_lens
-```
-
-We can see the the property `concat_sequence_lens` now exposes the total logical
-length of the `time` dimension, which is very useful to recipes.
-
-```{note}
-The `nitems_per_file` keyword **only applies to size along the concat dim** (here "time").
-In general files may have an arbitrary number of other dimensions that are not
-concatenated, and we don't need to provide any hints about these.
-```
-
-
 ### Inspect a `FilePattern`
 
 We can inspect the FilePattern manually to understand how it works.
