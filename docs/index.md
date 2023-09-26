@@ -9,7 +9,7 @@ Pangeo Forge is made of three official components:
 - `pangeo-forge-recipes` **Python SDK** - A Python toolkit, built on
   [Apache Beam](https://beam.apache.org), that provides components for concisely and expressively
   composing parallelizable ETL pipelines ("recipes") that can be run on your local machine
-  or cloud infrastructure. See {doc}`user_guide/index` for more on composing recipes,
+  or cloud infrastructure. See {doc}`composition/index` for more on composing recipes,
   and {doc}`deployment/index` for ways to run them.
 - `pangeo-forge-runner` **Command Line Interface (CLI)** - A utility for managing the configuration
   and deployment of version-controlled recipes. See {doc}`deployment/cli` for details.
@@ -91,7 +91,7 @@ Pangeo Forge is a community run effort with a variety of roles:
 
 - **Recipe developers** — Data engineers and enthusiasts who write recipes to define the data conversions.
 This can be anyone with a desire to create analysis ready cloud-optimized (ARCO) data. Explore
-{doc}`user_guide/index` for more on this role.
+{doc}`composition/index` for more on this role.
 - **Data users** - Analysts, scientists, and domain experts who use the ARCO data produced by Pangeo Forge
 in their work and research.
 - **Tooling developers** - Scientists and software developers who maintain and enhance the
@@ -105,7 +105,7 @@ open-source code base which makes Pangeo Forge run. See {doc}`development` for m
 
 self
 installation
-user_guide/index
+composition/index
 deployment/index
 advanced/index
 ecosystem

@@ -1,6 +1,6 @@
 # Pure Beam
 
-A recipe is defined as a [pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) of [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to the data collection associated with a {doc}`file pattern <../user_guide/file_patterns>`. Specifically, each recipe pipeline contains a set of transforms that operate on an `apache_beam.PCollection`, applying the specified transformation from input to output elements. Having created a transforms pipeline (see {doc}`../user_guide/index`), it may be executed with Beam as follows:
+A recipe is defined as a [pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) of [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to the data collection associated with a {doc}`file pattern <../composition/file_patterns>`. Specifically, each recipe pipeline contains a set of transforms that operate on an `apache_beam.PCollection`, applying the specified transformation from input to output elements. Having created a transforms pipeline (see {doc}`../composition/index`), it may be executed with Beam as follows:
 
 ```{code-block} python
 import apache_beam as beam
