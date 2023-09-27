@@ -16,11 +16,6 @@ def temp_store(tmp_path):
     return zarr.storage.FSStore(str(tmp_path))
 
 
-@pytest.fixture(params=["s3", "https"])
-def fsspec_target(request):
-    return FSSpecTarget(fsspec.filesystem(request.param, anon=True))
-
-
 def test_store_dataset_fragment(temp_store):
 
     ds = make_ds(non_dim_coords=True)
@@ -150,5 +145,7 @@ def test_store_dataset_fragment(temp_store):
     assert ds.time.encoding.get("units") == ds_target.time.encoding.get("units")
 
 
-def test_select_single_protocol(fsspec_target):
+@pytest.mark.parametrize("protocol", ["s3", "https"])
+def test_select_single_protocol(protocol):
+    fsspec_target = FSSpecTarget(fsspec.filesystem(protocol))
     assert isinstance(_select_single_protocol(fsspec_target), str)
