@@ -1,5 +1,7 @@
 # Recipe Composition
 
+## Overview
+
 A recipe describes the steps to transform archival source data in one
 format / location into analysis-ready, cloud-optimized (ARCO) data in another format /
 location. Technically, a recipe is as a set of composite
@@ -8,19 +10,37 @@ applied to the data collection associated with a {doc}`file pattern <file_patter
 To write a recipe:
 
 1. Define a {doc}`file pattern <file_patterns>` for your source data.
-2. Define a set of transforms to apply to the source data, using a combination of:
-    - Standard transforms from Apache Beam's
-      [Python transform catalog](https://beam.apache.org/documentation/transforms/python/overview/)
-    - `pangeo-forge-recipes` core transforms, such as {doc}`openers` and {doc}`writers`
-    - Third-party extensions from the Pangeo Forge {doc}`../ecosystem`
-    - Your own transforms, such as custom {doc}`preprocess`
-3. Put all of this code into a Python module (i.e., a file with `.py` extension). See {doc}`examples/index`.
+2. Select a set of {doc}`transforms` to apply to the source data.
+3. Put all of this code into a Python module (i.e., a file with `.py` extension),
+   as demonstrated in {doc}`examples/index`.
 
+## Generic sequence
 
-```{note}
-API Reference for the core {class}`pangeo_forge_recipes.transforms`
-can be found in {doc}`../api_reference`.
+Most recipes will be composed following the generic sequence:
+
+**{doc}`FilePattern <file_patterns>`**
+**`|` [Opener](./transforms.md#openers)**
+**`|` [Preprocessor](./transforms.md#preprocessors) (Optional)**
+**`|` [Writer](./transforms.md#writers)**
+
+```{tip}
+In Apache Beam, transforms are connected with the `|` pipe operator.
 ```
+
+Or, in pseudocode:
+
+```python
+recipe = (
+    beam.Create(pattern.items())
+    | Opener
+    | Preprocessor  # optional
+    | Writer
+)
+```
+
+Pangeo Forge does not provide any importable, pre-defined sequences of transforms. This is by design,
+and leaves the composition process flexible enough to accomodate the heterogeneity of real world data. In
+practice, however, certain {doc}`styles` may work as the basis for many datasets.
 
 ## Index
 
@@ -29,8 +49,7 @@ can be found in {doc}`../api_reference`.
 :glob:
 
 file_patterns
-openers
-preprocess
-writers
+transforms
+styles
 examples/index
 ```

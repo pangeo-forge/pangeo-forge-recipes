@@ -222,6 +222,5 @@ recipe = (
 )
 ```
 
-We now have our data properly initialized, and can continue composing the recipe with
-additional transforms from here, including {doc}`openers`, (optionally) {doc}`preprocess`,
-and {doc}`writers`.
+We now have our data properly initialized, and can begin composing the recipe with
+{doc}`transforms`.
