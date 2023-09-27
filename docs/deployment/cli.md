@@ -2,11 +2,16 @@
 
 ## Advantages
 
+While recipes can be deployed with {doc}`beam`, using the Pangeo Forge command line interface (CLI)
+provides the following advantages:
 
+- Centralized configuration
+- Sensible defaults
+- Deploy from version control refs
 
 ## Prerequisites
 
-Using command line interface (CLI) to deploy a recipe assumes the following prerequisites:
+Using the CLI to deploy a recipe assumes the following prerequisites:
 
 1. The CLI is installed:
 
@@ -33,6 +38,8 @@ With these prerequistes complete, the CLI can be [invoked](#invocation) to deplo
 ## `meta.yaml`
 
 ```yaml
+# meta.yaml
+
 recipes:
   - id: "gpcp-from-gcs"
     object: "gpcp_from_gcs:recipe"
@@ -40,7 +47,11 @@ recipes:
 
 ## `requirements.txt`
 
-...
+```
+# requirements.txt
+
+pangeo-forge-recipes==0.10.2
+```
 
 ## Configuration file
 

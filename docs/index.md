@@ -104,7 +104,7 @@ open-source code base which makes Pangeo Forge run. See {doc}`development` for m
 :maxdepth: 2
 
 self
-installation
+getting_started/index
 composition/index
 deployment/index
 advanced/index
