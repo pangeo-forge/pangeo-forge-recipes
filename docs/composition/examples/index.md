@@ -1,4 +1,4 @@
-# Examples
+# Example recipes
 
 ## Xarray to Zarr Recipes
 

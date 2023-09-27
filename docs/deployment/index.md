@@ -6,4 +6,5 @@
 beam
 cli
 action
+example-feedstocks
 ```

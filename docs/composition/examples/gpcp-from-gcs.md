@@ -1,4 +1,4 @@
-# gpcp
+# GPCP
 
 ```{literalinclude} ../../../examples/feedstock/gpcp_from_gcs.py
 ```
