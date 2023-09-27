@@ -4,7 +4,6 @@ import xarray as xr
 import zarr
 
 from pangeo_forge_recipes.aggregation import schema_to_zarr
-from pangeo_forge_recipes.storage import FSSpecTarget
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
 from pangeo_forge_recipes.writers import _select_single_protocol, store_dataset_fragment
 
@@ -147,5 +146,6 @@ def test_store_dataset_fragment(temp_store):
 
 @pytest.mark.parametrize("protocol", ["s3", "https"])
 def test_select_single_protocol(protocol):
-    fsspec_target = FSSpecTarget(fsspec.filesystem(protocol))
-    assert isinstance(_select_single_protocol(fsspec_target), str)
+    assert isinstance(
+        _select_single_protocol(fsspec.filesystem(protocol, anon=True).get_mapper()), str
+    )
