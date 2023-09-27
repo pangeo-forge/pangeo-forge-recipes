@@ -429,8 +429,8 @@ class CombineReferences(beam.PTransform):
       dimensionality will match that of the accumulator.
     """
 
-    concat_dims: List[str]
-    identical_dims: List[str]
+    concat_dims: List[str] = field(default_factory=list)
+    identical_dims: List[str] = field(default_factory=list)
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
 
@@ -448,6 +448,18 @@ class CombineReferences(beam.PTransform):
 @dataclass
 class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
+    :param concat_dims: Dimensions along which to concatenate inputs.
+    :param identical_dims: Dimensions shared among all inputs.
+    :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
+    :precombine_inputs: If ``True``, precombine each input with itself, using
+      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
+      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
+      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
+      into a single reference before adding to the accumulator. Also used for inputs
+      consisting of single reference, for cases where the output dataset concatenates
+      along a dimension that does not exist in the individual inputs. In this latter
+      case, precombining adds the additional dimension to the input so that its
+      dimensionality will match that of the accumulator.
     :param store_name: Name for the Zarr store. It will be created with
         this name under `target_root`.
     :param target_root: Root path the Zarr store will be created inside;
@@ -457,14 +469,24 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     .parquet as a storage format.
     """
 
-    store_name: str
+    concat_dims: List[str] = field(default_factory=list)
+    identical_dims: List[str] = field(default_factory=list)
+    mzz_kwargs: dict = field(default_factory=dict)
+    precombine_inputs: bool = False
+    store_name: Optional[str] = None
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
     output_file_name: str = "reference.json"
-    concat_dims: List[str] = field(default_factory=list)
 
-    def expand(self, reference: beam.PCollection) -> beam.PCollection:
+    def expand(self, references: beam.PCollection) -> beam.PCollection:
+        reference = references | CombineReferences(
+            concat_dims=self.concat_dims,
+            identical_dims=self.identical_dims,
+            mzz_kwargs=self.mzz_kwargs,
+            precombine_inputs=self.precombine_inputs,
+        )
+
         return reference | beam.Map(
             write_combined_reference,
             full_target=self.get_full_target(),
