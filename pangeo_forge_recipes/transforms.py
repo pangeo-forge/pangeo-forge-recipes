@@ -429,8 +429,8 @@ class CombineReferences(beam.PTransform):
       dimensionality will match that of the accumulator.
     """
 
-    concat_dims: List[str] = field(default_factory=list)
-    identical_dims: List[str] = field(default_factory=list)
+    concat_dims: List[str]
+    identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
 
@@ -468,11 +468,11 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     .parquet as a storage format.
     """
 
-    concat_dims: List[str] = field(default_factory=list)
-    identical_dims: List[str] = field(default_factory=list)
+    store_name: str
+    concat_dims: List[str]
+    identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
-    store_name: Optional[str] = None
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
