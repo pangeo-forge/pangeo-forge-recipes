@@ -83,7 +83,7 @@ Please reach out if you're interested in helping with this effort.
 
 ### How can I help with development?
 
-Check out our {doc}`development` for how to get started!
+Check out our {doc}`contributing` for how to get started!
 
 ## Connecting with the Community
 
@@ -95,7 +95,7 @@ This can be anyone with a desire to create analysis ready cloud-optimized (ARCO)
 - **Data users** - Analysts, scientists, and domain experts who use the ARCO data produced by Pangeo Forge
 in their work and research.
 - **Tooling developers** - Scientists and software developers who maintain and enhance the
-open-source code base which makes Pangeo Forge run. See {doc}`development` for more.
+open-source code base which makes Pangeo Forge run. See {doc}`contributing` for more.
 
 
 ## Site Contents
@@ -110,6 +110,6 @@ deployment/index
 advanced/index
 ecosystem
 api_reference
-development
+contributing
 release_notes
 ```
