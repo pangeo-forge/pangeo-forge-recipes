@@ -20,7 +20,18 @@ a set of transforms to apply to the data, which may include:
 
 ```{hint}
 Please refer to the [](./index.md#generic-sequence) and [](./styles.md) for discussion of
-how transforms are commonly connected together.
+how transforms are commonly connected together;
+{doc}`examples/index` provides representative examples.
+```
+
+<div id=configurable-kwargs></div>
+
+```{admonition} ⚙️ Deploy-time configurable keyword arguments
+Keyword arguments designated by the gear emoji ⚙️ below are _deploy-time configurable_.
+They should therefore _**not**_ be provided in your recipe file.
+Instead, values for these arguments are specified in a per-deployment
+[](../deployment/cli.md#configuration-file). The values provided in the configuration file
+will be injected into your recipe by the {doc}`../deployment/cli`.
 ```
 
 ## Openers
@@ -29,6 +40,7 @@ Once you've created a {doc}`file pattern <file_patterns>` for your source data,
 you'll need to open it somehow. Pangeo Forge currently provides the following openers:
 
 - {class}`pangeo_forge_recipes.transforms.OpenURLWithFSSpec`
+    - ⚙️ `cache` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
 - {class}`pangeo_forge_recipes.transforms.OpenWithXarray`
 - {class}`pangeo_forge_recipes.transforms.OpenWithKerchunk`
 
@@ -45,7 +57,9 @@ for this purpose and included in your recipe.
 ## Writers
 
 - {class}`pangeo_forge_recipes.transforms.StoreToZarr`
+    - ⚙️ `target_root` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
 - {class}`pangeo_forge_recipes.transforms.WriteCombinedReference`
+    - ⚙️ `target_root` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
 
 ## What's next
 
