@@ -14,7 +14,6 @@ from fsspec.implementations.reference import ReferenceFileSystem
 
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
 from pangeo_forge_recipes.transforms import (
-    CombineReferences,
     OpenWithKerchunk,
     OpenWithXarray,
     StoreToZarr,
@@ -97,15 +96,14 @@ def test_reference_netcdf(
             p
             | beam.Create(pattern.items())
             | OpenWithKerchunk(file_type=pattern.file_type)
-            | CombineReferences(concat_dims=["time"], identical_dims=["lat", "lon"])
             | WriteCombinedReference(
+                identical_dims=["lat", "lon"],
                 target_root=tmp_target_url,
                 store_name=store_name,
                 concat_dims=["time"],
                 output_file_name=output_file_name,
             )
         )
-
     full_path = os.path.join(tmp_target_url, store_name, output_file_name)
     file_ext = os.path.splitext(output_file_name)[-1]
 
@@ -148,11 +146,9 @@ def test_reference_grib(
             p
             | beam.Create(pattern.items())
             | OpenWithKerchunk(file_type=pattern.file_type)
-            | CombineReferences(
+            | WriteCombinedReference(
                 concat_dims=[pattern.concat_dims[0]],
                 identical_dims=["latitude", "longitude"],
-            )
-            | WriteCombinedReference(
                 target_root=tmp_target_url,
                 store_name=store_name,
             )
