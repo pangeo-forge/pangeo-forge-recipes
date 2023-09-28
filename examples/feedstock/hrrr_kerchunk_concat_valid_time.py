@@ -10,11 +10,7 @@ import s3fs
 import zarr
 
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
-from pangeo_forge_recipes.transforms import (
-    CombineReferences,
-    OpenWithKerchunk,
-    WriteCombinedReference,
-)
+from pangeo_forge_recipes.transforms import OpenWithKerchunk, WriteCombinedReference
 
 storage_options = {"anon": True}
 remote_protocol = "s3"
@@ -64,14 +60,12 @@ recipe = (
         storage_options=storage_options,
         kerchunk_open_kwargs={"filter": grib_filter},
     )
-    | CombineReferences(
+    | WriteCombinedReference(
+        store_name="hrrr-concat-valid-time",
         concat_dims=concat_dims,
         identical_dims=identical_dims,
         mzz_kwargs=dict(preprocess=drop_unknown),
         precombine_inputs=True,
-    )
-    | WriteCombinedReference(
-        store_name="hrrr-concat-valid-time",
     )
     | "Test dataset" >> beam.Map(test_ds)
 )
