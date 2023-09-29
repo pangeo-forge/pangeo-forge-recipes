@@ -43,6 +43,8 @@ For a full listing of available configuration, see:
 
 ## Invocation
 
+A recipe in your {doc}`feedstock <feedstocks>` can be deployed with the following command:
+
 ```{literalinclude} ../../examples/runner-commands/bake.sh
 ---
 language: bash

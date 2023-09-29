@@ -19,6 +19,7 @@ which contains at minimum the following three files:
 
 The `recipe.py` file is the recipe itself
 (see {doc}`../composition/index` for how to create this file).
+
 The other two files are described below.
 
 ## `meta.yaml`
