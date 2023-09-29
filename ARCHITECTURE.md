@@ -3,7 +3,7 @@
 Here is what you will find in the repository:
 
 - `.github/workflows` - Github Worflows
-- `ci` - Extra environment specifications for continuos integration.
+- `ci` - Extra environment specifications for continuous integration
 - `docs` - Sphinx Documentation
 - `examples` - Example code for docs + integration testing
 - `pangeo_forge_recipes` - The main python package
