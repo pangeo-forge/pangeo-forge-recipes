@@ -415,6 +415,7 @@ class Rechunk(beam.PTransform):
 @dataclass
 class CombineReferences(beam.PTransform):
     """Combines Kerchunk references into a single reference dataset.
+
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
     :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
@@ -448,10 +449,12 @@ class CombineReferences(beam.PTransform):
 @dataclass
 class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
+
+    :param store_name: Zarr store will be created with this name under ``target_root``.
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
-    :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :precombine_inputs: If ``True``, precombine each input with itself, using
+    :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
+    :param precombine_inputs: If ``True``, precombine each input with itself, using
       ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
       Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
       with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
@@ -460,12 +463,10 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
       along a dimension that does not exist in the individual inputs. In this latter
       case, precombining adds the additional dimension to the input so that its
       dimensionality will match that of the accumulator.
-    :param store_name: Name for the Zarr store. It will be created with
-        this name under `target_root`.
-    :param target_root: Root path the Zarr store will be created inside;
-        `store_name` will be appended to this prefix to create a full path.
-    :param output_file_name: Name to give the output references file (.json or .parquet suffix.)
-    .parquet as a storage format.
+    :param target_root: Root path the Zarr store will be created inside; ``store_name``
+      will be appended to this prefix to create a full path.
+    :param output_file_name: Name to give the output references file
+      (``.json`` or ``.parquet`` suffix).
     """
 
     store_name: str
