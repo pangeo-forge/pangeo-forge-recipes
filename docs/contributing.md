@@ -1,48 +1,59 @@
 # Contributing
 
-👋 Welcome!
-If you're interested in contributing to Pangeo Forge, this is the place to start.
-
-## Reporting Bugs and Requesting Features
+## Open an issue
 
 You don't have to do any coding to contribute.
-Reporting bugs and requesting new features is a very valuable contribution.
-To report bugs or request new features, head over to the relevant issue page:
+Reporting bugs and requesting new features via GitHub Issues is a very valuable contribution.
+To open a new issue, head over to the relevant issue page:
 
-- <https://github.com/pangeo-forge/pangeo-forge-recipes/issues>
-- <https://github.com/pangeo-forge/pangeo-forge-runner/issues>
-- <https://github.com/pangeo-forge/deploy-recipe-action/issues>
+- <https://github.com/pangeo-forge/pangeo-forge-recipes/issues>:
+For anything related to {doc}`composition/index`.
+- <https://github.com/pangeo-forge/pangeo-forge-runner/issues>:
+For the {doc}`deployment/cli`.
+- <https://github.com/pangeo-forge/deploy-recipe-action/issues>:
+For the {doc}`deployment/action`.
 
 ## Dev environment setup
 
+If you plan to contribute [docs](#contributing-docs) or [code](#contributing-code),
+you will need a local development environment.
+
 ### Fork and clone the repo
 
-To contribute, first fork the repository on GitHub: <https://github.com/pangeo-forge/pangeo-forge-recipes>.
-To checkout your fork locally and create a remote pointing to the upstream repo,
-run the following commands from the command line:
+First, fork the repository on GitHub: <https://github.com/pangeo-forge/pangeo-forge-recipes>.
+Then, checkout your fork locally:
 
 ```bash
 git clone git@github.com:{{ your_username }}/pangeo-forge-recipes.git
 cd pangeo-forge-recipes
+```
+
+```{note}
+From now on, we will assume all shell commands are from within the
+`pangeo-forge-recipes` directory.
+```
+
+Finally, create a new git remote pointing to the upstream repo:
+
+```bash
 git remote add upstream git@github.com:pangeo-forge/pangeo-forge-recipes.git
 ```
 
-From now on, we will assume all shell commands are from within the
-`pangeo-forge-recipes` directory.
 
 ### Create a virtual environment
 
-We strongly recommend creating an isolated
-[Conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
-from which to develop and test your code.
-This ensures you have all the correct dependencies and tools involved.
+We strongly recommend creating an isolated virtual environment,
+which ensures you have all the correct dependencies and tools for development.
 
-https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands
+This can be either a
+[Conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
+or a Python [`venv`](https://docs.python.org/3/library/venv.html).
 
 ### Set up pre-commit
 
 We use [pre-commit](https://pre-commit.com/) to manage code linting and style.
-To set up pre-commit:
+Once you have a [virtual environment](#create-a-virtual-environment) created and activated,
+run the following commands (from the repo root) to setup pre-commit:
 
 ```bash
 pip install pre-commit
@@ -51,11 +62,9 @@ pre-commit install
 
 ## Development lifecycle
 
-[![GitHub pull requests](https://img.shields.io/github/issues-pr/pangeo-forge/pangeo-forge-recipes?style=flat-square)](https://github.com/pangeo-forge/pangeo-forge-recipes/pulls)
+### Create a new branch
 
-When you are ready to make changes.
-
-### Create a new feature branch off `main`:
+When you are ready to make changes, start by creating a new branch from `main`:
 
 ```bash
 git checkout -b my-cool-feature
@@ -63,34 +72,37 @@ git checkout -b my-cool-feature
 
 ### Commit changes
 
-Make changes using your favorite text editor.
+Make changes using your favorite text editor, and commit them as you go along:
 
 ```bash
 git add path/to/changed_files
 git commit -m 'informative commit message'
 ```
 
-### Push changes to GitHub
+### Open a PR
+
+When you are ready for feedback on your changes, push them to GitHub:
 
 ```bash
 git push origin my-cool-feature
 ```
 
-### Open a PR
-
-[Pull Request](https://github.com/pangeo-forge/pangeo-forge-recipes/pulls)
-
-- Make more changes in response to PR review
-- Push more commits to your remote branch
+And then open a [Pull Request](https://github.com/pangeo-forge/pangeo-forge-recipes/pulls)
+against `main` with your changes.
 
 ### Cleanup
 
-Once your PR is merged:
+Once your PR is merged, rebase your local `main` to match changes upstream:
+
 ```bash
 git checkout main
 git fetch upstream
 git rebase upstream/main
-# clean up feature branch
+```
+
+And delete the feature branch:
+
+```bash
 git branch -d my-cool-feature
 ```
 
@@ -100,9 +112,7 @@ We strongly encourage contributions to make the documentation clearer and more c
 
 ### Install dependencies
 
-To build the documentation, you will need the additional requirements located at
-`docs/requirements.txt`.
-Assuming you are already inside the `pangeo-forge-recipes` conda environment, you can run
+With your [virtual environment](#create-a-virtual-environment) activated, run:
 
 ```bash
 pip install -r docs/requirements.txt
@@ -110,7 +120,8 @@ pip install -r docs/requirements.txt
 
 ### Build the docs
 
-To build the documentation
+To build the documentation:
+
 ```bash
 cd docs
 make html
@@ -118,15 +129,14 @@ make html
 
 ### View the docs
 
-Serving the documentation locally (starting from the `docs` directory)
+Serving the documentation locally (starting from the `docs` directory):
+
 ```bash
 cd _build/html; python -m http.server; cd ../..
 # press ctrl-C to exit
 ```
 
-### Make changes
-
-...
+Alternatively you can open `docs/_build/html/index.html` in your web browser.
 
 ## Contributing: code
 
@@ -134,10 +144,16 @@ If you're ready to start contributing to the code, here is where to start.
 
 ### Install dependencies
 
+With your [virtual environment](#create-a-virtual-environment) activated, run:
+
+```bash
+pip install -e ".[dev]"
+```
+
 ### Run the test suite
 
-The tests are as important as the code itself--they verify that pangeo-forge-recipes
-actually works.
+The tests are as important as the code itself.
+They verify that `pangeo-forge-recipes` actually works.
 
 To run the test suite:
 
@@ -145,10 +161,12 @@ To run the test suite:
 pytest tests -v
 ```
 
-All of the tests
 ## Releasing
 
-To make a new release, just go to <https://github.com/pangeo-forge/pangeo-forge-recipes/releases>
+To make a new release, first add [](./release_notes.md) for the release to the docs.
+
+Then just go to <https://github.com/pangeo-forge/pangeo-forge-recipes/releases>
 and click "Draft a new release".
-The [release.yaml](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/master/.github/workflows/release.yaml) -
+
+The [release.yaml](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/main/.github/workflows/release.yaml)
 workflow should take care of the rest.
