@@ -83,7 +83,7 @@ Please reach out if you're interested in helping with this effort.
 
 ### How can I help with development?
 
-Check out our {doc}`contributing` for how to get started!
+Check out {doc}`contributing` for how to get started!
 
 ## Connecting with the Community
 
