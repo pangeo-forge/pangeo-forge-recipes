@@ -33,6 +33,11 @@ language: json
 ````
 `````
 
+This file centralizes configuration of:
+
+- Apache Beam [Pipeline Options](https://beam.apache.org/documentation/programming-guide/#configuring-pipeline-options)
+- <a href="../composition/transforms.html#configurable-kwargs">Deploy-time configurable keyword arguments</a>
+
 For a full listing of available configuration, see:
 [Configuration Reference](https://pangeo-forge-runner.readthedocs.io/en/latest/reference/index.html).
 
@@ -51,3 +56,10 @@ local path or a URL to a GitHub repo.
 - `RECIPE_ID`: The `id` of the recipe you'd like to run as it appears
 in your feedstock's [](./feedstocks.md#metayaml).
 - `JOB_NAME`: A unique name for this deployment.
+
+```{tip}
+The `--prune` flag limits the deployment to the first two increments
+of the dataset's concat dimension. This is useful for testing your
+deployment on a limited subset of data. To deploy a full production
+run, simply omit this flag.
+```
