@@ -1,31 +1,46 @@
 # Deployment
 
-## Beam Runners
+## Advantages of the CLI
 
-A recipe is defined as a [pipeline](https://beam.apache.org/documentation/programming-guide/#creating-a-pipeline) of [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms) applied to the data collection associated with a {doc}`file pattern <../composition/file_patterns>`. Specifically, each recipe pipeline contains a set of transforms that operate on an `apache_beam.PCollection`, applying the specified transformation from input to output elements. Having created a transforms pipeline (see {doc}`../composition/index`), it may be executed with Beam as follows:
-
-```{code-block} python
-import apache_beam as beam
-
-with beam.Pipeline() as p:
-    p | transforms
-```
-
-By default the pipeline runs using Beam's [DirectRunner](https://beam.apache.org/documentation/runners/direct/), which is useful during recipe development. However, alternative Beam runners are available, for example:
-* [FlinkRunner](https://beam.apache.org/documentation/runners/flink/): execute Beam pipelines using [Apache Flink](https://flink.apache.org/).
-* [DataflowRunner](https://beam.apache.org/documentation/runners/dataflow/): uses the [Google Cloud Dataflow managed service](https://cloud.google.com/dataflow/service/dataflow-service-desc).
-* [DaskRunner](https://beam.apache.org/releases/pydoc/current/apache_beam.runners.dask.dask_runner.html): executes pipelines via [Dask.distributed](https://distributed.dask.org/en/stable/).
-
-See [here](https://beam.apache.org/documentation/#runners) for details of the available Beam runners.
-
-## Advantages
-
-While recipes can be deployed with Pure Beam, using the Pangeo Forge
-command line interface (CLI) provides the following advantages:
+The {doc}`cli` (CLI) is the recommended way to deploy Pangeo Forge {doc}`recipes <../composition/index>`,
+both for production and local testing. Advantages of using the CLI include:
 
 - Centralized configuration
 - Sensible defaults
 - Deploy from version control refs
+
+The CLI is itself a thin wrapper around Apache Beam's pipeline deployment logic (in pseudocode):
+
+```{code-block} python
+import apache_beam as beam
+from apache_beam.pipeline import PipelineOptions
+
+options = PipelineOptions(runner="DirectRunner", ...)
+
+with beam.Pipeline(options=options) as p:
+    p | recipe
+```
+
+Users are welcome to use this native Beam deployment approach for their recipes as well.
+
+## Beam Runners
+
+Apache Beam (and therefore, Pangeo Forge) supports flexible deployment via "runners",
+which include:
+
+* [DirectRunner](https://beam.apache.org/documentation/runners/direct/):
+Useful for testing during recipe development and, in multithreaded mode, for certain production workloads.
+(Note that Apache Beam does _not_ recommend this runner for production.)
+* [FlinkRunner](https://beam.apache.org/documentation/runners/flink/):
+Executes pipelines using [Apache Flink](https://flink.apache.org/).
+* [DataflowRunner](https://beam.apache.org/documentation/runners/dataflow/):
+Uses the [Google Cloud Dataflow managed service](https://cloud.google.com/dataflow/service/dataflow-service-desc).
+* [DaskRunner](https://beam.apache.org/releases/pydoc/current/apache_beam.runners.dask.dask_runner.html):
+Executes pipelines via [Dask.distributed](https://distributed.dask.org/en/stable/).
+
+When deploying with the CLI, the runner is specified via a [](cli.md#configuration-file).
+
+## Index
 
 ```{toctree}
 :maxdepth: 1

@@ -35,7 +35,7 @@ language: json
 
 This file centralizes configuration of:
 
-- Apache Beam [Pipeline Options](https://beam.apache.org/documentation/programming-guide/#configuring-pipeline-options)
+- [](index.md#beam-runners)
 - <a href="../composition/transforms.html#configurable-kwargs">Deploy-time configurable keyword arguments</a>
 
 For a full listing of available configuration, see:
