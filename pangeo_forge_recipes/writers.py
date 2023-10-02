@@ -112,13 +112,15 @@ def write_combined_reference(
 ) -> FSSpecTarget:
     """Write a kerchunk combined references object to file."""
 
-    import ujson  # type: ignore
+    from fsspec.implementations.reference import ReferenceFileSystem
 
     file_ext = os.path.splitext(output_file_name)[-1]
-
     outpath = full_target._full_path(output_file_name)
+    remote_protocol = _select_single_protocol(full_target)
 
     if file_ext == ".json":
+        import ujson  # type: ignore
+
         multi_kerchunk = reference.translate()
         with full_target.fs.open(outpath, "wb") as f:
             f.write(ujson.dumps(multi_kerchunk).encode())
@@ -129,8 +131,6 @@ def write_combined_reference(
         if full_target.exists(output_file_name):
             full_target.rm(output_file_name, recursive=True)
         full_target.makedir(output_file_name)
-
-        remote_protocol = _select_single_protocol(full_target)
 
         out = LazyReferenceMapper.create(refs_per_component, outpath, full_target.fs)
 
@@ -148,7 +148,14 @@ def write_combined_reference(
     else:
         raise NotImplementedError(f"{file_ext = } not supported.")
 
-    return full_target
+    # Return an fsspec mapper that can be read with Xarray
+    return ReferenceFileSystem(
+        outpath,
+        remote_protocol=remote_protocol,
+        remote_options={"anon": True},
+        target_protocol="file",
+        lazy=True,
+    ).get_mapper()
 
 
 class ZarrWriterProtocol(Protocol):
