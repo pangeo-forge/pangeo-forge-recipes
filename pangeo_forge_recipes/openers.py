@@ -133,7 +133,7 @@ def open_with_kerchunk(
     file_type: FileType = FileType.unknown,
     inline_threshold: Optional[int] = 100,
     storage_options: Optional[Dict] = None,
-    remote_protocol: Optional[str] = None,
+    remote_protocol: Optional[str] = "file",
     kerchunk_open_kwargs: Optional[dict] = None,
 ) -> list[dict]:
     """Scan through item(s) with one of Kerchunk's file readers (SingleHdf5ToZarr, scan_grib etc.)
@@ -158,7 +158,6 @@ def open_with_kerchunk(
 
     url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
     url_as_str = _url_as_str(url_or_file_obj, remote_protocol)
-
     if file_type == FileType.netcdf4:
         from kerchunk.hdf import SingleHdf5ToZarr
 

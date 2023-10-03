@@ -108,7 +108,7 @@ def write_combined_reference(
     full_target: FSSpecTarget,
     concat_dims: List[str],
     output_file_name: str,
-    remote_protocol: Optional[str],
+    # remote_protocol:  Optional[str],
     remote_options: Optional[dict] = {"anon": True},
     refs_per_component: int = 1000,
 ) -> FSSpecTarget:
@@ -140,21 +140,20 @@ def write_combined_reference(
         MultiZarrToZarr(
             [reference.translate()],
             concat_dims=concat_dims,
-            remote_protocol=remote_protocol,
+            remote_protocol=reference.remote_protocol,
             out=out,
         ).translate()
-
         # call to write reference to empty parquet store
         out.flush()
 
     else:
         raise NotImplementedError(f"{file_ext = } not supported.")
-
+    # import pdb; pdb.set_trace()
     # Return an fsspec mapper that can be read with Xarray
     return ReferenceFileSystem(
         outpath,
         remote_options=remote_options,
-        remote_protocol=remote_protocol,
+        remote_protocol=reference.remote_protocol,
         target_protocol=target_protocol,
         lazy=True,
     ).get_mapper()
