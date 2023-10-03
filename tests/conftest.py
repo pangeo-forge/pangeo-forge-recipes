@@ -40,17 +40,19 @@ from pangeo_forge_recipes.transforms import OpenURLWithFSSpec
 
 from .data_generation import make_ds
 
-# Helper functions --------------------------------------------------------------------------------
 
-
-# to use this feature, e.g.
-# $ pytest --redirect-dask-worker-logs-to-stdout=DEBUG
+# To use this feature, e.g. `$ pytest --run-integration`
+# https://jwodder.github.io/kbits/posts/pytest-mark-off/
 def pytest_addoption(parser):
     parser.addoption(
-        "--redirect-dask-worker-logs-to-stdout",
-        action="store",
-        default="NOTSET",
+        "--run-integration",
+        action="store_true",
+        default=False,
+        help="Run integration tests. Skipped by default because they are slow-running.",
     )
+
+
+# Helper functions --------------------------------------------------------------------------------
 
 
 def split_up_files_by_day(ds, day_param):

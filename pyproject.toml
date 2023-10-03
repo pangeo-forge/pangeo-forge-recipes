@@ -25,30 +25,29 @@ classifiers = [
 license = { text = "Apache-2.0" }
 keywords = ["pangeo", "data"]
 dependencies = [
-    "setuptools",
-    "dask >= 2021.11.2",
-    "distributed >= 2021.11.2",
+    "apache-beam",
     "cftime",
-    "h5py >= 3.3.0",
-    "intake >= 0.6.4",
-    "intake-xarray >= 0.4.1",
-    "xarray >=0.18.0",
-    "netcdf4",
+    "dask >= 2021.11.2",
+    "fastparquet",
+    "fsspec[http] >= 2023.4.0",
     "h5netcdf",
-    "zarr >= 2.12.0",
-    "numcodecs >= 0.9.0",
-    "fsspec[http] >= 2021.6.0",
+    "h5py >= 3.3.0",
     "kerchunk >= 0.0.7",
-    "mypy_extensions >= 0.4.2"
+    "netcdf4",
+    "numcodecs >= 0.9.0",
+    "xarray >= 0.18.0",
+    "zarr >= 2.12.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "click",
     "pytest",
-    "pytest-sugar",
     "pytest-cov",
     "pytest-lazy-fixture",
+    "pytest-sugar",
+    "pytest-timeout",
+    "s3fs",
     "scipy"
 ]
 
@@ -62,12 +61,18 @@ Documentation = "https://pangeo-forge.readthedocs.io/en/latest/"
 write_to = "pangeo_forge_recipes/_version.py"
 write_to_template = "__version__ = '{version}'"
 
+[tool.setuptools.packages.find]
+exclude = ["docs_src"]
+
+[tool.setuptools.package-data]
+pangeo_forge_recipes = ["py.typed"]
+
 [tool.black]
 line-length = 100
 
 [tool.isort]
 known_first_party = "pangeo_forge_recipes"
-known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "kerchunk", "numpy", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "setuptools", "ujson", "xarray", "zarr"]
+known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "kerchunk", "numpy", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "xarray", "zarr"]
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
@@ -78,12 +83,6 @@ line_length = 100
 log_cli = false
 timeout = 30
 timeout_method = "signal"
-addopts = "--ignore-glob=tests/recipe_tests/*"
-markers = [
-    "no_executor: Tests that do not use an executor fixture.",
-    "executor_function: Tests that use the Python function executor.",
-]
-
 
 [project.entry-points."pangeo_forge_runner.injection_specs"]
 default_injections = "pangeo_forge_recipes.injections:get_injection_specs"

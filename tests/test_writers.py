@@ -1,10 +1,11 @@
+import fsspec
 import pytest
 import xarray as xr
 import zarr
 
 from pangeo_forge_recipes.aggregation import schema_to_zarr
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
-from pangeo_forge_recipes.writers import store_dataset_fragment
+from pangeo_forge_recipes.writers import _select_single_protocol, store_dataset_fragment
 
 from .data_generation import make_ds
 
@@ -141,3 +142,10 @@ def test_store_dataset_fragment(temp_store):
     # assert_identical() doesn't check encoding
     # Checking the original time encoding units should be sufficient
     assert ds.time.encoding.get("units") == ds_target.time.encoding.get("units")
+
+
+@pytest.mark.parametrize("protocol", ["s3", "https"])
+def test_select_single_protocol(protocol):
+    assert isinstance(
+        _select_single_protocol(fsspec.filesystem(protocol, anon=True).get_mapper()), str
+    )
