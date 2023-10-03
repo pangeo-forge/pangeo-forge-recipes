@@ -83,3 +83,6 @@ line_length = 100
 log_cli = false
 timeout = 30
 timeout_method = "signal"
+
+[project.entry-points."pangeo_forge_runner.injection_specs"]
+default_injections = "pangeo_forge_recipes.injections:get_injection_specs"
