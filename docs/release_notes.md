@@ -1,5 +1,12 @@
 # Release Notes
 
+## v0.10.3 - 2023-10-03
+
+- Assign injection spec values for command line interface {pull}`566`
+- Docs rewrite {pull}`610`
+- Simplify reference recipe composition by nesting transforms {pull}`635`
+- Reference transforms dependency and bugfixes {pull}`631` {pull}`632`
+
 ## v0.10.2 - 2023-09-19
 
 - Fix bug preventing use of multiple merge dims {pull}`591`
