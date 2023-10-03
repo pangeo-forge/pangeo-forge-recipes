@@ -32,7 +32,7 @@ jobs:
         python-version: ["3.9"]  # , "3.10", "3.11"]
         runner-version: [
           "pangeo-forge-runner==0.8.0",
-          "git+https://github.com/pangeo-forge/pangeo-forge-runner.git@injections#egg=pangeo_forge_runner",
+          "pangeo-forge-runner==0.9.0",
         ]
     steps:
       - uses: actions/checkout@v4
