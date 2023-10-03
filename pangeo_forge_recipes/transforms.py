@@ -453,6 +453,8 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     :param store_name: Zarr store will be created with this name under ``target_root``.
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "https", etc.
     :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
     :param precombine_inputs: If ``True``, precombine each input with itself, using
       ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
@@ -472,6 +474,7 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     store_name: str
     concat_dims: List[str]
     identical_dims: List[str]
+    remote_protocol: Optional[str] = "file"
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
@@ -492,6 +495,7 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
             full_target=self.get_full_target(),
             concat_dims=self.concat_dims,
             output_file_name=self.output_file_name,
+            remote_protocol=self.remote_protocol,
         )
 
 

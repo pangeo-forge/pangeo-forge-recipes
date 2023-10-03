@@ -1,5 +1,5 @@
 import os
-from typing import List, Protocol, Tuple, Union
+from typing import List, Optional, Protocol, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -108,6 +108,8 @@ def write_combined_reference(
     full_target: FSSpecTarget,
     concat_dims: List[str],
     output_file_name: str,
+    remote_protocol: Optional[str],
+    remote_options: Optional[dict] = {"anon": True},
     refs_per_component: int = 1000,
 ) -> FSSpecTarget:
     """Write a kerchunk combined references object to file."""
@@ -116,7 +118,7 @@ def write_combined_reference(
 
     file_ext = os.path.splitext(output_file_name)[-1]
     outpath = full_target._full_path(output_file_name)
-    remote_protocol = _select_single_protocol(full_target)
+    target_protocol = _select_single_protocol(full_target)
 
     if file_ext == ".json":
         import ujson  # type: ignore
@@ -151,9 +153,9 @@ def write_combined_reference(
     # Return an fsspec mapper that can be read with Xarray
     return ReferenceFileSystem(
         outpath,
+        remote_options=remote_options,
         remote_protocol=remote_protocol,
-        remote_options={"anon": True},
-        target_protocol="file",
+        target_protocol=target_protocol,
         lazy=True,
     ).get_mapper()
 
