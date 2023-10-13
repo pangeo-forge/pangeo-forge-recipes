@@ -48,6 +48,7 @@ def local_confpath(tmp_path_factory: pytest.TempPathFactory):
 
     return dstpath.absolute().as_posix()
 
+
 @pytest.fixture
 def minio_confpath(minio, tmp_path_factory: pytest.TempPathFactory):
     tmp = tmp_path_factory.mktemp("tmp")
@@ -79,13 +80,9 @@ def minio_confpath(minio, tmp_path_factory: pytest.TempPathFactory):
         if p.suffix == ".py" and not p.stem.startswith("_")
     ],
 )
-@pytest.mark.parametrize(
-    "confpath_option",
-    ["local_confpath","minio_confpath"]
-)
-def test_integration(confpath_option: str, recipe_id: str,  request):
+@pytest.mark.parametrize("confpath_option", ["local_confpath", "minio_confpath"])
+def test_integration(confpath_option: str, recipe_id: str, request):
     """Run the example recipes in the ``examples/feedstock`` directory."""
-
 
     xfails = {
         "hrrr-kerchunk-concat-step": "WriteCombineReference doesn't return zarr.storage.FSStore",
@@ -96,7 +93,7 @@ def test_integration(confpath_option: str, recipe_id: str,  request):
     if recipe_id in xfails:
         pytest.xfail(xfails[recipe_id])
 
-    confpath =  request.getfixturevalue(confpath_option)
+    confpath = request.getfixturevalue(confpath_option)
 
     bake_script = (EXAMPLES / "runner-commands" / "bake.sh").absolute().as_posix()
     cmd = ["sh", bake_script]
