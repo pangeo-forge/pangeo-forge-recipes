@@ -32,7 +32,7 @@ def test_python_json_configs_identical():
 
 
 @pytest.fixture
-def confpath(tmp_path_factory: pytest.TempPathFactory):
+def local_confpath(tmp_path_factory: pytest.TempPathFactory):
     """The JSON config is easier to modify with tempdirs, so we use that here for
     convenience. But we know it's the same as the Python config, because we test that.
     """
@@ -48,6 +48,28 @@ def confpath(tmp_path_factory: pytest.TempPathFactory):
 
     return dstpath.absolute().as_posix()
 
+@pytest.fixture
+def minio_confpath(minio, tmp_path_factory: pytest.TempPathFactory):
+    tmp = tmp_path_factory.mktemp("tmp")
+    fsspec_args = {
+        "key": minio["username"],
+        "secret": minio["password"],
+        "client_kwargs": {"endpoint_url": minio["endpoint"]},
+    }
+
+    fname = "s3.json"
+    dstpath = tmp / fname
+    with open(EXAMPLES / "runner-config" / fname) as src:
+        with dstpath.open(mode="w") as dst:
+            c = json.load(src)
+            c["TargetStorage"]["root_path"] = (tmp / "target").absolute().as_posix()
+            c["TargetStorage"]["fsspec_args"] = fsspec_args
+            c["InputCacheStorage"]["root_path"] = (tmp / "cache").absolute().as_posix()
+            c["InputCacheStorage"]["fsspec_args"] = fsspec_args
+
+            json.dump(c, dst)
+    return dstpath.absolute().as_posix()
+
 
 @pytest.mark.parametrize(
     "recipe_id",
@@ -57,8 +79,13 @@ def confpath(tmp_path_factory: pytest.TempPathFactory):
         if p.suffix == ".py" and not p.stem.startswith("_")
     ],
 )
-def test_integration(recipe_id: str, confpath: str):
+@pytest.mark.parametrize(
+    "confpath_option",
+    ["local_confpath","minio_confpath"]
+)
+def test_integration(confpath_option: str, recipe_id: str,  request):
     """Run the example recipes in the ``examples/feedstock`` directory."""
+
 
     xfails = {
         "hrrr-kerchunk-concat-step": "WriteCombineReference doesn't return zarr.storage.FSStore",
@@ -68,6 +95,8 @@ def test_integration(recipe_id: str, confpath: str):
     }
     if recipe_id in xfails:
         pytest.xfail(xfails[recipe_id])
+
+    confpath =  request.getfixturevalue(confpath_option)
 
     bake_script = (EXAMPLES / "runner-commands" / "bake.sh").absolute().as_posix()
     cmd = ["sh", bake_script]
