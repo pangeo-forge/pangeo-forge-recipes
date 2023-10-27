@@ -94,9 +94,9 @@ def test_integration(confpath_option: str, recipe_id: str, request):
         pytest.xfail(xfails[recipe_id])
 
     confpath = request.getfixturevalue(confpath_option)
-    import pdb
+    # import pdb
 
-    pdb.set_trace()
+    # pdb.set_trace()
     bake_script = (EXAMPLES / "runner-commands" / "bake.sh").absolute().as_posix()
     cmd = ["sh", bake_script]
     env = os.environ.copy() | {
