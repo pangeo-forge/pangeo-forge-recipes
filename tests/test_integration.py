@@ -80,7 +80,7 @@ def minio_confpath(minio, tmp_path_factory: pytest.TempPathFactory):
         if p.suffix == ".py" and not p.stem.startswith("_")
     ],
 )
-@pytest.mark.parametrize("confpath_option", ["minio_confpath"])
+@pytest.mark.parametrize("confpath_option", ["minio_confpath", "local_confpath"])
 def test_integration(confpath_option: str, recipe_id: str, request):
     """Run the example recipes in the ``examples/feedstock`` directory."""
     # pytest tests/test_integration.py -k 'test_integration' --run-integration
@@ -94,9 +94,7 @@ def test_integration(confpath_option: str, recipe_id: str, request):
         pytest.xfail(xfails[recipe_id])
 
     confpath = request.getfixturevalue(confpath_option)
-    # import pdb
 
-    # pdb.set_trace()
     bake_script = (EXAMPLES / "runner-commands" / "bake.sh").absolute().as_posix()
     cmd = ["sh", bake_script]
     env = os.environ.copy() | {

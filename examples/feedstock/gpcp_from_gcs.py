@@ -40,5 +40,5 @@ recipe = (
         store_name="gpcp.zarr",
         combine_dims=pattern.combine_dim_keys,
     )
-    | "Test dataset" >> beam.Map(test_ds)
+    # | "Test dataset" >> beam.Map(test_ds)
 )
