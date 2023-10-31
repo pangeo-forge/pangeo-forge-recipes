@@ -235,5 +235,5 @@ recipe = (
         combine_dims=pattern.combine_dim_keys,
         target_chunks={"lat": 1024, "lon": 1024, "time": 12},
     )
-    | "Test dataset" >> beam.Map(test_ds)
+    # | "Test dataset" >> beam.Map(test_ds)
 )
