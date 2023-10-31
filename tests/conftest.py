@@ -560,9 +560,11 @@ def tmp_cache_url(tmpdir_factory):
 #
 #         assert proc.returncode == 0
 
+
 @pytest.fixture(scope="session")
 def minio():
     import docker
+
     client = docker.from_env()
     port = 9000
     username = secrets.token_hex(16)
@@ -571,11 +573,11 @@ def minio():
         "minio/minio",
         "server /data",
         detach=True,
-        ports={f'{port}/tcp': port},
+        ports={f"{port}/tcp": port},
         environment={
-            'MINIO_ACCESS_KEY': username,
-            'MINIO_SECRET_KEY': password,
-        }
+            "MINIO_ACCESS_KEY": username,
+            "MINIO_SECRET_KEY": password,
+        },
     )
     time.sleep(10)  # give it time to boot
     # enter
