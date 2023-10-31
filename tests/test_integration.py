@@ -1,5 +1,6 @@
 import json
 import os
+import secrets
 import subprocess
 import time
 from pathlib import Path
@@ -15,6 +16,32 @@ pytestmark = pytest.mark.skipif(
 )
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
+
+
+@pytest.fixture(scope="session")
+def minio():
+    import docker
+
+    client = docker.from_env()
+    port = 9000
+    username = secrets.token_hex(16)
+    password = secrets.token_hex(16)
+    minio_container = client.containers.run(
+        "minio/minio",
+        "server /data",
+        detach=True,
+        ports={f"{port}/tcp": port},
+        environment={
+            "MINIO_ACCESS_KEY": username,
+            "MINIO_SECRET_KEY": password,
+        },
+    )
+    time.sleep(10)  # give it time to boot
+    # enter
+    yield {"endpoint": f"http://localhost:{port}", "username": username, "password": password}
+    # exit
+    minio_container.stop()
+    minio_container.remove()
 
 
 def test_python_json_configs_identical():

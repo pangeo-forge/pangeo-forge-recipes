@@ -14,7 +14,6 @@ Note:
    Recipe fixtures are defined in their respective test modules, e.g. `test_recipes.py`
 """
 import os
-import secrets
 import socket
 import subprocess
 import time
@@ -507,29 +506,3 @@ def tmp_cache(tmpdir_factory):
 def tmp_cache_url(tmpdir_factory):
     path = str(tmpdir_factory.mktemp("cache"))
     return path
-
-
-@pytest.fixture(scope="session")
-def minio():
-    import docker
-
-    client = docker.from_env()
-    port = 9000
-    username = secrets.token_hex(16)
-    password = secrets.token_hex(16)
-    minio_container = client.containers.run(
-        "minio/minio",
-        "server /data",
-        detach=True,
-        ports={f"{port}/tcp": port},
-        environment={
-            "MINIO_ACCESS_KEY": username,
-            "MINIO_SECRET_KEY": password,
-        },
-    )
-    time.sleep(10)  # give it time to boot
-    # enter
-    yield {"endpoint": f"http://localhost:{port}", "username": username, "password": password}
-    # exit
-    minio_container.stop()
-    minio_container.remove()
