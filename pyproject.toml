@@ -42,13 +42,15 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "click",
+    # docker-py
+    "docker",
     "pytest",
     "pytest-cov",
     "pytest-lazy-fixture",
     "pytest-sugar",
     "pytest-timeout",
     "s3fs",
-    "scipy"
+    "scipy",
 ]
 
 
