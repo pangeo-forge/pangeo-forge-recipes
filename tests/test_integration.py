@@ -104,12 +104,6 @@ def test_integration(confpath_option: str, recipe_id: str, request):
         "JOB_NAME": f"{recipe_id}-{str(int(time.time()))}",
     }
     proc = subprocess.run(cmd, capture_output=True, env=env)
-    # with subprocess.Popen(
-    #         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env
-    # ) as proc:
-    #     for line in proc.stdout:
-    #         # nice to have output
-    #         print(line, end="")
     if proc.returncode != 0:
         print("Command failed!")
         print("Stdout:", proc.stdout)
