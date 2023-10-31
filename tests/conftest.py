@@ -552,7 +552,6 @@ def minio(local_ip):
     env.update({"MINIO_ROOT_USER": username, "MINIO_ROOT_PASSWORD": password})
     with tempfile.TemporaryDirectory() as d:
         proc = subprocess.Popen(["minio", "server", d, "--address", address], env=env)
-
         yield {"endpoint": endpoint, "username": username, "password": password}
 
         # Cleanup minio server during teardown
