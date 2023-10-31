@@ -511,26 +511,26 @@ def tmp_cache_url(tmpdir_factory):
     return path
 
 
-# local_ip and minio copied directly from pangeo-forge-runner conftest.py
-@pytest.fixture(scope="session")
-def local_ip():
-    """
-    Return IP of current machine
-
-    Hopefully, this is resolveable by both code running on the machine
-    as well as whatever kubernetes cluster is being used to run tests.
-    """
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.settimeout(0)
-    try:
-        # doesn't even have to be reachable
-        s.connect(("10.254.254.254", 1))
-        IP = s.getsockname()[0]
-    except Exception:
-        IP = "127.0.0.1"
-    finally:
-        s.close()
-    return IP
+# # local_ip and minio copied directly from pangeo-forge-runner conftest.py
+# @pytest.fixture(scope="session")
+# def local_ip():
+#     """
+#     Return IP of current machine
+#
+#     Hopefully, this is resolveable by both code running on the machine
+#     as well as whatever kubernetes cluster is being used to run tests.
+#     """
+#     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#     s.settimeout(0)
+#     try:
+#         # doesn't even have to be reachable
+#         s.connect(("10.254.254.254", 1))
+#         IP = s.getsockname()[0]
+#     except Exception:
+#         IP = "127.0.0.1"
+#     finally:
+#         s.close()
+#     return IP
 
 
 # @pytest.fixture(scope="session")
