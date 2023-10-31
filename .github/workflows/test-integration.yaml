@@ -62,7 +62,7 @@ jobs:
       - name: 🌈 Install pangeo-forge-recipes & pangeo-forge-runner
         shell: bash -l {0}
         run: |
-          python -m pip install -e ".[dev]"
+          python -m pip install -e ".[test,minio]"
           python -m pip install ${{ matrix.runner-version }}
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}

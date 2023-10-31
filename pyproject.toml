@@ -40,10 +40,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+test = [
     "click",
-    # docker-py
-    "docker",
     "pytest",
     "pytest-cov",
     "pytest-lazy-fixture",
@@ -52,7 +50,9 @@ dev = [
     "s3fs",
     "scipy",
 ]
-
+minio = [
+    # docker-py,
+    "docker"]
 
 [project.urls]
 Homepage = "https://github.com/pangeo-forge/pangeo-forge-recipes"
