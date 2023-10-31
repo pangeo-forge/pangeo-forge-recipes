@@ -68,5 +68,5 @@ recipe = (
         combine_dims=pattern.combine_dim_keys,
         target_chunks={"time": 1},
     )
-    # | "Test dataset" >> beam.Map(test_ds)
+    | "Test dataset" >> beam.Map(test_ds)
 )
