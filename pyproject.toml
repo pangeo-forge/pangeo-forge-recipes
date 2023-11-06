@@ -40,7 +40,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+test = [
     "click",
     "pytest",
     "pytest-cov",
@@ -48,9 +48,11 @@ dev = [
     "pytest-sugar",
     "pytest-timeout",
     "s3fs",
-    "scipy"
+    "scipy",
 ]
-
+minio = [
+    "docker",
+]
 
 [project.urls]
 Homepage = "https://github.com/pangeo-forge/pangeo-forge-recipes"

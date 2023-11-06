@@ -539,4 +539,5 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         )
         # TODO: optionally use `singleton_target_store` to
         # consolidate metadata and/or coordinate dims here
+
         return singleton_target_store
