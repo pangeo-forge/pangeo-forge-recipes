@@ -51,8 +51,8 @@ test = [
     "scipy",
 ]
 minio = [
-    # docker-py,
-    "docker"]
+    "docker",
+]
 
 [project.urls]
 Homepage = "https://github.com/pangeo-forge/pangeo-forge-recipes"
