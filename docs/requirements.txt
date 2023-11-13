@@ -4,7 +4,7 @@ pangeo-sphinx-book-theme==0.2
 git+https://github.com/executablebooks/MyST-NB.git@66a304f6df25db4fcc07a2311b4111080b1b07a5
 sphinx-copybutton==0.5.2
 sphinx-togglebutton==0.3.2
-sphinx-autodoc-typehints==1.23.0
+sphinx-autodoc-typehints==1.25.2
 sphinxext-opengraph==0.9.0
 sphinx-design==0.5.0
 -e .
