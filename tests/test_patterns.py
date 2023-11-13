@@ -87,7 +87,6 @@ def test_pattern_from_file_sequence():
 
 @pytest.mark.parametrize("pickle", [False, True])
 def test_file_pattern_concat_merge(runtime_secrets, pickle, concat_merge_pattern_with_kwargs):
-
     fp, times, varnames, format_function, kwargs = concat_merge_pattern_with_kwargs
 
     if runtime_secrets:
@@ -155,7 +154,6 @@ def test_incompatible_kwargs():
 
 @pytest.mark.parametrize("nkeep", [1, 2])
 def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
-
     fp = concat_merge_pattern_with_kwargs[0]
 
     if runtime_secrets:
@@ -190,7 +188,6 @@ def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
 
 @pytest.mark.parametrize("file_type_value", [ft.value for ft in list(FileType)] + ["unsupported"])
 def test_setting_file_types(file_type_value):
-
     file_type_kwargs = {"file_type": file_type_value}
 
     if not file_type_value == "unsupported":

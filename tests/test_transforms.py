@@ -152,7 +152,6 @@ def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
 
 @pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])
 def test_PrepareZarrTarget(pipeline, tmp_target_url, target_chunks):
-
     ds = make_ds()
     schema = dataset_to_schema(ds)
 

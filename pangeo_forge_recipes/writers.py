@@ -124,7 +124,6 @@ def write_combined_reference(
             f.write(ujson.dumps(multi_kerchunk).encode())
 
     elif file_ext == ".parquet":
-
         # Creates empty parquet store to be written to
         if full_target.exists(output_file_name):
             full_target.rm(output_file_name, recursive=True)

@@ -379,7 +379,6 @@ class PrepareZarrTarget(beam.PTransform):
 
 @dataclass
 class StoreDatasetFragments(beam.PTransform):
-
     target_store: beam.PCollection  # side input
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:

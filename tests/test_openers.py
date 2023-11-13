@@ -161,7 +161,6 @@ def test_direct_open_with_xarray(public_url_and_type, load, xarray_open_kwargs):
 
 def is_valid_inline_threshold():
     def _is_valid_inline_threshold(references):
-
         assert isinstance(references[0][0]["refs"]["lat/0"], list)
 
     return _is_valid_inline_threshold

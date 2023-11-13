@@ -226,7 +226,6 @@ def test_combine_fragments_multidim(time_chunk, lat_chunk):
 
 
 def test_combine_fragments_errors():
-
     ds = make_ds(nt=1)
     group = (("time", 0),)  # not actually used
 

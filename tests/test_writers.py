@@ -16,7 +16,6 @@ def temp_store(tmp_path):
 
 
 def test_store_dataset_fragment(temp_store):
-
     ds = make_ds(non_dim_coords=True)
     schema = ds.to_dict(data=False, encoding=True)
     schema["chunks"] = {}

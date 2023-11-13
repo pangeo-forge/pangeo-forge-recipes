@@ -154,7 +154,6 @@ def get_open_port():
 
 
 def start_http_server(paths, request, username=None, password=None, required_query_string=None):
-
     first_path = paths[0]
     # assume that all files are in the same directory
     basedir = os.path.dirname(first_path)

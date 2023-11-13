@@ -86,7 +86,6 @@ def test_schema_to_template_ds_cftime():
 
 
 def test_schema_to_template_ds_attrs():
-
     attrs = {"test_attr_key": "test_attr_value"}
     ds = xr.decode_cf(
         xr.DataArray(
