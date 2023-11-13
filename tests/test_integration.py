@@ -82,6 +82,7 @@ def minio_confpath(minio, tmp_path_factory: pytest.TempPathFactory):
     fsspec_args = {
         "key": minio["username"],
         "secret": minio["password"],
+        "use_listings_cache": False,
         "client_kwargs": {"endpoint_url": minio["endpoint"]},
     }
 
@@ -131,7 +132,4 @@ def test_integration(confpath_option: str, recipe_id: str, request):
         "JOB_NAME": f"{recipe_id}-{str(int(time.time()))}",
     }
     proc = subprocess.run(cmd, capture_output=True, env=env, text=True)
-    if proc.returncode != 0:
-        print("Command failed!")
-        print("Stdout:", proc.stdout)
-        print("Stderr:", proc.stderr)
+    assert proc.returncode == 0
