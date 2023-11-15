@@ -24,6 +24,8 @@ jobs:
         python-version: ["3.9", "3.10", "3.11"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          depth: 0 # checkout tags (not done by default)
       - name: 🔁 Setup Python
         id: setup-python
         uses: actions/setup-python@v4
