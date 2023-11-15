@@ -8,11 +8,7 @@ import apache_beam as beam
 import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.transforms import (
-    CombineReferences,
-    OpenWithKerchunk,
-    WriteCombinedReference,
-)
+from pangeo_forge_recipes.transforms import OpenWithKerchunk, WriteCombinedReference
 
 remote_protocol = "s3"
 storage_options = {"anon": True}
@@ -51,13 +47,11 @@ recipe = (
         storage_options=storage_options,
         kerchunk_open_kwargs={"filter": grib_filters},
     )
-    | CombineReferences(
+    | WriteCombinedReference(
+        store_name="hrrr-concat-step",
         concat_dims=pattern.concat_dims,
         identical_dims=identical_dims,
         precombine_inputs=True,
-    )
-    | WriteCombinedReference(
-        store_name="hrrr-concat-step",
     )
     | "Test dataset" >> beam.Map(test_ds)
 )

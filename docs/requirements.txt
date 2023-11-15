@@ -1,12 +1,10 @@
-sphinx==3.5.4
+sphinx==6.2.1
 pangeo-sphinx-book-theme==0.2
-myst-parser==0.13.6
-myst-nb==0.12.3
+# https://github.com/executablebooks/MyST-NB/issues/543
+git+https://github.com/executablebooks/MyST-NB.git@66a304f6df25db4fcc07a2311b4111080b1b07a5
 sphinx-copybutton==0.5.2
-sphinx-togglebutton==0.2.2
-sphinx-autodoc-typehints==1.12.0
-sphinx-panels==0.6.0
-sphinxext-opengraph>=0.6.3
-# https://github.com/sphinx-doc/sphinx/issues/10291#issuecomment-1078046986
-jinja2<3.1
+sphinx-togglebutton==0.3.2
+sphinx-autodoc-typehints==1.23.0
+sphinxext-opengraph==0.9.0
+sphinx-design==0.5.0
 -e .

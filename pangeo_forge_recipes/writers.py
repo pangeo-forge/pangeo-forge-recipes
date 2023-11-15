@@ -1,9 +1,10 @@
 import os
-from typing import Protocol, Tuple, Union
+from typing import List, Protocol, Tuple, Union
 
 import numpy as np
 import xarray as xr
 import zarr
+from fsspec.implementations.reference import LazyReferenceMapper
 from kerchunk.combine import MultiZarrToZarr
 
 from .patterns import CombineOp, Index
@@ -92,25 +93,62 @@ def store_dataset_fragment(
     return target_store
 
 
+def _select_single_protocol(full_target: FSSpecTarget) -> str:
+    # Grabs first protocol if there are multiple options: Based off of logic in fsspec:
+    # https://github.com/fsspec/filesystem_spec/blob/b8aeb13361e89f22f323bbc93c8308ff2ffede19/fsspec/spec.py#L1410-L1414
+    return (
+        full_target.fs.protocol[0]
+        if isinstance(full_target.fs.protocol, (tuple, list))
+        else full_target.fs.protocol
+    )
+
+
 def write_combined_reference(
     reference: MultiZarrToZarr,
     full_target: FSSpecTarget,
-    output_json_fname: str,
-):
+    concat_dims: List[str],
+    output_file_name: str,
+    refs_per_component: int = 1000,
+) -> FSSpecTarget:
     """Write a kerchunk combined references object to file."""
 
     import ujson  # type: ignore
 
-    multi_kerchunk = reference.translate()
-    file_ext = os.path.splitext(output_json_fname)[-1]
+    file_ext = os.path.splitext(output_file_name)[-1]
+
+    outpath = full_target._full_path(output_file_name)
 
     if file_ext == ".json":
-        outpath = os.path.join(full_target.root_path, output_json_fname)
+        multi_kerchunk = reference.translate()
         with full_target.fs.open(outpath, "wb") as f:
             f.write(ujson.dumps(multi_kerchunk).encode())
+
+    elif file_ext == ".parquet":
+
+        # Creates empty parquet store to be written to
+        if full_target.exists(output_file_name):
+            full_target.rm(output_file_name, recursive=True)
+        full_target.makedir(output_file_name)
+
+        remote_protocol = _select_single_protocol(full_target)
+
+        out = LazyReferenceMapper.create(refs_per_component, outpath, full_target.fs)
+
+        # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
+        MultiZarrToZarr(
+            [reference.translate()],
+            concat_dims=concat_dims,
+            remote_protocol=remote_protocol,
+            out=out,
+        ).translate()
+
+        # call to write reference to empty parquet store
+        out.flush()
+
     else:
-        # TODO: implement parquet writer
         raise NotImplementedError(f"{file_ext = } not supported.")
+
+    return full_target
 
 
 class ZarrWriterProtocol(Protocol):

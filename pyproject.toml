@@ -28,7 +28,8 @@ dependencies = [
     "apache-beam",
     "cftime",
     "dask >= 2021.11.2",
-    "fsspec[http] >= 2021.6.0",
+    "fastparquet",
+    "fsspec[http] >= 2023.4.0",
     "h5netcdf",
     "h5py >= 3.3.0",
     "kerchunk >= 0.0.7",
@@ -39,16 +40,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+test = [
     "click",
     "pytest",
     "pytest-cov",
     "pytest-lazy-fixture",
     "pytest-sugar",
     "pytest-timeout",
-    "scipy"
+    "s3fs",
+    "scipy",
 ]
-
+minio = [
+    "docker",
+]
 
 [project.urls]
 Homepage = "https://github.com/pangeo-forge/pangeo-forge-recipes"
@@ -81,3 +85,6 @@ line_length = 100
 log_cli = false
 timeout = 30
 timeout_method = "signal"
+
+[project.entry-points."pangeo_forge_runner.injection_specs"]
+default_injections = "pangeo_forge_recipes.injections:get_injection_specs"
