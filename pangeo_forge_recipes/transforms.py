@@ -483,7 +483,10 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
       If a dimension is a not named, the chunks will be inferred from the data.
     :param dynamic_chunking_fn: Optionally provide a function that takes an ``xarray.Dataset``
       template dataset as its first argument and returns a dynamically generated chunking dict.
-      If provided, ``target_chunks`` cannot also be passed.
+      If provided, ``target_chunks`` cannot also be passed. You can use this to determine chunking 
+      based on the full dataset (e.g. divide along a certain dimension based on a desired chunk 
+      size in memory). For more advanced chunking strategies, check 
+      out https://github.com/jbusecke/dynamic_chunks
     :param dynamic_chunking_fn_kwargs: Optional keyword arguments for ``dynamic_chunking_fn``.
     :param attrs: Extra group-level attributes to inject into the dataset.
     """
