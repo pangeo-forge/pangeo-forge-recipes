@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          depth: 0 # checkout tags (not done by default)
+          fetch-depth: 0 # checkout tags (not done by default)
       - name: 🔁 Setup Python
         id: setup-python
         uses: actions/setup-python@v4
