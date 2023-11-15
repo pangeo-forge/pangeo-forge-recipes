@@ -29,6 +29,9 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     assert ds.title == (
         "Global Precipitation Climatatology Project (GPCP) " "Climate Data Record (CDR), Daily V1.3"
     )
+    # Making sure that the native chunking is different from the dynamic chunking
+    assert ds.chunks['time'][0] == 1 
+
     return store
 
 
