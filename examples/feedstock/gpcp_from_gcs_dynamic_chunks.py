@@ -32,11 +32,13 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     assert ds.title == (
         "Global Precipitation Climatatology Project (GPCP) " "Climate Data Record (CDR), Daily V1.3"
     )
+
+    assert ds.chunks['time'][0] == 7
     return store
 
 
 def chunk_func(ds: xr.Dataset) -> Dict[str, int]:
-    return {"time": 3}
+    return {"time": 7}
 
 
 recipe = (
