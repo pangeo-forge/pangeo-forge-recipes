@@ -1,8 +1,9 @@
+from typing import Dict
+
 import apache_beam as beam
 import pandas as pd
 import xarray as xr
 import zarr
-from typing import Dict
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
 from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, StoreToZarr
@@ -33,8 +34,10 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     )
     return store
 
+
 def chunk_func(ds: xr.Dataset) -> Dict[str, int]:
-    return {'time': 3}
+    return {"time": 3}
+
 
 recipe = (
     beam.Create(pattern.items())
