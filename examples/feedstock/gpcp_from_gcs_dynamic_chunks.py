@@ -1,5 +1,8 @@
+from typing import Dict
+
 import apache_beam as beam
 import pandas as pd
+import xarray as xr
 import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
@@ -29,10 +32,13 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     assert ds.title == (
         "Global Precipitation Climatatology Project (GPCP) " "Climate Data Record (CDR), Daily V1.3"
     )
-    # Making sure that the native chunking is different from the dynamic chunking
-    assert ds.chunks["time"][0] == 1
 
+    assert ds.chunks["time"][0] == 2
     return store
+
+
+def chunk_func(ds: xr.Dataset) -> Dict[str, int]:
+    return {"time": 2}
 
 
 recipe = (
@@ -40,6 +46,7 @@ recipe = (
     | OpenURLWithFSSpec()
     | OpenWithXarray(file_type=pattern.file_type, xarray_open_kwargs={"decode_coords": "all"})
     | StoreToZarr(
+        dynamic_chunking_fn=chunk_func,
         store_name="gpcp.zarr",
         combine_dims=pattern.combine_dim_keys,
     )
