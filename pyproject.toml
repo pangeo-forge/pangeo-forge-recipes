@@ -44,6 +44,7 @@ test = [
     "click",
     "pytest",
     "pytest-cov",
+    "pytest-xdist",
     "pytest-lazy-fixture",
     "pytest-sugar",
     "pytest-timeout",
