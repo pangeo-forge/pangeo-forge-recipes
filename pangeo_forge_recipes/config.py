@@ -14,7 +14,7 @@ class Config:
     on to custom transforms or partials in their recipe:
 
     ```python
-    from config import RecipeConfig
+    from config import Config
 
     @dataclass
     class MyCustomTransform(beam.PTransform):
@@ -23,9 +23,9 @@ class Config:
         # but now it can be used anyway in practice
         target_root: None
 
-    recipe_config = RecipeConfig()
+    config = Config()
 
-    beam.Create() | MyCustomTransform(target_root=recipe_config.target_root)
+    beam.Create() | MyCustomTransform(target_root=config.target_root)
     ```
     """
 
