@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Union, Optional
+from typing import Optional, Union
 
-from pangeo_forge_recipes.storage import FSSpecTarget, CacheFSSpecTarget
+from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 from pangeo_forge_recipes.transforms import RequiredAtRuntimeDefault
 
 
