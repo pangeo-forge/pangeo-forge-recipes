@@ -31,4 +31,4 @@ class RecipeConfig:
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
-    cache: Optional[str | CacheFSSpecTarget] = None
+    cache: Optional[Union[str, CacheFSSpecTarget]] = ""
