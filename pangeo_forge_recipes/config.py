@@ -28,6 +28,7 @@ class RecipeConfig:
     beam.Create() | MyCustomTransform(target_root=recipe_config.target_root)
     ```
     """
+
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
