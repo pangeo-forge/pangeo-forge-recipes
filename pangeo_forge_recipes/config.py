@@ -6,7 +6,7 @@ from pangeo_forge_recipes.transforms import RequiredAtRuntimeDefault
 
 
 @dataclass
-class RecipeConfig:
+class Config:
     """a simple class that SHOULD house all injection spec values
     from `pangeo_forge_recipes.injections.py:get_injection_specs()`
 
