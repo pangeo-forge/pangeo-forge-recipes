@@ -104,7 +104,7 @@ def _select_single_protocol(full_target: FSSpecTarget) -> str:
 
 
 def write_combined_reference(
-    reference: MultiZarrToZarr,
+    reference: dict,
     full_target: FSSpecTarget,
     concat_dims: List[str],
     output_file_name: str,
@@ -119,7 +119,7 @@ def write_combined_reference(
     outpath = full_target._full_path(output_file_name)
 
     if file_ext == ".json":
-        multi_kerchunk = reference.translate()
+        multi_kerchunk = reference
         with full_target.fs.open(outpath, "wb") as f:
             f.write(ujson.dumps(multi_kerchunk).encode())
 
@@ -136,7 +136,7 @@ def write_combined_reference(
 
         # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
         MultiZarrToZarr(
-            [reference.translate()],
+            [reference],
             concat_dims=concat_dims,
             remote_protocol=remote_protocol,
             out=out,
