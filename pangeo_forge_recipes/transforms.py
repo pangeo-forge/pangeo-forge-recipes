@@ -496,7 +496,7 @@ class WriteReference(beam.PTransform, ZarrWriterMixin):
     def expand(self, references: beam.PCollection) -> beam.PCollection:
         return references | beam.Map(
             write_combined_reference,
-            full_target=self.get_full_target(),
+            target_root=self.target_root,
             concat_dims=self.concat_dims,
             output_file_name=self.output_file_name,
         )
