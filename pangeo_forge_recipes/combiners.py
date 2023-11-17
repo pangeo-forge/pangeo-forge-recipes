@@ -91,5 +91,5 @@ class CombineMultiZarrToZarr(beam.CombineFn):
         references = [a.translate() for a in accumulators]
         return self.to_mzz(references)
 
-    def extract_output(self, accumulator: MultiZarrToZarr) -> MultiZarrToZarr:
-        return accumulator
+    def extract_output(self, accumulator: MultiZarrToZarr) -> dict:
+        return accumulator.translate()
