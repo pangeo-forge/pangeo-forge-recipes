@@ -1,8 +1,8 @@
 def get_injection_specs():
     return {
         "Config": {
-            "target_root": "TARGET_STORAGE",
-            "cache": "INPUT_CACHE_STORAGE",
+            "target_storage": "TARGET_STORAGE",
+            "input_cache_storage": "INPUT_CACHE_STORAGE",
         },
         "StoreToZarr": {
             "target_root": "TARGET_STORAGE",

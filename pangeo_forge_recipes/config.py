@@ -7,29 +7,30 @@ from pangeo_forge_recipes.transforms import RequiredAtRuntimeDefault
 
 @dataclass
 class Config:
-    """a simple class that SHOULD house all injection spec values
-    from `pangeo_forge_recipes.injections.py:get_injection_specs()`
+    """a simple class that contains all possible injection spec values
 
-    This way folks can use it to pass injection spec values around
-    on to custom transforms or partials in their recipe:
+    folks can import it into their recipes to pass injection spec values
+    around to custom beam routines as the example below shows
 
-    ```python
-    from config import Config
+    Examples:
+        ```python
+        from config import Config
 
-    @dataclass
-    class MyCustomTransform(beam.PTransform):
-        # note that `MyCustomTransform` is not part of the
-        # pangeo_forge_recipes.injections.py:get_injection_specs()
-        # but now it can be used anyway in practice
-        target_root: None
+        @dataclass
+        class MyCustomTransform(beam.PTransform):
 
-    config = Config()
+            # this custom transform class is not listed
+            # in `pangeo_forge_recipes.injections.py:get_injection_specs()`
+            # and the instance attr will therefore not be dependency injected
+            # but we can use the `config.Config` to pass around the injections
+            target_root: None
 
-    beam.Create() | MyCustomTransform(target_root=config.target_root)
-    ```
+        config = Config()
+        recipe = (beam.Create() | MyCustomTransform(target_storage=config.target_storage))
+        ```
     """
 
-    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+    target_storage: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
-    cache: Optional[Union[str, CacheFSSpecTarget]] = ""
+    input_cache_storage: Optional[str, CacheFSSpecTarget] = ""
