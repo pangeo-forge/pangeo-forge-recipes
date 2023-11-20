@@ -25,6 +25,11 @@ class Config:
             # but we can use the `config.Config` to pass around the injections
             target_root: None
 
+            def expand(self,
+                pcoll: beam.PCollection[Tuple[Index, xr.Dataset]],
+            ) ->  beam.PCollection[Tuple[Index, xr.Dataset]]:
+                return pcoll
+
         config = Config()
         recipe = (beam.Create() | MyCustomTransform(target_storage=config.target_storage))
         ```
