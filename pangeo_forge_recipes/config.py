@@ -33,4 +33,4 @@ class Config:
     target_storage: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
-    input_cache_storage: Optional[str, CacheFSSpecTarget] = None
+    input_cache_storage: Optional[Union[str, CacheFSSpecTarget]] = ""
