@@ -1,7 +1,7 @@
+from dataclasses import dataclass, field
 from typing import Union
 
 import apache_beam as beam
-from dataclasses import dataclass, field
 import pandas as pd
 import zarr
 
@@ -11,8 +11,8 @@ from pangeo_forge_recipes.storage import FSSpecTarget
 from pangeo_forge_recipes.transforms import (
     OpenURLWithFSSpec,
     OpenWithXarray,
-    StoreToZarr,
     RequiredAtRuntimeDefault,
+    StoreToZarr,
 )
 
 dates = [
