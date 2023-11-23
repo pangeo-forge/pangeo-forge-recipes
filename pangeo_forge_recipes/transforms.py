@@ -17,6 +17,8 @@ from typing import (
     Union,
 )
 
+import fsspec
+
 # PEP612 Concatenate & ParamSpec are useful for annotating decorators, but their import
 # differs between Python versions 3.9 & 3.10. See: https://stackoverflow.com/a/71990006
 if sys.version_info < (3, 10):
@@ -403,22 +405,20 @@ class StoreDatasetFragments(beam.PTransform):
 # - consolidate coords
 
 
-@dataclass
-class ConsolidateMetadata(beam.PTransform):
+@beam.ptransform_fn
+def ConsolidateMetadata(pcoll: beam.PCollection) -> beam.PCollection:
     """Consolidate metadata into a single .zmetadata field.
 
     See zarr.consolidate_metadata() for details.
     """
 
-    @staticmethod
     def _consolidate(store: MutableMapping) -> zarr._storage.BaseStore:
         import zarr
 
-        zarr.consolidate_metadata(store)
+        zarr.consolidate_metadata(store, path=None)
         return store
 
-    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(self._consolidate)
+    return pcoll | beam.Map(_consolidate)
 
 
 @dataclass
@@ -462,15 +462,34 @@ class CombineReferences(beam.PTransform):
     identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
+    storage_options: Dict = field(default_factory=dict)
+
+    @staticmethod
+    def _create_fsmap(
+        references: dict,
+        storage_options: Optional[dict] = None,
+    ) -> fsspec.FSMap:
+        return fsspec.filesystem(
+            "reference",
+            fo=references,
+            remote_options=storage_options,
+        ).get_mapper()
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
-        return references | beam.CombineGlobally(
-            CombineMultiZarrToZarr(
-                concat_dims=self.concat_dims,
-                identical_dims=self.identical_dims,
-                mzz_kwargs=self.mzz_kwargs,
-                precombine_inputs=self.precombine_inputs,
-            ),
+        return (
+            references
+            | beam.CombineGlobally(
+                CombineMultiZarrToZarr(
+                    concat_dims=self.concat_dims,
+                    identical_dims=self.identical_dims,
+                    mzz_kwargs=self.mzz_kwargs,
+                    precombine_inputs=self.precombine_inputs,
+                ),
+            )
+            | beam.Map(
+                self._create_fsmap,
+                storage_options=self.storage_options,
+            )
         )
 
 
@@ -496,7 +515,9 @@ class WriteReference(beam.PTransform, ZarrWriterMixin):
     def expand(self, references: beam.PCollection) -> beam.PCollection:
         return references | beam.Map(
             write_combined_reference,
-            target_root=self.target_root,
+            full_target=FSSpecTarget.from_url(self.target_root)
+            if isinstance(self.target_root, str)
+            else self.target_root,
             concat_dims=self.concat_dims,
             output_file_name=self.output_file_name,
         )

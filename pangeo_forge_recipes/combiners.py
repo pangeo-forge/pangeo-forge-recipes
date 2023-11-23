@@ -1,7 +1,7 @@
 import operator
 from dataclasses import dataclass, field
 from functools import reduce
-from typing import List, Sequence, Tuple
+from typing import List, MutableMapping, Sequence, Tuple
 
 import apache_beam as beam
 from kerchunk.combine import MultiZarrToZarr
@@ -91,5 +91,5 @@ class CombineMultiZarrToZarr(beam.CombineFn):
         references = [a.translate() for a in accumulators]
         return self.to_mzz(references)
 
-    def extract_output(self, accumulator: MultiZarrToZarr) -> dict:
+    def extract_output(self, accumulator: MultiZarrToZarr) -> MutableMapping:
         return accumulator.translate()
