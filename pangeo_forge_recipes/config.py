@@ -7,8 +7,7 @@ from pangeo_forge_recipes.transforms import RequiredAtRuntimeDefault
 
 @dataclass
 class Config:
-    """a class that contains all dependency injections needed for transforms
-    """
+    """a class that contains all dependency injections needed for transforms"""
 
     target_storage: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
