@@ -17,10 +17,11 @@ from .data_generation import make_ds
     [(5, "1D"), (10, "2D")],
 )
 @pytest.mark.parametrize("time_chunks", [1, 2, 5])
-def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks):
+@pytest.mark.parametrize("other_chunks", [{}, {"lat": 5}, {"lat": 5, "lon": 5}])
+def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks, other_chunks):
     """Test if sub-fragments split from datasets with merge dims can be combined with each other."""
 
-    target_chunks = {"time": time_chunks}
+    target_chunks = {"time": time_chunks, **other_chunks}
     nt, dayparam = nt_dayparam
     ds = make_ds(nt=nt)
     dsets, _, _ = split_up_files_by_variable_and_day(ds, dayparam)
