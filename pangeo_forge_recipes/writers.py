@@ -1,4 +1,3 @@
-import base64
 import os
 from typing import Dict, List, MutableMapping, Optional, Protocol, Tuple, Union
 
@@ -105,22 +104,6 @@ def _select_single_protocol(full_target: FSSpecTarget) -> str:
     )
 
 
-# Copied from ReferenceFileSystem._save_json
-def _save_json(
-    ref_fs: ReferenceFileSystem,
-) -> dict:
-    out = {}
-    for k, v in ref_fs.references.items():
-        if isinstance(v, bytes):
-            try:
-                out[k] = v.decode("ascii")
-            except UnicodeDecodeError:
-                out[k] = (b"base64:" + base64.b64encode(v)).decode()
-        else:
-            out[k] = v
-    return out
-
-
 def write_combined_reference(
     reference: MutableMapping,
     full_target: FSSpecTarget,
@@ -131,8 +114,6 @@ def write_combined_reference(
 ) -> zarr.storage.FSStore:
     """Write a kerchunk combined references object to file."""
 
-    import ujson  # type: ignore
-
     file_ext = os.path.splitext(output_file_name)[-1]
 
     outpath = full_target._full_path(output_file_name)
@@ -140,10 +121,7 @@ def write_combined_reference(
 
     # If reference is a ReferenceFileSystem, write to json
     if isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
-        ref_dict = _save_json(reference.fs)
-        with full_target.fs.open(outpath, "wb") as f:
-            f.write(ujson.dumps(ref_dict).encode())
-    # If reference is a LazyReferenceMapper, write to parquet
+        reference.fs.save_json(outpath, **remote_options)
     elif file_ext == ".parquet":
 
         # Creates empty parquet store to be written to
@@ -151,15 +129,13 @@ def write_combined_reference(
             full_target.rm(output_file_name, recursive=True)
         full_target.makedir(output_file_name)
 
-        remote_protocol = _select_single_protocol(full_target)
-
         out = LazyReferenceMapper.create(refs_per_component, outpath, full_target.fs)
 
         # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
         MultiZarrToZarr(
             [reference],
             concat_dims=concat_dims,
-            remote_protocol=remote_protocol,
+            remote_protocol=target_protocol,
             out=out,
         ).translate()
 

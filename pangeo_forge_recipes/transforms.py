@@ -17,8 +17,6 @@ from typing import (
     Union,
 )
 
-import fsspec
-
 # PEP612 Concatenate & ParamSpec are useful for annotating decorators, but their import
 # differs between Python versions 3.9 & 3.10. See: https://stackoverflow.com/a/71990006
 if sys.version_info < (3, 10):
@@ -462,34 +460,17 @@ class CombineReferences(beam.PTransform):
     identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
-    storage_options: Dict = field(default_factory=dict)
-
-    @staticmethod
-    def _create_fsmap(
-        references: dict,
-        storage_options: Optional[dict] = None,
-    ) -> fsspec.FSMap:
-        return fsspec.filesystem(
-            "reference",
-            fo=references,
-            remote_options=storage_options,
-        ).get_mapper()
+    storage_options: dict = field(default_factory=dict)
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
-        return (
-            references
-            | beam.CombineGlobally(
-                CombineMultiZarrToZarr(
-                    concat_dims=self.concat_dims,
-                    identical_dims=self.identical_dims,
-                    mzz_kwargs=self.mzz_kwargs,
-                    precombine_inputs=self.precombine_inputs,
-                ),
-            )
-            | beam.Map(
-                self._create_fsmap,
+        return references | beam.CombineGlobally(
+            CombineMultiZarrToZarr(
+                concat_dims=self.concat_dims,
+                identical_dims=self.identical_dims,
+                mzz_kwargs=self.mzz_kwargs,
+                precombine_inputs=self.precombine_inputs,
                 storage_options=self.storage_options,
-            )
+            ),
         )
 
 
@@ -515,9 +496,7 @@ class WriteReference(beam.PTransform, ZarrWriterMixin):
     def expand(self, references: beam.PCollection) -> beam.PCollection:
         return references | beam.Map(
             write_combined_reference,
-            full_target=FSSpecTarget.from_url(self.target_root)
-            if isinstance(self.target_root, str)
-            else self.target_root,
+            full_target=self.get_full_target(),
             concat_dims=self.concat_dims,
             output_file_name=self.output_file_name,
         )

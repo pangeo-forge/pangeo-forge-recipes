@@ -190,9 +190,10 @@ def test_DetermineSchema_concat_merge(dimensions, dsets_pcoll_concat_merge, pipe
         assert_that(output, has_correct_schema(expected_schema))
 
 
-def is_expected_mzz(expected_mzz):
+def is_expected_dataset(expected_ds):
     def _impl(actual):
-        assert expected_mzz == actual[0]
+        actual_ds = xr.open_dataset(actual[0], engine="zarr")
+        assert expected_ds == actual_ds
 
     return _impl
 
@@ -210,7 +211,13 @@ def test_CombineReferences(netcdf_public_http_paths_sequential_1d, pipeline):
 
     concat_dims = ["time"]
     identical_dims = ["lat", "lon"]
-    expected_mzz = MultiZarrToZarr(refs, concat_dims=concat_dims, identical_dims=identical_dims)
+    mapper = fsspec.filesystem(
+        "reference",
+        fo=MultiZarrToZarr(
+            refs, concat_dims=concat_dims, identical_dims=identical_dims
+        ).translate(),
+    ).get_mapper()
+    expected_dataset = xr.open_dataset(mapper, engine="zarr")
 
     with pipeline as p:
         input = p | beam.Create(generate_refs(urls))
@@ -218,4 +225,4 @@ def test_CombineReferences(netcdf_public_http_paths_sequential_1d, pipeline):
             CombineMultiZarrToZarr(concat_dims=concat_dims, identical_dims=identical_dims)
         )
 
-        assert_that(output, is_expected_mzz(expected_mzz.translate()))
+        assert_that(output, is_expected_dataset(expected_dataset))

@@ -1,9 +1,10 @@
 import operator
 from dataclasses import dataclass, field
 from functools import reduce
-from typing import List, MutableMapping, Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 import apache_beam as beam
+import fsspec
 from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarrayCombineAccumulator, XarraySchema
@@ -67,6 +68,7 @@ class CombineMultiZarrToZarr(beam.CombineFn):
     identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
+    storage_options: dict = field(default_factory=dict)
 
     def to_mzz(self, references):
         return MultiZarrToZarr(
@@ -91,5 +93,9 @@ class CombineMultiZarrToZarr(beam.CombineFn):
         references = [a.translate() for a in accumulators]
         return self.to_mzz(references)
 
-    def extract_output(self, accumulator: MultiZarrToZarr) -> MutableMapping:
-        return accumulator.translate()
+    def extract_output(self, accumulator: MultiZarrToZarr) -> MultiZarrToZarr:
+        return fsspec.filesystem(
+            "reference",
+            fo=accumulator.translate(),
+            remote_options=self.storage_options,
+        ).get_mapper()
