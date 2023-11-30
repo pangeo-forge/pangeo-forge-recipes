@@ -219,7 +219,6 @@ def open_with_xarray(
 
     kw = xarray_open_kwargs or {}
     kw = _set_engine(file_type, kw)
-
     if copy_to_local:
         if file_type in [FileType.zarr or FileType.opendap]:
             raise ValueError(f"File type {file_type} can't be copied to a local file.")
