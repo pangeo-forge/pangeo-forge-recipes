@@ -1,5 +1,16 @@
 # Release Notes
 
+## v0.10.4 - 2023-11-15
+
+- Add `dynamic_chunking_fn`/`dynamic_chunking_fn_kwargs` keywords to StoreToZarr. This allows users to pass a function that will be called at runtime to determine the target chunks for the resulting datasets based on the in memory representation/size of the recipe dataset. {pull}`595`
+
+## v0.10.3 - 2023-10-03
+
+- Assign injection spec values for command line interface {pull}`566`
+- Docs rewrite {pull}`610`
+- Simplify reference recipe composition by nesting transforms {pull}`635`
+- Reference transforms dependency and bugfixes {pull}`631` {pull}`632`
+
 ## v0.10.2 - 2023-09-19
 
 - Fix bug preventing use of multiple merge dims {pull}`591`
