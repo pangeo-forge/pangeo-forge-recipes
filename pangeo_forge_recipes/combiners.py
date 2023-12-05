@@ -62,7 +62,8 @@ class CombineMultiZarrToZarr(beam.CombineFn):
       along a dimension that does not exist in the individual inputs. In this latter
       case, precombining adds the additional dimension to the input so that its
       dimensionality will match that of the accumulator.
-    :
+    :param storage_options: Storage options dict to pass to the MultiZarrToZarr
+
     """
 
     concat_dims: List[str]
