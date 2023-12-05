@@ -56,10 +56,14 @@ jobs:
       - name: set up conda environment
         uses: mamba-org/setup-micromamba@v1
         with:
+          environment-name: pgf
+          create-args: >-
+            cfgrib
           init-shell: >-
             bash
           cache-environment: true
           cache-downloads: true
+          
           post-cleanup: 'all'
 
       - name: 🎯 Check cache hit
@@ -70,11 +74,11 @@ jobs:
           python -m pip install ${{ matrix.runner-version }}
           python -m pip install -e ".[test,minio]"
 
-      # - name: Install cfgrib deps
-      #   shell: bash -l {0}
-      #   run: |
-      #     sudo apt-get install libeccodes-dev
-      #     python -m pip install cfgrib
+      - name: Install cfgrib deps
+        shell: bash -l {0}
+        run: |
+          sudo apt-get install libeccodes-dev
+          python -m pip install cfgrib
 
 
         # order reversed to fix https://github.com/pangeo-forge/pangeo-forge-recipes/pull/595#issuecomment-1811630921
