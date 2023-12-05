@@ -41,7 +41,7 @@ jobs:
         uses: mamba-org/setup-micromamba@v1
         with:
           create-args: python==${{ matrix.python-version }}
-
+          environment-name: pangeo-forge
       - name: Install kerchunk
         shell: bash -l {0}
         run: |
