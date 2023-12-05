@@ -447,6 +447,33 @@ class CombineReferences(beam.PTransform):
 
 
 @dataclass
+class WriteReference(beam.PTransform, ZarrWriterMixin):
+    """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
+    :param store_name: Zarr store will be created with this name under ``target_root``.
+    :param concat_dims: Dimensions along which to concatenate inputs.
+    :param target_root: Root path the Zarr store will be created inside; ``store_name``
+      will be appended to this prefix to create a full path.
+    :param output_file_name: Name to give the output references file
+      (``.json`` or ``.parquet`` suffix).
+    """
+
+    store_name: str
+    concat_dims: List[str]
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
+    output_file_name: str = "reference.json"
+
+    def expand(self, references: beam.PCollection) -> beam.PCollection:
+        return references | beam.Map(
+            write_combined_reference,
+            full_target=self.get_full_target(),
+            concat_dims=self.concat_dims,
+            output_file_name=self.output_file_name,
+        )
+
+
+@dataclass
 class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
 
@@ -480,18 +507,20 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     output_file_name: str = "reference.json"
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
-        reference = references | CombineReferences(
-            concat_dims=self.concat_dims,
-            identical_dims=self.identical_dims,
-            mzz_kwargs=self.mzz_kwargs,
-            precombine_inputs=self.precombine_inputs,
-        )
-
-        return reference | beam.Map(
-            write_combined_reference,
-            full_target=self.get_full_target(),
-            concat_dims=self.concat_dims,
-            output_file_name=self.output_file_name,
+        return (
+            references
+            | CombineReferences(
+                concat_dims=self.concat_dims,
+                identical_dims=self.identical_dims,
+                mzz_kwargs=self.mzz_kwargs,
+                precombine_inputs=self.precombine_inputs,
+            )
+            | WriteReference(
+                store_name=self.store_name,
+                concat_dims=self.concat_dims,
+                target_root=self.target_root,
+                output_file_name=self.output_file_name,
+            )
         )
 
 

@@ -4,6 +4,7 @@ from functools import reduce
 from typing import List, Sequence, Tuple
 
 import apache_beam as beam
+import fsspec
 from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarrayCombineAccumulator, XarraySchema
@@ -61,12 +62,14 @@ class CombineMultiZarrToZarr(beam.CombineFn):
       along a dimension that does not exist in the individual inputs. In this latter
       case, precombining adds the additional dimension to the input so that its
       dimensionality will match that of the accumulator.
+    :
     """
 
     concat_dims: List[str]
     identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
+    storage_options: dict = field(default_factory=dict)
 
     def to_mzz(self, references):
         return MultiZarrToZarr(
@@ -92,4 +95,8 @@ class CombineMultiZarrToZarr(beam.CombineFn):
         return self.to_mzz(references)
 
     def extract_output(self, accumulator: MultiZarrToZarr) -> MultiZarrToZarr:
-        return accumulator
+        return fsspec.filesystem(
+            "reference",
+            fo=accumulator.translate(),
+            remote_options=self.storage_options,
+        ).get_mapper()

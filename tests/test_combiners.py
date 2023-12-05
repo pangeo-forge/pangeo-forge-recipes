@@ -190,11 +190,12 @@ def test_DetermineSchema_concat_merge(dimensions, dsets_pcoll_concat_merge, pipe
         assert_that(output, has_correct_schema(expected_schema))
 
 
-def is_expected_mzz(expected_mzz):
-    def _is_expected_mzz(actual):
-        assert expected_mzz.translate() == actual[0].translate()
+def _is_expected_dataset(expected_ds):
+    def _impl(actual):
+        actual_ds = xr.open_dataset(actual[0], engine="zarr")
+        assert expected_ds == actual_ds
 
-    return _is_expected_mzz
+    return _impl
 
 
 def test_CombineReferences(netcdf_public_http_paths_sequential_1d, pipeline):
@@ -207,15 +208,20 @@ def test_CombineReferences(netcdf_public_http_paths_sequential_1d, pipeline):
                 yield [h5chunks.translate()]
 
     refs = [ref[0] for ref in generate_refs(urls)]
-
     concat_dims = ["time"]
     identical_dims = ["lat", "lon"]
-    expected_mzz = MultiZarrToZarr(refs, concat_dims=concat_dims, identical_dims=identical_dims)
-
+    mapper = fsspec.filesystem(
+        "reference",
+        fo=MultiZarrToZarr(
+            refs, concat_dims=concat_dims, identical_dims=identical_dims
+        ).translate(),
+    ).get_mapper()
+    # import pdb; pdb.set_trace()
+    expected_dataset = xr.open_dataset(mapper, engine="zarr")
     with pipeline as p:
         input = p | beam.Create(generate_refs(urls))
         output = input | beam.CombineGlobally(
             CombineMultiZarrToZarr(concat_dims=concat_dims, identical_dims=identical_dims)
         )
 
-        assert_that(output, is_expected_mzz(expected_mzz))
+        assert_that(output, _is_expected_dataset(expected_dataset))
