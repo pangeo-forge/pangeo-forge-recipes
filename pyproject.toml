@@ -42,6 +42,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "click",
+    "cfgrib",
     "pytest",
     "pytest-cov",
     "pytest-xdist",
