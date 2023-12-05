@@ -63,7 +63,7 @@ jobs:
       - name: Install cfgrib deps
         shell: bash -l {0}
         run: |
-          apt-get install libeccodes-dev
+          sudo apt-get install libeccodes-dev
           python -m pip install cfgrib
 
 
