@@ -46,7 +46,7 @@ jobs:
         shell: bash -l {0}
         run: |
           python -m pip install ${{ matrix.runner-version }}
-          python -m pip install -e ".[test,minio,grib] --no-deps"
+          python -m pip install -e ".[test,minio,grib]"  --no-deps
 
       - name: 'Setup minio'
         run: |
