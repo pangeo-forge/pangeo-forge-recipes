@@ -156,7 +156,7 @@ def test_reference_grib(
     full_path = os.path.join(tmp_target_url, store_name, "reference.json")
     mapper = fsspec.get_mapper("reference://", fo=full_path)
     ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
-    assert ds.attrs["centre"] == "cwao"
+    assert ds.attrs["GRIB_centre"] == "cwao"
 
     # ds2 is the original dataset as stored on disk;
     # keeping `ds2` name for consistency with kerchunk test on which this is based
