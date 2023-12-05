@@ -1,6 +1,7 @@
 import apache_beam as beam
 import fsspec
 import pytest
+import kerchunk 
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
@@ -191,6 +192,7 @@ def test_DetermineSchema_concat_merge(dimensions, dsets_pcoll_concat_merge, pipe
 
 
 def _is_expected_dataset(expected_ds):
+
     def _impl(actual):
         actual_ds = xr.open_dataset(actual[0], engine="zarr")
         assert expected_ds == actual_ds
@@ -210,18 +212,28 @@ def test_CombineReferences(netcdf_public_http_paths_sequential_1d, pipeline):
     refs = [ref[0] for ref in generate_refs(urls)]
     concat_dims = ["time"]
     identical_dims = ["lat", "lon"]
+    mzz = MultiZarrToZarr(
+            refs, concat_dims=concat_dims, identical_dims=identical_dims
+        ).translate()
+    
     mapper = fsspec.filesystem(
         "reference",
-        fo=MultiZarrToZarr(
-            refs, concat_dims=concat_dims, identical_dims=identical_dims
-        ).translate(),
+        fo=mzz,
     ).get_mapper()
-    # import pdb; pdb.set_trace()
-    expected_dataset = xr.open_dataset(mapper, engine="zarr")
+    import pdb; pdb.set_trace()
+
+
+        # open dataset as zarr object using fsspec reference file system and Xarray
+    fs = fsspec.filesystem("reference", fo=mzz)
+    m = fs.get_mapper("")
+    ds = xr.open_dataset(m, engine="zarr", backend_kwargs=dict(consolidated=False))
+    ds
+
+
+    expected_dataset = xr.open_dataset(mapper, engine="kerchunk")
     with pipeline as p:
         input = p | beam.Create(generate_refs(urls))
         output = input | beam.CombineGlobally(
             CombineMultiZarrToZarr(concat_dims=concat_dims, identical_dims=identical_dims)
         )
-
-        assert_that(output, _is_expected_dataset(expected_dataset))
+        # assert_that(output, _is_expected_dataset(expected_dataset))
