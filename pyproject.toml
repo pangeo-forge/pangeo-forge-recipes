@@ -40,10 +40,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-grib2 = ["ecmwflibs", "eccodes", "cfgrib"]
 test = [
     "click",
-    "kerchunk[grib2]",
     "pytest",
     "pytest-cov",
     "pytest-xdist",
@@ -53,6 +51,8 @@ test = [
     "s3fs",
     "scipy",
 ]
+grib = ["ecmwflibs", "eccodes", "cfgrib"]
+
 minio = [
     "docker",
 ]
