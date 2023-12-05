@@ -60,6 +60,13 @@ jobs:
           python -m pip install ${{ matrix.runner-version }}
           python -m pip install -e ".[test,minio]"
 
+      - name: Install cfgrib deps
+        shell: bash -l {0}
+        run: |
+          apt-get install libeccodes-dev
+          python -m pip install cfgrib
+
+
         # order reversed to fix https://github.com/pangeo-forge/pangeo-forge-recipes/pull/595#issuecomment-1811630921
         # this should however be fixed in the runner itself
       - name: 🏄‍♂️ Run Tests
