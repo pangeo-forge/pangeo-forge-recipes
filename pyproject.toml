@@ -43,7 +43,7 @@ dependencies = [
 grib2 = ["ecmwflibs", "eccodes", "cfgrib"]
 test = [
     "click",
-    "grib2",
+    "kerchunk[grib2]",
     "pytest",
     "pytest-cov",
     "pytest-xdist",
