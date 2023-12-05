@@ -118,7 +118,6 @@ def test_integration(confpath_option: str, recipe_id: str, request):
         "narr-opendap": "Hangs for unkown reason. Requires further debugging.",
         "terraclimate": "Hangs for unkown reason. Requires further debugging.",
     }
-    # import pdb; pdb.set_trace()
     if recipe_id in xfails:
         pytest.xfail(xfails[recipe_id])
 
@@ -132,8 +131,6 @@ def test_integration(confpath_option: str, recipe_id: str, request):
         "RECIPE_ID": recipe_id,
         "JOB_NAME": f"{recipe_id}-{str(int(time.time()))}",
     }
-    import pdb
 
-    pdb.set_trace()
     proc = subprocess.run(cmd, capture_output=True, env=env, text=True)
     assert proc.returncode == 0
