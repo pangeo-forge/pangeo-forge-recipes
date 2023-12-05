@@ -1,7 +1,6 @@
 import apache_beam as beam
 import fsspec
 import pytest
-import kerchunk 
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
@@ -192,16 +191,16 @@ def test_DetermineSchema_concat_merge(dimensions, dsets_pcoll_concat_merge, pipe
 
 
 def _is_expected_dataset(expected_ds):
-
     def _impl(actual):
         actual_ds = xr.open_dataset(actual[0], engine="zarr")
+
         assert expected_ds == actual_ds
 
     return _impl
 
 
-def test_CombineReferences(netcdf_public_http_paths_sequential_1d, pipeline):
-    urls = netcdf_public_http_paths_sequential_1d[0]
+def test_CombineReferences(netcdf_local_paths_sequential_1d, pipeline):
+    urls = netcdf_local_paths_sequential_1d[0]
 
     def generate_refs(urls):
         for url in urls:
@@ -213,22 +212,10 @@ def test_CombineReferences(netcdf_public_http_paths_sequential_1d, pipeline):
     concat_dims = ["time"]
     identical_dims = ["lat", "lon"]
     mzz = MultiZarrToZarr(
-            refs, concat_dims=concat_dims, identical_dims=identical_dims
-        ).translate()
-    
-    mapper = fsspec.filesystem(
-        "reference",
-        fo=mzz,
-    ).get_mapper()
-    import pdb; pdb.set_trace()
+        refs, concat_dims=concat_dims, identical_dims=identical_dims, remote_protocol="file"
+    ).translate()
 
-
-        # open dataset as zarr object using fsspec reference file system and Xarray
-    fs = fsspec.filesystem("reference", fo=mzz)
-    m = fs.get_mapper("")
-    ds = xr.open_dataset(m, engine="zarr", backend_kwargs=dict(consolidated=False))
-    ds
-
+    mapper = fsspec.filesystem("reference", fo=mzz).get_mapper()
 
     expected_dataset = xr.open_dataset(mapper, engine="kerchunk")
     with pipeline as p:
@@ -236,4 +223,5 @@ def test_CombineReferences(netcdf_public_http_paths_sequential_1d, pipeline):
         output = input | beam.CombineGlobally(
             CombineMultiZarrToZarr(concat_dims=concat_dims, identical_dims=identical_dims)
         )
-        # assert_that(output, _is_expected_dataset(expected_dataset))
+
+        assert_that(output, _is_expected_dataset(expected_dataset))

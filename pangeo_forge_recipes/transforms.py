@@ -436,6 +436,7 @@ class CombineReferences(beam.PTransform):
     precombine_inputs: bool = False
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
+
         return references | beam.CombineGlobally(
             CombineMultiZarrToZarr(
                 concat_dims=self.concat_dims,
@@ -506,7 +507,7 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     )
     output_file_name: str = "reference.json"
 
-    def expand(self, references: beam.PCollection) -> beam.PCollection:
+    def expand(self, references: beam.PCollection) -> beam.PCollection[zarr.storage.FSStore]:
         return (
             references
             | CombineReferences(

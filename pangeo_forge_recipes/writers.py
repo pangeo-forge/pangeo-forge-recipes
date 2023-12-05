@@ -144,7 +144,6 @@ def write_combined_reference(
 
     else:
         raise NotImplementedError(f"{file_ext = } not supported.")
-
     return ReferenceFileSystem(
         outpath,
         remote_options=remote_options,
