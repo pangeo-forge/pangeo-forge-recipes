@@ -28,7 +28,6 @@ grib_filters = {"typeOfLevel": "surface", "shortName": "t"}
 def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     import xarray as xr
 
-    # import pdb; pdb.set_trace()
     ds = xr.open_dataset(store, engine="zarr", chunks={})
     ds = ds.set_coords(("latitude", "longitude"))
     ds = ds.expand_dims(dim="time")

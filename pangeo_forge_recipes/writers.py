@@ -136,6 +136,7 @@ def write_combined_reference(
             [reference],
             concat_dims=concat_dims,
             remote_protocol=target_protocol,
+            remote_options=remote_options,
             out=out,
         ).translate()
 
