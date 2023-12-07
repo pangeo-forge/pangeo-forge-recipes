@@ -54,7 +54,6 @@ recipe = (
         identical_dims=identical_dims,
         precombine_inputs=True,
         remote_protocol=remote_protocol,
-        storage_options=storage_options,
     )
     | "Test dataset" >> beam.Map(test_ds)
 )

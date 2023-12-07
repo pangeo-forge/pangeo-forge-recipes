@@ -129,6 +129,5 @@ def test_integration(confpath_option: str, recipe_id: str, request):
         "RECIPE_ID": recipe_id,
         "JOB_NAME": f"{recipe_id}-{str(int(time.time()))}",
     }
-    # import pdb; pdb.set_trace()
     proc = subprocess.run(cmd, capture_output=True, env=env, text=True)
     assert proc.returncode == 0
