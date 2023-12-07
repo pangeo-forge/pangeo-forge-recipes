@@ -42,7 +42,8 @@ jobs:
         with:
           create-args: python==${{ matrix.python-version }}
           environment-name: pangeo-forge
-      - name: Install kerchunk
+
+      - name: Install pangeo-forge recipes and runner
         shell: bash -l {0}
         run: |
           python -m pip install ${{ matrix.runner-version }}

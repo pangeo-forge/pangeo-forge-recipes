@@ -222,7 +222,7 @@ class OpenWithKerchunk(beam.PTransform):
     # passed directly to `open_with_kerchunk`
     file_type: FileType = FileType.unknown
     inline_threshold: Optional[int] = 300
-    storage_options: Optional[Dict] = None
+    storage_options: Optional[Dict] = field(default_factory=dict)
     remote_protocol: Optional[str] = None
     kerchunk_open_kwargs: Optional[dict] = field(default_factory=dict)
 
@@ -418,6 +418,10 @@ class CombineReferences(beam.PTransform):
 
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
+    :param target_options: Storage options for opening target files
+    :param remote_options: Storage options for opening remote files
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "gcp", "https", etc.
     :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
     :precombine_inputs: If ``True``, precombine each input with itself, using
       ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
@@ -432,6 +436,9 @@ class CombineReferences(beam.PTransform):
 
     concat_dims: List[str]
     identical_dims: List[str]
+    target_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
+    remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
+    remote_protocol: Optional[str] = None
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
 
@@ -441,6 +448,9 @@ class CombineReferences(beam.PTransform):
             CombineMultiZarrToZarr(
                 concat_dims=self.concat_dims,
                 identical_dims=self.identical_dims,
+                target_options=self.target_options,
+                remote_options=self.remote_options,
+                remote_protocol=self.remote_protocol,
                 mzz_kwargs=self.mzz_kwargs,
                 precombine_inputs=self.precombine_inputs,
             ),
@@ -456,6 +466,11 @@ class WriteReference(beam.PTransform, ZarrWriterMixin):
       will be appended to this prefix to create a full path.
     :param output_file_name: Name to give the output references file
       (``.json`` or ``.parquet`` suffix).
+    :param target_options: Storage options for opening target files
+    :param remote_options: Storage options for opening remote files
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "gcp", "https", etc.
+    :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
     """
 
     store_name: str
@@ -464,6 +479,10 @@ class WriteReference(beam.PTransform, ZarrWriterMixin):
         default_factory=RequiredAtRuntimeDefault
     )
     output_file_name: str = "reference.json"
+    target_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
+    remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
+    remote_protocol: Optional[str] = None
+    mzz_kwargs: dict = field(default_factory=dict)
 
     def expand(self, references: beam.PCollection) -> beam.PCollection:
         return references | beam.Map(
@@ -471,6 +490,10 @@ class WriteReference(beam.PTransform, ZarrWriterMixin):
             full_target=self.get_full_target(),
             concat_dims=self.concat_dims,
             output_file_name=self.output_file_name,
+            target_options=self.target_options,
+            remote_options=self.remote_options,
+            remote_protocol=self.remote_protocol,
+            mzz_kwargs=self.mzz_kwargs,
         )
 
 
@@ -481,6 +504,10 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     :param store_name: Zarr store will be created with this name under ``target_root``.
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
+    :param target_options: Storage options for opening target files
+    :param remote_options: Storage options for opening remote files
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "gcp", "https", etc.
     :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
     :param precombine_inputs: If ``True``, precombine each input with itself, using
       ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
@@ -500,6 +527,9 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     store_name: str
     concat_dims: List[str]
     identical_dims: List[str]
+    target_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
+    remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
+    remote_protocol: Optional[str] = None
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
@@ -513,6 +543,9 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
             | CombineReferences(
                 concat_dims=self.concat_dims,
                 identical_dims=self.identical_dims,
+                target_options=self.target_options,
+                remote_options=self.remote_options,
+                remote_protocol=self.remote_protocol,
                 mzz_kwargs=self.mzz_kwargs,
                 precombine_inputs=self.precombine_inputs,
             )
@@ -521,6 +554,9 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
                 concat_dims=self.concat_dims,
                 target_root=self.target_root,
                 output_file_name=self.output_file_name,
+                target_options=self.target_options,
+                remote_options=self.remote_options,
+                remote_protocol=self.remote_protocol,
             )
         )
 

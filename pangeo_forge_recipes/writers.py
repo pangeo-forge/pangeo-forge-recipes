@@ -94,30 +94,20 @@ def store_dataset_fragment(
     return target_store
 
 
-def _select_single_protocol(full_target: FSSpecTarget) -> str:
-    # Grabs first protocol if there are multiple options: Based off of logic in fsspec:
-    # https://github.com/fsspec/filesystem_spec/blob/b8aeb13361e89f22f323bbc93c8308ff2ffede19/fsspec/spec.py#L1410-L1414
-    return (
-        full_target.fs.protocol[0]
-        if isinstance(full_target.fs.protocol, (tuple, list))
-        else full_target.fs.protocol
-    )
-
-
 def write_combined_reference(
     reference: MutableMapping,
     full_target: FSSpecTarget,
     concat_dims: List[str],
     output_file_name: str,
+    target_options: Optional[Dict] = {"anon": True},
     remote_options: Optional[Dict] = {"anon": True},
+    remote_protocol: Optional[str] = None,
     refs_per_component: int = 1000,
+    mzz_kwargs: Optional[Dict] = None,
 ) -> zarr.storage.FSStore:
     """Write a kerchunk combined references object to file."""
-
     file_ext = os.path.splitext(output_file_name)[-1]
-
     outpath = full_target._full_path(output_file_name)
-    target_protocol = _select_single_protocol(full_target)
 
     # If reference is a ReferenceFileSystem, write to json
     if isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
@@ -132,12 +122,15 @@ def write_combined_reference(
         out = LazyReferenceMapper.create(refs_per_component, outpath, full_target.fs)
 
         # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
+
         MultiZarrToZarr(
             [reference],
             concat_dims=concat_dims,
-            remote_protocol=target_protocol,
+            target_options=target_options,
             remote_options=remote_options,
+            remote_protocol=remote_protocol,
             out=out,
+            **mzz_kwargs,
         ).translate()
 
         # call to write reference to empty parquet store
@@ -147,8 +140,9 @@ def write_combined_reference(
         raise NotImplementedError(f"{file_ext = } not supported.")
     return ReferenceFileSystem(
         outpath,
+        target_options=target_options,
         remote_options=remote_options,
-        target_protocol=target_protocol,
+        remote_protocol=remote_protocol,
         lazy=True,
     ).get_mapper()
 

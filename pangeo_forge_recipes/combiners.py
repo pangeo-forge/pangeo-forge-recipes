@@ -1,7 +1,7 @@
 import operator
 from dataclasses import dataclass, field
 from functools import reduce
-from typing import List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import apache_beam as beam
 import fsspec
@@ -52,6 +52,9 @@ class CombineMultiZarrToZarr(beam.CombineFn):
 
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
+    :param remote_options: Storage options for opening remote files
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "gcp", "https", etc.
     :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
     :precombine_inputs: If ``True``, precombine each input with itself, using
       ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
@@ -68,15 +71,20 @@ class CombineMultiZarrToZarr(beam.CombineFn):
 
     concat_dims: List[str]
     identical_dims: List[str]
+    target_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
+    remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
+    remote_protocol: Optional[str] = None
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
-    storage_options: dict = field(default_factory=dict)
 
     def to_mzz(self, references):
         return MultiZarrToZarr(
             references,
             concat_dims=self.concat_dims,
             identical_dims=self.identical_dims,
+            target_options=self.target_options,
+            remote_options=self.remote_options,
+            remote_protocol=self.remote_protocol,
             **self.mzz_kwargs,
         )
 
@@ -99,5 +107,8 @@ class CombineMultiZarrToZarr(beam.CombineFn):
         return fsspec.filesystem(
             "reference",
             fo=accumulator.translate(),
-            remote_options=self.storage_options,
+            storage_options={
+                "remote_protocol": self.remote_protocol,
+                "skip_instance_cache": True,
+            },
         ).get_mapper()
