@@ -64,6 +64,8 @@ recipe = (
         store_name="hrrr-concat-valid-time",
         concat_dims=concat_dims,
         identical_dims=identical_dims,
+        # fails due to: _pickle.PicklingError: Can't pickle <function drop_unknown
+        #  at 0x290e46a70>: attribute lookup drop_unknown on __main__ failed
         mzz_kwargs=dict(preprocess=drop_unknown),
         precombine_inputs=True,
     )
