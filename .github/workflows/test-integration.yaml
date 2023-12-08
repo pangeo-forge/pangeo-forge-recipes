@@ -34,12 +34,16 @@ jobs:
           "pangeo-forge-runner==0.9.1",
           "pangeo-forge-runner==0.9.2",
         ]
-    steps:
+  steps:
       - uses: actions/checkout@v4
-
       - name: 🔁 Setup Python
         id: setup-python
         uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
 
       - name: Install pangeo-forge recipes and runner
         shell: bash -l {0}
