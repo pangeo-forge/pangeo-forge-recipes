@@ -34,7 +34,7 @@ jobs:
           "pangeo-forge-runner==0.9.1",
           "pangeo-forge-runner==0.9.2",
         ]
-  steps:
+    steps:
       - uses: actions/checkout@v4
       - name: 🔁 Setup Python
         id: setup-python
