@@ -37,11 +37,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup conda
-        uses: mamba-org/setup-micromamba@v1
-        with:
-          create-args: python==${{ matrix.python-version }}
-          environment-name: pangeo-forge
+      - name: 🔁 Setup Python
+        id: setup-python
+        uses: actions/setup-python@v4
 
       - name: Install pangeo-forge recipes and runner
         shell: bash -l {0}
