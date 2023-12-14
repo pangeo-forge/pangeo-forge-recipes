@@ -1,0 +1,11 @@
+recipes:
+  - id: "gpcp-from-gcs"
+    object: "gpcp_from_gcs:recipe"
+  - id: "gpcp-from-gcs-dynamic-chunks"
+    object: "gpcp_from_gcs_dynamic_chunks:recipe"
+  - id: "noaa-oisst"
+    object: "noaa_oisst:recipe"
+  - id: "terraclimate"
+    object: "terraclimate:recipe"
+  - id: "hrrr-kerchunk-concat-step"
+    object: "hrrr_kerchunk_concat_step:recipe"

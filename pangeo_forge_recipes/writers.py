@@ -1,10 +1,11 @@
 import os
-from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Dict, List, MutableMapping, Optional, Protocol, Tuple, Union
 
+import fsspec
 import numpy as np
 import xarray as xr
 import zarr
+from fsspec.implementations.reference import LazyReferenceMapper, ReferenceFileSystem
 from kerchunk.combine import MultiZarrToZarr
 
 from .patterns import CombineOp, Index
@@ -93,42 +94,79 @@ def store_dataset_fragment(
 
 
 def write_combined_reference(
-    reference: MultiZarrToZarr,
+    reference: MutableMapping,
     full_target: FSSpecTarget,
-    output_json_fname: str,
-):
+    concat_dims: List[str],
+    output_file_name: str,
+    target_options: Optional[Dict] = {"anon": True},
+    remote_options: Optional[Dict] = {"anon": True},
+    remote_protocol: Optional[str] = None,
+    refs_per_component: int = 1000,
+    mzz_kwargs: Optional[Dict] = None,
+) -> zarr.storage.FSStore:
     """Write a kerchunk combined references object to file."""
+    file_ext = os.path.splitext(output_file_name)[-1]
+    outpath = full_target._full_path(output_file_name)
 
-    import ujson  # type: ignore
+    # If reference is a ReferenceFileSystem, write to json
+    if isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
+        reference.fs.save_json(outpath, **remote_options)
 
-    multi_kerchunk = reference.translate()
-    file_ext = os.path.splitext(output_json_fname)[-1]
+    elif file_ext == ".parquet":
+        # Creates empty parquet store to be written to
+        if full_target.exists(output_file_name):
+            full_target.rm(output_file_name, recursive=True)
+        full_target.makedir(output_file_name)
 
-    if file_ext == ".json":
-        outpath = os.path.join(full_target.root_path, output_json_fname)
-        with full_target.fs.open(outpath, "wb") as f:
-            f.write(ujson.dumps(multi_kerchunk).encode())
+        out = LazyReferenceMapper.create(refs_per_component, outpath, full_target.fs)
+
+        # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
+
+        MultiZarrToZarr(
+            [reference],
+            concat_dims=concat_dims,
+            target_options=target_options,
+            remote_options=remote_options,
+            remote_protocol=remote_protocol,
+            out=out,
+            **mzz_kwargs,
+        ).translate()
+
+        # call to write reference to empty parquet store
+        out.flush()
+
     else:
-        # TODO: implement parquet writer
         raise NotImplementedError(f"{file_ext = } not supported.")
+    return ReferenceFileSystem(
+        outpath,
+        target_options=target_options,
+        remote_options=remote_options,
+        remote_protocol=remote_protocol,
+        lazy=True,
+    ).get_mapper()
 
 
-@dataclass
-class ZarrWriterMixin:
-    """Defines common attributes and methods for storing zarr datasets, which can be either actual
-    zarr stores or virtual (i.e. kerchunked) stores. This class should not be directly instantiated.
-    Instead, PTransforms in the `.transforms` module which write consolidated zarr stores should
-    inherit from this mixin, so that they share a common interface for target store naming.
-
-    :param target_root: Location the Zarr store will be created inside.
-    :param store_name: Name for the Zarr store. It will be created with this name
-                       under `target_root`.
+class ZarrWriterProtocol(Protocol):
+    """Protocol for mixin typing, following best practices described in:
+    https://mypy.readthedocs.io/en/stable/more_types.html#mixin-classes.
+    When used as a type hint for the `self` argument on mixin classes, this protocol just tells type
+    checkers that the given method is expected to be called in the context of a class which defines
+    the attributes declared here. This satisfies type checkers without the need to define these
+    attributes more than once in an inheritance heirarchy.
     """
 
-    target_root: Union[str, FSSpecTarget]
     store_name: str
+    target_root: Union[str, FSSpecTarget]
 
-    def get_full_target(self) -> FSSpecTarget:
+
+class ZarrWriterMixin:
+    """Defines common methods relevant to storing zarr datasets, which can be either actual zarr
+    stores or virtual (i.e. kerchunked) stores. This class should not be directly instantiated.
+    Instead, PTransforms in the `.transforms` module which write zarr stores should inherit from
+    this mixin, so that they share a common interface for target store naming.
+    """
+
+    def get_full_target(self: ZarrWriterProtocol) -> FSSpecTarget:
         if isinstance(self.target_root, str):
             target_root = FSSpecTarget.from_url(self.target_root)
         else:

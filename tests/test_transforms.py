@@ -234,18 +234,20 @@ def test_rechunk(
         assert_that(rechunked, correct_chunks())
 
 
+class OpenZarrStore(beam.PTransform):
+    @staticmethod
+    def _open_zarr(store):
+        return xr.open_dataset(store, engine="zarr", chunks={})
+
+    def expand(self, pcoll):
+        return pcoll | beam.Map(self._open_zarr)
+
+
 def test_StoreToZarr_emits_openable_fsstore(
     pipeline,
     netcdf_local_file_pattern_sequential,
     tmp_target_url,
 ):
-    def _open_zarr(store):
-        return xr.open_dataset(store, engine="zarr")
-
-    class OpenZarrStore(beam.PTransform):
-        def expand(self, pcoll):
-            return pcoll | beam.Map(_open_zarr)
-
     def is_xrdataset():
         def _is_xr_dataset(actual):
             assert len(actual) == 1
@@ -264,3 +266,86 @@ def test_StoreToZarr_emits_openable_fsstore(
         )
         open_store = target_store | OpenZarrStore()
         assert_that(open_store, is_xrdataset())
+
+
+@pytest.mark.parametrize("with_kws", [True, False])
+def test_StoreToZarr_dynamic_chunking_interface(
+    pipeline: beam.Pipeline,
+    netcdf_local_file_pattern_sequential: FilePattern,
+    tmp_target_url: str,
+    daily_xarray_dataset: xr.Dataset,
+    with_kws: bool,
+):
+    def has_dynamically_set_chunks():
+        def _has_dynamically_set_chunks(actual):
+            assert len(actual) == 1
+            item = actual[0]
+            assert isinstance(item, xr.Dataset)
+            if not with_kws:
+                # we've dynamically set the number of timesteps per chunk to be equal to
+                # the length of the full time dimension of the aggregate dataset, therefore
+                # if this worked, there should only be one chunk
+                assert len(item.chunks["time"]) == 1
+            else:
+                # in this case, we've passed the kws {"divisor": 2}, so we expect two time chunks
+                assert len(item.chunks["time"]) == 2
+
+        return _has_dynamically_set_chunks
+
+    pattern: FilePattern = netcdf_local_file_pattern_sequential
+
+    time_len = len(daily_xarray_dataset.time)
+
+    def dynamic_chunking_fn(template_ds: xr.Dataset, divisor: int = 1):
+        assert isinstance(template_ds, xr.Dataset)
+        return {"time": int(time_len / divisor)}
+
+    kws = {} if not with_kws else {"dynamic_chunking_fn_kwargs": {"divisor": 2}}
+
+    with pipeline as p:
+        datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
+        target_store = datasets | StoreToZarr(
+            target_root=tmp_target_url,
+            store_name="test.zarr",
+            combine_dims=pattern.combine_dim_keys,
+            attrs={},
+            dynamic_chunking_fn=dynamic_chunking_fn,
+            **kws,
+        )
+        open_store = target_store | OpenZarrStore()
+        assert_that(open_store, has_dynamically_set_chunks())
+
+
+def test_StoreToZarr_dynamic_chunking_with_target_chunks_raises(
+    netcdf_local_file_pattern_sequential: FilePattern,
+):
+    def fn(template_ds):
+        pass
+
+    pattern: FilePattern = netcdf_local_file_pattern_sequential
+
+    with pytest.raises(
+        ValueError,
+        match="Passing both `target_chunks` and `dynamic_chunking_fn` not allowed",
+    ):
+        _ = StoreToZarr(
+            target_root="target_root",
+            store_name="test.zarr",
+            combine_dims=pattern.combine_dim_keys,
+            target_chunks={"time": 1},
+            dynamic_chunking_fn=fn,
+        )
+
+
+def test_StoreToZarr_target_root_default_unrunnable(
+    pipeline,
+    netcdf_local_file_pattern_sequential,
+):
+    pattern: FilePattern = netcdf_local_file_pattern_sequential
+    with pytest.raises(TypeError, match=r"unsupported operand"):
+        with pipeline as p:
+            datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
+            _ = datasets | StoreToZarr(
+                store_name="test.zarr",
+                combine_dims=pattern.combine_dim_keys,
+            )

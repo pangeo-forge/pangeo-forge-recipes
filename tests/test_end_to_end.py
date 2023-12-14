@@ -1,3 +1,4 @@
+import importlib.util
 import os
 from pathlib import Path
 
@@ -10,10 +11,10 @@ import xarray as xr
 import zarr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
+from fsspec.implementations.reference import ReferenceFileSystem
 
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
 from pangeo_forge_recipes.transforms import (
-    CombineReferences,
     OpenWithKerchunk,
     OpenWithXarray,
     StoreToZarr,
@@ -88,11 +89,13 @@ def test_xarray_zarr_consolidate_coords(
     assert netcdf_local_file_pattern_sequential.dims["time"] == store.time.chunks[0]
 
 
+@pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
 def test_reference_netcdf(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,
     pipeline,
     tmp_target_url,
+    output_file_name,
 ):
     pattern = netcdf_local_file_pattern_sequential
     store_name = "daily-xarray-dataset"
@@ -101,18 +104,38 @@ def test_reference_netcdf(
             p
             | beam.Create(pattern.items())
             | OpenWithKerchunk(file_type=pattern.file_type)
-            | CombineReferences(concat_dims=["time"], identical_dims=["lat", "lon"])
             | WriteCombinedReference(
+                identical_dims=["lat", "lon"],
                 target_root=tmp_target_url,
                 store_name=store_name,
+                concat_dims=["time"],
+                output_file_name=output_file_name,
             )
         )
-    full_path = os.path.join(tmp_target_url, store_name, "reference.json")
-    mapper = fsspec.get_mapper("reference://", fo=full_path)
-    ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
-    xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
+    full_path = os.path.join(tmp_target_url, store_name, output_file_name)
+    file_ext = os.path.splitext(output_file_name)[-1]
+    if file_ext == ".json":
+        mapper = fsspec.get_mapper("reference://", fo=full_path)
+        ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
+        xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
+
+    elif file_ext == ".parquet":
+        fs = ReferenceFileSystem(
+            full_path, remote_protocol="file", target_protocol="file", lazy=True
+        )
+        ds = xr.open_dataset(fs.get_mapper(), engine="zarr", backend_kwargs={"consolidated": False})
+        xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
+@pytest.mark.xfail(
+    importlib.util.find_spec("cfgrib") is None,
+    reason=(
+        "Requires cfgrib, which should be installed via conda. "
+        "FIXME: Setup separate testing environment for `requires-conda` tests. "
+        "NOTE: The HRRR integration tests would also fall into this category."
+    ),
+    raises=ImportError,
+)
 def test_reference_grib(
     pipeline,
     tmp_target_url,
@@ -130,11 +153,9 @@ def test_reference_grib(
             p
             | beam.Create(pattern.items())
             | OpenWithKerchunk(file_type=pattern.file_type)
-            | CombineReferences(
+            | WriteCombinedReference(
                 concat_dims=[pattern.concat_dims[0]],
                 identical_dims=["latitude", "longitude"],
-            )
-            | WriteCombinedReference(
                 target_root=tmp_target_url,
                 store_name=store_name,
             )
@@ -142,7 +163,7 @@ def test_reference_grib(
     full_path = os.path.join(tmp_target_url, store_name, "reference.json")
     mapper = fsspec.get_mapper("reference://", fo=full_path)
     ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
-    assert ds.attrs["centre"] == "cwao"
+    assert ds.attrs["GRIB_centre"] == "cwao"
 
     # ds2 is the original dataset as stored on disk;
     # keeping `ds2` name for consistency with kerchunk test on which this is based

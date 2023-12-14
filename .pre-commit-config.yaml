@@ -10,6 +10,7 @@ repos:
     - id: check-yaml
     - id: pretty-format-json
       args: ["--autofix", "--indent=2", "--no-sort-keys"]
+      exclude: "docs/"
 
 -   repo: https://github.com/psf/black
     rev: 22.12.0
