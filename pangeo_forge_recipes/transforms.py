@@ -629,3 +629,81 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         # consolidate metadata and/or coordinate dims here
 
         return singleton_target_store
+
+
+
+
+@dataclass
+class OpenWithXarray(beam.PTransform):
+    """Open indexed items with Xarray. Accepts either fsspec open-file-like objects
+    or string URLs that can be passed directly to Xarray.
+
+    :param file_type: Provide this if you know what type of file it is.
+    :param load: Whether to eagerly load the data into memory ofter opening.
+    :param copy_to_local: Whether to copy the file-like-object to a local path
+       and pass the path to Xarray. Required for some file types (e.g. Grib).
+       Can only be used with file-like-objects, not URLs.
+    :param xarray_open_kwargs: Extra arguments to pass to Xarray's open function.
+    """
+
+    file_type: FileType = FileType.unknown
+    load: bool = False
+    copy_to_local: bool = False
+    xarray_open_kwargs: Optional[dict] = field(default_factory=dict)
+
+    def expand(self, pcoll):
+        return pcoll | "Open with Xarray" >> beam.Map(
+            _add_keys(open_with_xarray),
+            file_type=self.file_type,
+            load=self.load,
+            copy_to_local=self.copy_to_local,
+            xarray_open_kwargs=self.xarray_open_kwargs,
+        )
+    
+
+def _create_pyramid(
+    item: Tuple[Index, xr.Dataset], level: int
+) -> zarr.storage.FSStore:
+    index, ds = item
+    import rioxarray
+    from ndpyramid import reproject_single_level, pyramid_reproject
+
+
+    ds = ds.rename_dims({"lon": "longitude", "lat": "latitude"})
+    ds = ds.rename({"lon": "longitude", "lat": "latitude"})
+    ds.rio.write_crs("epsg:4326", inplace=True)
+
+    level_ds = reproject_single_level(ds, level=level,extra_dim = 'zlev')
+    return index, level_ds
+
+@dataclass
+class CreatePyramid(beam.PTransform):
+    n_levels: int
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(
+            _create_pyramid, level=self.n_levels
+
+        )
+    
+
+@dataclass
+class PyramidToZarr(beam.PTransform, ZarrWriterMixin):
+
+    n_levels: int
+    combine_dims: List[Dimension]
+    store_name: str
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
+    @staticmethod
+    # 1. split n_levels into a range / list
+    # 2. for level in n_levels:
+    # 3 call CreatePyramid + StoreToZarr
+    def expand(
+        self,
+        datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
+    ) -> beam.PCollection[zarr.storage.FSStore]:
+        
+        pyr_ds = datasets | CreatePyramid(n_levels=self.n_levels)
+        return pyr_ds | StoreToZarr(target_root='noaa-oisst.zarr', store_name=f"l{self.n_levels}" ,combine_dims=self.combine_dims)
