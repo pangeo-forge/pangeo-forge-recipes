@@ -696,7 +696,7 @@ class PyramidToZarr(beam.PTransform, ZarrWriterMixin):
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
-    @staticmethod
+    # @staticmethod
     # 1. split n_levels into a range / list
     # 2. for level in n_levels:
     # 3 call CreatePyramid + StoreToZarr
@@ -704,6 +704,9 @@ class PyramidToZarr(beam.PTransform, ZarrWriterMixin):
         self,
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
-        
+        lvl_list = list(range(1,self.n_levels+1))
+
         pyr_ds = datasets | CreatePyramid(n_levels=self.n_levels)
-        return pyr_ds | StoreToZarr(target_root='noaa-oisst.zarr', store_name=f"l{self.n_levels}" ,combine_dims=self.combine_dims)
+        pyr_ds | StoreToZarr(target_root='noaa-oisst.zarr', store_name=f"l{lvl}" ,combine_dims=self.combine_dims)
+
+

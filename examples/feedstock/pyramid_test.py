@@ -63,7 +63,7 @@ recipe = (
     | OpenURLWithFSSpec()
     | OpenWithXarray(file_type=pattern.file_type)
     | PyramidToZarr(
-        target_root='.',store_name="noaa-oisst.zarr",n_levels=2,combine_dims=pattern.combine_dim_keys)
+        target_root='.',store_name="noaa-oisst.zarr",n_levels=1,combine_dims=pattern.combine_dim_keys)
     | beam.Map(test_ds)
 )
 
