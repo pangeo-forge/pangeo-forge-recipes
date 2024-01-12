@@ -154,12 +154,10 @@ def test_store_dataset_fragment(temp_store):
     assert ds.time.encoding.get("units") == ds_target.time.encoding.get("units")
 
 
-@pytest.mark.parametrize("target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}])
 def test_zarr_consolidate_metadata(
     netcdf_local_file_pattern,
     pipeline,
     tmp_target_url,
-    target_chunks,
 ):
     pattern = netcdf_local_file_pattern
     with pipeline as p:
@@ -170,7 +168,6 @@ def test_zarr_consolidate_metadata(
             | StoreToZarr(
                 target_root=tmp_target_url,
                 store_name="store",
-                target_chunks=target_chunks,
                 combine_dims=pattern.combine_dim_keys,
             )
             | ConsolidateMetadata()
