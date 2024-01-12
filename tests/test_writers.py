@@ -1,8 +1,19 @@
+import os
+
+import apache_beam as beam
+import fsspec
 import pytest
 import xarray as xr
 import zarr
 
 from pangeo_forge_recipes.aggregation import schema_to_zarr
+from pangeo_forge_recipes.transforms import (
+    ConsolidateMetadata,
+    OpenWithKerchunk,
+    OpenWithXarray,
+    StoreToZarr,
+    WriteCombinedReference,
+)
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
 from pangeo_forge_recipes.writers import store_dataset_fragment
 
@@ -141,3 +152,59 @@ def test_store_dataset_fragment(temp_store):
     # assert_identical() doesn't check encoding
     # Checking the original time encoding units should be sufficient
     assert ds.time.encoding.get("units") == ds_target.time.encoding.get("units")
+
+
+@pytest.mark.parametrize("target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}])
+def test_zarr_consolidate_metadata(
+    netcdf_local_file_pattern,
+    pipeline,
+    tmp_target_url,
+    target_chunks,
+):
+    pattern = netcdf_local_file_pattern
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToZarr(
+                target_root=tmp_target_url,
+                store_name="store",
+                target_chunks=target_chunks,
+                combine_dims=pattern.combine_dim_keys,
+            )
+            | ConsolidateMetadata()
+        )
+
+    zc = zarr.open_group(os.path.join(tmp_target_url, "store"))
+    assert zc.get(".zmetadata") is not None
+
+
+@pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
+def test_reference_netcdf(
+    netcdf_local_file_pattern_sequential,
+    pipeline,
+    tmp_target_url,
+    output_file_name,
+):
+    pattern = netcdf_local_file_pattern_sequential
+    store_name = "daily-xarray-dataset"
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithKerchunk(file_type=pattern.file_type)
+            | WriteCombinedReference(
+                identical_dims=["lat", "lon"],
+                target_root=tmp_target_url,
+                store_name=store_name,
+                concat_dims=["time"],
+                output_file_name=output_file_name,
+            )
+            | ConsolidateMetadata()
+        )
+
+    full_path = os.path.join(tmp_target_url, store_name, output_file_name)
+    mapper = fsspec.get_mapper("reference://", fo=full_path)
+    zc = zarr.open_group(mapper)
+    assert zc.get(".zmetadata") is not None

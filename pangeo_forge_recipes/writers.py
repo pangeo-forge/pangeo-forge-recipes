@@ -67,6 +67,24 @@ def _is_first_in_merge_dim(index):
     return True
 
 
+def consolidate_metadata(store: MutableMapping) -> MutableMapping:
+    """Consolidate metadata for a Zarr store or Kerchunk reference
+
+    :param store: Input Store for Zarr or Kerchunk reference
+    :type store: MutableMapping
+    :return: Output Store
+    :rtype: MutableMapping
+    """
+
+    import zarr
+
+    # FIXME: This fails silently for Kerchunk. Does `consolidate_metadata` need a path to operate
+    #  on instead of the `fsspec.mapping.FSMap` that WriteCombinedReferences returns?
+    # Can you extract the path to the store from `fsspec.mapping.FSMap`?
+    zc = zarr.consolidate_metadata(store)
+    return zc
+
+
 def store_dataset_fragment(
     item: Tuple[Index, xr.Dataset], target_store: zarr.storage.FSStore
 ) -> zarr.storage.FSStore:

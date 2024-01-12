@@ -23,7 +23,12 @@ from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
-from .writers import ZarrWriterMixin, store_dataset_fragment, write_combined_reference
+from .writers import (
+    ZarrWriterMixin,
+    consolidate_metadata,
+    store_dataset_fragment,
+    write_combined_reference,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -390,7 +395,15 @@ class StoreDatasetFragments(beam.PTransform):
 
 # TODO
 # - consolidate coords
-# - consolidate metadata
+
+
+@dataclass
+class ConsolidateMetadata(beam.PTransform):
+    """Calls Zarr Python consolidate_metadata on an existing Zarr store or Kerchunk reference
+    (https://zarr.readthedocs.io/en/stable/_modules/zarr/convenience.html#consolidate_metadata)"""
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(consolidate_metadata)
 
 
 @dataclass
