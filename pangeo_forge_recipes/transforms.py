@@ -494,6 +494,8 @@ class WriteReference(beam.PTransform, ZarrWriterMixin):
             remote_options=self.remote_options,
             remote_protocol=self.remote_protocol,
             mzz_kwargs=self.mzz_kwargs,
+        ) | beam.Filter(
+            lambda x: x != []
         )
 
 

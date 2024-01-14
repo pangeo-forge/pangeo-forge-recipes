@@ -1,6 +1,9 @@
 """Standalone functions for opening sources as Dataset objects."""
 
+import botocore
 import io
+import logging
+import sys
 import tempfile
 import warnings
 from typing import Dict, Optional, Union
@@ -11,6 +14,9 @@ import zarr
 
 from .patterns import FileType
 from .storage import CacheFSSpecTarget, OpenFileType, _copy_btw_filesystems, _get_opener
+
+
+logger = logging.getLogger(__name__)
 
 
 def open_url(
@@ -159,41 +165,46 @@ def open_with_kerchunk(
     url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
     url_as_str = _url_as_str(url_or_file_obj, remote_protocol)
 
-    if file_type == FileType.netcdf4:
-        from kerchunk.hdf import SingleHdf5ToZarr
+    try:
+        refs = []
+        if file_type == FileType.netcdf4:
+            from kerchunk.hdf import SingleHdf5ToZarr
 
-        h5chunks = SingleHdf5ToZarr(
-            url_or_file_obj,
-            url=url_as_str,
-            inline_threshold=inline_threshold,
-            storage_options=storage_options,
-            **(kerchunk_open_kwargs or {}),
-        )
-        refs = [h5chunks.translate()]
+            h5chunks = SingleHdf5ToZarr(
+                url_or_file_obj,
+                url=url_as_str,
+                inline_threshold=inline_threshold,
+                storage_options=storage_options,
+                **(kerchunk_open_kwargs or {}),
+            )
+            refs = [h5chunks.translate()]
 
-    elif file_type == FileType.netcdf3:
-        from kerchunk.netCDF3 import NetCDF3ToZarr
+        elif file_type == FileType.netcdf3:
+            from kerchunk.netCDF3 import NetCDF3ToZarr
 
-        chunks = NetCDF3ToZarr(
-            url_as_str,
-            inline_threshold=inline_threshold,
-            storage_options=storage_options,
-            **(kerchunk_open_kwargs or {}),
-        )
-        refs = [chunks.translate()]
+            chunks = NetCDF3ToZarr(
+                url_as_str,
+                inline_threshold=inline_threshold,
+                storage_options=storage_options,
+                **(kerchunk_open_kwargs or {}),
+            )
+            refs = [chunks.translate()]
 
-    elif file_type == FileType.grib:
-        from kerchunk.grib2 import scan_grib
+        elif file_type == FileType.grib:
+            from kerchunk.grib2 import scan_grib
 
-        refs = scan_grib(
-            url=url_as_str,
-            inline_threshold=inline_threshold,
-            storage_options=storage_options,
-            **(kerchunk_open_kwargs or {}),
-        )
+            refs = scan_grib(
+                url=url_as_str,
+                inline_threshold=inline_threshold,
+                storage_options=storage_options,
+                **(kerchunk_open_kwargs or {}),
+            )
 
-    elif file_type == FileType.zarr:
-        raise NotImplementedError("Filetype Zarr is not supported for Reference recipes.")
+        elif file_type == FileType.zarr:
+            raise NotImplementedError("Filetype Zarr is not supported for Reference recipes.")
+    except Exception as e:
+        exc_type, _, _ = sys.exc_info()
+        logger.error(f"skipping '{url_or_file_obj}', kerchunk opener generated an exception >> {exc_type.__name__}: {e}")
 
     return refs
 
