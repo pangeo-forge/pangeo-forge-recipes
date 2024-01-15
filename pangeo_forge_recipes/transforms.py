@@ -237,6 +237,8 @@ class OpenWithKerchunk(beam.PTransform):
             storage_options=self.storage_options,
             remote_protocol=self.remote_protocol,
             kerchunk_open_kwargs=self.kerchunk_open_kwargs,
+        ) | beam.Filter(
+            lambda item: item != []
         )
 
         return refs if not self.drop_keys else refs | beam.Values()
@@ -494,10 +496,7 @@ class WriteReference(beam.PTransform, ZarrWriterMixin):
             remote_options=self.remote_options,
             remote_protocol=self.remote_protocol,
             mzz_kwargs=self.mzz_kwargs,
-        ) | beam.Filter(
-            lambda x: x != []
         )
-
 
 @dataclass
 class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
