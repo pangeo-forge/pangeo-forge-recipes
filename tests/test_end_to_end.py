@@ -14,11 +14,11 @@ from fsspec.implementations.reference import ReferenceFileSystem
 
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
 from pangeo_forge_recipes.transforms import (
+    Indexed,
     OpenWithKerchunk,
     OpenWithXarray,
     StoreToZarr,
     WriteCombinedReference,
-    Indexed
 )
 
 # from apache_beam.testing.util import assert_that, equal_to
@@ -175,7 +175,6 @@ def test_reference_grib(
     # xr.testing.assert_equal(ds.load(), ds2)
 
 
-
 def test_ndpyramid_store_to_zarr(
     daily_xarray_dataset,
     netcdf_local_file_pattern,
@@ -183,24 +182,24 @@ def test_ndpyramid_store_to_zarr(
     tmp_target_url,
 ):
     class CreatePyramid(beam.PTransform):
-
         @staticmethod
         def _create_pyramid(item: Indexed[xr.Dataset]) -> Indexed[xr.Dataset]:
             index, ds = item
             pdb.set_trace()
             import rioxarray
             from ndpyramid import reproject_single_level
+
             ds.rio.write_crs("epsg:4326", inplace=True)
-            ds = ds.rio.set_spatial_dims(x_dim='lon',y_dim='lat')
+            ds = ds.rio.set_spatial_dims(x_dim="lon", y_dim="lat")
             level_ds = reproject_single_level(ds, level=1)
             return index, level_ds
 
         def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
             return pcoll | beam.Map(self._create_pyramid)
-        
 
     pattern = netcdf_local_file_pattern
-    import pdb; 
+    import pdb
+
     with pipeline as p:
         (
             p
@@ -216,4 +215,3 @@ def test_ndpyramid_store_to_zarr(
 
     ds = xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr")
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
-
