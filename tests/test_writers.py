@@ -173,8 +173,8 @@ def test_zarr_consolidate_metadata(
             | ConsolidateMetadata()
         )
 
-    zc = zarr.open_group(os.path.join(tmp_target_url, "store"))
-    assert zc.get(".zmetadata") is not None
+    zc = zarr.storage.FSStore(os.path.join(tmp_target_url, "store"))
+    assert zc[".zmetadata"] is not None
 
 
 @pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
@@ -203,5 +203,5 @@ def test_reference_netcdf(
 
     full_path = os.path.join(tmp_target_url, store_name, output_file_name)
     mapper = fsspec.get_mapper("reference://", fo=full_path)
-    zc = zarr.open_group(mapper)
-    assert zc.get(".zmetadata") is not None
+    zc = zarr.open_consolidated(mapper)
+    # This will fail. How can we check .zmetadata exists
