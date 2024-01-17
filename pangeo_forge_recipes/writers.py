@@ -81,7 +81,14 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
     # FIXME: This fails silently for Kerchunk. Does `consolidate_metadata` need a path to operate
     #  on instead of the `fsspec.mapping.FSMap` that WriteCombinedReferences returns?
     # Can you extract the path to the store from `fsspec.mapping.FSMap`?
-    zc = zarr.consolidate_metadata(store)
+
+    if isinstance(store, fsspec.FSMap) and isinstance(store.fs, ReferenceFileSystem):
+        ref_path = store.fs.storage_args[0]
+        path = fsspec.get_mapper("reference://", fo=ref_path)
+    if isinstance(store, zarr.storage.FSStore):
+        path = store.path
+
+    zc = zarr.consolidate_metadata(path)
     return zc
 
 
