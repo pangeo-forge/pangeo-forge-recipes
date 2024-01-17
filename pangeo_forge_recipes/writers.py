@@ -173,8 +173,3 @@ class ZarrWriterMixin:
         else:
             target_root = self.target_root
         return target_root / self.store_name
-
-
-
-
-

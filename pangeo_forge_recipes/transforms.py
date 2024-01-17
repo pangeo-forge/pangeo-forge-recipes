@@ -631,8 +631,6 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         return singleton_target_store
 
 
-
-
 @dataclass
 class OpenWithXarray(beam.PTransform):
     """Open indexed items with Xarray. Accepts either fsspec open-file-like objects
@@ -659,33 +657,28 @@ class OpenWithXarray(beam.PTransform):
             copy_to_local=self.copy_to_local,
             xarray_open_kwargs=self.xarray_open_kwargs,
         )
-    
 
-def _create_pyramid(
-    item: Tuple[Index, xr.Dataset], level: int
-) -> zarr.storage.FSStore:
+
+def _create_pyramid(item: Tuple[Index, xr.Dataset], level: int) -> zarr.storage.FSStore:
     index, ds = item
     import rioxarray
-    from ndpyramid import reproject_single_level, pyramid_reproject
-
+    from ndpyramid import pyramid_reproject, reproject_single_level
 
     ds = ds.rename_dims({"lon": "longitude", "lat": "latitude"})
     ds = ds.rename({"lon": "longitude", "lat": "latitude"})
     ds.rio.write_crs("epsg:4326", inplace=True)
 
-    level_ds = reproject_single_level(ds, level=level,extra_dim = 'zlev')
+    level_ds = reproject_single_level(ds, level=level, extra_dim="zlev")
     return index, level_ds
+
 
 @dataclass
 class CreatePyramid(beam.PTransform):
-    n_levels: int
+    level: int
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(
-            _create_pyramid, level=self.n_levels
+        return pcoll | beam.Map(_create_pyramid, level=self.level)
 
-        )
-    
 
 @dataclass
 class PyramidToZarr(beam.PTransform, ZarrWriterMixin):
@@ -696,17 +689,23 @@ class PyramidToZarr(beam.PTransform, ZarrWriterMixin):
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
-    # @staticmethod
-    # 1. split n_levels into a range / list
-    # 2. for level in n_levels:
-    # 3 call CreatePyramid + StoreToZarr
+
     def expand(
         self,
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
-        lvl_list = list(range(1,self.n_levels+1))
 
-        pyr_ds = datasets | CreatePyramid(n_levels=self.n_levels)
-        pyr_ds | StoreToZarr(target_root='noaa-oisst.zarr', store_name=f"l{lvl}" ,combine_dims=self.combine_dims)
+        lvl_list = list(range(1, self.n_levels + 1))
+        for lvl in lvl_list:
+            pyr_ds = datasets | f"Create Pyr level: {lvl}" >> CreatePyramid(level=lvl)
+            pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
+                target_root="noaa-oisst.zarr",
+                store_name=f"{str(lvl)}",
+                combine_dims=self.combine_dims,
+            )
 
-
+        # To Do;
+        # Consolidate Top Level .zmetadata
+        # remove individual level .zmetadata
+        # any extra ndpyramid attr updates.
+        # check beam DAG to see if these are parallel
