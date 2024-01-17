@@ -631,7 +631,6 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         return singleton_target_store
 
 
-
 def _create_pyramid(item: Tuple[Index, xr.Dataset], level: int) -> zarr.storage.FSStore:
     index, ds = item
     import rioxarray
