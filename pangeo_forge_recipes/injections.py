@@ -7,6 +7,9 @@ def get_injection_specs():
         "StoreToZarr": {
             "target_root": "TARGET_STORAGE",
         },
+        "WriteReference": {
+            "target_root": "TARGET_STORAGE",
+        },
         "WriteCombinedReference": {
             "target_root": "TARGET_STORAGE",
         },

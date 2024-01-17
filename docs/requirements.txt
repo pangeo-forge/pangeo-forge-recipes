@@ -1,7 +1,6 @@
 sphinx==6.2.1
 pangeo-sphinx-book-theme==0.2
-# https://github.com/executablebooks/MyST-NB/issues/543
-git+https://github.com/executablebooks/MyST-NB.git@66a304f6df25db4fcc07a2311b4111080b1b07a5
+myst-nb==1.0.0
 sphinx-copybutton==0.5.2
 sphinx-togglebutton==0.3.2
 sphinx-autodoc-typehints==1.23.0

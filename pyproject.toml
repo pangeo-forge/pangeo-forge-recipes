@@ -51,6 +51,7 @@ test = [
     "s3fs",
     "scipy",
 ]
+
 minio = [
     "docker",
 ]

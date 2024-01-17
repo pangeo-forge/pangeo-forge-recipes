@@ -9,3 +9,5 @@ recipes:
     object: "noaa_oisst:recipe"
   - id: "terraclimate"
     object: "terraclimate:recipe"
+  - id: "hrrr-kerchunk-concat-step"
+    object: "hrrr_kerchunk_concat_step:recipe"
