@@ -195,10 +195,9 @@ def test_xarray_zarr_consolidate_coords(
                 consolidate_coords=consolidate_coords,
             )
         )
-    # TODO: This test needs to check if the consolidate_coords transform
-    # within StoreToZarr is consolidating the chunks of the coordinates
-    import pdb
 
-    pdb.set_trace()
     store = zarr.open(os.path.join(tmp_target_url, "subpath"))
-    ds = xr.open_zarr(os.path.join(tmp_target_url, "subpath"))
+    if not consolidate_coords:
+        assert store.time.chunks[0] != store.time.shape[0]
+    if consolidate_coords:
+        assert store.time.chunks[0] == store.time.shape[0]
