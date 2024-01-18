@@ -8,6 +8,7 @@ import fsspec.implementations.reference
 import numpy as np
 import pytest
 import xarray as xr
+import zarr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 from fsspec.implementations.reference import ReferenceFileSystem
@@ -172,3 +173,32 @@ def test_reference_grib(
     # various inconsistencies (of dtype casting int to float, etc.). With the right combination of
     # options passed to the pipeline, seems like these should pass?
     # xr.testing.assert_equal(ds.load(), ds2)
+
+
+@pytest.mark.parametrize("consolidate_coords", [False, True])
+def test_xarray_zarr_consolidate_coords(
+    netcdf_local_file_pattern_sequential,
+    pipeline,
+    tmp_target_url,
+    consolidate_coords,
+):
+    pattern = netcdf_local_file_pattern_sequential
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToZarr(
+                target_root=tmp_target_url,
+                store_name="subpath",
+                combine_dims=pattern.combine_dim_keys,
+                consolidate_coords=consolidate_coords,
+            )
+        )
+    # TODO: This test needs to check if the consolidate_coords transform
+    # within StoreToZarr is consolidating the chunks of the coordinates
+    import pdb
+
+    pdb.set_trace()
+    store = zarr.open(os.path.join(tmp_target_url, "subpath"))
+    ds = xr.open_zarr(os.path.join(tmp_target_url, "subpath"))

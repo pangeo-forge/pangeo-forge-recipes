@@ -21,7 +21,7 @@ from .aggregation import XarraySchema, dataset_to_schema, schema_to_template_ds,
 from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
-from .rechunking import combine_fragments, split_fragment
+from .rechunking import combine_fragments, consolidate_dimension_coordinates, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
 from .writers import ZarrWriterMixin, store_dataset_fragment, write_combined_reference
 
@@ -412,6 +412,11 @@ class Rechunk(beam.PTransform):
         return new_fragments
 
 
+class ConsolidateDimensionCoordinates(beam.PTransform):
+    def expand(self, pcoll: beam.PCollection[zarr.storage.FSStore]) -> beam.PCollection:
+        return pcoll | beam.Map(consolidate_dimension_coordinates)
+
+
 @dataclass
 class CombineReferences(beam.PTransform):
     """Combines Kerchunk references into a single reference dataset.
@@ -572,6 +577,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         `store_name` will be appended to this prefix to create a full path.
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
       If a dimension is a not named, the chunks will be inferred from the data.
+    :param consolidate_dimension_coordinates: Whether to rewrite coordinate variables as a
+      single chunk. We recommend consolidating coordinate variables to avoid
+      many small read requests to get the coordinates in xarray. Defaults to ``True``.
     :param dynamic_chunking_fn: Optionally provide a function that takes an ``xarray.Dataset``
       template dataset as its first argument and returns a dynamically generated chunking dict.
       If provided, ``target_chunks`` cannot also be passed. You can use this to determine chunking
@@ -590,6 +598,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         default_factory=RequiredAtRuntimeDefault
     )
     target_chunks: Dict[str, int] = field(default_factory=dict)
+    consolidate_coords: bool = True
     dynamic_chunking_fn: Optional[Callable[[xr.Dataset], dict]] = None
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
@@ -625,7 +634,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             | beam.combiners.Sample.FixedSizeGlobally(1)
             | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
         )
-        # TODO: optionally use `singleton_target_store` to
-        # consolidate metadata and/or coordinate dims here
+        if self.consolidate_coords:
+            singleton_target_store = singleton_target_store | ConsolidateDimensionCoordinates()
 
         return singleton_target_store
