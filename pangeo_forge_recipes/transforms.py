@@ -598,7 +598,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         default_factory=RequiredAtRuntimeDefault
     )
     target_chunks: Dict[str, int] = field(default_factory=dict)
-    consolidate_coords: bool = True
+    consolidate_dimension_coordinates: bool = False
     dynamic_chunking_fn: Optional[Callable[[xr.Dataset], dict]] = None
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
@@ -634,7 +634,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             | beam.combiners.Sample.FixedSizeGlobally(1)
             | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
         )
-        if self.consolidate_coords:
+        if self.consolidate_dimension_coordinates:
             singleton_target_store = singleton_target_store | ConsolidateDimensionCoordinates()
 
         return singleton_target_store

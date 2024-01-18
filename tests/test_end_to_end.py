@@ -175,12 +175,12 @@ def test_reference_grib(
     # xr.testing.assert_equal(ds.load(), ds2)
 
 
-@pytest.mark.parametrize("consolidate_coords", [False, True])
-def test_xarray_zarr_consolidate_coords(
+@pytest.mark.parametrize("consolidate_dimension_coordinates", [False, True])
+def test_xarray_zarr_consolidate_dimension_coordinates(
     netcdf_local_file_pattern_sequential,
     pipeline,
     tmp_target_url,
-    consolidate_coords,
+    consolidate_dimension_coordinates,
 ):
     pattern = netcdf_local_file_pattern_sequential
     with pipeline as p:
@@ -192,12 +192,12 @@ def test_xarray_zarr_consolidate_coords(
                 target_root=tmp_target_url,
                 store_name="subpath",
                 combine_dims=pattern.combine_dim_keys,
-                consolidate_coords=consolidate_coords,
+                consolidate_dimension_coordinates=consolidate_dimension_coordinates,
             )
         )
 
     store = zarr.open(os.path.join(tmp_target_url, "subpath"))
-    if not consolidate_coords:
+    if not consolidate_dimension_coordinates:
         assert store.time.chunks[0] != store.time.shape[0]
-    if consolidate_coords:
+    if consolidate_dimension_coordinates:
         assert store.time.chunks[0] == store.time.shape[0]
