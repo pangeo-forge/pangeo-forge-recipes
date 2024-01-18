@@ -99,9 +99,6 @@ def write_combined_reference(
     full_target: FSSpecTarget,
     concat_dims: List[str],
     output_file_name: str,
-    target_options: Optional[Dict] = {"anon": True},
-    remote_options: Optional[Dict] = {"anon": True},
-    remote_protocol: Optional[str] = None,
     refs_per_component: int = 1000,
     mzz_kwargs: Optional[Dict] = None,
 ) -> zarr.storage.FSStore:
@@ -109,9 +106,21 @@ def write_combined_reference(
     file_ext = os.path.splitext(output_file_name)[-1]
     outpath = full_target._full_path(output_file_name)
 
+    import ujson  # type: ignore
+
+    # full_target in tests are strings so accommodate
+    if isinstance(full_target, FSSpecTarget):
+        storage_options = full_target.fsspec_kwargs
+        remote_protocol = full_target.get_fsspec_remote_protocol()
+    else:
+        storage_options = {}
+        remote_protocol = ""
+
     # If reference is a ReferenceFileSystem, write to json
     if isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
-        reference.fs.save_json(outpath, **remote_options)
+        # context manager reuses dep injected auth credentials without passing storage options
+        with full_target.fs.open(outpath, "wb") as f:
+            f.write(ujson.dumps(reference.fs.references).encode())
 
     elif file_ext == ".parquet":
         # Creates empty parquet store to be written to
@@ -126,8 +135,8 @@ def write_combined_reference(
         MultiZarrToZarr(
             [reference],
             concat_dims=concat_dims,
-            target_options=target_options,
-            remote_options=remote_options,
+            target_options=storage_options,
+            remote_options=storage_options,
             remote_protocol=remote_protocol,
             out=out,
             **mzz_kwargs,
@@ -140,8 +149,15 @@ def write_combined_reference(
         raise NotImplementedError(f"{file_ext = } not supported.")
     return ReferenceFileSystem(
         outpath,
-        target_options=target_options,
-        remote_options=remote_options,
+        target_options=storage_options,
+        # NOTE: `target_protocol` is required here b/c
+        # fsspec classes are inconsistent about deriving
+        # protocols if they are not passed. In this case ReferenceFileSystem
+        # decides how to read a reference based on `target_protocol` before
+        # it is automagically derived unfortunately
+        # https://github.com/fsspec/filesystem_spec/blob/master/fsspec/implementations/reference.py#L650-L663
+        target_protocol=remote_protocol,
+        remote_options=storage_options,
         remote_protocol=remote_protocol,
         lazy=True,
     ).get_mapper()

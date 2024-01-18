@@ -4,6 +4,8 @@ import os
 import pytest
 from fsspec.implementations.http import HTTPFileSystem
 from fsspec.implementations.local import LocalFileSystem
+from gcsfs import GCSFileSystem
+from s3fs import S3FileSystem
 
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 
@@ -95,3 +97,20 @@ def test_suffix(tmp_path):
     assert str((FSSpecTarget(LocalFileSystem(), tmp_path) / "test").root_path) == str(
         tmp_path / "test"
     )
+
+
+@pytest.mark.parametrize("fs_cls", [LocalFileSystem, HTTPFileSystem, S3FileSystem, GCSFileSystem])
+def test_target_storage_get_remote_protocol(fs_cls, monkeypatch):
+    # we need to use patch here for s3fs and gcsfs b/c they try to do so much on __init__
+    monkeypatch.setattr("s3fs.S3FileSystem.__init__", lambda x: None)
+    monkeypatch.setattr("gcsfs.GCSFileSystem.__init__", lambda x: None)
+    monkeypatch.setattr("pangeo_forge_recipes.storage.FSSpecTarget.__post_init__", lambda x: None)
+    target_root = FSSpecTarget(fs_cls())
+    if isinstance(target_root, LocalFileSystem):
+        assert target_root.fs.get_fsspec_remote_protocol() == "local"
+    elif isinstance(target_root, HTTPFileSystem):
+        assert target_root.fs.get_fsspec_remote_protocol() == "http"
+    elif isinstance(target_root, S3FileSystem):
+        assert target_root.fs.get_fsspec_remote_protocol() == "s3"
+    elif isinstance(target_root, GCSFileSystem):
+        assert target_root.fs.get_fsspec_remote_protocol() == "gcs"
