@@ -99,7 +99,6 @@ def store_dataset_fragment(
 
     index, ds = item
     zgroup = zarr.open_group(target_store)
-
     # TODO: check that the dataset and the index are compatible
 
     # only store coords if this is the first item in a merge dim
