@@ -310,7 +310,7 @@ def test_StoreToZarr_dynamic_chunking_interface(
             combine_dims=pattern.combine_dim_keys,
             attrs={},
             dynamic_chunking_fn=dynamic_chunking_fn,
-            consolidated=True,
+            consolidated_metadata=True,
             **kws,
         )
         open_store = target_store | OpenZarrStore()
