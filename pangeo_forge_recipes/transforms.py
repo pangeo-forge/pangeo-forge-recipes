@@ -525,9 +525,9 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
         if isinstance(self.target_root, FSSpecTarget):
             storage_options = self.target_root.fsspec_kwargs
             remote_protocol = self.target_root.get_fsspec_remote_protocol()
-        else:
-            storage_options = {}
-            remote_protocol = ""
+        # else:
+        #     storage_options = {}
+        #     remote_protocol = ""
 
         return (
             references

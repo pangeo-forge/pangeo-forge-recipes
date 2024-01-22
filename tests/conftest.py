@@ -488,10 +488,11 @@ def tmp_target(tmpdir_factory):
     return FSSpecTarget(fs, path)
 
 
-@pytest.fixture()
-def tmp_target_url(tmpdir_factory):
-    path = str(tmpdir_factory.mktemp("target.zarr"))
-    return path
+# @pytest.fixture()
+# def tmp_target_url(tmpdir_factory):
+#     fs = fsspec.get_filesystem_class("file")()
+#     path = str(tmpdir_factory.mktemp("target.zarr"))
+#     return FSSpecTarget(fs, path)
 
 
 @pytest.fixture()

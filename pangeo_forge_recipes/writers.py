@@ -112,9 +112,9 @@ def write_combined_reference(
     if isinstance(full_target, FSSpecTarget):
         storage_options = full_target.fsspec_kwargs
         remote_protocol = full_target.get_fsspec_remote_protocol()
-    else:
-        storage_options = {}
-        remote_protocol = ""
+    # else:
+    #     storage_options = {}
+    #     remote_protocol = ""
 
     # If reference is a ReferenceFileSystem, write to json
     if isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
