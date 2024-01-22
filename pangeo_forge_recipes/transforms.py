@@ -633,8 +633,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
 
 def _create_pyramid(item: Tuple[Index, xr.Dataset], level: int) -> zarr.storage.FSStore:
     index, ds = item
-    import rioxarray
-    from ndpyramid import pyramid_reproject, reproject_single_level
+    import rioxarray  # noqa
+    from ndpyramid import reproject_single_level
 
     ds = ds.rename_dims({"lon": "longitude", "lat": "latitude"})
     ds = ds.rename({"lon": "longitude", "lat": "latitude"})
@@ -671,7 +671,7 @@ class PyramidToZarr(beam.PTransform, ZarrWriterMixin):
         for lvl in lvl_list:
             pyr_ds = datasets | f"Create Pyr level: {lvl}" >> CreatePyramid(level=lvl)
             pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
-                target_root="noaa-oisst.zarr",
+                target_root="pyramid_test.zarr",
                 store_name=f"{str(lvl)}",
                 combine_dims=self.combine_dims,
             )

@@ -1,16 +1,9 @@
 import apache_beam as beam
 import pandas as pd
-import xarray as xr
 import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.transforms import (
-    Indexed,
-    OpenURLWithFSSpec,
-    OpenWithXarray,
-    PyramidToZarr,
-    StoreToZarr,
-)
+from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, PyramidToZarr
 
 dates = pd.date_range("1981-09-01", "2022-02-01", freq="D")
 
@@ -41,35 +34,13 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     return store
 
 
-class CreatePyramid(beam.PTransform):
-    @staticmethod
-    def _create_pyramid(item: Indexed[xr.Dataset]) -> Indexed[xr.Dataset]:
-        index, ds = item
-        import rioxarray
-        from ndpyramid import pyramid_reproject, reproject_single_level
-
-        ds = ds.rename_dims({"lon": "longitude", "lat": "latitude"})
-        ds = ds.rename({"lon": "longitude", "lat": "latitude"})
-        ds.rio.write_crs("epsg:4326", inplace=True)
-        # ds = ds.anom.rio.set_spatial_dims(x_dim='lat',y_dim='lon',inplace=True)
-
-        level_ds = reproject_single_level(ds, level=1, extra_dim="zlev")
-        return index, level_ds
-
-    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        pyr_ds = pcoll | beam.Map(self._create_pyramid)
-        return pyr_ds | StoreToZarr(
-            target_root="noaa-oisst.zarr", store_name="l1", combine_dims=pattern.combine_dim_keys
-        )
-
-
 recipe = (
     beam.Create(pattern.items())
     | OpenURLWithFSSpec()
     | OpenWithXarray(file_type=pattern.file_type)
     | PyramidToZarr(
         target_root=".",
-        store_name="noaa-oisst.zarr",
+        store_name="pyramid_test.zarr",
         n_levels=5,
         combine_dims=pattern.combine_dim_keys,
     )
