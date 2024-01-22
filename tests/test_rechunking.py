@@ -281,7 +281,6 @@ def test_consolidate_dimension_coordinates():
     # If you don't provide these attrs,
     # consolidate_dimension_coordinates does not
     # raise an error, while Xarray does
-    group.attrs["_ARRAY_DIMENSIONS"] = ["time"]
     group.data.attrs["_ARRAY_DIMENSIONS"] = ["time"]
     group.time.attrs["_ARRAY_DIMENSIONS"] = ["time"]
 
