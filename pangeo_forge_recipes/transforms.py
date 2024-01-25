@@ -23,7 +23,12 @@ from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
-from .writers import ZarrWriterMixin, store_dataset_fragment, write_combined_reference
+from .writers import (
+    ZarrWriterMixin,
+    consolidate_metadata,
+    store_dataset_fragment,
+    write_combined_reference,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -359,11 +364,14 @@ class PrepareZarrTarget(beam.PTransform):
         If chunking is present in the schema for a given dimension, the length of
         the first fragment will be used. Otherwise, the dimension will not be chunked.
     :param attrs: Extra group-level attributes to inject into the dataset.
+    :param consolidated_metadata: Bool controlling if xarray.to_zarr()
+    writes consolidated metadata. Default's to True.
     """
 
     target: str | FSSpecTarget
     target_chunks: Dict[str, int] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
+    consolidated_metadata: Optional[bool] = True
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         if isinstance(self.target, str):
@@ -372,7 +380,11 @@ class PrepareZarrTarget(beam.PTransform):
             target = self.target
         store = target.get_mapper()
         initialized_target = pcoll | beam.Map(
-            schema_to_zarr, target_store=store, target_chunks=self.target_chunks, attrs=self.attrs
+            schema_to_zarr,
+            target_store=store,
+            target_chunks=self.target_chunks,
+            attrs=self.attrs,
+            consolidated_metadata=self.consolidated_metadata,
         )
         return initialized_target
 
@@ -388,9 +400,13 @@ class StoreDatasetFragments(beam.PTransform):
         )
 
 
-# TODO
-# - consolidate coords
-# - consolidate metadata
+@dataclass
+class ConsolidateMetadata(beam.PTransform):
+    """Calls Zarr Python consolidate_metadata on an existing Zarr store or Kerchunk reference
+    (https://zarr.readthedocs.io/en/stable/_modules/zarr/convenience.html#consolidate_metadata)"""
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(consolidate_metadata)
 
 
 @dataclass
@@ -580,6 +596,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
       out https://github.com/jbusecke/dynamic_chunks
     :param dynamic_chunking_fn_kwargs: Optional keyword arguments for ``dynamic_chunking_fn``.
     :param attrs: Extra group-level attributes to inject into the dataset.
+    :param consolidated_metadata: Bool controlling if xarray.to_zarr()
+    writes consolidated metadata. Default's to True.
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
@@ -593,6 +611,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     dynamic_chunking_fn: Optional[Callable[[xr.Dataset], dict]] = None
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
+    consolidated_metadata: Optional[bool] = True
 
     def __post_init__(self):
         if self.target_chunks and self.dynamic_chunking_fn:
@@ -618,6 +637,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             target=self.get_full_target(),
             target_chunks=target_chunks,
             attrs=self.attrs,
+            consolidated_metadata=self.consolidated_metadata,
         )
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (

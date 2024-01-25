@@ -278,9 +278,10 @@ def schema_to_zarr(
     target_store: zarr.storage.FSStore,
     target_chunks: Optional[Dict[str, int]] = None,
     attrs: Optional[Dict[str, str]] = None,
+    consolidated_metadata: Optional[bool] = True,
 ) -> zarr.storage.FSStore:
     """Initialize a zarr group based on a schema."""
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
     # using mode="w" makes this function idempotent
-    ds.to_zarr(target_store, mode="w", compute=False)
+    ds.to_zarr(target_store, mode="w", compute=False, consolidated=consolidated_metadata)
     return target_store

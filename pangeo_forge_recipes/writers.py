@@ -67,6 +67,27 @@ def _is_first_in_merge_dim(index):
     return True
 
 
+def consolidate_metadata(store: MutableMapping) -> MutableMapping:
+    """Consolidate metadata for a Zarr store or Kerchunk reference
+
+    :param store: Input Store for Zarr or Kerchunk reference
+    :type store: MutableMapping
+    :return: Output Store
+    :rtype: MutableMapping
+    """
+
+    import zarr
+
+    if isinstance(store, fsspec.FSMap) and isinstance(store.fs, ReferenceFileSystem):
+        ref_path = store.fs.storage_args[0]
+        path = fsspec.get_mapper("reference://", fo=ref_path)
+    if isinstance(store, zarr.storage.FSStore):
+        path = store.path
+
+    zc = zarr.consolidate_metadata(path)
+    return zc
+
+
 def store_dataset_fragment(
     item: Tuple[Index, xr.Dataset], target_store: zarr.storage.FSStore
 ) -> zarr.storage.FSStore:
@@ -78,7 +99,6 @@ def store_dataset_fragment(
 
     index, ds = item
     zgroup = zarr.open_group(target_store)
-
     # TODO: check that the dataset and the index are compatible
 
     # only store coords if this is the first item in a merge dim
