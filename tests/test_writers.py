@@ -182,7 +182,6 @@ def test_reference_netcdf(
     netcdf_local_file_pattern_sequential,
     pipeline,
     tmp_target,
-    # why are we not using tmp_target?
     output_file_name,
 ):
     pattern = netcdf_local_file_pattern_sequential
@@ -203,6 +202,35 @@ def test_reference_netcdf(
         )
 
     full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
-
     mapper = fsspec.get_mapper("reference://", fo=full_path)
     assert zarr.open_consolidated(mapper)
+
+
+@pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
+def test_reference_netcdf_with_xarray_read(
+    netcdf_local_file_pattern_sequential,
+    pipeline,
+    tmp_target,
+    output_file_name,
+):
+    pattern = netcdf_local_file_pattern_sequential
+    store_name = "daily-xarray-dataset"
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithKerchunk(file_type=pattern.file_type)
+            | WriteCombinedReference(
+                identical_dims=["lat", "lon"],
+                target_root=tmp_target,
+                store_name=store_name,
+                concat_dims=["time"],
+                output_file_name=output_file_name,
+            )
+            | ConsolidateMetadata()
+        )
+
+    full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
+    with fsspec.open(full_path) as f:
+        with pytest.raises(KeyError):
+            xr.open_dataset(f, engine='zarr', consolidated=True)

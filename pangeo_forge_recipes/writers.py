@@ -67,7 +67,7 @@ def _is_first_in_merge_dim(index):
     return True
 
 
-def consolidate_metadata(store: MutableMapping) -> MutableMapping:
+def consolidate_metadata(store: MutableMapping) -> zarr.hierarchy.Group:
     """Consolidate metadata for a Zarr store or Kerchunk reference
 
     :param store: Input Store for Zarr or Kerchunk reference
