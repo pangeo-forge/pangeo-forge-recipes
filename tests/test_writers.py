@@ -157,7 +157,7 @@ def test_store_dataset_fragment(temp_store):
 def test_zarr_consolidate_metadata(
     netcdf_local_file_pattern,
     pipeline,
-    tmp_target_url,
+    tmp_target,
 ):
     pattern = netcdf_local_file_pattern
     with pipeline as p:
@@ -166,14 +166,14 @@ def test_zarr_consolidate_metadata(
             | beam.Create(pattern.items())
             | OpenWithXarray(file_type=pattern.file_type)
             | StoreToZarr(
-                target_root=tmp_target_url,
+                target_root=tmp_target,
                 store_name="store",
                 combine_dims=pattern.combine_dim_keys,
                 consolidated_metadata=False,
             )
             | ConsolidateMetadata()
         )
-    zc = zarr.storage.FSStore(os.path.join(tmp_target_url, "store"))
+    zc = zarr.storage.FSStore(os.path.join(tmp_target.root_path, "store"))
     assert zc[".zmetadata"] is not None
 
 
@@ -181,7 +181,7 @@ def test_zarr_consolidate_metadata(
 def test_reference_netcdf(
     netcdf_local_file_pattern_sequential,
     pipeline,
-    tmp_target_url,
+    tmp_target,
     # why are we not using tmp_target?
     output_file_name,
 ):
@@ -194,7 +194,7 @@ def test_reference_netcdf(
             | OpenWithKerchunk(file_type=pattern.file_type)
             | WriteCombinedReference(
                 identical_dims=["lat", "lon"],
-                target_root=tmp_target_url,
+                target_root=tmp_target,
                 store_name=store_name,
                 concat_dims=["time"],
                 output_file_name=output_file_name,
@@ -202,7 +202,7 @@ def test_reference_netcdf(
             | ConsolidateMetadata()
         )
 
-    full_path = os.path.join(tmp_target_url, store_name, output_file_name)
+    full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
 
     mapper = fsspec.get_mapper("reference://", fo=full_path)
     assert zarr.open_consolidated(mapper)
