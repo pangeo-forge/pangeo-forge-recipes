@@ -231,6 +231,6 @@ def test_reference_netcdf_with_xarray_read(
         )
 
     full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
-    with fsspec.open(full_path) as f:
-        with pytest.raises(KeyError):
-            xr.open_dataset(f, engine='zarr', consolidated=True)
+    mapper = fsspec.get_mapper("reference://", fo=full_path)
+    with pytest.raises(KeyError):
+        xr.open_dataset(mapper, engine='zarr', consolidated=True)
