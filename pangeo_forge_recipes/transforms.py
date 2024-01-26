@@ -403,10 +403,18 @@ class StoreDatasetFragments(beam.PTransform):
 @dataclass
 class ConsolidateMetadata(beam.PTransform):
     """Calls Zarr Python consolidate_metadata on an existing Zarr store or Kerchunk reference
-    (https://zarr.readthedocs.io/en/stable/_modules/zarr/convenience.html#consolidate_metadata)"""
+    (https://zarr.readthedocs.io/en/stable/_modules/zarr/convenience.html#consolidate_metadata)
+
+    :param target_root: Root path the Zarr store will be created inside;
+        `store_name` will be appended to this prefix to create a full path.
+    """
+
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(consolidate_metadata)
+        return pcoll | beam.Map(consolidate_metadata, fsspec_kwargs=self.target_root.fsspec_kwargs)
 
 
 @dataclass

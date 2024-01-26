@@ -67,11 +67,13 @@ def _is_first_in_merge_dim(index):
     return True
 
 
-def consolidate_metadata(store: MutableMapping) -> zarr.hierarchy.Group:
+def consolidate_metadata(store: MutableMapping, fsspec_kwargs: dict) -> zarr.hierarchy.Group:
     """Consolidate metadata for a Zarr store or Kerchunk reference
 
     :param store: Input Store for Zarr or Kerchunk reference
     :type store: MutableMapping
+    :param fsspec_kwargs: all optional fsspec kwargs
+    :type fsspec_kwargs: dict
     :return: Output Store
     :rtype: MutableMapping
     """
@@ -80,7 +82,7 @@ def consolidate_metadata(store: MutableMapping) -> zarr.hierarchy.Group:
 
     if isinstance(store, fsspec.FSMap) and isinstance(store.fs, ReferenceFileSystem):
         ref_path = store.fs.storage_args[0]
-        path = fsspec.get_mapper("reference://", fo=ref_path)
+        path = fsspec.get_mapper("reference://", fo=ref_path, **fsspec_kwargs)
     if isinstance(store, zarr.storage.FSStore):
         path = store.path
 
