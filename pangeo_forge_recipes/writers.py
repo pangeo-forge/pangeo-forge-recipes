@@ -84,8 +84,10 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
     if isinstance(store, zarr.storage.FSStore):
         path = store.path
 
-    zc = zarr.consolidate_metadata(path)
-    return zc
+    zarr.convenience.consolidate_metadata(path)
+    # How do we update a parquet reference file?
+    path.fs.save_json(ref_path)
+    return path
 
 
 def store_dataset_fragment(

@@ -182,7 +182,6 @@ def test_reference_netcdf(
     netcdf_local_file_pattern_sequential,
     pipeline,
     tmp_target,
-    # why are we not using tmp_target?
     output_file_name,
 ):
     pattern = netcdf_local_file_pattern_sequential
@@ -203,6 +202,6 @@ def test_reference_netcdf(
         )
 
     full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
-
     mapper = fsspec.get_mapper("reference://", fo=full_path)
     assert zarr.open_consolidated(mapper)
+    assert xr.open_zarr(mapper, consolidated=True)
