@@ -79,15 +79,16 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
     import zarr
 
     if isinstance(store, fsspec.FSMap) and isinstance(store.fs, ReferenceFileSystem):
-        ref_path = store.fs.storage_args[0]
-        path = fsspec.get_mapper("reference://", fo=ref_path)
-        path.fs.save_json(ref_path)
-    if isinstance(store, zarr.storage.FSStore):
-        path = store.path
+        path = store.fs.storage_args[0]
 
-    zarr.convenience.consolidate_metadata(path)
-    # How do we update a parquet reference file?
-    zc = zarr.open_consolidated(path)
+        zarr.convenience.consolidate_metadata(store)
+        if "json" in os.path.split(path)[-1]:
+            store.fs.save_json(path)
+
+    if isinstance(store, zarr.storage.FSStore):
+        zarr.convenience.consolidate_metadata(store)
+
+    zc = zarr.open_consolidated(store)
     return zc
 
 
@@ -135,13 +136,7 @@ def write_combined_reference(
     storage_options = full_target.fsspec_kwargs  # type: ignore[union-attr]
     remote_protocol = full_target.get_fsspec_remote_protocol()  # type: ignore[union-attr]
 
-    # If reference is a ReferenceFileSystem, write to json
-    if isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
-        # context manager reuses dep injected auth credentials without passing storage options
-        with full_target.fs.open(outpath, "wb") as f:
-            f.write(ujson.dumps(reference.fs.references).encode())
-
-    elif file_ext == ".parquet":
+    if file_ext == ".parquet":
         # Creates empty parquet store to be written to
         if full_target.exists(output_file_name):
             full_target.rm(output_file_name, recursive=True)
@@ -163,6 +158,12 @@ def write_combined_reference(
 
         # call to write reference to empty parquet store
         out.flush()
+
+    # If reference is a ReferenceFileSystem, write to json
+    elif isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
+        # context manager reuses dep injected auth credentials without passing storage options
+        with full_target.fs.open(outpath, "wb") as f:
+            f.write(ujson.dumps(reference.fs.references).encode())
 
     else:
         raise NotImplementedError(f"{file_ext = } not supported.")
