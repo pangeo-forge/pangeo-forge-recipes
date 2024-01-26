@@ -6,6 +6,9 @@ def get_injection_specs():
         "WriteReference": {
             "target_root": "TARGET_STORAGE",
         },
+        "ConsolidateMetadata": {
+            "target_root": "TARGET_STORAGE",
+        },
         "WriteCombinedReference": {
             "target_root": "TARGET_STORAGE",
         },
