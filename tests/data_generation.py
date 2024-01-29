@@ -43,3 +43,13 @@ def make_ds(nt=10, non_dim_coords=False):
     }
 
     return ds
+
+
+def make_pyramid(n_levels: int):
+    import rioxarray
+    from ndpyramid import pyramid_reproject
+
+    ds = make_ds()
+    ds = ds.rename({"lon": "longitude", "lat": "latitude"})
+    ds = ds.rio.write_crs("EPSG:4326")
+    return pyramid_reproject(ds, levels=n_levels)

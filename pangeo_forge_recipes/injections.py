@@ -3,6 +3,9 @@ def get_injection_specs():
         "StoreToZarr": {
             "target_root": "TARGET_STORAGE",
         },
+        "StoreToPyramid": {
+            "target_root": "TARGET_STORAGE",
+        },
         "WriteReference": {
             "target_root": "TARGET_STORAGE",
         },

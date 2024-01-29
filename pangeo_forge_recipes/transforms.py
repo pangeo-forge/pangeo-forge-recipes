@@ -613,12 +613,15 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
             )
         )
+
         rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
+
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(),
             target_chunks=target_chunks,
             attrs=self.attrs,
         )
+
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (
             n_target_stores
@@ -653,7 +656,7 @@ class CreatePyramid(beam.PTransform):
 
 
 @dataclass
-class PyramidToZarr(beam.PTransform, ZarrWriterMixin):
+class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
 
     n_levels: int
     combine_dims: List[Dimension]
@@ -669,10 +672,11 @@ class PyramidToZarr(beam.PTransform, ZarrWriterMixin):
 
         lvl_list = list(range(1, self.n_levels + 1))
         for lvl in lvl_list:
-            pyr_ds = datasets | f"Create Pyr level: {lvl}" >> CreatePyramid(level=lvl)
+            pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(level=lvl)
+
             pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
-                target_root="pyramid_test.zarr",
-                store_name=f"{str(lvl)}",
+                target_root=self.target_root,
+                store_name=f"{self.store_name}/{str(lvl)}",
                 combine_dims=self.combine_dims,
             )
 

@@ -38,7 +38,7 @@ from pangeo_forge_recipes.patterns import (
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 from pangeo_forge_recipes.transforms import OpenURLWithFSSpec
 
-from .data_generation import make_ds
+from .data_generation import make_ds, make_pyramid
 
 
 # To use this feature, e.g. `$ pytest --run-integration`
@@ -430,6 +430,11 @@ def netcdf_local_paths_sequential_with_coordinateless_dimension(
         split_up_files_by_day,
         file_type="netcdf4",
     )
+
+
+@pytest.fixture(scope="session")
+def pyramid_datatree(n_levels: int = 2):
+    return make_pyramid(n_levels=n_levels)
 
 
 # FilePattern fixtures ----------------------------------------------------------------------------

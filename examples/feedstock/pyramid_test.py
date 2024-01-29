@@ -3,7 +3,7 @@ import pandas as pd
 import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, PyramidToZarr
+from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, StoreToPyramid
 
 dates = pd.date_range("1981-09-01", "2022-02-01", freq="D")
 
@@ -38,7 +38,7 @@ recipe = (
     beam.Create(pattern.items())
     | OpenURLWithFSSpec()
     | OpenWithXarray(file_type=pattern.file_type)
-    | PyramidToZarr(
+    | StoreToPyramid(
         target_root=".",
         store_name="pyramid_test.zarr",
         n_levels=5,

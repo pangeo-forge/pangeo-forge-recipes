@@ -16,6 +16,7 @@ from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequenc
 from pangeo_forge_recipes.transforms import (
     OpenWithKerchunk,
     OpenWithXarray,
+    StoreToPyramid,
     StoreToZarr,
     WriteCombinedReference,
 )
@@ -52,7 +53,6 @@ def test_xarray_zarr(
                 combine_dims=pattern.combine_dim_keys,
             )
         )
-
     ds = xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr")
     assert ds.time.encoding["chunks"] == (target_chunks["time"],)
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
@@ -172,3 +172,33 @@ def test_reference_grib(
     # various inconsistencies (of dtype casting int to float, etc.). With the right combination of
     # options passed to the pipeline, seems like these should pass?
     # xr.testing.assert_equal(ds.load(), ds2)
+
+
+def test_pyramid(
+    pyramid_datatree,
+    netcdf_local_file_pattern,
+    pipeline,
+    tmp_target_url,
+):
+    pattern = netcdf_local_file_pattern
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToPyramid(
+                target_root=tmp_target_url,
+                store_name="store",
+                n_levels=2,
+                combine_dims=pattern.combine_dim_keys,
+            )
+        )
+    import datatree
+
+    dsl1 = xr.open_dataset(os.path.join(tmp_target_url, "store/1"), engine="zarr")
+    dsl2 = xr.open_dataset(os.path.join(tmp_target_url, "store/2"), engine="zarr")
+    dt = datatree.DataTree.from_dict({"l1": dsl1, "l2": dsl2})
+    # assert dt == pyramid_datatree
+    # To Do:
+    # - Fix attrs in StoreToPyramid to produce valid datatree
+    # - check equality between fixture pyramid and pipeline pyramid
