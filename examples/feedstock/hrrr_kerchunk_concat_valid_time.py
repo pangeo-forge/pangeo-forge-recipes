@@ -2,6 +2,7 @@
 
 https://projectpythia.org/kerchunk-cookbook/notebooks/case_studies/HRRR.html
 """
+
 from typing import Any
 
 import apache_beam as beam
