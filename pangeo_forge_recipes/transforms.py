@@ -23,7 +23,12 @@ from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
-from .writers import ZarrWriterMixin, store_dataset_fragment, write_combined_reference
+from .writers import (
+    ZarrWriterMixin,
+    create_pyramid,
+    store_dataset_fragment,
+    write_combined_reference,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -634,25 +639,12 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         return singleton_target_store
 
 
-def _create_pyramid(item: Tuple[Index, xr.Dataset], level: int) -> zarr.storage.FSStore:
-    index, ds = item
-    import rioxarray  # noqa
-    from ndpyramid import reproject_single_level
-
-    ds = ds.rename_dims({"lon": "longitude", "lat": "latitude"})
-    ds = ds.rename({"lon": "longitude", "lat": "latitude"})
-    ds.rio.write_crs("epsg:4326", inplace=True)
-
-    level_ds = reproject_single_level(ds, level=level, extra_dim="zlev")
-    return index, level_ds
-
-
 @dataclass
 class CreatePyramid(beam.PTransform):
     level: int
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(_create_pyramid, level=self.level)
+        return pcoll | beam.Map(create_pyramid, level=self.level)
 
 
 @dataclass
@@ -670,7 +662,15 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
 
-        lvl_list = list(range(1, self.n_levels + 1))
+        # generate base level
+        StoreToZarr(
+            target_root=self.target_root,
+            store_name=f"{self.store_name}/0",
+            combine_dims=self.combine_dims,
+        )
+
+        # generate successive pyramid levels
+        lvl_list = list(range(1, self.n_levels))
         for lvl in lvl_list:
             pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(level=lvl)
 

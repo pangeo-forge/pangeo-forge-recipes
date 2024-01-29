@@ -173,3 +173,16 @@ class ZarrWriterMixin:
         else:
             target_root = self.target_root
         return target_root / self.store_name
+
+
+def create_pyramid(item: Tuple[Index, xr.Dataset], level: int) -> zarr.storage.FSStore:
+    index, ds = item
+    import rioxarray  # noqa
+    from ndpyramid.reproject import level_reproject
+
+    ds = ds.rename_dims({"lon": "longitude", "lat": "latitude"})
+    ds = ds.rename({"lon": "longitude", "lat": "latitude"})
+    ds.rio.write_crs("epsg:4326", inplace=True)
+
+    level_ds = level_reproject(ds, level=level, extra_dim="zlev")
+    return index, level_ds

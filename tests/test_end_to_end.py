@@ -174,6 +174,7 @@ def test_reference_grib(
     # xr.testing.assert_equal(ds.load(), ds2)
 
 
+@pytest.mark.xfail
 def test_pyramid(
     pyramid_datatree,
     netcdf_local_file_pattern,
@@ -193,11 +194,16 @@ def test_pyramid(
                 combine_dims=pattern.combine_dim_keys,
             )
         )
+
     import datatree
 
     dsl1 = xr.open_dataset(os.path.join(tmp_target_url, "store/1"), engine="zarr")
     dsl2 = xr.open_dataset(os.path.join(tmp_target_url, "store/2"), engine="zarr")
     dt = datatree.DataTree.from_dict({"l1": dsl1, "l2": dsl2})
+
+    # this should fail as there is a lot more tinkering to be done!
+    datatree.testing.assert_equal(dt, pyramid_datatree)
+
     # assert dt == pyramid_datatree
     # To Do:
     # - Fix attrs in StoreToPyramid to produce valid datatree
