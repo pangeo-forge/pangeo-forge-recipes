@@ -174,7 +174,7 @@ def test_reference_grib(
     # xr.testing.assert_equal(ds.load(), ds2)
 
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_pyramid(
     pyramid_datatree,
     netcdf_local_file_pattern,
@@ -194,13 +194,14 @@ def test_pyramid(
         )
         pyramid_store = process | "Write Pyramid Levels" >> StoreToPyramid(
             target_root=tmp_target_url,
-            store_name="store",
+            store_name="pyramid",
             n_levels=2,  # note: add to docs that this lvls in addition to base level of pyr
             combine_dims=pattern.combine_dim_keys,
         )
+    import pdb; pdb.set_trace()
 
-    # ds_l0 = xr.open_dataset(os.path.join(tmp_target_url, "store/0"), engine="zarr")
-    # ds_l1 = xr.open_dataset(os.path.join(tmp_target_url, "store/1"), engine="zarr")
+    ds_base = xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr")
+    pyr_l1 = xr.open_dataset(os.path.join(tmp_target_url, "pyramid/1"), engine="zarr")
     # dt = datatree.DataTree.from_dict({"l1": dsl1, "l2": dsl2})
 
     # # this should fail as there is a lot more tinkering to be done!

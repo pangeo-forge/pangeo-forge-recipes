@@ -674,9 +674,6 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         # import pdb; pdb.set_trace()
         for lvl in lvl_list:
             pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(level=lvl)
-            import pdb
-
-            pdb.set_trace()
             pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
                 target_root=self.target_root,
                 store_name=f"{self.store_name}/{str(lvl)}",
