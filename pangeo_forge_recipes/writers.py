@@ -77,6 +77,7 @@ def store_dataset_fragment(
     """
 
     index, ds = item
+
     zgroup = zarr.open_group(target_store)
 
     # TODO: check that the dataset and the index are compatible
@@ -177,12 +178,10 @@ class ZarrWriterMixin:
 
 def create_pyramid(item: Tuple[Index, xr.Dataset], level: int) -> zarr.storage.FSStore:
     index, ds = item
-    import rioxarray  # noqa
     from ndpyramid.reproject import level_reproject
-
-    ds = ds.rename_dims({"lon": "longitude", "lat": "latitude"})
-    ds = ds.rename({"lon": "longitude", "lat": "latitude"})
-    ds.rio.write_crs("epsg:4326", inplace=True)
+    from ndpyramid.utils import set_zarr_encoding
 
     level_ds = level_reproject(ds, level=level, extra_dim="zlev")
+
+    level_ds = set_zarr_encoding(level_ds, float_dtype="float32", int_dtype="int32")
     return index, level_ds

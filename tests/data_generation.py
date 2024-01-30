@@ -52,4 +52,5 @@ def make_pyramid(n_levels: int):
     ds = make_ds(ny=180, nx=360)
     ds = ds.rename({"lon": "longitude", "lat": "latitude"})
     ds = ds.rio.write_crs("EPSG:4326")
+
     return pyramid_reproject(ds, levels=n_levels)

@@ -282,5 +282,6 @@ def schema_to_zarr(
     """Initialize a zarr group based on a schema."""
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
     # using mode="w" makes this function idempotent
+
     ds.to_zarr(target_store, mode="w", compute=False)
     return target_store

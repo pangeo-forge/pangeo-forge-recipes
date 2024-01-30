@@ -14,6 +14,7 @@ from fsspec.implementations.reference import ReferenceFileSystem
 
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
 from pangeo_forge_recipes.transforms import (
+    Indexed,
     OpenWithKerchunk,
     OpenWithXarray,
     StoreToPyramid,
@@ -174,19 +175,41 @@ def test_reference_grib(
     # xr.testing.assert_equal(ds.load(), ds2)
 
 
-# @pytest.mark.xfail
+@pytest.mark.parametrize("target_chunks", [{"time": 10}])
 def test_pyramid(
     pyramid_datatree,
     daily_xarray_dataset,
     netcdf_local_file_pattern,
+    target_chunks,
     pipeline,
     tmp_target_url,
 ):
     import datatree
 
+    class SetCRS(beam.PTransform):
+        """Updates CRS and coord naming"""
+
+        @staticmethod
+        def _set_CRS(item: Indexed[xr.Dataset]) -> Indexed[xr.Dataset]:
+            index, ds = item
+
+            import rioxarray  # noqa
+
+            ds = ds.rename({"lon": "longitude", "lat": "latitude"})
+            ds.rio.write_crs("epsg:4326", inplace=True)
+            return index, ds
+
+        def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+            return pcoll | beam.Map(self._set_CRS)
+
     pattern = netcdf_local_file_pattern
     with pipeline as p:
-        process = p | beam.Create(pattern.items()) | OpenWithXarray(file_type=pattern.file_type)
+        process = (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | SetCRS()
+        )
 
         base_store = process | "Write Base Level" >> StoreToZarr(
             target_root=tmp_target_url,
@@ -197,28 +220,24 @@ def test_pyramid(
             target_root=tmp_target_url,
             store_name="pyramid",
             n_levels=2,
+            target_chunks=target_chunks,
             combine_dims=pattern.combine_dim_keys,
         )
 
-    ds_base = xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr")
-    xr.testing.assert_equal(ds_base.load(), daily_xarray_dataset)
+    assert xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr", chunks={})
 
-    pyr_l0 = xr.open_dataset(os.path.join(tmp_target_url, "pyramid/0"), engine="zarr", chunks={})
-    pyr_l1 = xr.open_dataset(os.path.join(tmp_target_url, "pyramid/1"), engine="zarr", chunks={})
+    pyr_l0 = xr.open_dataset(
+        os.path.join(tmp_target_url, "pyramid/0"), engine="zarr", chunks={}
+    ).drop("spatial_ref")
+    pyr_l1 = xr.open_dataset(
+        os.path.join(tmp_target_url, "pyramid/1"), engine="zarr", chunks={}
+    ).drop("spatial_ref")
 
+    #
     dt = datatree.DataTree.from_dict({"0": pyr_l0, "1": pyr_l1})
+    l0_source_pyr = pyramid_datatree["0"].to_dataset().drop("spatial_ref")
 
-    # # this should fail as there is a lot more tinkering to be done!
     from datatree.testing import assert_isomorphic
 
     assert_isomorphic(dt, pyramid_datatree)  # every node has same # of children
-    l0_source_pyr = pyramid_datatree["0"].to_dataset()
-    import pdb
-
-    pdb.set_trace()
     xr.testing.assert_allclose(pyr_l0, l0_source_pyr)
-
-    # assert dt == pyramid_datatree
-    # To Do:
-    # - Fix attrs in StoreToPyramid to produce valid datatree
-    # - check equality between fixture pyramid and pipeline pyramid

@@ -653,6 +653,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
     n_levels: int
     combine_dims: List[Dimension]
     store_name: str
+    target_chunks: Dict[str, int] = field(default_factory=dict)
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
@@ -669,6 +670,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
                 target_root=self.target_root,
                 store_name=f"{self.store_name}/{str(lvl)}",
+                target_chunks=self.target_chunks,
                 combine_dims=self.combine_dims,
             )
 
