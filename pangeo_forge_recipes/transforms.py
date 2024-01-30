@@ -606,12 +606,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     dynamic_chunking_fn: Optional[Callable[[xr.Dataset], dict]] = None
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
-<<<<<<< HEAD
     consolidate_dimension_coordinates: bool = False
-=======
     consolidated_metadata: Optional[bool] = True
     encoding: Optional[dict] = field(default_factory=dict)
->>>>>>> main
 
     def __post_init__(self):
         if self.target_chunks and self.dynamic_chunking_fn:
