@@ -662,16 +662,8 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
 
-        # # generate base level
-        # StoreToZarr(
-        #     target_root=self.target_root,
-        #     store_name=f"{self.store_name}/0",
-        #     combine_dims=self.combine_dims,
-        # )
-
-        # generate successive pyramid levels
-        lvl_list = list(range(1, self.n_levels + 1))
-        # import pdb; pdb.set_trace()
+        # generate all pyramid levels
+        lvl_list = list(range(0, self.n_levels))
         for lvl in lvl_list:
             pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(level=lvl)
             pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(

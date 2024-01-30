@@ -264,6 +264,11 @@ def daily_xarray_dataset():
 
 
 @pytest.fixture(scope="session")
+def daily_xarray_dataset_global():
+    return make_ds(nt=10, ny=180, nx=360)
+
+
+@pytest.fixture(scope="session")
 def daily_xarray_dataset_with_coordinateless_dimension(daily_xarray_dataset):
     """
     A Dataset with a coordinateless dimension.

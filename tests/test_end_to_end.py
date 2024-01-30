@@ -177,6 +177,7 @@ def test_reference_grib(
 # @pytest.mark.xfail
 def test_pyramid(
     pyramid_datatree,
+    daily_xarray_dataset,
     netcdf_local_file_pattern,
     pipeline,
     tmp_target_url,
@@ -195,17 +196,27 @@ def test_pyramid(
         pyramid_store = process | "Write Pyramid Levels" >> StoreToPyramid(
             target_root=tmp_target_url,
             store_name="pyramid",
-            n_levels=2,  # note: add to docs that this lvls in addition to base level of pyr
+            n_levels=2,
             combine_dims=pattern.combine_dim_keys,
         )
-    import pdb; pdb.set_trace()
 
     ds_base = xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr")
-    pyr_l1 = xr.open_dataset(os.path.join(tmp_target_url, "pyramid/1"), engine="zarr")
-    # dt = datatree.DataTree.from_dict({"l1": dsl1, "l2": dsl2})
+    xr.testing.assert_equal(ds_base.load(), daily_xarray_dataset)
+
+    pyr_l0 = xr.open_dataset(os.path.join(tmp_target_url, "pyramid/0"), engine="zarr", chunks={})
+    pyr_l1 = xr.open_dataset(os.path.join(tmp_target_url, "pyramid/1"), engine="zarr", chunks={})
+
+    dt = datatree.DataTree.from_dict({"0": pyr_l0, "1": pyr_l1})
 
     # # this should fail as there is a lot more tinkering to be done!
-    # datatree.testing.assert_equal(dt, pyramid_datatree)
+    from datatree.testing import assert_isomorphic
+
+    assert_isomorphic(dt, pyramid_datatree)  # every node has same # of children
+    l0_source_pyr = pyramid_datatree["0"].to_dataset()
+    import pdb
+
+    pdb.set_trace()
+    xr.testing.assert_allclose(pyr_l0, l0_source_pyr)
 
     # assert dt == pyramid_datatree
     # To Do:

@@ -3,7 +3,7 @@ import pandas as pd
 import xarray as xr
 
 
-def make_ds(nt=10, non_dim_coords=False):
+def make_ds(nt=10, ny=18, nx=36, non_dim_coords=False):
     """Return a synthetic random xarray dataset."""
     np.random.seed(2)
     # TODO: change nt to 11 in order to catch the edge case where
@@ -49,7 +49,7 @@ def make_pyramid(n_levels: int):
     import rioxarray
     from ndpyramid import pyramid_reproject
 
-    ds = make_ds()
+    ds = make_ds(ny=180, nx=360)
     ds = ds.rename({"lon": "longitude", "lat": "latitude"})
     ds = ds.rio.write_crs("EPSG:4326")
     return pyramid_reproject(ds, levels=n_levels)
