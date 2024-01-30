@@ -8,7 +8,6 @@ import fsspec.implementations.reference
 import numpy as np
 import pytest
 import xarray as xr
-import zarr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 from fsspec.implementations.reference import ReferenceFileSystem
@@ -179,7 +178,7 @@ def test_reference_grib(
 def test_xarray_zarr_consolidate_dimension_coordinates(
     netcdf_local_file_pattern_sequential,
     pipeline,
-    tmp_target_url,
+    tmp_target,
     consolidate_dimension_coordinates,
 ):
     pattern = netcdf_local_file_pattern_sequential
@@ -189,15 +188,16 @@ def test_xarray_zarr_consolidate_dimension_coordinates(
             | beam.Create(pattern.items())
             | OpenWithXarray(file_type=pattern.file_type)
             | StoreToZarr(
-                target_root=tmp_target_url,
+                target_root=tmp_target,
                 store_name="subpath",
                 combine_dims=pattern.combine_dim_keys,
                 consolidate_dimension_coordinates=consolidate_dimension_coordinates,
             )
         )
 
-    store = zarr.open(os.path.join(tmp_target_url, "subpath"))
+    path = os.path.join(tmp_target.root_path, "subpath")
+    ds = xr.open_dataset(path, engine="zarr", consolidated=True, chunks={})
     if not consolidate_dimension_coordinates:
-        assert store.time.chunks[0] != store.time.shape[0]
+        assert ds.time.encoding["chunks"][0] != ds.time.shape[0]
     if consolidate_dimension_coordinates:
-        assert store.time.chunks[0] == store.time.shape[0]
+        assert ds.time.encoding["chunks"][0] == ds.time.shape[0]
