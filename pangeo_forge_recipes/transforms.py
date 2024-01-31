@@ -431,7 +431,7 @@ class Rechunk(beam.PTransform):
 
 
 class ConsolidateDimensionCoordinates(beam.PTransform):
-    def expand(self, pcoll: beam.PCollection[zarr.storage.FSStore]) -> beam.PCollection:
+    def expand(self, pcoll: beam.PCollection[zarr.storage.FSStore]) -> beam.PCollection[zarr.storage.FSStore]:
         return pcoll | beam.Map(consolidate_dimension_coordinates)
 
 
