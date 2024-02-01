@@ -181,6 +181,31 @@ def test_zarr_consolidate_metadata(
     assert xr.open_zarr(path, consolidated=True)
 
 
+def test_zarr_encoding(
+    netcdf_local_file_pattern,
+    pipeline,
+    tmp_target,
+):
+    pattern = netcdf_local_file_pattern
+    compressor = zarr.Blosc("zstd", clevel=3)
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToZarr(
+                target_root=tmp_target,
+                store_name="store",
+                combine_dims=pattern.combine_dim_keys,
+                encoding={"foo": {"compressor": compressor}},
+            )
+            | ConsolidateMetadata()
+        )
+    zc = zarr.storage.FSStore(os.path.join(tmp_target.root_path, "store"))
+    z = zarr.open(zc)
+    assert z.foo.compressor == compressor
+
+
 @pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
 def test_reference_netcdf(
     netcdf_local_file_pattern_sequential,

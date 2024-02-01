@@ -366,12 +366,14 @@ class PrepareZarrTarget(beam.PTransform):
     :param attrs: Extra group-level attributes to inject into the dataset.
     :param consolidated_metadata: Bool controlling if xarray.to_zarr()
     writes consolidated metadata. Default's to True.
+    :param encoding: Dictionary describing encoding for xarray.to_zarr()
     """
 
     target: str | FSSpecTarget
     target_chunks: Dict[str, int] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
     consolidated_metadata: Optional[bool] = True
+    encoding: Optional[dict] = field(default_factory=dict)
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         if isinstance(self.target, str):
@@ -385,13 +387,13 @@ class PrepareZarrTarget(beam.PTransform):
             target_chunks=self.target_chunks,
             attrs=self.attrs,
             consolidated_metadata=self.consolidated_metadata,
+            encoding=self.encoding,
         )
         return initialized_target
 
 
 @dataclass
 class StoreDatasetFragments(beam.PTransform):
-
     target_store: beam.PCollection  # side input
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
@@ -582,6 +584,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     :param attrs: Extra group-level attributes to inject into the dataset.
     :param consolidated_metadata: Bool controlling if xarray.to_zarr()
     writes consolidated metadata. Default's to True.
+    :param encoding: Dictionary encoding for xarray.to_zarr().
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
@@ -596,6 +599,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
     consolidated_metadata: Optional[bool] = True
+    encoding: Optional[dict] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.target_chunks and self.dynamic_chunking_fn:
@@ -622,6 +626,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             target_chunks=target_chunks,
             attrs=self.attrs,
             consolidated_metadata=self.consolidated_metadata,
+            encoding=self.encoding,
         )
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (
