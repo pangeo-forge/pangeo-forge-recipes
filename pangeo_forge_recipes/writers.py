@@ -123,7 +123,7 @@ def write_combined_reference(
     full_target: FSSpecTarget,
     concat_dims: List[str],
     output_file_name: str,
-    refs_per_component: int = 1000,
+    refs_per_component: int = 10000,
     mzz_kwargs: Optional[Dict] = None,
 ) -> zarr.storage.FSStore:
     """Write a kerchunk combined references object to file."""
@@ -142,10 +142,11 @@ def write_combined_reference(
             full_target.rm(output_file_name, recursive=True)
         full_target.makedir(output_file_name)
 
-        out = LazyReferenceMapper.create(refs_per_component, outpath, full_target.fs)
+        out = LazyReferenceMapper.create(
+            root=outpath, fs=full_target.fs, record_size=refs_per_component
+        )
 
         # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
-
         MultiZarrToZarr(
             [reference],
             concat_dims=concat_dims,

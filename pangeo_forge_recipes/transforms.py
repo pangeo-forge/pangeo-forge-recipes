@@ -542,7 +542,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
         # unpack fsspec options that will be used below for transforms without dep injection
         storage_options = self.target_root.fsspec_kwargs  # type: ignore[union-attr]
         remote_protocol = self.target_root.get_fsspec_remote_protocol()  # type: ignore[union-attr]
-
         return (
             references
             | CombineReferences(
