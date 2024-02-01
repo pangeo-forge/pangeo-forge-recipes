@@ -402,7 +402,7 @@ class StoreDatasetFragments(beam.PTransform):
 
 @dataclass
 class ConsolidateMetadata(beam.PTransform):
-    """Calls Zarr Python consolidate_metadata on an existing Zarr store or Kerchunk reference
+    """Calls Zarr Python consolidate_metadata on an existing Zarr store
     (https://zarr.readthedocs.io/en/stable/_modules/zarr/convenience.html#consolidate_metadata)"""
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:

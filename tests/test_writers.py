@@ -173,8 +173,12 @@ def test_zarr_consolidate_metadata(
             )
             | ConsolidateMetadata()
         )
-    zc = zarr.storage.FSStore(os.path.join(tmp_target.root_path, "store"))
+
+    path = os.path.join(tmp_target.root_path, "store")
+    zc = zarr.storage.FSStore(path)
     assert zc[".zmetadata"] is not None
+
+    assert xr.open_zarr(path, consolidated=True)
 
 
 @pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
@@ -198,7 +202,6 @@ def test_reference_netcdf(
                 concat_dims=["time"],
                 output_file_name=output_file_name,
             )
-            | ConsolidateMetadata()
         )
 
     full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
@@ -209,5 +212,4 @@ def test_reference_netcdf(
         fo=full_path,
     )
 
-    assert zarr.open_consolidated(mapper)
-    assert xr.open_zarr(mapper, consolidated=True)
+    assert xr.open_zarr(mapper, consolidated=False)

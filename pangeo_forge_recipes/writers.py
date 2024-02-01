@@ -68,9 +68,9 @@ def _is_first_in_merge_dim(index):
 
 
 def consolidate_metadata(store: MutableMapping) -> MutableMapping:
-    """Consolidate metadata for a Zarr store or Kerchunk reference
+    """Consolidate metadata for a Zarr store
 
-    :param store: Input Store for Zarr or Kerchunk reference
+    :param store: Input Store for Zarr
     :type store: MutableMapping
     :return: Output Store
     :rtype: MutableMapping
@@ -79,11 +79,11 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
     import zarr
 
     if isinstance(store, fsspec.FSMap) and isinstance(store.fs, ReferenceFileSystem):
-        path = store.fs.storage_args[0]
-
-        zarr.convenience.consolidate_metadata(store)
-        if "json" in os.path.split(path)[-1]:
-            store.fs.save_json(path)
+        raise ValueError(
+            "Creating consolidated metadata for Kerchunk references has"
+            " no preformance benefits: Issue: "
+            " https://github.com/pangeo-forge/pangeo-forge-recipes/issues/675"
+        )
 
     if isinstance(store, zarr.storage.FSStore):
         zarr.convenience.consolidate_metadata(store)
