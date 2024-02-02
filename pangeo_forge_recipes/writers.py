@@ -208,10 +208,20 @@ class ZarrWriterMixin:
         return target_root / self.store_name
 
 
-def create_pyramid(item: Tuple[Index, xr.Dataset], level: int) -> zarr.storage.FSStore:
+def create_pyramid(
+    item: Tuple[Index, xr.Dataset],
+    level: int,
+    epsg_code: Optional[str] = None,
+    extra_dim: Optional[str] = None,
+) -> zarr.storage.FSStore:
     index, ds = item
     from ndpyramid.reproject import level_reproject
     from ndpyramid.utils import set_zarr_encoding
+
+    if epsg_code:
+        import rioxarray
+
+        ds = ds.rio.write_crs(f"EPSG:{epsg_code}")
 
     level_ds = level_reproject(ds, level=level, extra_dim="zlev")
 

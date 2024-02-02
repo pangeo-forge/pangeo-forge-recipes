@@ -647,9 +647,13 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
 @dataclass
 class CreatePyramid(beam.PTransform):
     level: int
+    epsg_code: Optional[str]
+    extra_dim: Optional[str]
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(create_pyramid, level=self.level)
+        return pcoll | beam.Map(
+            create_pyramid, level=self.level, epsg_code=self.epsg_code, extra_dim=self.extra_dim
+        )
 
 
 @dataclass
@@ -667,6 +671,11 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
       If a dimension is a not named, the chunks will be inferred from the data.
     :param target_root: Root path the Zarr store will be created inside;
         `store_name` will be appended to this prefix to create a full path.
+    :param epsg_code: EPSG code to set dataset CRS if CRS missing. If provided will overwrite.
+        Default is None.
+    :param extra_dim: The name of the extra dimension to iterate over in ndpyramid.
+        Default is None.
+
     """
     n_levels: int
     combine_dims: List[Dimension]
@@ -675,6 +684,11 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
+    epsg_code: Optional[str] = None
+    extra_dim: Optional[str] = None
+
+    # Should this be used and unpacked in storetozarr?
+    # store_to_zarr_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(
         self,
@@ -699,7 +713,9 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         # generate all pyramid levels
         lvl_list = list(range(0, self.n_levels))
         for lvl in lvl_list:
-            pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(level=lvl)
+            pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(
+                level=lvl, epsg_code=self.epsg_code, extra_dim=self.extra_dim
+            )
             pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
                 target_root=self.target_root,
                 store_name=f"{self.store_name}/{str(lvl)}",

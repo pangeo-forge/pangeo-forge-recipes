@@ -207,7 +207,6 @@ def test_reference_netcdf(
     netcdf_local_file_pattern_sequential,
     pipeline,
     tmp_target,
-    # why are we not using tmp_target?
     output_file_name,
 ):
     pattern = netcdf_local_file_pattern_sequential

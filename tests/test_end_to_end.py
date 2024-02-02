@@ -232,7 +232,9 @@ def test_pyramid(
     pgf_dt = dt.open_datatree(
         os.path.join(tmp_target.root_path, "pyramid"), engine="zarr", consolidated=False, chunks={}
     )
+    import pdb
 
+    pdb.set_trace()
     assert_isomorphic(pgf_dt, pyramid_datatree)  # every node has same # of children
     # pyramid_datatree 1/ has mismatch between dimensions and variable dims (256 vs 128)
     # dt.testing.assert_identical(pgf_dt, pyramid_datatree)
