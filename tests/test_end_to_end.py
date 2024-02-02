@@ -182,7 +182,7 @@ def test_pyramid(
     netcdf_local_file_pattern,
     target_chunks,
     pipeline,
-    tmp_target_url,
+    tmp_target,
 ):
     import datatree
 
@@ -212,28 +212,27 @@ def test_pyramid(
         )
 
         base_store = process | "Write Base Level" >> StoreToZarr(
-            target_root=tmp_target_url,
+            target_root=tmp_target,
             store_name="store",
             combine_dims=pattern.combine_dim_keys,
         )
         pyramid_store = process | "Write Pyramid Levels" >> StoreToPyramid(
-            target_root=tmp_target_url,
+            target_root=tmp_target,
             store_name="pyramid",
             n_levels=2,
             target_chunks=target_chunks,
             combine_dims=pattern.combine_dim_keys,
         )
     import datatree as dt
-    from datatree.testing import assert_isomorphic
+    # from datatree.testing import assert_isomorphic
 
-    assert xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr", chunks={})
+    assert xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr", chunks={})
 
     pgf_dt = dt.open_datatree(
-        os.path.join(tmp_target_url, "pyramid"), engine="zarr", consolidated=False
+        os.path.join(tmp_target.root_path, "pyramid"), engine="zarr", consolidated=False
     )
 
     import pdb
-
     pdb.set_trace()
 
     assert_isomorphic(pgf_dt, pyramid_datatree)  # every node has same # of children
