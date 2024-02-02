@@ -223,12 +223,10 @@ def test_pyramid(
             target_chunks=target_chunks,
             combine_dims=pattern.combine_dim_keys,
         )
-    import pdb
 
     import datatree as dt
     from datatree.testing import assert_isomorphic
 
-    pdb.set_trace()
 
     assert xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr", chunks={})
 
