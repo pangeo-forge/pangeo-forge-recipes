@@ -38,7 +38,7 @@ def test_xarray_zarr(
     daily_xarray_dataset,
     netcdf_local_file_pattern,
     pipeline,
-    tmp_target_url,
+    tmp_target,
     target_chunks,
 ):
     pattern = netcdf_local_file_pattern
@@ -48,13 +48,14 @@ def test_xarray_zarr(
             | beam.Create(pattern.items())
             | OpenWithXarray(file_type=pattern.file_type)
             | StoreToZarr(
-                target_root=tmp_target_url,
+                target_root=tmp_target,
                 store_name="store",
                 target_chunks=target_chunks,
                 combine_dims=pattern.combine_dim_keys,
             )
         )
-    ds = xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr")
+
+    ds = xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr")
     assert ds.time.encoding["chunks"] == (target_chunks["time"],)
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
@@ -63,7 +64,7 @@ def test_xarray_zarr_subpath(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,
     pipeline,
-    tmp_target_url,
+    tmp_target,
 ):
     pattern = netcdf_local_file_pattern_sequential
     with pipeline as p:
@@ -72,13 +73,13 @@ def test_xarray_zarr_subpath(
             | beam.Create(pattern.items())
             | OpenWithXarray(file_type=pattern.file_type)
             | StoreToZarr(
-                target_root=tmp_target_url,
+                target_root=tmp_target,
                 store_name="subpath",
                 combine_dims=pattern.combine_dim_keys,
             )
         )
 
-    ds = xr.open_dataset(os.path.join(tmp_target_url, "subpath"), engine="zarr")
+    ds = xr.open_dataset(os.path.join(tmp_target.root_path, "subpath"), engine="zarr")
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
@@ -87,7 +88,7 @@ def test_reference_netcdf(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential,
     pipeline,
-    tmp_target_url,
+    tmp_target,
     output_file_name,
 ):
     pattern = netcdf_local_file_pattern_sequential
@@ -99,13 +100,13 @@ def test_reference_netcdf(
             | OpenWithKerchunk(file_type=pattern.file_type)
             | WriteCombinedReference(
                 identical_dims=["lat", "lon"],
-                target_root=tmp_target_url,
+                target_root=tmp_target,
                 store_name=store_name,
                 concat_dims=["time"],
                 output_file_name=output_file_name,
             )
         )
-    full_path = os.path.join(tmp_target_url, store_name, output_file_name)
+    full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
     file_ext = os.path.splitext(output_file_name)[-1]
     if file_ext == ".json":
         mapper = fsspec.get_mapper("reference://", fo=full_path)
@@ -131,7 +132,7 @@ def test_reference_netcdf(
 )
 def test_reference_grib(
     pipeline,
-    tmp_target_url,
+    tmp_target,
 ):
     # This test adapted from:
     # https://github.com/fsspec/kerchunk/blob/33b00d60d02b0da3f05ccee70d6ebc42d8e09932/kerchunk/tests/test_grib.py#L14-L31
@@ -149,11 +150,11 @@ def test_reference_grib(
             | WriteCombinedReference(
                 concat_dims=[pattern.concat_dims[0]],
                 identical_dims=["latitude", "longitude"],
-                target_root=tmp_target_url,
+                target_root=tmp_target,
                 store_name=store_name,
             )
         )
-    full_path = os.path.join(tmp_target_url, store_name, "reference.json")
+    full_path = os.path.join(tmp_target.root_path, store_name, "reference.json")
     mapper = fsspec.get_mapper("reference://", fo=full_path)
     ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
     assert ds.attrs["GRIB_centre"] == "cwao"

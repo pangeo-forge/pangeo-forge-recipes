@@ -8,7 +8,7 @@ from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.patterns import FilePattern, FileType
-from pangeo_forge_recipes.storage import CacheFSSpecTarget
+from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 from pangeo_forge_recipes.transforms import (
     DetermineSchema,
     IndexItems,
@@ -151,7 +151,7 @@ def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
 
 
 @pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])
-def test_PrepareZarrTarget(pipeline, tmp_target_url, target_chunks):
+def test_PrepareZarrTarget(pipeline, tmp_target, target_chunks):
 
     ds = make_ds()
     schema = dataset_to_schema(ds)
@@ -181,7 +181,7 @@ def test_PrepareZarrTarget(pipeline, tmp_target_url, target_chunks):
 
     with pipeline as p:
         input = p | beam.Create([schema])
-        target = input | PrepareZarrTarget(target=tmp_target_url, target_chunks=target_chunks)
+        target = input | PrepareZarrTarget(target=tmp_target, target_chunks=target_chunks)
         assert_that(target, correct_target())
 
 
@@ -246,7 +246,7 @@ class OpenZarrStore(beam.PTransform):
 def test_StoreToZarr_emits_openable_fsstore(
     pipeline,
     netcdf_local_file_pattern_sequential,
-    tmp_target_url,
+    tmp_target,
 ):
     def is_xrdataset():
         def _is_xr_dataset(actual):
@@ -260,7 +260,7 @@ def test_StoreToZarr_emits_openable_fsstore(
     with pipeline as p:
         datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
         target_store = datasets | StoreToZarr(
-            target_root=tmp_target_url,
+            target_root=tmp_target,
             store_name="test.zarr",
             combine_dims=pattern.combine_dim_keys,
         )
@@ -272,7 +272,7 @@ def test_StoreToZarr_emits_openable_fsstore(
 def test_StoreToZarr_dynamic_chunking_interface(
     pipeline: beam.Pipeline,
     netcdf_local_file_pattern_sequential: FilePattern,
-    tmp_target_url: str,
+    tmp_target: FSSpecTarget,
     daily_xarray_dataset: xr.Dataset,
     with_kws: bool,
 ):
@@ -305,11 +305,12 @@ def test_StoreToZarr_dynamic_chunking_interface(
     with pipeline as p:
         datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
         target_store = datasets | StoreToZarr(
-            target_root=tmp_target_url,
+            target_root=tmp_target,
             store_name="test.zarr",
             combine_dims=pattern.combine_dim_keys,
             attrs={},
             dynamic_chunking_fn=dynamic_chunking_fn,
+            consolidated_metadata=True,
             **kws,
         )
         open_store = target_store | OpenZarrStore()

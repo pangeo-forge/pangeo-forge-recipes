@@ -3,9 +3,11 @@ import os
 import secrets
 import subprocess
 import time
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
+from packaging.version import parse as parse_version
 
 # Run only when the `--run-integration` option is passed.
 # See also `pytest_addoption` in conftest. Reference:
@@ -118,6 +120,10 @@ def test_integration(confpath_option: str, recipe_id: str, request):
     }
     if recipe_id in xfails:
         pytest.xfail(xfails[recipe_id])
+
+    runner_version = parse_version(version("pangeo-forge-runner"))
+    if recipe_id == "hrrr-kerchunk-concat-step" and runner_version <= parse_version("0.9.2"):
+        pytest.xfail("pg-runner version <= 0.9.2 didn't pass storage options")
 
     confpath = request.getfixturevalue(confpath_option)
 
