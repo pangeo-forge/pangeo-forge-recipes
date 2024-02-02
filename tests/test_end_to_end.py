@@ -224,6 +224,7 @@ def test_pyramid(
             combine_dims=pattern.combine_dim_keys,
         )
     import datatree as dt
+
     # from datatree.testing import assert_isomorphic
 
     assert xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr", chunks={})
@@ -233,6 +234,7 @@ def test_pyramid(
     )
 
     import pdb
+
     pdb.set_trace()
 
     assert_isomorphic(pgf_dt, pyramid_datatree)  # every node has same # of children
