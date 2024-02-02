@@ -655,6 +655,19 @@ class CreatePyramid(beam.PTransform):
 @dataclass
 class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
 
+    # Open design question. Should StoreToPyramid repeat all
+    # of the StoreToZarr kwargs and pass them through to the nested StoreToZarr
+    # or should it packaged them as store_to_zarr_kwargs and unpack?
+
+    """Store a PCollection of Xarray datasets as a Zarr Pyramid.
+    :param n_levels: Number of pyramid levels to generate
+    :param combine_dims: The dimensions to combine
+    :param store_name: Zarr store will be created with this name under ``target_root``.
+    :param target_chunks: Dictionary mapping dimension names to chunks sizes.
+      If a dimension is a not named, the chunks will be inferred from the data.
+    :param target_root: Root path the Zarr store will be created inside;
+        `store_name` will be appended to this prefix to create a full path.
+    """
     n_levels: int
     combine_dims: List[Dimension]
     store_name: str
