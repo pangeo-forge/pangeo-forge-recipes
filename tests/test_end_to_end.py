@@ -227,7 +227,6 @@ def test_pyramid(
     import datatree as dt
     from datatree.testing import assert_isomorphic
 
-
     assert xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr", chunks={})
 
     pgf_dt = dt.open_datatree(
