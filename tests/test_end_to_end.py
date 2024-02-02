@@ -178,7 +178,6 @@ def test_reference_grib(
 @pytest.mark.parametrize("target_chunks", [{"time": 10}])
 def test_pyramid(
     pyramid_datatree,
-    daily_xarray_dataset,
     netcdf_local_file_pattern,
     target_chunks,
     pipeline,
@@ -223,21 +222,18 @@ def test_pyramid(
             target_chunks=target_chunks,
             combine_dims=pattern.combine_dim_keys,
         )
+    import datatree as dt
+    from datatree.testing import assert_isomorphic
 
     assert xr.open_dataset(os.path.join(tmp_target_url, "store"), engine="zarr", chunks={})
 
-    pyr_l0 = xr.open_dataset(
-        os.path.join(tmp_target_url, "pyramid/0"), engine="zarr", chunks={}
-    ).drop("spatial_ref")
-    pyr_l1 = xr.open_dataset(
-        os.path.join(tmp_target_url, "pyramid/1"), engine="zarr", chunks={}
-    ).drop("spatial_ref")
+    pgf_dt = dt.open_datatree(
+        os.path.join(tmp_target_url, "pyramid"), engine="zarr", consolidated=False
+    )
 
-    #
-    dt = datatree.DataTree.from_dict({"0": pyr_l0, "1": pyr_l1})
-    l0_source_pyr = pyramid_datatree["0"].to_dataset().drop("spatial_ref")
+    import pdb
 
-    from datatree.testing import assert_isomorphic
+    pdb.set_trace()
 
-    assert_isomorphic(dt, pyramid_datatree)  # every node has same # of children
-    xr.testing.assert_allclose(pyr_l0, l0_source_pyr)
+    assert_isomorphic(pgf_dt, pyramid_datatree)  # every node has same # of children
+    dt.testing.assert_allclose(pgf_dt, pyramid_datatree)

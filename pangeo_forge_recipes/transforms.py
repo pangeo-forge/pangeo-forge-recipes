@@ -663,14 +663,15 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
 
-	# Add multiscales metadata to the root of the target store
-        from ndpyramid.utils import multiscales_template, get_version
-        save_kwargs = {'levels': self.n_levels, 'pixels_per_tile': 128}
+        # Add multiscales metadata to the root of the target store
+        from ndpyramid.utils import get_version, multiscales_template
+
+        save_kwargs = {"levels": self.n_levels, "pixels_per_tile": 128}
         attrs = {
-            'multiscales': multiscales_template(
-                datasets=[{'path': str(i)} for i in range(self.n_levels)],
-                type='reduce',
-                method='pyramid_reproject',
+            "multiscales": multiscales_template(
+                datasets=[{"path": str(i)} for i in range(self.n_levels)],
+                type="reduce",
+                method="pyramid_reproject",
                 version=get_version(),
                 kwargs=save_kwargs,
             )
@@ -687,9 +688,3 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
                 target_chunks=self.target_chunks,
                 combine_dims=self.combine_dims,
             )
-
-        # To Do;
-        # Consolidate Top Level .zmetadata
-        # remove individual level .zmetadata
-        # any extra ndpyramid attr updates.
-        # check beam DAG to see if these are parallel
