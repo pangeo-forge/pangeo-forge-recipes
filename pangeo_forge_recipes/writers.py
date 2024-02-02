@@ -223,7 +223,7 @@ def create_pyramid(
 
         ds = ds.rio.write_crs(f"EPSG:{epsg_code}")
 
-    level_ds = level_reproject(ds, level=level, extra_dim="zlev")
+    level_ds = level_reproject(ds, level=level, extra_dim=extra_dim)
 
     level_ds = set_zarr_encoding(level_ds, float_dtype="float32", int_dtype="int32")
     return index, level_ds
