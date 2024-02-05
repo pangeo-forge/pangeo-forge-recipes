@@ -80,9 +80,8 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
 
     if isinstance(store, fsspec.FSMap) and isinstance(store.fs, ReferenceFileSystem):
         raise ValueError(
-            "Creating consolidated metadata for Kerchunk references has"
-            " no preformance benefits: Issue: "
-            " https://github.com/pangeo-forge/pangeo-forge-recipes/issues/675"
+            """Creating consolidated metadata for Kerchunk references should not
+            yield a performance benefit so consolidating metadata is not supported."""
         )
 
     if isinstance(store, zarr.storage.FSStore):
