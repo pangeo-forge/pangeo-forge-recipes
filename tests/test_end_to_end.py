@@ -176,16 +176,12 @@ def test_reference_grib(
     # xr.testing.assert_equal(ds.load(), ds2)
 
 
-@pytest.mark.parametrize("target_chunks", [{"time": 10}])
 def test_pyramid(
     pyramid_datatree,
     netcdf_local_file_pattern,
-    target_chunks,
     pipeline,
     tmp_target,
 ):
-    import datatree
-
     class SetCRS(beam.PTransform):
         """Updates CRS and coord naming"""
 
@@ -211,16 +207,15 @@ def test_pyramid(
             | SetCRS()
         )
 
-        base_store = process | "Write Base Level" >> StoreToZarr(
+        process | "Write Base Level" >> StoreToZarr(
             target_root=tmp_target,
             store_name="store",
             combine_dims=pattern.combine_dim_keys,
         )
-        pyramid_store = process | "Write Pyramid Levels" >> StoreToPyramid(
+        process | "Write Pyramid Levels" >> StoreToPyramid(
             target_root=tmp_target,
             store_name="pyramid",
             n_levels=2,
-            target_chunks=target_chunks,
             combine_dims=pattern.combine_dim_keys,
         )
 
@@ -232,9 +227,7 @@ def test_pyramid(
     pgf_dt = dt.open_datatree(
         os.path.join(tmp_target.root_path, "pyramid"), engine="zarr", consolidated=False, chunks={}
     )
-    import pdb
 
-    pdb.set_trace()
     assert_isomorphic(pgf_dt, pyramid_datatree)  # every node has same # of children
-    # pyramid_datatree 1/ has mismatch between dimensions and variable dims (256 vs 128)
-    # dt.testing.assert_identical(pgf_dt, pyramid_datatree)
+    xr.testing.assert_allclose(pgf_dt["0"].to_dataset(), pyramid_datatree["0"].to_dataset())
+    xr.testing.assert_allclose(pgf_dt["1"].to_dataset(), pyramid_datatree["1"].to_dataset())

@@ -219,6 +219,7 @@ def combine_fragments(
     try:
         # reversing order is necessary here because _sort_by_speed_of_varying puts the
         # arrays into the opposite order as wanted by np.meshgrid
+
         starts = _invert_meshgrid(*starts_cube[::-1])[::-1]
         sizes = _invert_meshgrid(*sizes_cube[::-1])[::-1]
     except AssertionError:

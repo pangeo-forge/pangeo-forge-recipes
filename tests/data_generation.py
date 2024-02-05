@@ -12,7 +12,7 @@ def make_ds(nt=10, ny=18, nx=36, non_dim_coords=False):
     time = pd.date_range(start="2010-01-01", periods=nt, freq="D")
     lon = (np.arange(nx) + 0.5) * 360 / nx
     lon_attrs = {"units": "degrees_east", "long_name": "longitude"}
-    lat = (np.arange(ny) + 0.5) * 180 / ny
+    lat = ((np.arange(ny) + 0.5) * 180 / ny) - 90
     lat_attrs = {"units": "degrees_north", "long_name": "latitude"}
     foo = np.random.rand(nt, ny, nx)
     foo_attrs = {"long_name": "Fantastic Foo"}
@@ -46,11 +46,12 @@ def make_ds(nt=10, ny=18, nx=36, non_dim_coords=False):
 
 
 def make_pyramid(n_levels: int):
-    import rioxarray
+    import rioxarray  # noqa
     from ndpyramid import pyramid_reproject
 
     ds = make_ds(ny=180, nx=360)
     ds = ds.rename({"lon": "longitude", "lat": "latitude"})
     ds = ds.rio.write_crs("EPSG:4326")
 
-    return pyramid_reproject(ds, levels=n_levels)
+    # other_chunks added to e2e pass of pyramid b/c target_chunks invert_meshgrid error
+    return pyramid_reproject(ds, levels=n_levels, other_chunks={"time": 1})

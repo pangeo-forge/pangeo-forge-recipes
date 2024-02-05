@@ -647,12 +647,17 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
 @dataclass
 class CreatePyramid(beam.PTransform):
     level: int
-    epsg_code: Optional[str]
-    extra_dim: Optional[str]
+    epsg_code: Optional[str] = None
+    rename_spatial_dims: Optional[dict] = None
+    pyramid_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         return pcoll | beam.Map(
-            create_pyramid, level=self.level, epsg_code=self.epsg_code, extra_dim=self.extra_dim
+            create_pyramid,
+            level=self.level,
+            epsg_code=self.epsg_code,
+            rename_spatial_dims=self.rename_spatial_dims,
+            pyramid_kwargs=self.pyramid_kwargs,
         )
 
 
@@ -667,28 +672,30 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
     :param n_levels: Number of pyramid levels to generate
     :param combine_dims: The dimensions to combine
     :param store_name: Zarr store will be created with this name under ``target_root``.
-    :param target_chunks: Dictionary mapping dimension names to chunks sizes.
+    :param other_chunks: Chunks for non-spatial dims.
+    Spatial dims are controlled by pixels_per_tile. Default is None
       If a dimension is a not named, the chunks will be inferred from the data.
     :param target_root: Root path the Zarr store will be created inside;
         `store_name` will be appended to this prefix to create a full path.
     :param epsg_code: EPSG code to set dataset CRS if CRS missing. If provided will overwrite.
         Default is None.
-    :param extra_dim: The name of the extra dimension to iterate over in ndpyramid.
+    :param rename_spatial_dims: Dict containing the new spatial dim names for Rioxarray.
+        Default is None.
+    :param pyramid_kwargs: Dict containing any kwargs that should be passed to ndpyramid.
         Default is None.
 
     """
     n_levels: int
     combine_dims: List[Dimension]
     store_name: str
-    target_chunks: Dict[str, int] = field(default_factory=dict)
+    pixels_per_tile: Optional[int] = 128
+    other_chunks: Dict[str, int] = field(default_factory=dict)
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
     epsg_code: Optional[str] = None
-    extra_dim: Optional[str] = None
-
-    # Should this be used and unpacked in storetozarr?
-    # store_to_zarr_kwargs: Optional[dict] = field(default_factory=dict)
+    rename_spatial_dims: Optional[dict] = None
+    pyramid_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(
         self,
@@ -698,7 +705,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         # Add multiscales metadata to the root of the target store
         from ndpyramid.utils import get_version, multiscales_template
 
-        save_kwargs = {"levels": self.n_levels, "pixels_per_tile": 128}
+        save_kwargs = {"levels": self.n_levels, "pixels_per_tile": self.pixels_per_tile}
         attrs = {
             "multiscales": multiscales_template(
                 datasets=[{"path": str(i)} for i in range(self.n_levels)],
@@ -708,17 +715,27 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
                 kwargs=save_kwargs,
             )
         }
+        chunks = {"x": self.pixels_per_tile, "y": self.pixels_per_tile}
+        if self.other_chunks is not None:
+            chunks |= self.other_chunks
+
         ds = xr.Dataset(attrs=attrs)
-        ds.to_zarr(store=f"{self.target_root.root_path}/{self.store_name}")
+
+        ds.to_zarr(store=f"{self.target_root.root_path}/{self.store_name}")  # noqa
+
         # generate all pyramid levels
         lvl_list = list(range(0, self.n_levels))
         for lvl in lvl_list:
             pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(
-                level=lvl, epsg_code=self.epsg_code, extra_dim=self.extra_dim
+                level=lvl,
+                epsg_code=self.epsg_code,
+                rename_spatial_dims=self.rename_spatial_dims,
+                pyramid_kwargs=self.pyramid_kwargs,
             )
+
             pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
                 target_root=self.target_root,
+                target_chunks=chunks,  # noqa
                 store_name=f"{self.store_name}/{str(lvl)}",
-                target_chunks=self.target_chunks,
                 combine_dims=self.combine_dims,
             )
