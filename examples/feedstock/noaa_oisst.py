@@ -45,13 +45,9 @@ recipe = (
     | OpenWithXarray(file_type=pattern.file_type)
     | StoreToZarr(
         store_name="noaa-oisst.zarr",
-        target_root=".",
         combine_dims=pattern.combine_dim_keys,
     )
     | ConsolidateDimensionCoordinates()
     | ConsolidateMetadata()
     | beam.Map(test_ds)
 )
-
-with beam.Pipeline() as p:
-    p | recipe
