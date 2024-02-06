@@ -73,7 +73,7 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
     :param store: Input Store for Zarr
     :type store: MutableMapping
     :return: Output Store
-    :rtype: MutableMapping
+    :rtype: zarr.storage.FSStore
     """
 
     import zarr
