@@ -169,7 +169,6 @@ def test_zarr_consolidate_metadata(
                 target_root=tmp_target,
                 store_name="store",
                 combine_dims=pattern.combine_dim_keys,
-                consolidated_metadata=False,
             )
             | ConsolidateMetadata()
         )

@@ -3,7 +3,13 @@ import pandas as pd
 import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, StoreToZarr
+from pangeo_forge_recipes.transforms import (
+    ConsolidateDimensionCoordinates,
+    ConsolidateMetadata,
+    OpenURLWithFSSpec,
+    OpenWithXarray,
+    StoreToZarr,
+)
 
 dates = pd.date_range("1981-09-01", "2022-02-01", freq="D")
 
@@ -40,5 +46,7 @@ recipe = (
         store_name="noaa-oisst.zarr",
         combine_dims=pattern.combine_dim_keys,
     )
+    | ConsolidateDimensionCoordinates()
+    | ConsolidateMetadata()
     | beam.Map(test_ds)
 )

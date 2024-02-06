@@ -277,7 +277,5 @@ def consolidate_dimension_coordinates(
         )
 
         new.attrs.update(attrs)
-        # Open question: Should this always be called
-        # or should we have the option of ConsolidateMetadata
-        zarr.consolidate_metadata(singleton_target_store)
+
     return singleton_target_store
