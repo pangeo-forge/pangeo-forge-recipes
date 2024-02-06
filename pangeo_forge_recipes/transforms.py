@@ -553,12 +553,12 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
                 mzz_kwargs=self.mzz_kwargs,
                 precombine_inputs=self.precombine_inputs,
             )
-            | WriteReference(
-                store_name=self.store_name,
-                concat_dims=self.concat_dims,
-                target_root=self.target_root,
-                output_file_name=self.output_file_name,
-            )
+            # | WriteReference(
+            #     store_name=self.store_name,
+            #     concat_dims=self.concat_dims,
+            #     target_root=self.target_root,
+            #     output_file_name=self.output_file_name,
+            # )
         )
 
 
