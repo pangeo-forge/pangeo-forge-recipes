@@ -25,7 +25,6 @@ def make_url(time):
 
 time_concat_dim = ConcatDim("time", dates, nitems_per_file=1)
 pattern = FilePattern(make_url, time_concat_dim)
-pattern = pattern.prune()
 
 
 def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
