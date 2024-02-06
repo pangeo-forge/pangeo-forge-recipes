@@ -67,13 +67,13 @@ def _is_first_in_merge_dim(index):
     return True
 
 
-def consolidate_metadata(store: MutableMapping) -> MutableMapping:
+def consolidate_metadata(store: MutableMapping) -> zarr.storage.FSStore:
     """Consolidate metadata for a Zarr store
 
     :param store: Input Store for Zarr
     :type store: MutableMapping
     :return: Output Store
-    :rtype: MutableMapping
+    :rtype: zarr.storage.FSStore
     """
 
     import zarr
@@ -87,8 +87,8 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
     if isinstance(store, zarr.storage.FSStore):
         zarr.convenience.consolidate_metadata(store)
 
-    zc = zarr.open_consolidated(store)
-    return zc
+    # consolidate_metadata edits the store in-place
+    return store
 
 
 def store_dataset_fragment(
