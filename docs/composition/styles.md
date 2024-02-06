@@ -24,6 +24,20 @@ the recipe pipeline will contain at a minimum the following transforms applied t
 * {class}`pangeo_forge_recipes.transforms.OpenURLWithFSSpec`: retrieves each pattern file using the specified URLs.
 * {class}`pangeo_forge_recipes.transforms.OpenWithXarray`: load each pattern file into an [`xarray.Dataset`](https://docs.xarray.dev/en/stable/generated/xarray.Dataset.html).
 * {class}`pangeo_forge_recipes.transforms.StoreToZarr`: generate a Zarr store by combining the datasets.
+* {class}`pangeo_forge_recipes.transforms.ConsolidateDimensionCoordinates`: consolidate the Dimension Coordinates for dataset read performance.
+* {class}`pangeo_forge_recipes.transforms.ConsolidateMetadata`: calls Zarr's convinience function to consolidate metadata.
+
+```{tip}
+If using the {class}`pangeo_forge_recipes.transforms.ConsolidateDimensionCoordinates` transform, make sure to chain on the `ConsolidateMetadata` transform to your recipe.
+
+ex:
+...
+| StoreToZarr()
+| ConsolidateDimensionCoordinates()
+| ConsolidateMetadata()
+
+```
+
 
 ## Open with Kerchunk, write to virtual Zarr
 
