@@ -28,13 +28,7 @@ the recipe pipeline will contain at a minimum the following transforms applied t
 * {class}`pangeo_forge_recipes.transforms.ConsolidateMetadata`: calls Zarr's convinience function to consolidate metadata.
 
 ```{tip}
-If using the {class}`pangeo_forge_recipes.transforms.ConsolidateDimensionCoordinates` transform, make sure to chain on the `ConsolidateMetadata` transform to your recipe.
-
-ex:
-...
-| StoreToZarr()
-| ConsolidateDimensionCoordinates()
-| ConsolidateMetadata()
+If using the {class}`pangeo_forge_recipes.transforms.ConsolidateDimensionCoordinates` transform, make sure to chain on the {class}`pangeo_forge_recipes.transforms.ConsolidateMetadata` transform to your recipe.
 
 ```
 
