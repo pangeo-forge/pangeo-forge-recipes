@@ -68,9 +68,9 @@ def _is_first_in_merge_dim(index):
 
 
 def consolidate_metadata(store: MutableMapping) -> MutableMapping:
-    """Consolidate metadata for a Zarr store or Kerchunk reference
+    """Consolidate metadata for a Zarr store
 
-    :param store: Input Store for Zarr or Kerchunk reference
+    :param store: Input Store for Zarr
     :type store: MutableMapping
     :return: Output Store
     :rtype: MutableMapping
@@ -79,12 +79,15 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
     import zarr
 
     if isinstance(store, fsspec.FSMap) and isinstance(store.fs, ReferenceFileSystem):
-        ref_path = store.fs.storage_args[0]
-        path = fsspec.get_mapper("reference://", fo=ref_path)
-    if isinstance(store, zarr.storage.FSStore):
-        path = store.path
+        raise ValueError(
+            """Creating consolidated metadata for Kerchunk references should not
+            yield a performance benefit so consolidating metadata is not supported."""
+        )
 
-    zc = zarr.consolidate_metadata(path)
+    if isinstance(store, zarr.storage.FSStore):
+        zarr.convenience.consolidate_metadata(store)
+
+    zc = zarr.open_consolidated(store)
     return zc
 
 
@@ -119,7 +122,7 @@ def write_combined_reference(
     full_target: FSSpecTarget,
     concat_dims: List[str],
     output_file_name: str,
-    refs_per_component: int = 1000,
+    refs_per_component: int = 10000,
     mzz_kwargs: Optional[Dict] = None,
 ) -> zarr.storage.FSStore:
     """Write a kerchunk combined references object to file."""
@@ -132,22 +135,17 @@ def write_combined_reference(
     storage_options = full_target.fsspec_kwargs  # type: ignore[union-attr]
     remote_protocol = full_target.get_fsspec_remote_protocol()  # type: ignore[union-attr]
 
-    # If reference is a ReferenceFileSystem, write to json
-    if isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
-        # context manager reuses dep injected auth credentials without passing storage options
-        with full_target.fs.open(outpath, "wb") as f:
-            f.write(ujson.dumps(reference.fs.references).encode())
-
-    elif file_ext == ".parquet":
+    if file_ext == ".parquet":
         # Creates empty parquet store to be written to
         if full_target.exists(output_file_name):
             full_target.rm(output_file_name, recursive=True)
         full_target.makedir(output_file_name)
 
-        out = LazyReferenceMapper.create(refs_per_component, outpath, full_target.fs)
+        out = LazyReferenceMapper.create(
+            root=outpath, fs=full_target.fs, record_size=refs_per_component
+        )
 
         # Calls MultiZarrToZarr on a MultiZarrToZarr object and adds kwargs to write to parquet.
-
         MultiZarrToZarr(
             [reference],
             concat_dims=concat_dims,
@@ -160,6 +158,12 @@ def write_combined_reference(
 
         # call to write reference to empty parquet store
         out.flush()
+
+    # If reference is a ReferenceFileSystem, write to json
+    elif isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
+        # context manager reuses dep injected auth credentials without passing storage options
+        with full_target.fs.open(outpath, "wb") as f:
+            f.write(ujson.dumps(reference.fs.references).encode())
 
     else:
         raise NotImplementedError(f"{file_ext = } not supported.")
