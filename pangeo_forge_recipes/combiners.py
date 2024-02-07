@@ -87,6 +87,21 @@ class CombineMultiZarrToZarr(beam.CombineFn):
             remote_protocol=self.remote_protocol,
             **self.mzz_kwargs,
         )
+    
+    def dump_dicts_to_file(dicts, base_filename='translated_mzz'):
+        import os
+        import json
+        # Get the current process ID
+        pid = os.getpid()
+
+        # Construct the filename with the PID
+        filename = f"{base_filename}_{pid}.json"
+
+        # Open the file and dump the dictionaries
+        with open(filename, 'w') as f:
+            json.dump(dicts, f, indent=4)
+
+        print(f"Data dumped to {filename} by PID {pid}")
 
     def create_accumulator(self):
         return None
@@ -101,9 +116,11 @@ class CombineMultiZarrToZarr(beam.CombineFn):
 
     def merge_accumulators(self, accumulators: Sequence[MultiZarrToZarr]) -> MultiZarrToZarr:
         references = [a.translate() for a in accumulators]
+        self.dump_dicts_to_file(references, "merge_accumulators")
         return self.to_mzz(references)
 
     def extract_output(self, accumulator: MultiZarrToZarr) -> MultiZarrToZarr:
+        self.dump_dicts_to_file(accumulator.translate(), "extract_output")
         return fsspec.filesystem(
             "reference",
             fo=accumulator.translate(),
