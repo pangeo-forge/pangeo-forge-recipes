@@ -109,12 +109,12 @@ class CombineMultiZarrToZarr(beam.CombineFn):
 
     def add_input(self, accumulator: MultiZarrToZarr, item: list[dict]) -> MultiZarrToZarr:
         pid = os.getpid()
-        with open(f'/tmp/inputs_raw_{pid}.json', 'a') as f:
-            f.write(json.dumps(item) + '\n')
+        # with open(f'/tmp/inputs_raw_{pid}.json', 'a') as f:
+        #     f.write(json.dumps(item) + '\n')
 
         item = item if not self.precombine_inputs else [self.to_mzz(item).translate()]
-        with open(f'/tmp/inputs_translated_{pid}.json', 'a') as f:
-            f.write(json.dumps(item) + '\n')
+        # with open(f'/tmp/inputs_translated_{pid}.json', 'a') as f:
+        #     f.write(json.dumps(item) + '\n')
 
         if not accumulator:
             references = item
@@ -124,11 +124,11 @@ class CombineMultiZarrToZarr(beam.CombineFn):
 
     def merge_accumulators(self, accumulators: Sequence[MultiZarrToZarr]) -> MultiZarrToZarr:
         references = [a for a in accumulators]
-        self.dump_dicts_to_file(references, "merge_accumulators")
+        # self.dump_dicts_to_file(references, "merge_accumulators")
         return self.to_mzz(references)
 
     def extract_output(self, accumulator: MultiZarrToZarr) -> MultiZarrToZarr:
-        self.dump_dicts_to_file(accumulator.translate(), "extract_output")
+        # self.dump_dicts_to_file(accumulator.translate(), "extract_output")
         return fsspec.filesystem(
             "reference",
             fo=accumulator.translate(),
