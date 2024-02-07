@@ -91,12 +91,12 @@ class CombineMultiZarrToZarr(beam.CombineFn):
     def create_accumulator(self):
         return None
 
-    def add_input(self, accumulator: MultiZarrToZarr, item: list[dict]) -> MultiZarrToZarr:
-        item = item if not self.precombine_inputs else [self.to_mzz(item).translate()]
+    def add_input(self, accumulator: MultiZarrToZarr, items: list[dict]) -> MultiZarrToZarr:
+        items = items if not self.precombine_inputs else [self.to_mzz(items).translate()]
         if not accumulator:
-            references = item
+            references = items
         else:
-            references = [accumulator.translate()] + item
+            references = [accumulator.translate()] + items
         return self.to_mzz(references)
 
     def merge_accumulators(self, accumulators: Sequence[MultiZarrToZarr]) -> MultiZarrToZarr:
