@@ -23,7 +23,12 @@ from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
-from .writers import ZarrWriterMixin, store_dataset_fragment, write_combined_reference
+from .writers import (
+    ZarrWriterMixin,
+    consolidate_metadata,
+    store_dataset_fragment,
+    write_combined_reference,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +227,7 @@ class OpenWithKerchunk(beam.PTransform):
     # passed directly to `open_with_kerchunk`
     file_type: FileType = FileType.unknown
     inline_threshold: Optional[int] = 300
-    storage_options: Optional[Dict] = None
+    storage_options: Optional[Dict] = field(default_factory=dict)
     remote_protocol: Optional[str] = None
     kerchunk_open_kwargs: Optional[dict] = field(default_factory=dict)
 
@@ -359,11 +364,16 @@ class PrepareZarrTarget(beam.PTransform):
         If chunking is present in the schema for a given dimension, the length of
         the first fragment will be used. Otherwise, the dimension will not be chunked.
     :param attrs: Extra group-level attributes to inject into the dataset.
+    :param consolidated_metadata: Bool controlling if xarray.to_zarr()
+    writes consolidated metadata. Default's to True.
+    :param encoding: Dictionary describing encoding for xarray.to_zarr()
     """
 
     target: str | FSSpecTarget
     target_chunks: Dict[str, int] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
+    consolidated_metadata: Optional[bool] = True
+    encoding: Optional[dict] = field(default_factory=dict)
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         if isinstance(self.target, str):
@@ -372,14 +382,18 @@ class PrepareZarrTarget(beam.PTransform):
             target = self.target
         store = target.get_mapper()
         initialized_target = pcoll | beam.Map(
-            schema_to_zarr, target_store=store, target_chunks=self.target_chunks, attrs=self.attrs
+            schema_to_zarr,
+            target_store=store,
+            target_chunks=self.target_chunks,
+            attrs=self.attrs,
+            consolidated_metadata=self.consolidated_metadata,
+            encoding=self.encoding,
         )
         return initialized_target
 
 
 @dataclass
 class StoreDatasetFragments(beam.PTransform):
-
     target_store: beam.PCollection  # side input
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
@@ -388,9 +402,13 @@ class StoreDatasetFragments(beam.PTransform):
         )
 
 
-# TODO
-# - consolidate coords
-# - consolidate metadata
+@dataclass
+class ConsolidateMetadata(beam.PTransform):
+    """Calls Zarr Python consolidate_metadata on an existing Zarr store
+    (https://zarr.readthedocs.io/en/stable/_modules/zarr/convenience.html#consolidate_metadata)"""
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(consolidate_metadata)
 
 
 @dataclass
@@ -418,6 +436,10 @@ class CombineReferences(beam.PTransform):
 
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
+    :param target_options: Storage options for opening target files
+    :param remote_options: Storage options for opening remote files
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "gcp", "https", etc.
     :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
     :precombine_inputs: If ``True``, precombine each input with itself, using
       ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
@@ -432,6 +454,9 @@ class CombineReferences(beam.PTransform):
 
     concat_dims: List[str]
     identical_dims: List[str]
+    target_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
+    remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
+    remote_protocol: Optional[str] = None
     mzz_kwargs: dict = field(default_factory=dict)
     precombine_inputs: bool = False
 
@@ -440,9 +465,43 @@ class CombineReferences(beam.PTransform):
             CombineMultiZarrToZarr(
                 concat_dims=self.concat_dims,
                 identical_dims=self.identical_dims,
+                target_options=self.target_options,
+                remote_options=self.remote_options,
+                remote_protocol=self.remote_protocol,
                 mzz_kwargs=self.mzz_kwargs,
                 precombine_inputs=self.precombine_inputs,
             ),
+        )
+
+
+@dataclass
+class WriteReference(beam.PTransform, ZarrWriterMixin):
+    """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
+    :param store_name: Zarr store will be created with this name under ``target_root``.
+    :param concat_dims: Dimensions along which to concatenate inputs.
+    :param target_root: Root path the Zarr store will be created inside; ``store_name``
+      will be appended to this prefix to create a full path.
+    :param output_file_name: Name to give the output references file
+      (``.json`` or ``.parquet`` suffix).
+      over which they are accessed. e.g.: "s3", "gcp", "https", etc.
+    :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
+    """
+
+    store_name: str
+    concat_dims: List[str]
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
+    output_file_name: str = "reference.json"
+    mzz_kwargs: dict = field(default_factory=dict)
+
+    def expand(self, references: beam.PCollection) -> beam.PCollection:
+        return references | beam.Map(
+            write_combined_reference,
+            full_target=self.get_full_target(),
+            concat_dims=self.concat_dims,
+            output_file_name=self.output_file_name,
+            mzz_kwargs=self.mzz_kwargs,
         )
 
 
@@ -479,19 +538,27 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     )
     output_file_name: str = "reference.json"
 
-    def expand(self, references: beam.PCollection) -> beam.PCollection:
-        reference = references | CombineReferences(
-            concat_dims=self.concat_dims,
-            identical_dims=self.identical_dims,
-            mzz_kwargs=self.mzz_kwargs,
-            precombine_inputs=self.precombine_inputs,
-        )
-
-        return reference | beam.Map(
-            write_combined_reference,
-            full_target=self.get_full_target(),
-            concat_dims=self.concat_dims,
-            output_file_name=self.output_file_name,
+    def expand(self, references: beam.PCollection) -> beam.PCollection[zarr.storage.FSStore]:
+        # unpack fsspec options that will be used below for transforms without dep injection
+        storage_options = self.target_root.fsspec_kwargs  # type: ignore[union-attr]
+        remote_protocol = self.target_root.get_fsspec_remote_protocol()  # type: ignore[union-attr]
+        return (
+            references
+            | CombineReferences(
+                concat_dims=self.concat_dims,
+                identical_dims=self.identical_dims,
+                target_options=storage_options,
+                remote_options=storage_options,
+                remote_protocol=remote_protocol,
+                mzz_kwargs=self.mzz_kwargs,
+                precombine_inputs=self.precombine_inputs,
+            )
+            | WriteReference(
+                store_name=self.store_name,
+                concat_dims=self.concat_dims,
+                target_root=self.target_root,
+                output_file_name=self.output_file_name,
+            )
         )
 
 
@@ -514,6 +581,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
       out https://github.com/jbusecke/dynamic_chunks
     :param dynamic_chunking_fn_kwargs: Optional keyword arguments for ``dynamic_chunking_fn``.
     :param attrs: Extra group-level attributes to inject into the dataset.
+    :param consolidated_metadata: Bool controlling if xarray.to_zarr()
+    writes consolidated metadata. Default's to True.
+    :param encoding: Dictionary encoding for xarray.to_zarr().
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
@@ -527,6 +597,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     dynamic_chunking_fn: Optional[Callable[[xr.Dataset], dict]] = None
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
+    consolidated_metadata: Optional[bool] = True
+    encoding: Optional[dict] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.target_chunks and self.dynamic_chunking_fn:
@@ -552,6 +624,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             target=self.get_full_target(),
             target_chunks=target_chunks,
             attrs=self.attrs,
+            consolidated_metadata=self.consolidated_metadata,
+            encoding=self.encoding,
         )
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (

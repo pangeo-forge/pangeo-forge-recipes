@@ -9,8 +9,8 @@ import time
 import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
-from typing import Iterator, Optional, Union
+from dataclasses import dataclass, field, replace
+from typing import Any, Dict, Iterator, Optional, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
@@ -87,10 +87,13 @@ class FSSpecTarget(AbstractTarget):
 
     :param fs: The filesystem object we are writing to.
     :param root_path: The path under which the target data will be stored.
+    :param fsspec_kwargs: The fsspec kwargs that can be reused as
+    `target_options` and `remote_options` for fsspec class instantiation
     """
 
     fs: fsspec.AbstractFileSystem
     root_path: str = ""
+    fsspec_kwargs: Dict[Any, Any] = field(default_factory=dict)
 
     def __truediv__(self, suffix: str) -> FSSpecTarget:
         """
@@ -105,6 +108,20 @@ class FSSpecTarget(AbstractTarget):
         fs, _, root_paths = fsspec.get_fs_token_paths(url)
         assert len(root_paths) == 1
         return cls(fs, root_paths[0])
+
+    def get_fsspec_remote_protocol(self):
+        """fsspec implementation-specific remote protocal"""
+        fsspec_protocol = self.fs.protocol
+        if isinstance(fsspec_protocol, str):
+            return fsspec_protocol
+        elif isinstance(fsspec_protocol, tuple):
+            return fsspec_protocol[0]
+        elif isinstance(fsspec_protocol, list):
+            return fsspec_protocol[0]
+        else:
+            raise ValueError(
+                f"could not resolve fsspec protocol '{fsspec_protocol}' from underlying filesystem"
+            )
 
     def get_mapper(self) -> fsspec.mapping.FSMap:
         """Get a mutable mapping object suitable for storing Zarr data."""

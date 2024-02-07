@@ -30,8 +30,9 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
 
     ds = xr.open_dataset(store, engine="zarr", chunks={})
     ds = ds.set_coords(("latitude", "longitude"))
-    assert ds.attrs["centre"] == "kwbc"
-    assert len(ds["step"]) == 4
+    ds = ds.expand_dims(dim="time")
+    assert ds.attrs["GRIB_centre"] == "kwbc"
+    assert len(ds["step"]) == 2
     assert len(ds["time"]) == 1
     assert "t" in ds.data_vars
     for coord in ["time", "surface", "latitude", "longitude"]:
