@@ -95,7 +95,7 @@ class CombineMultiZarrToZarr(beam.CombineFn):
         pid = os.getpid()
 
         # Construct the filename with the PID
-        filename = f"{base_filename}_{pid}.json"
+        filename = f"/tmp/{base_filename}_{pid}.json"
 
         # Open the file and dump the dictionaries
         with open(filename, 'w') as f:
