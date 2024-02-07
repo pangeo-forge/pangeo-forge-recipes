@@ -2,6 +2,8 @@ import operator
 from dataclasses import dataclass, field
 from functools import reduce
 from typing import Dict, List, Optional, Sequence, Tuple
+import os
+import json
 
 import apache_beam as beam
 import fsspec
@@ -89,8 +91,6 @@ class CombineMultiZarrToZarr(beam.CombineFn):
         )
     
     def dump_dicts_to_file(self, dicts, base_filename='translated_mzz'):
-        import os
-        import json
         # Get the current process ID
         pid = os.getpid()
 
@@ -103,11 +103,19 @@ class CombineMultiZarrToZarr(beam.CombineFn):
 
         print(f"Data dumped to {filename} by PID {pid}")
 
+
     def create_accumulator(self):
         return None
 
     def add_input(self, accumulator: MultiZarrToZarr, item: list[dict]) -> MultiZarrToZarr:
+        pid = os.getpid()
+        with open(f'/tmp/inputs_raw_{pid}.json', 'a') as f:
+            f.write(json.dumps(item) + '\n')
+
         item = item if not self.precombine_inputs else [self.to_mzz(item).translate()]
+        with open(f'/tmp/inputs_translated_{pid}.json', 'a') as f:
+            f.write(json.dumps(item) + '\n')
+
         if not accumulator:
             references = item
         else:
