@@ -88,7 +88,7 @@ class CombineMultiZarrToZarr(beam.CombineFn):
             **self.mzz_kwargs,
         )
     
-    def dump_dicts_to_file(dicts, base_filename='translated_mzz'):
+    def dump_dicts_to_file(self, dicts, base_filename='translated_mzz'):
         import os
         import json
         # Get the current process ID
