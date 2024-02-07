@@ -123,7 +123,7 @@ class CombineMultiZarrToZarr(beam.CombineFn):
         return self.to_mzz(references)
 
     def merge_accumulators(self, accumulators: Sequence[MultiZarrToZarr]) -> MultiZarrToZarr:
-        references = [a.translate() for a in accumulators]
+        references = [a for a in accumulators]
         self.dump_dicts_to_file(references, "merge_accumulators")
         return self.to_mzz(references)
 
