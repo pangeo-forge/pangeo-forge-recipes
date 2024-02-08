@@ -10,7 +10,7 @@ from kerchunk.hdf import SingleHdf5ToZarr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.combiners import CombineZarrRefs, CombineXarraySchemas
+from pangeo_forge_recipes.combiners import CombineXarraySchemas, CombineZarrRefs
 from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index
