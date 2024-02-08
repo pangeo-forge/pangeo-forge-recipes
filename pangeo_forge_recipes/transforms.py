@@ -18,7 +18,7 @@ import xarray as xr
 import zarr
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_template_ds, schema_to_zarr
-from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
+from .combiners import CombineXarraySchemas, CombineZarrRefs
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, consolidate_dimension_coordinates, split_fragment
@@ -461,19 +461,23 @@ class CombineReferences(beam.PTransform):
     remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
     remote_protocol: Optional[str] = None
     mzz_kwargs: dict = field(default_factory=dict)
-    precombine_inputs: bool = False
+    # precombine_inputs: bool = False
 
-    def expand(self, references: beam.PCollection) -> beam.PCollection:
-        return references | beam.CombineGlobally(
-            CombineMultiZarrToZarr(
-                concat_dims=self.concat_dims,
-                identical_dims=self.identical_dims,
-                target_options=self.target_options,
-                remote_options=self.remote_options,
-                remote_protocol=self.remote_protocol,
-                mzz_kwargs=self.mzz_kwargs,
-                precombine_inputs=self.precombine_inputs,
-            ),
+    def expand(self, reference_lists: beam.PCollection) -> beam.PCollection:
+        return (
+            reference_lists
+            | beam.FlatMap(lambda x: x)
+            | beam.CombineGlobally(
+                CombineZarrRefs(
+                    concat_dims=self.concat_dims,
+                    identical_dims=self.identical_dims,
+                    target_options=self.target_options,
+                    remote_options=self.remote_options,
+                    remote_protocol=self.remote_protocol,
+                    mzz_kwargs=self.mzz_kwargs,
+                    # precombine_inputs=self.precombine_inputs,
+                ),
+            )
         )
 
 
