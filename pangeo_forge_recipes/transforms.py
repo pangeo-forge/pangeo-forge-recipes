@@ -444,15 +444,6 @@ class CombineReferences(beam.PTransform):
     :param remote_protocol: If files are accessed over the network, provide the remote protocol
       over which they are accessed. e.g.: "s3", "gcp", "https", etc.
     :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :precombine_inputs: If ``True``, precombine each input with itself, using
-      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
-      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
-      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
-      into a single reference before adding to the accumulator. Also used for inputs
-      consisting of single reference, for cases where the output dataset concatenates
-      along a dimension that does not exist in the individual inputs. In this latter
-      case, precombining adds the additional dimension to the input so that its
-      dimensionality will match that of the accumulator.
     """
 
     concat_dims: List[str]
@@ -461,7 +452,6 @@ class CombineReferences(beam.PTransform):
     remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
     remote_protocol: Optional[str] = None
     mzz_kwargs: dict = field(default_factory=dict)
-    # precombine_inputs: bool = False
 
     def identity(self, element):
         return element
@@ -478,7 +468,6 @@ class CombineReferences(beam.PTransform):
                     remote_options=self.remote_options,
                     remote_protocol=self.remote_protocol,
                     mzz_kwargs=self.mzz_kwargs,
-                    # precombine_inputs=self.precombine_inputs,
                 ),
             )
         )
@@ -523,15 +512,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
     :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :param precombine_inputs: If ``True``, precombine each input with itself, using
-      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
-      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
-      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
-      into a single reference before adding to the accumulator. Also used for inputs
-      consisting of single reference, for cases where the output dataset concatenates
-      along a dimension that does not exist in the individual inputs. In this latter
-      case, precombining adds the additional dimension to the input so that its
-      dimensionality will match that of the accumulator.
     :param target_root: Root path the Zarr store will be created inside; ``store_name``
       will be appended to this prefix to create a full path.
     :param output_file_name: Name to give the output references file
@@ -542,7 +522,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     concat_dims: List[str]
     identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
-    precombine_inputs: bool = False
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
@@ -561,7 +540,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
                 remote_options=storage_options,
                 remote_protocol=remote_protocol,
                 mzz_kwargs=self.mzz_kwargs,
-                # precombine_inputs=self.precombine_inputs,
             )
             | WriteReference(
                 store_name=self.store_name,
