@@ -98,7 +98,7 @@ class CombineZarrRefs(beam.CombineFn):
         return accumulator
 
     def merge_accumulators(self, accumulators: list[list[dict]]) -> list[dict]:
-        return [item for accumulator in accumulators for item in accumulator]
+        return [self.to_mzz(accumulator).translate() for accumulator in accumulators]
 
     def extract_output(self, accumulator: list[dict]) -> fsspec.FSMap:
         return fsspec.filesystem(

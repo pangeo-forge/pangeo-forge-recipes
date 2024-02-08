@@ -235,7 +235,7 @@ class OpenWithKerchunk(beam.PTransform):
     drop_keys: bool = True
 
     def expand(self, pcoll):
-        refs = pcoll | "Open with Kerchunk" >> beam.FlatMap(
+        refs = pcoll | "Open with Kerchunk" >> beam.Map(
             _add_keys(open_with_kerchunk),
             file_type=self.file_type,
             inline_threshold=self.inline_threshold,
@@ -472,10 +472,13 @@ class CombineReferences(beam.PTransform):
     mzz_kwargs: dict = field(default_factory=dict)
     # precombine_inputs: bool = False
 
+    def identity(self, element):
+        return element
+
     def expand(self, reference_lists: beam.PCollection) -> beam.PCollection:
         return (
             reference_lists
-            | beam.FlatMap(lambda x: x)
+            | beam.FlatMap(self.identity)
             | beam.CombineGlobally(
                 CombineZarrRefs(
                     concat_dims=self.concat_dims,
@@ -567,7 +570,7 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
                 remote_options=storage_options,
                 remote_protocol=remote_protocol,
                 mzz_kwargs=self.mzz_kwargs,
-                precombine_inputs=self.precombine_inputs,
+                # precombine_inputs=self.precombine_inputs,
             )
             | WriteReference(
                 store_name=self.store_name,

@@ -1,3 +1,5 @@
+from typing import Generator
+
 import apache_beam as beam
 import fsspec
 import pytest
@@ -202,13 +204,13 @@ def _is_expected_dataset(expected_ds):
 def test_CombineReferences(netcdf_local_paths_sequential_1d, pipeline):
     urls = netcdf_local_paths_sequential_1d[0]
 
-    def generate_refs(urls) -> list[dict]:
+    def generate_refs(urls) -> Generator[dict, None, None]:
         for url in urls:
             with fsspec.open(url) as inf:
                 h5chunks = SingleHdf5ToZarr(inf, url, inline_threshold=100)
                 yield h5chunks.translate()
 
-    refs = generate_refs(urls)
+    refs = list(generate_refs(urls))
     concat_dims = ["time"]
     identical_dims = ["lat", "lon"]
     mzz = MultiZarrToZarr(
