@@ -461,19 +461,16 @@ class CombineReferences(beam.PTransform):
     # precombine_inputs: bool = False
 
     def expand(self, reference_lists: beam.PCollection) -> beam.PCollection:
-        return (
-            reference_lists
-            | beam.CombineGlobally(
-                CombineZarrRefs(
-                    concat_dims=self.concat_dims,
-                    identical_dims=self.identical_dims,
-                    target_options=self.target_options,
-                    remote_options=self.remote_options,
-                    remote_protocol=self.remote_protocol,
-                    mzz_kwargs=self.mzz_kwargs,
-                    # precombine_inputs=self.precombine_inputs,
-                ),
-            )
+        return reference_lists | beam.CombineGlobally(
+            CombineZarrRefs(
+                concat_dims=self.concat_dims,
+                identical_dims=self.identical_dims,
+                target_options=self.target_options,
+                remote_options=self.remote_options,
+                remote_protocol=self.remote_protocol,
+                mzz_kwargs=self.mzz_kwargs,
+                # precombine_inputs=self.precombine_inputs,
+            ),
         )
 
 
