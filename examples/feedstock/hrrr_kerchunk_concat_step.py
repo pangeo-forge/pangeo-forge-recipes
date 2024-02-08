@@ -52,7 +52,7 @@ recipe = (
         store_name="hrrr-concat-step",
         concat_dims=pattern.concat_dims,
         identical_dims=identical_dims,
-        precombine_inputs=True,
+        #precombine_inputs=True,
     )
     | "Test dataset" >> beam.Map(test_ds)
 )

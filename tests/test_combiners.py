@@ -10,7 +10,7 @@ from kerchunk.hdf import SingleHdf5ToZarr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.combiners import CombineMultiZarrToZarr, CombineXarraySchemas
+from pangeo_forge_recipes.combiners import CombineZarrRefs, CombineXarraySchemas
 from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index
@@ -202,13 +202,13 @@ def _is_expected_dataset(expected_ds):
 def test_CombineReferences(netcdf_local_paths_sequential_1d, pipeline):
     urls = netcdf_local_paths_sequential_1d[0]
 
-    def generate_refs(urls):
+    def generate_refs(urls) -> list[dict]:
         for url in urls:
             with fsspec.open(url) as inf:
                 h5chunks = SingleHdf5ToZarr(inf, url, inline_threshold=100)
-                yield [h5chunks.translate()]
+                yield h5chunks.translate()
 
-    refs = [ref[0] for ref in generate_refs(urls)]
+    refs = generate_refs(urls)
     concat_dims = ["time"]
     identical_dims = ["lat", "lon"]
     mzz = MultiZarrToZarr(
@@ -221,7 +221,7 @@ def test_CombineReferences(netcdf_local_paths_sequential_1d, pipeline):
     with pipeline as p:
         input = p | beam.Create(generate_refs(urls))
         output = input | beam.CombineGlobally(
-            CombineMultiZarrToZarr(concat_dims=concat_dims, identical_dims=identical_dims)
+            CombineZarrRefs(concat_dims=concat_dims, identical_dims=identical_dims)
         )
 
         assert_that(output, _is_expected_dataset(expected_dataset))
