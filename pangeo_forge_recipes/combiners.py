@@ -47,8 +47,8 @@ class CombineXarraySchemas(beam.CombineFn):
 
 
 @dataclass
-class CombineMultiZarrToZarr(beam.CombineFn):
-    """A beam ``CombineFn`` for combining Kerchunk ``MultiZarrToZarr`` objects.
+class CombineZarrRefs(beam.CombineFn):
+    """A beam ``CombineFn`` for combining Kerchunk reference objects.
 
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
@@ -56,6 +56,9 @@ class CombineMultiZarrToZarr(beam.CombineFn):
     :param remote_protocol: If files are accessed over the network, provide the remote protocol
       over which they are accessed. e.g.: "s3", "gcp", "https", etc.
     :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
+    TODO: precombine_inputs is very adhoc here, perhaps should be resolved in other ways
+        flatmapping at a prior stage resolves the awkward list[dict] item type, so absolves
+        GRIB2 inputs of their need for this
     :precombine_inputs: If ``True``, precombine each input with itself, using
       ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
       Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
@@ -75,7 +78,6 @@ class CombineMultiZarrToZarr(beam.CombineFn):
     remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
     remote_protocol: Optional[str] = None
     mzz_kwargs: dict = field(default_factory=dict)
-    precombine_inputs: bool = False
 
     def to_mzz(self, references):
         return MultiZarrToZarr(
@@ -88,25 +90,20 @@ class CombineMultiZarrToZarr(beam.CombineFn):
             **self.mzz_kwargs,
         )
 
-    def create_accumulator(self):
-        return None
+    def create_accumulator(self) -> list[dict]:
+        return []
 
-    def add_input(self, accumulator: list[dict], items: list[dict]) -> list[dict]:
-        if not accumulator:
-            references = items
-        else:
-            references = accumulator + items
-        return references
+    def add_input(self, accumulator: list[dict], item: dict) -> list[dict]:
+        accumulator.append(item)
+        return accumulator
 
-    def merge_accumulators(self, accumulators: list[dict]) -> list[dict]:
-        references = [item for sublist in accumulators for item in sublist]
-        return references 
+    def merge_accumulators(self, accumulators: list[list[dict]]) -> list[dict]:
+        return [item for accumulator in accumulators for item in accumulator]
 
-    def extract_output(self, accumulator: list[dict]) -> MultiZarrToZarr:
-        full_mzz = self.to_mzz(accumulator)
+    def extract_output(self, accumulator: list[dict]) -> fsspec.FSMap:
         return fsspec.filesystem(
             "reference",
-            fo=full_mzz.translate(),
+            fo=self.to_mzz(accumulator).translate(),
             storage_options={
                 "remote_protocol": self.remote_protocol,
                 "skip_instance_cache": True,
