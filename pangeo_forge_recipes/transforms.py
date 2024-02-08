@@ -725,6 +725,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
 
         # generate all pyramid levels
         lvl_list = list(range(0, self.n_levels))
+        # beam.DoFn()?
         for lvl in lvl_list:
             pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(
                 level=lvl,
