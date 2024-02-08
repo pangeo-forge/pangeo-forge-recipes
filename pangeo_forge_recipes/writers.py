@@ -73,7 +73,7 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
     :param store: Input Store for Zarr
     :type store: MutableMapping
     :return: Output Store
-    :rtype: MutableMapping
+    :rtype: zarr.storage.FSStore
     """
 
     import zarr
@@ -83,12 +83,10 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
             """Creating consolidated metadata for Kerchunk references should not
             yield a performance benefit so consolidating metadata is not supported."""
         )
-
     if isinstance(store, zarr.storage.FSStore):
         zarr.convenience.consolidate_metadata(store)
 
-    zc = zarr.open_consolidated(store)
-    return zc
+    return store
 
 
 def store_dataset_fragment(

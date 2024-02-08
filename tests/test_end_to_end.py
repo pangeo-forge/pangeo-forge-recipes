@@ -14,6 +14,8 @@ from fsspec.implementations.reference import ReferenceFileSystem
 
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
 from pangeo_forge_recipes.transforms import (
+    ConsolidateDimensionCoordinates,
+    ConsolidateMetadata,
     OpenWithKerchunk,
     OpenWithXarray,
     StoreToZarr,
@@ -173,3 +175,29 @@ def test_reference_grib(
     # various inconsistencies (of dtype casting int to float, etc.). With the right combination of
     # options passed to the pipeline, seems like these should pass?
     # xr.testing.assert_equal(ds.load(), ds2)
+
+
+def test_xarray_zarr_consolidate_dimension_coordinates(
+    netcdf_local_file_pattern_sequential,
+    pipeline,
+    tmp_target,
+):
+    pattern = netcdf_local_file_pattern_sequential
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToZarr(
+                target_root=tmp_target,
+                store_name="subpath",
+                combine_dims=pattern.combine_dim_keys,
+            )
+            | ConsolidateDimensionCoordinates()
+            | ConsolidateMetadata()
+        )
+
+    path = os.path.join(tmp_target.root_path, "subpath")
+    ds = xr.open_dataset(path, engine="zarr", consolidated=True, chunks={})
+
+    assert ds.time.encoding["chunks"][0] == ds.time.shape[0]

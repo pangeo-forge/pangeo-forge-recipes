@@ -1,11 +1,20 @@
 import itertools
+import os
 import random
 from collections import namedtuple
+from tempfile import TemporaryDirectory
 
+import numpy as np
 import pytest
 import xarray as xr
+import zarr
 
-from pangeo_forge_recipes.rechunking import GroupKey, combine_fragments, split_fragment
+from pangeo_forge_recipes.rechunking import (
+    GroupKey,
+    combine_fragments,
+    consolidate_dimension_coordinates,
+    split_fragment,
+)
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
 
 from .conftest import split_up_files_by_variable_and_day
@@ -258,3 +267,24 @@ def test_combine_fragments_errors():
     index1 = Index({Dimension("time", CombineOp.CONCAT): IndexedPosition(2)})
     with pytest.raises(ValueError, match="are not consistent"):
         _ = combine_fragments(group, [(index0, ds), (index1, ds)])
+
+
+def test_consolidate_dimension_coordinates():
+    td = TemporaryDirectory()
+    store_path = os.path.join(td.name + "tmp.zarr")
+    group = zarr.group(store=store_path, overwrite=True)
+    group.create(name="data", shape=100, chunks=10, dtype="i4")
+    group.create(name="time", shape=100, chunks=10, dtype="i4")
+    group.data[:] = np.random.randn(*group.data.shape)
+    group.time[:] = np.arange(100)
+
+    # If you don't provide these attrs,
+    # consolidate_dimension_coordinates does not
+    # raise an error, while Xarray does
+    group.data.attrs["_ARRAY_DIMENSIONS"] = ["time"]
+    group.time.attrs["_ARRAY_DIMENSIONS"] = ["time"]
+
+    consolidated_zarr = consolidate_dimension_coordinates(zarr.storage.FSStore(store_path))
+    store = zarr.open(consolidated_zarr)
+    assert store.time.chunks[0] == 100
+    assert store.data.chunks[0] == 10
