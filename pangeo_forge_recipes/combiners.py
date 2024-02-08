@@ -90,11 +90,14 @@ class CombineZarrRefs(beam.CombineFn):
             **self.mzz_kwargs,
         )
 
-    def create_accumulator(self) -> list[dict]:
-        return []
+    def create_accumulator(self) -> None:
+        return None
 
-    def add_input(self, accumulator: list[dict], item: dict) -> list[dict]:
-        accumulator.append(item)
+    def add_input(self, accumulator: list[dict], items: list[dict]) -> list[dict]:
+        if not accumulator:
+            accumulator = items
+        else:
+            accumulator = accumulator + items
         return accumulator
 
     def merge_accumulators(self, accumulators: list[list[dict]]) -> list[dict]:
