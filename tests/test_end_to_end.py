@@ -108,6 +108,7 @@ def test_reference_netcdf(
         )
     full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
     file_ext = os.path.splitext(output_file_name)[-1]
+
     if file_ext == ".json":
         mapper = fsspec.get_mapper("reference://", fo=full_path)
         ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})

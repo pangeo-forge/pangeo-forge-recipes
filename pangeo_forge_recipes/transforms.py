@@ -405,7 +405,7 @@ class StoreDatasetFragments(beam.PTransform):
 
 @dataclass
 class ConsolidateMetadata(beam.PTransform):
-    """Calls Zarr Python consolidate_metadata on an existing Zarr store or Kerchunk reference
+    """Calls Zarr Python consolidate_metadata on an existing Zarr store
     (https://zarr.readthedocs.io/en/stable/_modules/zarr/convenience.html#consolidate_metadata)"""
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
@@ -543,7 +543,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
         # unpack fsspec options that will be used below for transforms without dep injection
         storage_options = self.target_root.fsspec_kwargs  # type: ignore[union-attr]
         remote_protocol = self.target_root.get_fsspec_remote_protocol()  # type: ignore[union-attr]
-
         return (
             references
             | CombineReferences(
