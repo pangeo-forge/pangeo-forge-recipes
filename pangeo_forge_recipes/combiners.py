@@ -56,18 +56,6 @@ class CombineZarrRefs(beam.CombineFn):
     :param remote_protocol: If files are accessed over the network, provide the remote protocol
       over which they are accessed. e.g.: "s3", "gcp", "https", etc.
     :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    TODO: precombine_inputs is very adhoc here, perhaps should be resolved in other ways
-        flatmapping at a prior stage resolves the awkward list[dict] item type, so absolves
-        GRIB2 inputs of their need for this
-    :precombine_inputs: If ``True``, precombine each input with itself, using
-      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
-      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
-      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
-      into a single reference before adding to the accumulator. Also used for inputs
-      consisting of single reference, for cases where the output dataset concatenates
-      along a dimension that does not exist in the individual inputs. In this latter
-      case, precombining adds the additional dimension to the input so that its
-      dimensionality will match that of the accumulator.
     :param target_options: Target options dict to pass to the MultiZarrToZarr
 
     """
