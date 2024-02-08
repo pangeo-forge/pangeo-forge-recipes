@@ -91,22 +91,22 @@ class CombineMultiZarrToZarr(beam.CombineFn):
     def create_accumulator(self):
         return None
 
-    def add_input(self, accumulator: list[dict], items: list[dict]) -> MultiZarrToZarr:
+    def add_input(self, accumulator: list[dict], items: list[dict]) -> list[dict]:
         if not accumulator:
             references = items
         else:
             references = accumulator + items
         return references
 
-    def merge_accumulators(self, accumulators: Sequence[list[dict]]) -> list[dict]:
-        references = [a for a in accumulators]
-        return references
+    def merge_accumulators(self, accumulators: list[dict]) -> list[dict]:
+        references = [item for sublist in accumulators for item in sublist]
+        return references 
 
     def extract_output(self, accumulator: list[dict]) -> MultiZarrToZarr:
-        self.to_mzz(accumulator)
+        full_mzz = self.to_mzz(accumulator)
         return fsspec.filesystem(
             "reference",
-            fo=accumulator.translate(),
+            fo=full_mzz.translate(),
             storage_options={
                 "remote_protocol": self.remote_protocol,
                 "skip_instance_cache": True,
