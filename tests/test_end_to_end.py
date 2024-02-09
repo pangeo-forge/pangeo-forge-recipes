@@ -31,7 +31,31 @@ def pipeline():
         yield p
 
 
-@pytest.mark.parametrize("target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}])
+@pytest.mark.parametrize(
+    "target_chunks",
+    [
+        {"time": 1},
+        {"time": 2},
+        {"time": 3},
+        {"time": 2, "lon": 5},
+        {
+            "time": 2,
+            "lon": 5,
+            "lat": 5,
+        },  # fails with hypercube assertion in combine/invert meshgrid
+        {"time": 2, "lon": 36, "lat": 18},
+        {"time": 10, "lon": 36, "lat": 18},
+    ],
+    ids=[
+        "time1",
+        "time2",
+        "time3",
+        "time1lon5",
+        "time2lon5lat5",
+        "time2lon36lat18",
+        "time10lon36lat18",
+    ],
+)
 def test_xarray_zarr(
     daily_xarray_dataset,
     netcdf_local_file_pattern,
@@ -54,7 +78,8 @@ def test_xarray_zarr(
         )
 
     ds = xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr")
-    assert ds.time.encoding["chunks"] == (target_chunks["time"],)
+    for dim in target_chunks:
+        assert ds[dim].encoding["chunks"] == (target_chunks[dim],)
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
