@@ -151,7 +151,9 @@ def test_reference_netcdf_parallel(
     # import json
     # refs = json.loads(open(full_path).read())
     # key_len = len(refs.keys())
-    # 25 keys expected for netcdf_local_paths_sequential_multivariable_1d: 2 variables * 10 timesteps + .zattrs + .zgroup + lat + lon + time
+    # 25 keys expected for netcdf_local_paths_sequential_multivariable_1d:
+    # .zgroup + .zattrs + (3 dimensions * (.zattrs + .zarray + 1 chunk)) + \
+    #   (2 variables * (.zattrs + .zarray + 5 chunks))
     # 35 keys expected for netcdf_local_paths_sequential_multivariable_2d
     file_ext = os.path.splitext(output_file_name)[-1]
 

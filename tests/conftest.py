@@ -130,7 +130,8 @@ def make_local_paths(
     for ds, path in zip(datasets, full_paths):
         save_method = getattr(ds, method)
         # Question: Should we enable explicity chunking when saving to netcdf?
-        # by default it is encoding data with chunks, such as "chunks": [2,18,36]. It might be useful to set explicit chunks.
+        # by default it is encoding data with chunks, such as "chunks": [2,18,36].
+        # It might be useful to set chunking explicitly.
         # encoding = {
         #     'foo': {'chunksizes': (1, 2, 2)},
         #     'bar': {'chunksizes': (1, 2, 2)}
