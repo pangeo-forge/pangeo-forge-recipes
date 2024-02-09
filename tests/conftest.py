@@ -244,7 +244,6 @@ def pipeline(scope="session"):
 
 @pytest.fixture
 def pipeline_parallel(scope="session"):
-    # TODO: make this True and fix the weird ensuing type check errors
     options = PipelineOptions(
         runtime_type_check=False,
         direct_num_workers=4,
