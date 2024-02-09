@@ -146,13 +146,6 @@ def test_reference_netcdf_parallel(
         )
     full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
 
-    # Question: Should we add a test here for the number of keys in the reference
-    # or is that moot since the xarray dataset equality check is already in place?
-    # import json
-    # refs = json.loads(open(full_path).read())
-    # key_len = len(refs.keys())
-    # 25 keys expected for netcdf_local_paths_sequential_multivariable_1d: 2 variables * 10 timesteps + .zattrs + .zgroup + lat + lon + time
-    # 35 keys expected for netcdf_local_paths_sequential_multivariable_2d
     file_ext = os.path.splitext(output_file_name)[-1]
 
     if file_ext == ".json":
