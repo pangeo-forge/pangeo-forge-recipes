@@ -135,7 +135,7 @@ def make_local_paths(
         #     'foo': {'chunksizes': (1, 2, 2)},
         #     'bar': {'chunksizes': (1, 2, 2)}
         # }
-        save_method(path, **kwargs) #encoding=encoding, **kwargs)
+        save_method(path, **kwargs)  # encoding=encoding, **kwargs)
 
     # xr.save_mfdataset(datasets, [str(path) for path in full_paths])
     items_per_file = {"D": 1, "2D": 2}[items_per_file]
@@ -240,17 +240,19 @@ def pipeline(scope="session"):
     with TestPipeline(options=options) as p:
         yield p
 
+
 @pytest.fixture
 def pipeline_parallel(scope="session"):
     # TODO: make this True and fix the weird ensuing type check errors
     options = PipelineOptions(
         runtime_type_check=False,
         direct_num_workers=4,
-        direct_running_mode='multi_processing',
-        runner="DirectRunner"
+        direct_running_mode="multi_processing",
+        runner="DirectRunner",
     )
     with TestPipeline(options=options) as p:
         yield p
+
 
 @pytest.fixture(
     params=[True, False],

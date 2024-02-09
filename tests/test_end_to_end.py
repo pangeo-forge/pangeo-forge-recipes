@@ -127,7 +127,7 @@ def test_reference_netcdf_parallel(
     netcdf_local_file_pattern_sequential_multivariable,
     pipeline_parallel,
     tmp_target,
-    output_file_name = "reference.json",
+    output_file_name="reference.json",
 ):
     pattern = netcdf_local_file_pattern_sequential_multivariable
     store_name = "daily-xarray-dataset"
@@ -159,7 +159,6 @@ def test_reference_netcdf_parallel(
         mapper = fsspec.get_mapper("reference://", fo=full_path)
         ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
         xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
-
 
 
 @pytest.mark.xfail(
