@@ -65,9 +65,10 @@ with pipeline as p:
     pyramid_store = process | "Write Pyramid Levels" >> StoreToPyramid(
         target_root=target_root,
         store_name="pyramid",
-        extra_dim="zlev",
         epsg_code="4326",
-        n_levels=2,
+        rename_spatial_dims={"lon": "longitude", "lat": "latitude"},
+        n_levels=4,
+        pyramid_kwargs={"extra_dim": "zlev"},
         combine_dims=pattern.combine_dim_keys,
     )
 
