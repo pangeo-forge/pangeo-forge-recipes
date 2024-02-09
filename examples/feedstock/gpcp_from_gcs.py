@@ -3,7 +3,13 @@ import pandas as pd
 import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, StoreToZarr
+from pangeo_forge_recipes.transforms import (
+    ConsolidateDimensionCoordinates,
+    ConsolidateMetadata,
+    OpenURLWithFSSpec,
+    OpenWithXarray,
+    StoreToZarr,
+)
 
 dates = [
     d.to_pydatetime().strftime("%Y%m%d")
@@ -43,5 +49,7 @@ recipe = (
         store_name="gpcp.zarr",
         combine_dims=pattern.combine_dim_keys,
     )
+    | ConsolidateDimensionCoordinates()
+    | ConsolidateMetadata()
     | "Test dataset" >> beam.Map(test_ds)
 )

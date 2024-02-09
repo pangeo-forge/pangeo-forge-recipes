@@ -15,6 +15,8 @@ from fsspec.implementations.reference import ReferenceFileSystem
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
 from pangeo_forge_recipes.transforms import (
     Indexed,
+    ConsolidateDimensionCoordinates,
+    ConsolidateMetadata,
     OpenWithKerchunk,
     OpenWithXarray,
     StoreToPyramid,
