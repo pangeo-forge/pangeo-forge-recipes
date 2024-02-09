@@ -41,7 +41,7 @@ def split_fragment(
     else:
         assert target_chunks is not None
 
-    index, ds = fragment
+    index, ds = fragment  # FIXME: FlatMapTuple in Rechunk can allow us to remove this unpacking
 
     # target_chunks_and_dims contains both the chunk size and global dataset dimension size
     target_chunks_and_dims = {}  # type: Dict[str, Tuple[int, int]]
@@ -64,6 +64,13 @@ def split_fragment(
             # in the fragment index, then we can assume that the entire span of
             # that dimension is present in the dataset.
             # This would arise e.g. when decimating a contiguous dimension
+            # FIXME: Clarify this comment. Basically you hit this condition if, for example,
+            # the entire spatial extent is contained in the dataset fragment passed to this
+            # function. So we are only subdividing that entire dimension, and we don't need
+            # to concat the results of that subdivided dimension across fragments. That is,
+            # across the outputs emitted by multiple successive calls to to split_fragment,
+            # rather the entire extent of the dimension (as we want it to appear in the output
+            # dataset) is present in *every* call.
             dimsize = ds.dims[dim_name]
             dim_slice = slice(0, dimsize)
 
@@ -133,6 +140,7 @@ def _sort_index_key(item):
     return tuple((dimension, position.value) for dimension, position in index.items())
 
 
+# FIXME: this function does not take a meshgrid as input, so the name is confusing
 def _invert_meshgrid(*arrays):
     """Inverts the numpy.meshgrid function."""
 
@@ -145,14 +153,20 @@ def _invert_meshgrid(*arrays):
         selectors[n] = tuple(selectors[n])
     xi = [a[s] for a, s in zip(arrays, selectors)]
     assert all(
-        np.equal(actual, expected).all() for actual, expected in zip(arrays, np.meshgrid(*xi))
+        np.equal(actual, expected.squeeze()).all()
+        for actual, expected in zip(arrays, np.meshgrid(*xi))
     )
     return xi
 
 
 # TODO: figure out a type hint that beam likes
 def combine_fragments(
-    group: GroupKey, fragments: List[Tuple[Index, xr.Dataset]]
+    # FIXME: Julius comment (charles agrees!), rename `group` to be more descriptive,
+    # for example, to `target_chunk_group`, becuase the groupkey here indicates which
+    # chunk in the output zarr store the fragments, once combined, should be written to.
+    # Possibly rename `GroupKey` type as part of this renaming as well.
+    group: GroupKey,
+    fragments: List[Tuple[Index, xr.Dataset]],
 ) -> Tuple[Index, xr.Dataset]:
     """Combine multiple dataset fragments into a single fragment.
 
@@ -180,6 +194,8 @@ def combine_fragments(
         raise ValueError(
             f"Cannot combine fragments for elements with different combine dims: {all_indexes}"
         )
+    # QUESTION: Should dimensions that will not be concat'd as part of this combine, be assigned
+    # to CONCAT here?
     concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
 
     if not all(all(index[dim].indexed for index in all_indexes) for dim in concat_dims):
@@ -189,12 +205,14 @@ def combine_fragments(
 
     # now we need to unstack the 1D concat dims into an ND nested data structure
     # first step is figuring out the shape
+    # FIXME: This name means "each dimension with its starts and size/length"
     dims_starts_sizes = [
         (
             dim.name,
             [index[dim].value for index in all_indexes],
             [ds.dims[dim.name] for ds in all_dsets],
         )
+        # FIXME: here, `concat_dims` means all dimesions that are chunked
         for dim in concat_dims
     ]
 
