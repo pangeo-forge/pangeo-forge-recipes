@@ -1,5 +1,5 @@
 from collections.abc import Collection
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from enum import Enum
 from hashlib import sha256
 from json import dumps
@@ -53,7 +53,7 @@ def dict_drop_empty(pairs: Sequence[Sequence]) -> dict:
     return dict((k, v) for k, v in pairs if not (v is None or not v and isinstance(v, Collection)))
 
 
-def dataclass_sha256(dclass: type, ignore_keys: List[str]) -> bytes:
+def dataclass_sha256(dclass: Any, ignore_keys: List[str]) -> bytes:
     """Generate a deterministic sha256 hash from a Python ``dataclass``. Fields for which the value
     is either ``None`` or an empty collection are excluded from the hash calculation automatically.
     To manually exclude other fields from the calculation, pass their names via ``igonore_keys``.
@@ -63,6 +63,8 @@ def dataclass_sha256(dclass: type, ignore_keys: List[str]) -> bytes:
     :param dclass: The dataclass for which to calculate a hash.
     :param ignore_keys: A list of field names to exclude from the hash calculation.
     """
+    if not is_dataclass(dclass):
+        raise ValueError("dclass must be an instance of a dataclass")
 
     d = asdict(dclass, dict_factory=dict_drop_empty)
     for k in ignore_keys:
