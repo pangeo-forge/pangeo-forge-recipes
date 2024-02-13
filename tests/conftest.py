@@ -13,6 +13,7 @@ Objects in this module belong to the following groups, delimited by inline comme
 Note:
    Recipe fixtures are defined in their respective test modules, e.g. `test_recipes.py`
 """
+
 import os
 import socket
 import subprocess

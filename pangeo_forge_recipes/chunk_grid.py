@@ -1,6 +1,7 @@
 """
 Abstract representation of ND chunked arrays
 """
+
 from __future__ import annotations
 
 import warnings
