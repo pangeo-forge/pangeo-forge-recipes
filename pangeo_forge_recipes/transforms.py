@@ -145,7 +145,7 @@ class MapWithConcurrencyLimit(beam.PTransform):
                 | beam.GroupByKey()
                 | beam.Values()
                 | f"{self.fn.__name__} (max_concurrency={self.max_concurrency})"
-                >> beam.FlatMap(lambda k, v: _add_keys_iter(self.fn), *self.args, **self.kwargs)
+                >> beam.FlatMap(_add_keys_iter(self.fn), *self.args, **self.kwargs)
             )
         )
 
