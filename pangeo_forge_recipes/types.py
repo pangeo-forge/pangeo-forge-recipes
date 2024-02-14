@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple, TypeVar
 
 
 class CombineOp(Enum):
@@ -72,3 +72,8 @@ class Index(Dict[Dimension, Position]):
             return None
         else:
             return possible_concat_dims[0]
+
+
+# A convenience type to represent an indexed value
+T = TypeVar("T")
+Indexed = Tuple[Index, T]
