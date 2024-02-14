@@ -1,14 +1,14 @@
 import operator
 from dataclasses import dataclass, field
 from functools import reduce
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence
 
 import apache_beam as beam
 import fsspec
 from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarrayCombineAccumulator, XarraySchema
-from .types import CombineOp, Dimension, Index
+from .types import CombineOp, Dimension, Index, Indexed
 
 
 @dataclass
@@ -28,7 +28,7 @@ class CombineXarraySchemas(beam.CombineFn):
         concat_dim = self.dimension.name if self.dimension.operation == CombineOp.CONCAT else None
         return XarrayCombineAccumulator(concat_dim=concat_dim)
 
-    def add_input(self, accumulator: XarrayCombineAccumulator, item: Tuple[Index, XarraySchema]):
+    def add_input(self, accumulator: XarrayCombineAccumulator, item: Indexed[XarraySchema]):
         index, schema = item
         position = self.get_position(index)
         accumulator.add_input(schema, position)
