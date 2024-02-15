@@ -208,7 +208,6 @@ class OpenWithKerchunk(beam.PTransform):
     storage_options: Optional[Dict] = field(default_factory=dict)
     remote_protocol: Optional[str] = None
     kerchunk_open_kwargs: Optional[dict] = field(default_factory=dict)
-    desired_buckets: int = 5
 
     def expand(self, pcoll):
         return pcoll | "Open with Kerchunk" >> beam.MapTuple(
