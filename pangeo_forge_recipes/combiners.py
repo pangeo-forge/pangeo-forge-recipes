@@ -1,11 +1,10 @@
 import operator
-from dataclasses import dataclass, field
+import sys
+from dataclasses import dataclass
 from functools import reduce
-from typing import Dict, List, Optional, Sequence
+from typing import Sequence
 
 import apache_beam as beam
-import fsspec
-from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarrayCombineAccumulator, XarraySchema
 from .types import CombineOp, Dimension, Index, Indexed
@@ -46,54 +45,32 @@ class CombineXarraySchemas(beam.CombineFn):
         return accumulator.schema
 
 
-@dataclass
-class CombineZarrRefs(beam.CombineFn):
-    """A beam ``CombineFn`` for combining Kerchunk reference objects.
+def build_reduce_fn(accumulate_op, merge_op, initializer):
+    """Factory to construct reducers without so much ceremony"""
 
-    :param concat_dims: Dimensions along which to concatenate inputs.
-    :param identical_dims: Dimensions shared among all inputs.
-    :param remote_options: Storage options for opening remote files
-    :param remote_protocol: If files are accessed over the network, provide the remote protocol
-      over which they are accessed. e.g.: "s3", "gcp", "https", etc.
-    :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :param target_options: Target options dict to pass to the MultiZarrToZarr
+    class AnonymousCombineFn(beam.CombineFn):
+        def create_accumulator(self):
+            return initializer
 
-    """
+        def add_input(self, accumulator, input):
+            return accumulate_op(accumulator, input)
 
-    concat_dims: List[str]
-    identical_dims: List[str]
-    target_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
-    remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
-    remote_protocol: Optional[str] = None
-    mzz_kwargs: dict = field(default_factory=dict)
+        def merge_accumulators(self, accumulators):
+            acc = accumulators[0]
+            for accumulator in accumulators[1:]:
+                acc = merge_op(acc, accumulator)
+            return acc
 
-    def to_mzz(self, references):
-        return MultiZarrToZarr(
-            references,
-            concat_dims=self.concat_dims,
-            identical_dims=self.identical_dims,
-            target_options=self.target_options,
-            remote_options=self.remote_options,
-            remote_protocol=self.remote_protocol,
-            **self.mzz_kwargs,
-        )
+        def extract_output(self, accumulator):
+            return accumulator
 
-    def create_accumulator(self) -> list[dict]:
-        return []
+    return AnonymousCombineFn
 
-    def add_input(self, accumulator: list[dict], item: dict) -> list[dict]:
-        accumulator.append(item)
-        return accumulator
 
-    def merge_accumulators(self, accumulators: list[list[dict]]) -> list[dict]:
-        return [self.to_mzz(accumulator).translate() for accumulator in accumulators]
-
-    def extract_output(self, accumulator: list[dict]) -> fsspec.FSMap:
-        return fsspec.filesystem(
-            "reference",
-            fo=self.to_mzz(accumulator).translate(),
-            storage_options={
-                "remote_protocol": self.remote_protocol,
-                "skip_instance_cache": True,
-            },
-        ).get_mapper()
+# Find minimum/maximum/count values
+# Count done as a slight optimization to avoid multiple passes across the distribution
+MinMaxCountCombineFn = build_reduce_fn(
+    accumulate_op=lambda acc, input: (min(acc[0], input), max(acc[1], input), acc[2] + 1),
+    merge_op=lambda accL, accR: (min(accL[0], accR[0]), max(accL[1], accR[1]), accL[2] + accR[2]),
+    initializer=(sys.maxsize, -sys.maxsize, 0),
+)

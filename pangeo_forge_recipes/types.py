@@ -73,6 +73,13 @@ class Index(Dict[Dimension, Position]):
         else:
             return possible_concat_dims[0]
 
+    def find_position(self, dim_name: str) -> int:
+        dimension = self.find_concat_dim(dim_name)
+        if dimension:
+            return self[dimension].value
+        else:
+            raise ValueError(f"No dimension found with name {dim_name}")
+
 
 # A convenience type to represent an indexed value
 T = TypeVar("T")

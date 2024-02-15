@@ -18,7 +18,7 @@ from pangeo_forge_recipes.transforms import (
     Rechunk,
     StoreToZarr,
 )
-from pangeo_forge_recipes.types import CombineOp
+from pangeo_forge_recipes.types import CombineOp, Index
 
 from .data_generation import make_ds
 
@@ -121,20 +121,24 @@ def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
 
 
-def is_list_of_refs_dicts():
-    def _is_list_of_refs_dicts(refs):
-        for r in refs[0]:
-            assert isinstance(r, dict)
-            assert "refs" in r
+def is_list_of_idx_refs_dicts():
+    def _is_list_of_idx_refs_dicts(results):
+        for result in results:
+            idx = result[0]
+            references = result[1]
+            test_ref = references[0]
+            assert isinstance(idx, Index)
+            assert isinstance(test_ref, dict)
+            assert "refs" in test_ref
 
-    return _is_list_of_refs_dicts
+    return _is_list_of_idx_refs_dicts
 
 
 def test_OpenWithKerchunk_via_fsspec(pcoll_opened_files, pipeline):
     input, pattern, cache_url = pcoll_opened_files
     with pipeline as p:
         output = p | input | OpenWithKerchunk(pattern.file_type)
-        assert_that(output, is_list_of_refs_dicts())
+        assert_that(output, is_list_of_idx_refs_dicts())
 
 
 def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
@@ -147,7 +151,7 @@ def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
             | beam.Create(pattern_direct.items())
             | OpenWithKerchunk(file_type=pattern_direct.file_type)
         )
-        assert_that(output, is_list_of_refs_dicts())
+        assert_that(output, is_list_of_idx_refs_dicts())
 
 
 @pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])

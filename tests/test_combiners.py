@@ -1,18 +1,13 @@
-from typing import Generator
-
 import apache_beam as beam
-import fsspec
 import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that
-from kerchunk.combine import MultiZarrToZarr
-from kerchunk.hdf import SingleHdf5ToZarr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.combiners import CombineXarraySchemas, CombineZarrRefs
+from pangeo_forge_recipes.combiners import CombineXarraySchemas
 from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index
@@ -199,31 +194,3 @@ def _is_expected_dataset(expected_ds):
         assert expected_ds == actual_ds
 
     return _impl
-
-
-def test_CombineReferences(netcdf_local_paths_sequential_1d, pipeline):
-    urls = netcdf_local_paths_sequential_1d[0]
-
-    def generate_refs(urls) -> Generator[dict, None, None]:
-        for url in urls:
-            with fsspec.open(url) as inf:
-                h5chunks = SingleHdf5ToZarr(inf, url, inline_threshold=100)
-                yield h5chunks.translate()
-
-    refs = list(generate_refs(urls))
-    concat_dims = ["time"]
-    identical_dims = ["lat", "lon"]
-    mzz = MultiZarrToZarr(
-        refs, concat_dims=concat_dims, identical_dims=identical_dims, remote_protocol="file"
-    ).translate()
-
-    mapper = fsspec.filesystem("reference", fo=mzz).get_mapper()
-
-    expected_dataset = xr.open_dataset(mapper, engine="kerchunk")
-    with pipeline as p:
-        input = p | beam.Create(generate_refs(urls))
-        output = input | beam.CombineGlobally(
-            CombineZarrRefs(concat_dims=concat_dims, identical_dims=identical_dims)
-        )
-
-        assert_that(output, _is_expected_dataset(expected_dataset))
