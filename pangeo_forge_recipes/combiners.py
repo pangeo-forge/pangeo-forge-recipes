@@ -47,7 +47,7 @@ class CombineXarraySchemas(beam.CombineFn):
 
 
 @dataclass
-class CombineZarrRefs(beam.CombineFn):
+class CombineKerchunkRefs(beam.CombineFn):
     """A beam ``CombineFn`` for combining Kerchunk reference objects.
 
     :param concat_dims: Dimensions along which to concatenate inputs.

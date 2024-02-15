@@ -12,7 +12,7 @@ from kerchunk.hdf import SingleHdf5ToZarr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.combiners import CombineXarraySchemas, CombineZarrRefs
+from pangeo_forge_recipes.combiners import CombineXarraySchemas, CombineKerchunkRefs
 from pangeo_forge_recipes.patterns import FilePattern
 from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index
@@ -223,7 +223,7 @@ def test_CombineReferences(netcdf_local_paths_sequential_1d, pipeline):
     with pipeline as p:
         input = p | beam.Create(generate_refs(urls))
         output = input | beam.CombineGlobally(
-            CombineZarrRefs(concat_dims=concat_dims, identical_dims=identical_dims)
+            CombineKerchunkRefs(concat_dims=concat_dims, identical_dims=identical_dims)
         )
 
         assert_that(output, _is_expected_dataset(expected_dataset))

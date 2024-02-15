@@ -72,3 +72,11 @@ class Index(Dict[Dimension, Position]):
             return None
         else:
             return possible_concat_dims[0]
+        
+    def find_position(self, dim_name: str) -> Optional[int]:
+        dimension = self.find_concat_dim(dim_name)
+        if dimension:
+            return self[dimension].value
+        else:
+            None
+        
