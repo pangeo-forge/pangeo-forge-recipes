@@ -126,12 +126,12 @@ def test_NestDim(schema_pcoll_concat_merge, pipeline):
     pattern, _, pcoll = schema_pcoll_concat_merge
     pattern_merge_only = FilePattern(
         pattern.format_function,
-        *[cdim for cdim in pattern.combine_dims if cdim.operation == CombineOp.MERGE]
+        *[cdim for cdim in pattern.combine_dims if cdim.operation == CombineOp.MERGE],
     )
     merge_only_indexes = list(pattern_merge_only)
     pattern_concat_only = FilePattern(
         pattern.format_function,
-        *[cdim for cdim in pattern.combine_dims if cdim.operation == CombineOp.CONCAT]
+        *[cdim for cdim in pattern.combine_dims if cdim.operation == CombineOp.CONCAT],
     )
     concat_only_indexes = list(pattern_concat_only)
 

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple, TypeVar
 
 
 class CombineOp(Enum):
@@ -79,3 +79,7 @@ class Index(Dict[Dimension, Position]):
             return self[dimension].value
         else:
             raise ValueError(f"No dimension found with name {dim_name}")
+
+# A convenience type to represent an indexed value
+T = TypeVar("T")
+Indexed = Tuple[Index, T]

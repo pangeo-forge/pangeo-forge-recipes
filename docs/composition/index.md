@@ -4,7 +4,7 @@
 
 A recipe describes the steps to transform archival source data in one
 format / location into analysis-ready, cloud-optimized (ARCO) data in another format /
-location. Technically, a recipe is as a set of composite
+location. Technically, a recipe is a composite of
 [Apache Beam transforms](https://beam.apache.org/documentation/programming-guide/#transforms)
 applied to the data collection associated with a {doc}`file pattern <file_patterns>`.
 To write a recipe:

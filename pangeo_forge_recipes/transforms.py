@@ -24,6 +24,7 @@ from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, consolidate_dimension_coordinates, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
+from .types import Indexed
 from .writers import (
     ZarrWriterMixin,
     consolidate_metadata,
@@ -65,12 +66,11 @@ logger = logging.getLogger(__name__)
 # Ideally each PTransform should be a simple Map or DoFn calling out to function
 # from other modules
 
-
 T = TypeVar("T")
-Indexed = Tuple[Index, T]
+IndexedArg = Indexed[T]
 
 R = TypeVar("R")
-IndexedReturn = Tuple[Index, R]
+IndexedReturn = Indexed[R]
 
 P = ParamSpec("P")
 
@@ -88,30 +88,9 @@ class RequiredAtRuntimeDefault:
     pass
 
 
-# TODO: replace with beam.MapTuple?
-def _add_keys(
-    func: Callable[Concatenate[T, P], R],
-) -> Callable[Concatenate[Indexed, P], IndexedReturn]:
-    """Convenience decorator to remove and re-add keys to items in a Map"""
-    annotations = func.__annotations__.copy()
-    arg_name, annotation = next(iter(annotations.items()))
-    annotations[arg_name] = Tuple[Index, annotation]
-    return_annotation = annotations["return"]
-    annotations["return"] = Tuple[Index, return_annotation]
-
-    # @wraps(func)  # doesn't work for some reason
-    def wrapper(arg, *args: P.args, **kwargs: P.kwargs):
-        key, item = arg
-        result = func(item, *args, **kwargs)
-        return key, result
-
-    wrapper.__annotations__ = annotations
-    return wrapper
-
-
 def _add_keys_iter(
     func: Callable[Concatenate[T, P], R],
-) -> Callable[Concatenate[Iterable[Indexed], P], Iterator[IndexedReturn]]:
+) -> Callable[Concatenate[Iterable[IndexedArg], P], Iterator[IndexedReturn]]:
     """Convenience decorator to iteratively remove and re-add keys to items in a FlatMap"""
     annotations = func.__annotations__.copy()
     arg_name, annotation = next(iter(annotations.items()))
@@ -157,7 +136,9 @@ class MapWithConcurrencyLimit(beam.PTransform):
 
     def expand(self, pcoll):
         return (
-            pcoll | self.fn.__name__ >> beam.Map(_add_keys(self.fn), *self.args, **self.kwargs)
+            pcoll
+            | self.fn.__name__
+            >> beam.MapTuple(lambda k, v: (k, self.fn(v, *self.args, **self.kwargs)))
             if not self.max_concurrency
             else (
                 pcoll
@@ -229,6 +210,7 @@ class OpenWithKerchunk(beam.PTransform):
 
     def expand(self, pcoll):
         return pcoll | "Open with Kerchunk" >> beam.MapTuple(
+
             lambda k, v: (
                 k,
                 open_with_kerchunk(
@@ -262,12 +244,17 @@ class OpenWithXarray(beam.PTransform):
     xarray_open_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(self, pcoll):
-        return pcoll | "Open with Xarray" >> beam.Map(
-            _add_keys(open_with_xarray),
-            file_type=self.file_type,
-            load=self.load,
-            copy_to_local=self.copy_to_local,
-            xarray_open_kwargs=self.xarray_open_kwargs,
+        return pcoll | "Open with Xarray" >> beam.MapTuple(
+            lambda k, v: (
+                k,
+                open_with_xarray(
+                    v,
+                    file_type=self.file_type,
+                    load=self.load,
+                    copy_to_local=self.copy_to_local,
+                    xarray_open_kwargs=self.xarray_open_kwargs,
+                ),
+            )
         )
 
 
@@ -295,7 +282,7 @@ class _NestDim(beam.PTransform):
 @dataclass
 class DatasetToSchema(beam.PTransform):
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(_add_keys(dataset_to_schema))
+        return pcoll | beam.MapTuple(lambda k, v: (k, dataset_to_schema(v)))
 
 
 @dataclass
@@ -309,7 +296,7 @@ class DetermineSchema(beam.PTransform):
     combine_dims: List[Dimension]
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        schemas = pcoll | beam.Map(_add_keys(dataset_to_schema))
+        schemas = pcoll | beam.MapTuple(lambda k, v: (k, dataset_to_schema(v)))
         cdims = self.combine_dims.copy()
         while len(cdims) > 0:
             last_dim = cdims.pop()
@@ -652,6 +639,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
             )
         )
+        logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
         rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(),
