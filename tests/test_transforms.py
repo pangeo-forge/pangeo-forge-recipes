@@ -9,7 +9,6 @@ from pytest_lazyfixture import lazy_fixture
 from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.patterns import FilePattern, FileType
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
-from pangeo_forge_recipes.types import Index
 from pangeo_forge_recipes.transforms import (
     DetermineSchema,
     IndexItems,
@@ -19,7 +18,7 @@ from pangeo_forge_recipes.transforms import (
     Rechunk,
     StoreToZarr,
 )
-from pangeo_forge_recipes.types import CombineOp
+from pangeo_forge_recipes.types import CombineOp, Index
 
 from .data_generation import make_ds
 

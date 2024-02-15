@@ -14,12 +14,12 @@ else:
     from typing import Concatenate, ParamSpec
 
 import apache_beam as beam
-from kerchunk.combine import MultiZarrToZarr
 import xarray as xr
 import zarr
+from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_template_ds, schema_to_zarr
-from .combiners import CombineXarraySchemas, CombineKerchunkRefs
+from .combiners import CombineXarraySchemas
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, consolidate_dimension_coordinates, split_fragment
@@ -227,23 +227,20 @@ class OpenWithKerchunk(beam.PTransform):
     kerchunk_open_kwargs: Optional[dict] = field(default_factory=dict)
     desired_buckets: int = 5
 
-
     def expand(self, pcoll):
-        return (
-            pcoll
-            | "Open with Kerchunk" >> beam.MapTuple(
-                lambda k, v: (
-                    k,
-                    open_with_kerchunk(
-                        v,
-                        file_type=self.file_type,
-                        inline_threshold=self.inline_threshold,
-                        storage_options=self.storage_options,
-                        remote_protocol=self.remote_protocol,
-                        kerchunk_open_kwargs=self.kerchunk_open_kwargs,
-                    ),
-                )
-            ))
+        return pcoll | "Open with Kerchunk" >> beam.MapTuple(
+            lambda k, v: (
+                k,
+                open_with_kerchunk(
+                    v,
+                    file_type=self.file_type,
+                    inline_threshold=self.inline_threshold,
+                    storage_options=self.storage_options,
+                    remote_protocol=self.remote_protocol,
+                    kerchunk_open_kwargs=self.kerchunk_open_kwargs,
+                ),
+            )
+        )
 
 
 @dataclass
@@ -460,7 +457,7 @@ class CombineReferences(beam.PTransform):
     remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
     remote_protocol: Optional[str] = None
     mzz_kwargs: dict = field(default_factory=dict)
-    num_buckets: dict = 5
+    num_buckets: int = 5
 
     def to_mzz(self, references):
         return MultiZarrToZarr(
@@ -472,9 +469,9 @@ class CombineReferences(beam.PTransform):
             remote_protocol=self.remote_protocol,
             **self.mzz_kwargs,
         )
-    
+
     def handle_gribs(self, indexed_references: Tuple[Index, list[dict]]) -> Tuple[Index, dict]:
-        """The grib format sometimes produces multiple references. We should be able to safely combine here."""
+        """The grib format sometimes produces multiple references; combine here."""
         references = indexed_references[1]
         idx = indexed_references[0]
         if len(references) > 1:
@@ -484,7 +481,7 @@ class CombineReferences(beam.PTransform):
             return (idx, references[0])
         else:
             raise ValueError("No references produced for {idx}. Expected at least 1.")
-        
+
     def bucket_by_position(self, indexed_references: Tuple[Index, dict]) -> Tuple[int, dict]:
         idx = indexed_references[0]
         ref = indexed_references[1]
@@ -499,10 +496,12 @@ class CombineReferences(beam.PTransform):
             | "Handle special case of gribs" >> beam.Map(self.handle_gribs)
             | "Bucket to preserve order" >> beam.Map(self.bucket_by_position)
             | "Group by buckets for ordering" >> beam.GroupByKey()
-            | "Distributed reduce" >> beam.MapTuple(lambda _, grouped_refs: self.to_mzz(grouped_refs).translate())
+            | "Distributed reduce"
+            >> beam.MapTuple(lambda _, grouped_refs: self.to_mzz(grouped_refs).translate())
             | "Assign global key for collecting to executor" >> beam.Map(lambda ref: (None, ref))
             | "Group globally" >> beam.GroupByKey()
-            | "Global reduce" >> beam.MapTuple(lambda _, global_refs: self.to_mzz(global_refs).translate())
+            | "Global reduce"
+            >> beam.MapTuple(lambda _, global_refs: self.to_mzz(global_refs).translate())
         )
 
         #     | beam.CombineGlobally(
