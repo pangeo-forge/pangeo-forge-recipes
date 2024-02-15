@@ -210,7 +210,6 @@ class OpenWithKerchunk(beam.PTransform):
 
     def expand(self, pcoll):
         return pcoll | "Open with Kerchunk" >> beam.MapTuple(
-
             lambda k, v: (
                 k,
                 open_with_kerchunk(

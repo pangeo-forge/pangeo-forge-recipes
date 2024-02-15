@@ -80,6 +80,7 @@ class Index(Dict[Dimension, Position]):
         else:
             raise ValueError(f"No dimension found with name {dim_name}")
 
+
 # A convenience type to represent an indexed value
 T = TypeVar("T")
 Indexed = Tuple[Index, T]
