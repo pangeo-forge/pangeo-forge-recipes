@@ -447,6 +447,11 @@ class CombineReferences(beam.PTransform):
     max_refs_per_merge: int = 5
     mzz_kwargs: dict = field(default_factory=dict)
 
+    def __post_init__(self):
+        """Store chosen sort dimension to keep things DRY"""
+        # last element chosen here to follow the xarray `pop` choice above
+        self.sort_dimension = self.concat_dims[-1]
+
     def to_mzz(self, references):
         """Converts references into a MultiZarrToZarr object with configured parameters."""
         return MultiZarrToZarr(
@@ -473,17 +478,47 @@ class CombineReferences(beam.PTransform):
             raise ValueError("No references produced for {idx}. Expected at least 1.")
 
     def bucket_by_position(
-        self, indexed_references: Tuple[Index, dict], global_position_min_max_count
+        self,
+        indexed_references: Tuple[Index, dict],
+        global_position_min_max_count: Tuple[int, int, int],
     ) -> Tuple[int, dict]:
-        """Assigns a bucket based on index position to help preserve data order."""
+        """
+        Assigns a bucket based on the index position to preserve data order during merging via
+        GroupByKey.
+
+        This method calculates which 'bucket' or segment an individual reference belongs to,
+        based on its position within a global sorting dimension. This is crucial for operations
+        that need to maintain data order, especially when dealing with large datasets that are
+        processed in parts.
+
+        Parameters:
+        - indexed_references: A tuple containing the index and the reference dictionary. The index
+        is used to determine the reference's position within the global data order.
+        - global_position_min_max_count: A tuple containing the global minimum and maximum
+        positions and the total count of references. These values are used to determine the range
+        and distribution of buckets.
+
+        Returns:
+        - A tuple where the first element is the bucket number (an integer) assigned to the
+        reference, and the second element is the original reference dictionary.
+        """
         idx = indexed_references[0]
         ref = indexed_references[1]
         global_min, global_max, global_count = global_position_min_max_count
-        sort_dimension = self.concat_dims[-1]
-        position = idx.find_position(sort_dimension)
+        position = idx.find_position(self.sort_dimension)
+
+        # Calculate the total range size based on global minimum and maximum positions.
         range_size = global_max - global_min
+
+        # Determine the number of buckets needed, based on the maximum references allowed per merge.
         num_buckets = math.ceil(global_count / self.max_refs_per_merge)
+
+        # Calculate the size of each bucket by dividing the total range by the number of buckets.
         bucket_size = range_size / num_buckets
+
+        # Assign the current reference to a bucket based on its position.
+        # The bucket number is determined by how far the position is from the global minimum,
+        # divided by the size of each bucket.
         bucket = int((position - global_min) / bucket_size)
         return bucket, ref
 
@@ -502,7 +537,7 @@ class CombineReferences(beam.PTransform):
         min_max_count_positions = (
             reference_lists
             | "Get just the positions"
-            >> beam.MapTuple(lambda k, v: k.find_position(self.concat_dims[-1]))
+            >> beam.MapTuple(lambda k, v: k.find_position(self.sort_dimension))
             | "Get minimum/maximum positions" >> beam.CombineGlobally(MinMaxCountCombineFn())
         )
         return (
