@@ -1,19 +1,21 @@
 import apache_beam as beam
-import fsspec
 import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that
-from kerchunk.combine import MultiZarrToZarr
-from kerchunk.hdf import SingleHdf5ToZarr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.combiners import CombineMultiZarrToZarr, CombineXarraySchemas
+from pangeo_forge_recipes.combiners import CombineXarraySchemas
 from pangeo_forge_recipes.patterns import FilePattern
-from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
-from pangeo_forge_recipes.types import CombineOp, Dimension, Index
+from pangeo_forge_recipes.transforms import (
+    CombineReferences,
+    DatasetToSchema,
+    DetermineSchema,
+    _NestDim,
+)
+from pangeo_forge_recipes.types import CombineOp, Dimension, Index, Position
 
 
 @pytest.fixture
@@ -199,29 +201,102 @@ def _is_expected_dataset(expected_ds):
     return _impl
 
 
-def test_CombineReferences(netcdf_local_paths_sequential_1d, pipeline):
-    urls = netcdf_local_paths_sequential_1d[0]
+@pytest.fixture
+def combine_references_fixture():
+    return CombineReferences(
+        concat_dims=["time"],
+        identical_dims=["x", "y"],
+        max_refs_per_merge=5,
+    )
 
-    def generate_refs(urls):
-        for url in urls:
-            with fsspec.open(url) as inf:
-                h5chunks = SingleHdf5ToZarr(inf, url, inline_threshold=100)
-                yield [h5chunks.translate()]
 
-    refs = [ref[0] for ref in generate_refs(urls)]
-    concat_dims = ["time"]
-    identical_dims = ["lat", "lon"]
-    mzz = MultiZarrToZarr(
-        refs, concat_dims=concat_dims, identical_dims=identical_dims, remote_protocol="file"
-    ).translate()
+@pytest.mark.parametrize(
+    "indexed_reference, global_position_min_max_count, expected",
+    [
+        # given our default `max_refs_per_merge=5` these first five
+        # records will be batched into the the first bucket
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(0)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(1)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(2)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(3)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(4)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        # given our default `max_refs_per_merge=5` this
+        # next position will be batched into the next bucket
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(5)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (1, {"url": "s3://blah.hdf5"}),
+        ),
+    ],
+)
+def test_bucket_by_position_contiguous(
+    combine_references_fixture, indexed_reference, global_position_min_max_count, expected
+):
+    result = combine_references_fixture.bucket_by_position(
+        indexed_reference, global_position_min_max_count
+    )
+    assert result == expected
 
-    mapper = fsspec.filesystem("reference", fo=mzz).get_mapper()
 
-    expected_dataset = xr.open_dataset(mapper, engine="kerchunk")
-    with pipeline as p:
-        input = p | beam.Create(generate_refs(urls))
-        output = input | beam.CombineGlobally(
-            CombineMultiZarrToZarr(concat_dims=concat_dims, identical_dims=identical_dims)
-        )
-
-        assert_that(output, _is_expected_dataset(expected_dataset))
+@pytest.mark.parametrize(
+    "indexed_reference, global_position_min_max_count, expected",
+    [
+        # we have to assume contiguous data but this test shows the implicit bucket boundaries
+        # including the edge cases at different positions along an assumed contiguous data
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(0)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(10)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (2, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(20)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (4, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(50)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (10, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (
+                Index({Dimension("time", CombineOp.CONCAT): Position(100)}),
+                {"url": "s3://blah.hdf5"},
+            ),
+            (0, 100, 101),
+            (21, {"url": "s3://blah.hdf5"}),
+        ),
+    ],
+)
+def test_bucket_by_position_sparse(
+    combine_references_fixture, indexed_reference, global_position_min_max_count, expected
+):
+    result = combine_references_fixture.bucket_by_position(
+        indexed_reference, global_position_min_max_count
+    )
+    assert result == expected

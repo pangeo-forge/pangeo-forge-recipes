@@ -122,6 +122,38 @@ def test_reference_netcdf(
         xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
+def test_reference_netcdf_parallel(
+    daily_xarray_dataset,
+    netcdf_local_file_pattern_sequential_multivariable,
+    pipeline_parallel,
+    tmp_target,
+    output_file_name="reference.json",
+):
+    pattern = netcdf_local_file_pattern_sequential_multivariable
+    store_name = "daily-xarray-dataset"
+    with pipeline_parallel as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithKerchunk(file_type=pattern.file_type)
+            | WriteCombinedReference(
+                identical_dims=["lat", "lon"],
+                target_root=tmp_target,
+                store_name=store_name,
+                concat_dims=["time"],
+                output_file_name=output_file_name,
+            )
+        )
+    full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
+
+    file_ext = os.path.splitext(output_file_name)[-1]
+
+    if file_ext == ".json":
+        mapper = fsspec.get_mapper("reference://", fo=full_path)
+        ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
+        xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
+
+
 @pytest.mark.xfail(
     importlib.util.find_spec("cfgrib") is None,
     reason=(

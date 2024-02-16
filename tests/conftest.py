@@ -236,6 +236,18 @@ def pipeline(scope="session"):
         yield p
 
 
+@pytest.fixture
+def pipeline_parallel(scope="session"):
+    options = PipelineOptions(
+        runtime_type_check=False,
+        direct_num_workers=4,
+        direct_running_mode="multi_processing",
+        runner="DirectRunner",
+    )
+    with TestPipeline(options=options) as p:
+        yield p
+
+
 @pytest.fixture(
     params=[True, False],
     ids=["concurrency_limit", "no_concurrency_limit"],

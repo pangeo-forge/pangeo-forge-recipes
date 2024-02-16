@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import random
 import sys
 from dataclasses import dataclass, field
@@ -14,11 +15,13 @@ else:
     from typing import Concatenate, ParamSpec
 
 import apache_beam as beam
+import fsspec
 import xarray as xr
 import zarr
+from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_template_ds, schema_to_zarr
-from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
+from .combiners import CombineXarraySchemas, MinMaxCountCombineFn
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, consolidate_dimension_coordinates, split_fragment
@@ -197,12 +200,6 @@ class OpenWithKerchunk(beam.PTransform):
     :param kerchunk_open_kwargs: Additional kwargs to pass to kerchunk opener. Any kwargs which
       are specific to a particular input file type should be passed here;  e.g.,
       ``{"filter": ...}`` for GRIB; ``{"max_chunk_size": ...}`` for NetCDF3, etc.
-    :param drop_keys: If True, remove Pangeo Forge's FilePattern keys from the output PCollection
-      before returning. This is the default behavior, which is used for cases where the output
-      PCollection of references is passed to the ``CombineReferences`` transform for creation of a
-      Kerchunk reference dataset as the target dataset of the pipeline. If this transform is used
-      for other use cases (e.g., opening inputs for creation of another target dataset type), you
-      may want to set this option to False to preserve the keys on the output PCollection.
     """
 
     # passed directly to `open_with_kerchunk`
@@ -212,11 +209,8 @@ class OpenWithKerchunk(beam.PTransform):
     remote_protocol: Optional[str] = None
     kerchunk_open_kwargs: Optional[dict] = field(default_factory=dict)
 
-    # not passed to `open_with_kerchunk`
-    drop_keys: bool = True
-
     def expand(self, pcoll):
-        refs = pcoll | "Open with Kerchunk" >> beam.MapTuple(
+        return pcoll | "Open with Kerchunk" >> beam.MapTuple(
             lambda k, v: (
                 k,
                 open_with_kerchunk(
@@ -229,8 +223,6 @@ class OpenWithKerchunk(beam.PTransform):
                 ),
             )
         )
-
-        return refs if not self.drop_keys else refs | beam.Values()
 
 
 @dataclass
@@ -443,16 +435,8 @@ class CombineReferences(beam.PTransform):
     :param remote_options: Storage options for opening remote files
     :param remote_protocol: If files are accessed over the network, provide the remote protocol
       over which they are accessed. e.g.: "s3", "gcp", "https", etc.
-    :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :precombine_inputs: If ``True``, precombine each input with itself, using
-      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
-      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
-      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
-      into a single reference before adding to the accumulator. Also used for inputs
-      consisting of single reference, for cases where the output dataset concatenates
-      along a dimension that does not exist in the individual inputs. In this latter
-      case, precombining adds the additional dimension to the input so that its
-      dimensionality will match that of the accumulator.
+    :param max_refs_per_merge: Maximum number of references to combine in a single merge operation.
+    :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
     """
 
     concat_dims: List[str]
@@ -460,20 +444,106 @@ class CombineReferences(beam.PTransform):
     target_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
     remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
     remote_protocol: Optional[str] = None
+    max_refs_per_merge: int = 5
     mzz_kwargs: dict = field(default_factory=dict)
-    precombine_inputs: bool = False
 
-    def expand(self, references: beam.PCollection) -> beam.PCollection:
-        return references | beam.CombineGlobally(
-            CombineMultiZarrToZarr(
-                concat_dims=self.concat_dims,
-                identical_dims=self.identical_dims,
-                target_options=self.target_options,
-                remote_options=self.remote_options,
-                remote_protocol=self.remote_protocol,
-                mzz_kwargs=self.mzz_kwargs,
-                precombine_inputs=self.precombine_inputs,
-            ),
+    def __post_init__(self):
+        """Store chosen sort dimension to keep things DRY"""
+        # last element chosen here to follow the xarray `pop` choice above
+        self.sort_dimension = self.concat_dims[-1]
+
+    def to_mzz(self, references):
+        """Converts references into a MultiZarrToZarr object with configured parameters."""
+        return MultiZarrToZarr(
+            references,
+            concat_dims=self.concat_dims,
+            identical_dims=self.identical_dims,
+            target_options=self.target_options,
+            remote_options=self.remote_options,
+            remote_protocol=self.remote_protocol,
+            **self.mzz_kwargs,
+        )
+
+    def handle_gribs(self, indexed_references: Tuple[Index, list[dict]]) -> Tuple[Index, dict]:
+        """Handles the special case of GRIB format files by combining multiple references."""
+
+        references = indexed_references[1]
+        idx = indexed_references[0]
+        if len(references) > 1:
+            ref = self.to_mzz(references).translate()
+            return (idx, ref)
+        elif len(references) == 1:
+            return (idx, references[0])
+        else:
+            raise ValueError("No references produced for {idx}. Expected at least 1.")
+
+    def bucket_by_position(
+        self,
+        indexed_references: Tuple[Index, dict],
+        global_position_min_max_count: Tuple[int, int, int],
+    ) -> Tuple[int, dict]:
+        """
+        Assigns a bucket based on the index position to order data during GroupByKey.
+
+        :param indexed_references: A tuple containing the index and the reference dictionary. The
+            index is used to determine the reference's position within the global data order.
+        :param global_position_min_max_count: A tuple containing the global minimum and maximum
+            positions and the total count of references. These values are used to determine the
+            range and distribution of buckets.
+        :returns: A tuple where the first element is the bucket number (an integer) assigned to the
+            reference, and the second element is the original reference dictionary.
+        """
+        idx = indexed_references[0]
+        ref = indexed_references[1]
+        global_min, global_max, global_count = global_position_min_max_count
+        position = idx.find_position(self.sort_dimension)
+
+        # Calculate the total range size based on global minimum and maximum positions.
+        range_size = global_max - global_min
+
+        # Determine the number of buckets needed, based on the maximum references allowed per merge.
+        num_buckets = math.ceil(global_count / self.max_refs_per_merge)
+
+        # Calculate the size of each bucket by dividing the total range by the number of buckets.
+        bucket_size = range_size / num_buckets
+
+        # Assign the current reference to a bucket based on its position.
+        # The bucket number is determined by how far the position is from the global minimum,
+        # divided by the size of each bucket.
+        bucket = int((position - global_min) / bucket_size)
+        return bucket, ref
+
+    def global_combine_refs(self, refs) -> fsspec.FSMap:
+        """Performs a global combination of references to produce the final dataset."""
+        return fsspec.filesystem(
+            "reference",
+            fo=self.to_mzz(refs).translate(),
+            storage_options={
+                "remote_protocol": self.remote_protocol,
+                "skip_instance_cache": True,
+            },
+        ).get_mapper()
+
+    def expand(self, reference_lists: beam.PCollection) -> beam.PCollection:
+        min_max_count_positions = (
+            reference_lists
+            | "Get just the positions"
+            >> beam.MapTuple(lambda k, v: k.find_position(self.sort_dimension))
+            | "Get minimum/maximum positions" >> beam.CombineGlobally(MinMaxCountCombineFn())
+        )
+        return (
+            reference_lists
+            | "Handle special case of gribs" >> beam.Map(self.handle_gribs)
+            | "Bucket to preserve order"
+            >> beam.Map(
+                self.bucket_by_position,
+                global_position_min_max_count=beam.pvalue.AsSingleton(min_max_count_positions),
+            )
+            | "Group by buckets for ordering" >> beam.GroupByKey()
+            | "Distributed reduce" >> beam.MapTuple(lambda k, refs: self.to_mzz(refs).translate())
+            | "Assign global key for collecting to executor" >> beam.Map(lambda ref: (None, ref))
+            | "Group globally" >> beam.GroupByKey()
+            | "Global reduce" >> beam.MapTuple(lambda k, refs: self.global_combine_refs(refs))
         )
 
 
@@ -516,15 +586,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
     :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :param precombine_inputs: If ``True``, precombine each input with itself, using
-      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
-      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
-      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
-      into a single reference before adding to the accumulator. Also used for inputs
-      consisting of single reference, for cases where the output dataset concatenates
-      along a dimension that does not exist in the individual inputs. In this latter
-      case, precombining adds the additional dimension to the input so that its
-      dimensionality will match that of the accumulator.
     :param target_root: Root path the Zarr store will be created inside; ``store_name``
       will be appended to this prefix to create a full path.
     :param output_file_name: Name to give the output references file
@@ -535,7 +596,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     concat_dims: List[str]
     identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
-    precombine_inputs: bool = False
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
@@ -554,7 +614,6 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
                 remote_options=storage_options,
                 remote_protocol=remote_protocol,
                 mzz_kwargs=self.mzz_kwargs,
-                precombine_inputs=self.precombine_inputs,
             )
             | WriteReference(
                 store_name=self.store_name,
