@@ -483,24 +483,15 @@ class CombineReferences(beam.PTransform):
         global_position_min_max_count: Tuple[int, int, int],
     ) -> Tuple[int, dict]:
         """
-        Assigns a bucket based on the index position to preserve data order during merging via
-        GroupByKey.
+        Assigns a bucket based on the index position to order data during GroupByKey.
 
-        This method calculates which 'bucket' or segment an individual reference belongs to,
-        based on its position within a global sorting dimension. This is crucial for operations
-        that need to maintain data order, especially when dealing with large datasets that are
-        processed in parts.
-
-        Parameters:
-        - indexed_references: A tuple containing the index and the reference dictionary. The index
-        is used to determine the reference's position within the global data order.
-        - global_position_min_max_count: A tuple containing the global minimum and maximum
-        positions and the total count of references. These values are used to determine the range
-        and distribution of buckets.
-
-        Returns:
-        - A tuple where the first element is the bucket number (an integer) assigned to the
-        reference, and the second element is the original reference dictionary.
+        :param indexed_references: A tuple containing the index and the reference dictionary. The
+            index is used to determine the reference's position within the global data order.
+        :param global_position_min_max_count: A tuple containing the global minimum and maximum
+            positions and the total count of references. These values are used to determine the
+            range and distribution of buckets.
+        :returns: A tuple where the first element is the bucket number (an integer) assigned to the
+            reference, and the second element is the original reference dictionary.
         """
         idx = indexed_references[0]
         ref = indexed_references[1]
