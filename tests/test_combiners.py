@@ -9,8 +9,13 @@ from pytest_lazyfixture import lazy_fixture
 from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.combiners import CombineXarraySchemas
 from pangeo_forge_recipes.patterns import FilePattern
-from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
-from pangeo_forge_recipes.types import CombineOp, Dimension, Index
+from pangeo_forge_recipes.transforms import (
+    CombineReferences,
+    DatasetToSchema,
+    DetermineSchema,
+    _NestDim,
+)
+from pangeo_forge_recipes.types import CombineOp, Dimension, Index, Position
 
 
 @pytest.fixture
@@ -194,3 +199,104 @@ def _is_expected_dataset(expected_ds):
         assert expected_ds == actual_ds
 
     return _impl
+
+
+@pytest.fixture
+def combine_references_fixture():
+    return CombineReferences(
+        concat_dims=["time"],
+        identical_dims=["x", "y"],
+        max_refs_per_merge=5,
+    )
+
+
+@pytest.mark.parametrize(
+    "indexed_reference, global_position_min_max_count, expected",
+    [
+        # given our default `max_refs_per_merge=5` these first five
+        # records will be batched into the the first bucket
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(0)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(1)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(2)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(3)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(4)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        # given our default `max_refs_per_merge=5` this
+        # next position will be batched into the next bucket
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(5)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (1, {"url": "s3://blah.hdf5"}),
+        ),
+    ],
+)
+def test_bucket_by_position_contiguous(
+    combine_references_fixture, indexed_reference, global_position_min_max_count, expected
+):
+    result = combine_references_fixture.bucket_by_position(
+        indexed_reference, global_position_min_max_count
+    )
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "indexed_reference, global_position_min_max_count, expected",
+    [
+        # we have to assume contiguous data but this test shows the implicit bucket boundaries
+        # including the edge cases at different positions along an assumed contiguous data
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(0)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(10)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (2, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(20)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (4, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(50)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (10, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (
+                Index({Dimension("time", CombineOp.CONCAT): Position(100)}),
+                {"url": "s3://blah.hdf5"},
+            ),
+            (0, 100, 101),
+            (21, {"url": "s3://blah.hdf5"}),
+        ),
+    ],
+)
+def test_bucket_by_position_sparse(
+    combine_references_fixture, indexed_reference, global_position_min_max_count, expected
+):
+    result = combine_references_fixture.bucket_by_position(
+        indexed_reference, global_position_min_max_count
+    )
+    assert result == expected
