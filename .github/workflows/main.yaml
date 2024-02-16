@@ -6,7 +6,7 @@ on:
     paths-ignore:
     - 'docs/**'
   pull_request:
-    branches: [ "main", "npz/feature/simplify_zarr_merge" ]
+    branches: [ "*" ]
     paths-ignore:
     - 'docs/**'
   schedule:
