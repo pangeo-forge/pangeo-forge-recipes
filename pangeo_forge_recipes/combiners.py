@@ -2,7 +2,7 @@ import operator
 import sys
 from dataclasses import dataclass
 from functools import reduce
-from typing import Sequence
+from typing import Callable, Sequence, TypeVar
 
 import apache_beam as beam
 
@@ -45,7 +45,15 @@ class CombineXarraySchemas(beam.CombineFn):
         return accumulator.schema
 
 
-def build_reduce_fn(accumulate_op, merge_op, initializer):
+Element = TypeVar("Element")
+Accumulator = TypeVar("Accumulator")
+
+
+def build_reduce_fn(
+    accumulate_op: Callable[[Element, Element], Accumulator],
+    merge_op: Callable[[Accumulator, Accumulator], Accumulator],
+    initializer: Accumulator,
+) -> beam.CombineFn:
     """Factory to construct reducers without so much ceremony"""
 
     class AnonymousCombineFn(beam.CombineFn):
@@ -67,10 +75,20 @@ def build_reduce_fn(accumulate_op, merge_op, initializer):
     return AnonymousCombineFn
 
 
-# Find minimum/maximum/count values
-# Count done as a slight optimization to avoid multiple passes across the distribution
+# Find minimum/maximum/count values.
+# The count is done as a slight optimization to avoid multiple passes across the distribution.
+# Note: MyPy struggles with type inference here due to the high degree of genericity.
+
 MinMaxCountCombineFn = build_reduce_fn(
-    accumulate_op=lambda acc, input: (min(acc[0], input), max(acc[1], input), acc[2] + 1),
-    merge_op=lambda accL, accR: (min(accL[0], accR[0]), max(accL[1], accR[1]), accL[2] + accR[2]),
+    accumulate_op=lambda acc, input: (
+        min(acc[0], input),  # type: ignore
+        max(acc[1], input),  # type: ignore
+        acc[2] + 1,  # type: ignore
+    ),
+    merge_op=lambda accLeft, accRight: (
+        min(accLeft[0], accRight[0]),  # type: ignore
+        max(accLeft[1], accRight[1]),  # type: ignore
+        accLeft[2] + accRight[2],  # type: ignore
+    ),
     initializer=(sys.maxsize, -sys.maxsize, 0),
 )
