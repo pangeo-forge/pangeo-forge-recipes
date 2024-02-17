@@ -502,7 +502,7 @@ class CombineReferences(beam.PTransform):
         # Calculate the total range size based on global minimum and maximum positions
         # And asserts the distribution is contiguous/uniform or dump warning
         expected_range_size = global_max - global_min + 1  # +1 to include both ends
-        if (expected_range_size != global_count):
+        if expected_range_size != global_count:
             logger.warning("The distribution of indexes is not contiguous/uniform")
 
         # Determine the number of buckets needed, based on the maximum references allowed per merge

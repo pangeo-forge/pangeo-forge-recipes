@@ -256,11 +256,11 @@ def combine_references_fixture():
         ),
         (
             (
-                    Index({Dimension("time", CombineOp.CONCAT): Position(80)}),
-                    {"url": "s3://blah.hdf5"},
+                Index({Dimension("time", CombineOp.CONCAT): Position(80)}),
+                {"url": "s3://blah.hdf5"},
             ),
             (0, 80, 101),
-            False
+            False,
         ),
     ],
 )
