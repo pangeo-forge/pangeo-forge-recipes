@@ -496,21 +496,29 @@ class CombineReferences(beam.PTransform):
         idx = indexed_references[0]
         ref = indexed_references[1]
         global_min, global_max, global_count = global_position_min_max_count
+
         position = idx.find_position(self.sort_dimension)
+
+        # Calculate the total range size based on global minimum and maximum positions
+        # And asserts the distribution is contiguous/uniform or dump warning
+        expected_range_size = global_max - global_min + 1  # +1 to include both ends
+        if expected_range_size != global_count:
+            logger.warning("The distribution of indexes is not contiguous/uniform")
+
+        # Determine the number of buckets needed, based on the maximum references allowed per merge
+        num_buckets = math.ceil(global_count / self.max_refs_per_merge)
 
         # Calculate the total range size based on global minimum and maximum positions.
         range_size = global_max - global_min
 
-        # Determine the number of buckets needed, based on the maximum references allowed per merge.
-        num_buckets = math.ceil(global_count / self.max_refs_per_merge)
-
-        # Calculate the size of each bucket by dividing the total range by the number of buckets.
+        # Calculate the size of each bucket by dividing the total range by the number of buckets
         bucket_size = range_size / num_buckets
 
         # Assign the current reference to a bucket based on its position.
         # The bucket number is determined by how far the position is from the global minimum,
         # divided by the size of each bucket.
         bucket = int((position - global_min) / bucket_size)
+
         return bucket, ref
 
     def global_combine_refs(self, refs) -> fsspec.FSMap:
