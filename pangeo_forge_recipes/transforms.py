@@ -337,7 +337,8 @@ class IndexItems(beam.PTransform):
 
 @dataclass
 class PrepareZarrTarget(beam.PTransform):
-    """From a singleton PCollection containing a dataset schema, initialize a
+    """
+    From a singleton PCollection containing a dataset schema, initialize a
     Zarr store with the correct variables, dimensions, attributes and chunking.
     Note that the dimension coordinates will be initialized with dummy values.
 
@@ -349,12 +350,14 @@ class PrepareZarrTarget(beam.PTransform):
     :param attrs: Extra group-level attributes to inject into the dataset.
     :param encoding: Dictionary describing encoding for xarray.to_zarr()
     :param consolidated_metadata: Bool controlling if xarray.to_zarr()
-    writes consolidated metadata. Default's to False. In StoreToZarr,
-    always default to unconsolidated. This leaves it up to the
-    user whether or not they want to consolidate with ConsolidateMetadata(). Also,
-    it prevents a broken/inconsistent state that could arise from metadata being
-    consolidated here, and then falling out of sync with coordinates if
-    ConsolidateDimensionCoordinates() is applied to the output of StoreToZarr().
+                                  writes consolidated metadata. Default's to False. In StoreToZarr,
+                                  always default to unconsolidated. This leaves it up to the
+                                  user whether or not they want to consolidate with
+                                  ConsolidateMetadata(). Also, it prevents a broken/inconsistent
+                                  state that could arise from metadata being consolidated here, and
+                                  then falling out of sync with coordinates if
+                                  ConsolidateDimensionCoordinates() is applied to the output of
+                                  StoreToZarr().
     """
 
     target: str | FSSpecTarget
@@ -557,14 +560,15 @@ class CombineReferences(beam.PTransform):
 
 @dataclass
 class WriteReference(beam.PTransform, ZarrWriterMixin):
-    """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
+    """
+    Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
+
     :param store_name: Zarr store will be created with this name under ``target_root``.
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param target_root: Root path the Zarr store will be created inside; ``store_name``
-      will be appended to this prefix to create a full path.
-    :param output_file_name: Name to give the output references file
-      (``.json`` or ``.parquet`` suffix).
-      over which they are accessed. e.g.: "s3", "gcp", "https", etc.
+                        will be appended to this prefix to create a full path.
+    :param output_file_name: Name to give the output references file (``.json`` or ``.parquet``
+                             suffix) over which they are accessed. e.g.: "s3", "gcp", "https", etc.
     :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
     """
 
