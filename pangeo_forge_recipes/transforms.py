@@ -581,7 +581,8 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
     :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :param remote_options: options to pass to ``kerchunk.combine.MultiZarrToZarr`` to read reference inputs (can include credentials).
+    :param remote_options: options to pass to ``kerchunk.combine.MultiZarrToZarr``
+      to read reference inputs (can include credentials).
     :param remote_protocol: If files are accessed over the network, provide the remote protocol
       over which they are accessed. e.g.: "s3", "https", etc.
     :param target_root: Output root path the store will be created inside; ``store_name``
