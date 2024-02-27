@@ -581,7 +581,11 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
     :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :param target_root: Root path the Zarr store will be created inside; ``store_name``
+    :param remote_options: options to pass to ``kerchunk.combine.MultiZarrToZarr``
+      to read reference inputs (can include credentials).
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "https", etc.
+    :param target_root: Output root path the store will be created inside; ``store_name``
       will be appended to this prefix to create a full path.
     :param output_file_name: Name to give the output references file
       (``.json`` or ``.parquet`` suffix).
@@ -591,23 +595,22 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     concat_dims: List[str]
     identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
+    remote_options: Optional[Dict] = field(default_factory=dict)
+    remote_protocol: Optional[str] = None
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
     output_file_name: str = "reference.json"
 
     def expand(self, references: beam.PCollection) -> beam.PCollection[zarr.storage.FSStore]:
-        # unpack fsspec options that will be used below for transforms without dep injection
-        storage_options = self.target_root.fsspec_kwargs  # type: ignore[union-attr]
-        remote_protocol = self.target_root.get_fsspec_remote_protocol()  # type: ignore[union-attr]
         return (
             references
             | CombineReferences(
                 concat_dims=self.concat_dims,
                 identical_dims=self.identical_dims,
-                target_options=storage_options,
-                remote_options=storage_options,
-                remote_protocol=remote_protocol,
+                target_options=self.remote_options,
+                remote_options=self.remote_options,
+                remote_protocol=self.remote_protocol,
                 mzz_kwargs=self.mzz_kwargs,
             )
             | WriteReference(
