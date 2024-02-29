@@ -1,19 +1,23 @@
+import logging
+
 import apache_beam as beam
-import fsspec
 import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that
-from kerchunk.combine import MultiZarrToZarr
-from kerchunk.hdf import SingleHdf5ToZarr
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.combiners import CombineMultiZarrToZarr, CombineXarraySchemas
+from pangeo_forge_recipes.combiners import CombineXarraySchemas
 from pangeo_forge_recipes.patterns import FilePattern
-from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
-from pangeo_forge_recipes.types import CombineOp, Dimension, Index
+from pangeo_forge_recipes.transforms import (
+    CombineReferences,
+    DatasetToSchema,
+    DetermineSchema,
+    _NestDim,
+)
+from pangeo_forge_recipes.types import CombineOp, Dimension, Index, Position
 
 
 @pytest.fixture
@@ -124,12 +128,12 @@ def test_NestDim(schema_pcoll_concat_merge, pipeline):
     pattern, _, pcoll = schema_pcoll_concat_merge
     pattern_merge_only = FilePattern(
         pattern.format_function,
-        *[cdim for cdim in pattern.combine_dims if cdim.operation == CombineOp.MERGE]
+        *[cdim for cdim in pattern.combine_dims if cdim.operation == CombineOp.MERGE],
     )
     merge_only_indexes = list(pattern_merge_only)
     pattern_concat_only = FilePattern(
         pattern.format_function,
-        *[cdim for cdim in pattern.combine_dims if cdim.operation == CombineOp.CONCAT]
+        *[cdim for cdim in pattern.combine_dims if cdim.operation == CombineOp.CONCAT],
     )
     concat_only_indexes = list(pattern_concat_only)
 
@@ -199,29 +203,76 @@ def _is_expected_dataset(expected_ds):
     return _impl
 
 
-def test_CombineReferences(netcdf_local_paths_sequential_1d, pipeline):
-    urls = netcdf_local_paths_sequential_1d[0]
+@pytest.fixture
+def combine_references_fixture():
+    return CombineReferences(
+        concat_dims=["time"],
+        identical_dims=["x", "y"],
+    )
 
-    def generate_refs(urls):
-        for url in urls:
-            with fsspec.open(url) as inf:
-                h5chunks = SingleHdf5ToZarr(inf, url, inline_threshold=100)
-                yield [h5chunks.translate()]
 
-    refs = [ref[0] for ref in generate_refs(urls)]
-    concat_dims = ["time"]
-    identical_dims = ["lat", "lon"]
-    mzz = MultiZarrToZarr(
-        refs, concat_dims=concat_dims, identical_dims=identical_dims, remote_protocol="file"
-    ).translate()
-
-    mapper = fsspec.filesystem("reference", fo=mzz).get_mapper()
-
-    expected_dataset = xr.open_dataset(mapper, engine="kerchunk")
-    with pipeline as p:
-        input = p | beam.Create(generate_refs(urls))
-        output = input | beam.CombineGlobally(
-            CombineMultiZarrToZarr(concat_dims=concat_dims, identical_dims=identical_dims)
+@pytest.mark.parametrize(
+    "indexed_reference, global_position_min_max_count, expected",
+    [
+        # assume contiguous data but show examples offsets
+        # across the array and assume default max_refs_per_merge==5
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(0)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(4)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (0, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(5)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (1, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(10)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (2, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(25)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (5, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (Index({Dimension("time", CombineOp.CONCAT): Position(50)}), {"url": "s3://blah.hdf5"}),
+            (0, 100, 101),
+            (10, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (
+                Index({Dimension("time", CombineOp.CONCAT): Position(100)}),
+                {"url": "s3://blah.hdf5"},
+            ),
+            (0, 100, 101),
+            (21, {"url": "s3://blah.hdf5"}),
+        ),
+        (
+            (
+                Index({Dimension("time", CombineOp.CONCAT): Position(80)}),
+                {"url": "s3://blah.hdf5"},
+            ),
+            (0, 80, 101),
+            False,
+        ),
+    ],
+)
+def test_bucket_by_position_contiguous_offsets(
+    combine_references_fixture, indexed_reference, global_position_min_max_count, expected, caplog
+):
+    with caplog.at_level(logging.WARNING):
+        result = combine_references_fixture.bucket_by_position(
+            indexed_reference, global_position_min_max_count
         )
 
-        assert_that(output, _is_expected_dataset(expected_dataset))
+    if not expected:
+        assert "The distribution of indexes is not contiguous/uniform" in caplog.text
+    else:
+        assert result == expected

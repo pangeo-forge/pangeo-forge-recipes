@@ -10,6 +10,7 @@ This is an advanced example that illustrates the following concepts
 - **Multiple variables in different files**: One file per year for a dozen different variables.
 - **Complex preprocessing**: We want to apply different preprocessing depending on the variable.
 """
+
 import apache_beam as beam
 import xarray as xr
 import zarr

@@ -1,28 +1,32 @@
 from __future__ import annotations
 
 import logging
+import math
 import random
 import sys
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
 # PEP612 Concatenate & ParamSpec are useful for annotating decorators, but their import
 # differs between Python versions 3.9 & 3.10. See: https://stackoverflow.com/a/71990006
 if sys.version_info < (3, 10):
-    from typing_extensions import Concatenate, ParamSpec
+    from typing_extensions import ParamSpec
 else:
-    from typing import Concatenate, ParamSpec
+    from typing import ParamSpec
 
 import apache_beam as beam
+import fsspec
 import xarray as xr
 import zarr
+from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarraySchema, dataset_to_schema, schema_to_template_ds, schema_to_zarr
-from .combiners import CombineMultiZarrToZarr, CombineXarraySchemas
+from .combiners import CombineXarraySchemas, MinMaxCountCombineFn
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
-from .rechunking import combine_fragments, split_fragment
+from .rechunking import combine_fragments, consolidate_dimension_coordinates, split_fragment
 from .storage import CacheFSSpecTarget, FSSpecTarget
+from .types import Indexed
 from .writers import (
     ZarrWriterMixin,
     consolidate_metadata,
@@ -65,12 +69,11 @@ logger = logging.getLogger(__name__)
 # Ideally each PTransform should be a simple Map or DoFn calling out to function
 # from other modules
 
-
 T = TypeVar("T")
-Indexed = Tuple[Index, T]
+IndexedArg = Indexed[T]
 
 R = TypeVar("R")
-IndexedReturn = Tuple[Index, R]
+IndexedReturn = Indexed[R]
 
 P = ParamSpec("P")
 
@@ -86,49 +89,6 @@ class RequiredAtRuntimeDefault:
     """
 
     pass
-
-
-# TODO: replace with beam.MapTuple?
-def _add_keys(
-    func: Callable[Concatenate[T, P], R],
-) -> Callable[Concatenate[Indexed, P], IndexedReturn]:
-    """Convenience decorator to remove and re-add keys to items in a Map"""
-    annotations = func.__annotations__.copy()
-    arg_name, annotation = next(iter(annotations.items()))
-    annotations[arg_name] = Tuple[Index, annotation]
-    return_annotation = annotations["return"]
-    annotations["return"] = Tuple[Index, return_annotation]
-
-    # @wraps(func)  # doesn't work for some reason
-    def wrapper(arg, *args: P.args, **kwargs: P.kwargs):
-        key, item = arg
-        result = func(item, *args, **kwargs)
-        return key, result
-
-    wrapper.__annotations__ = annotations
-    return wrapper
-
-
-def _add_keys_iter(
-    func: Callable[Concatenate[T, P], R],
-) -> Callable[Concatenate[Iterable[Indexed], P], Iterator[IndexedReturn]]:
-    """Convenience decorator to iteratively remove and re-add keys to items in a FlatMap"""
-    annotations = func.__annotations__.copy()
-    arg_name, annotation = next(iter(annotations.items()))
-    return_annotation = annotations["return"]
-
-    # mypy doesn't view `annotation` and `return_annotation` as valid types, so ignore
-    annotations[arg_name] = Iterable[Tuple[Index, annotation]]  # type: ignore
-    annotations["return"] = Iterator[Tuple[Index, return_annotation]]  # type: ignore
-
-    def iterable_wrapper(arg, *args: P.args, **kwargs: P.kwargs):
-        for inner_item in arg:
-            key, item = inner_item
-            result = func(item, *args, **kwargs)
-            yield key, result
-
-    iterable_wrapper.__annotations__ = annotations
-    return iterable_wrapper
 
 
 def _assign_concurrency_group(elem, max_concurrency: int):
@@ -157,15 +117,22 @@ class MapWithConcurrencyLimit(beam.PTransform):
 
     def expand(self, pcoll):
         return (
-            pcoll | self.fn.__name__ >> beam.Map(_add_keys(self.fn), *self.args, **self.kwargs)
+            pcoll
+            | self.fn.__name__
+            >> beam.MapTuple(lambda k, v: (k, self.fn(v, *self.args, **self.kwargs)))
             if not self.max_concurrency
             else (
                 pcoll
-                | beam.Map(_assign_concurrency_group, self.max_concurrency)
-                | beam.GroupByKey()
-                | beam.Values()
+                | "Assign concurrency key"
+                >> beam.Map(_assign_concurrency_group, self.max_concurrency)
+                | "Group together by concurrency key" >> beam.GroupByKey()
+                | "Drop concurrency key" >> beam.Values()
                 | f"{self.fn.__name__} (max_concurrency={self.max_concurrency})"
-                >> beam.FlatMap(_add_keys_iter(self.fn), *self.args, **self.kwargs)
+                >> beam.FlatMap(
+                    lambda kvlist: [
+                        (kv[0], self.fn(kv[1], *self.args, **self.kwargs)) for kv in kvlist
+                    ]
+                )
             )
         )
 
@@ -217,12 +184,6 @@ class OpenWithKerchunk(beam.PTransform):
     :param kerchunk_open_kwargs: Additional kwargs to pass to kerchunk opener. Any kwargs which
       are specific to a particular input file type should be passed here;  e.g.,
       ``{"filter": ...}`` for GRIB; ``{"max_chunk_size": ...}`` for NetCDF3, etc.
-    :param drop_keys: If True, remove Pangeo Forge's FilePattern keys from the output PCollection
-      before returning. This is the default behavior, which is used for cases where the output
-      PCollection of references is passed to the ``CombineReferences`` transform for creation of a
-      Kerchunk reference dataset as the target dataset of the pipeline. If this transform is used
-      for other use cases (e.g., opening inputs for creation of another target dataset type), you
-      may want to set this option to False to preserve the keys on the output PCollection.
     """
 
     # passed directly to `open_with_kerchunk`
@@ -232,20 +193,20 @@ class OpenWithKerchunk(beam.PTransform):
     remote_protocol: Optional[str] = None
     kerchunk_open_kwargs: Optional[dict] = field(default_factory=dict)
 
-    # not passed to `open_with_kerchunk`
-    drop_keys: bool = True
-
     def expand(self, pcoll):
-        refs = pcoll | "Open with Kerchunk" >> beam.Map(
-            _add_keys(open_with_kerchunk),
-            file_type=self.file_type,
-            inline_threshold=self.inline_threshold,
-            storage_options=self.storage_options,
-            remote_protocol=self.remote_protocol,
-            kerchunk_open_kwargs=self.kerchunk_open_kwargs,
+        return pcoll | "Open with Kerchunk" >> beam.MapTuple(
+            lambda k, v: (
+                k,
+                open_with_kerchunk(
+                    v,
+                    file_type=self.file_type,
+                    inline_threshold=self.inline_threshold,
+                    storage_options=self.storage_options,
+                    remote_protocol=self.remote_protocol,
+                    kerchunk_open_kwargs=self.kerchunk_open_kwargs,
+                ),
+            )
         )
-
-        return refs if not self.drop_keys else refs | beam.Values()
 
 
 @dataclass
@@ -267,12 +228,17 @@ class OpenWithXarray(beam.PTransform):
     xarray_open_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(self, pcoll):
-        return pcoll | "Open with Xarray" >> beam.Map(
-            _add_keys(open_with_xarray),
-            file_type=self.file_type,
-            load=self.load,
-            copy_to_local=self.copy_to_local,
-            xarray_open_kwargs=self.xarray_open_kwargs,
+        return pcoll | "Open with Xarray" >> beam.MapTuple(
+            lambda k, v: (
+                k,
+                open_with_xarray(
+                    v,
+                    file_type=self.file_type,
+                    load=self.load,
+                    copy_to_local=self.copy_to_local,
+                    xarray_open_kwargs=self.xarray_open_kwargs,
+                ),
+            )
         )
 
 
@@ -300,7 +266,7 @@ class _NestDim(beam.PTransform):
 @dataclass
 class DatasetToSchema(beam.PTransform):
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        return pcoll | beam.Map(_add_keys(dataset_to_schema))
+        return pcoll | beam.MapTuple(lambda k, v: (k, dataset_to_schema(v)))
 
 
 @dataclass
@@ -314,7 +280,7 @@ class DetermineSchema(beam.PTransform):
     combine_dims: List[Dimension]
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-        schemas = pcoll | beam.Map(_add_keys(dataset_to_schema))
+        schemas = pcoll | beam.MapTuple(lambda k, v: (k, dataset_to_schema(v)))
         cdims = self.combine_dims.copy()
         while len(cdims) > 0:
             last_dim = cdims.pop()
@@ -355,7 +321,8 @@ class IndexItems(beam.PTransform):
 
 @dataclass
 class PrepareZarrTarget(beam.PTransform):
-    """From a singleton PCollection containing a dataset schema, initialize a
+    """
+    From a singleton PCollection containing a dataset schema, initialize a
     Zarr store with the correct variables, dimensions, attributes and chunking.
     Note that the dimension coordinates will be initialized with dummy values.
 
@@ -365,9 +332,16 @@ class PrepareZarrTarget(beam.PTransform):
         If chunking is present in the schema for a given dimension, the length of
         the first fragment will be used. Otherwise, the dimension will not be chunked.
     :param attrs: Extra group-level attributes to inject into the dataset.
-    :param consolidated_metadata: Bool controlling if xarray.to_zarr()
-    writes consolidated metadata. Default's to True.
     :param encoding: Dictionary describing encoding for xarray.to_zarr()
+    :param consolidated_metadata: Bool controlling if xarray.to_zarr()
+                                  writes consolidated metadata. Default's to False. In StoreToZarr,
+                                  always default to unconsolidated. This leaves it up to the
+                                  user whether or not they want to consolidate with
+                                  ConsolidateMetadata(). Also, it prevents a broken/inconsistent
+                                  state that could arise from metadata being consolidated here, and
+                                  then falling out of sync with coordinates if
+                                  ConsolidateDimensionCoordinates() is applied to the output of
+                                  StoreToZarr().
     """
 
     target: str | FSSpecTarget
@@ -387,8 +361,8 @@ class PrepareZarrTarget(beam.PTransform):
             target_store=store,
             target_chunks=self.target_chunks,
             attrs=self.attrs,
-            consolidated_metadata=self.consolidated_metadata,
             encoding=self.encoding,
+            consolidated_metadata=False,
         )
         return initialized_target
 
@@ -431,6 +405,13 @@ class Rechunk(beam.PTransform):
         return new_fragments
 
 
+class ConsolidateDimensionCoordinates(beam.PTransform):
+    def expand(
+        self, pcoll: beam.PCollection[zarr.storage.FSStore]
+    ) -> beam.PCollection[zarr.storage.FSStore]:
+        return pcoll | beam.Map(consolidate_dimension_coordinates)
+
+
 @dataclass
 class CombineReferences(beam.PTransform):
     """Combines Kerchunk references into a single reference dataset.
@@ -441,16 +422,8 @@ class CombineReferences(beam.PTransform):
     :param remote_options: Storage options for opening remote files
     :param remote_protocol: If files are accessed over the network, provide the remote protocol
       over which they are accessed. e.g.: "s3", "gcp", "https", etc.
-    :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :precombine_inputs: If ``True``, precombine each input with itself, using
-      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
-      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
-      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
-      into a single reference before adding to the accumulator. Also used for inputs
-      consisting of single reference, for cases where the output dataset concatenates
-      along a dimension that does not exist in the individual inputs. In this latter
-      case, precombining adds the additional dimension to the input so that its
-      dimensionality will match that of the accumulator.
+    :param max_refs_per_merge: Maximum number of references to combine in a single merge operation.
+    :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
     """
 
     concat_dims: List[str]
@@ -458,33 +431,128 @@ class CombineReferences(beam.PTransform):
     target_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
     remote_options: Optional[Dict] = field(default_factory=lambda: {"anon": True})
     remote_protocol: Optional[str] = None
+    max_refs_per_merge: int = 5
     mzz_kwargs: dict = field(default_factory=dict)
-    precombine_inputs: bool = False
 
-    def expand(self, references: beam.PCollection) -> beam.PCollection:
-        return references | beam.CombineGlobally(
-            CombineMultiZarrToZarr(
-                concat_dims=self.concat_dims,
-                identical_dims=self.identical_dims,
-                target_options=self.target_options,
-                remote_options=self.remote_options,
-                remote_protocol=self.remote_protocol,
-                mzz_kwargs=self.mzz_kwargs,
-                precombine_inputs=self.precombine_inputs,
-            ),
+    def __post_init__(self):
+        """Store chosen sort dimension to keep things DRY"""
+        # last element chosen here to follow the xarray `pop` choice above
+        self.sort_dimension = self.concat_dims[-1]
+
+    def to_mzz(self, references):
+        """Converts references into a MultiZarrToZarr object with configured parameters."""
+        return MultiZarrToZarr(
+            references,
+            concat_dims=self.concat_dims,
+            identical_dims=self.identical_dims,
+            target_options=self.target_options,
+            remote_options=self.remote_options,
+            remote_protocol=self.remote_protocol,
+            **self.mzz_kwargs,
+        )
+
+    def handle_gribs(self, indexed_references: Tuple[Index, list[dict]]) -> Tuple[Index, dict]:
+        """Handles the special case of GRIB format files by combining multiple references."""
+
+        references = indexed_references[1]
+        idx = indexed_references[0]
+        if len(references) > 1:
+            ref = self.to_mzz(references).translate()
+            return (idx, ref)
+        elif len(references) == 1:
+            return (idx, references[0])
+        else:
+            raise ValueError("No references produced for {idx}. Expected at least 1.")
+
+    def bucket_by_position(
+        self,
+        indexed_references: Tuple[Index, dict],
+        global_position_min_max_count: Tuple[int, int, int],
+    ) -> Tuple[int, dict]:
+        """
+        Assigns a bucket based on the index position to order data during GroupByKey.
+
+        :param indexed_references: A tuple containing the index and the reference dictionary. The
+            index is used to determine the reference's position within the global data order.
+        :param global_position_min_max_count: A tuple containing the global minimum and maximum
+            positions and the total count of references. These values are used to determine the
+            range and distribution of buckets.
+        :returns: A tuple where the first element is the bucket number (an integer) assigned to the
+            reference, and the second element is the original reference dictionary.
+        """
+        idx = indexed_references[0]
+        ref = indexed_references[1]
+        global_min, global_max, global_count = global_position_min_max_count
+
+        position = idx.find_position(self.sort_dimension)
+
+        # Calculate the total range size based on global minimum and maximum positions
+        # And asserts the distribution is contiguous/uniform or dump warning
+        expected_range_size = global_max - global_min + 1  # +1 to include both ends
+        if expected_range_size != global_count:
+            logger.warning("The distribution of indexes is not contiguous/uniform")
+
+        # Determine the number of buckets needed, based on the maximum references allowed per merge
+        num_buckets = math.ceil(global_count / self.max_refs_per_merge)
+
+        # Calculate the total range size based on global minimum and maximum positions.
+        range_size = global_max - global_min
+
+        # Calculate the size of each bucket by dividing the total range by the number of buckets
+        bucket_size = range_size / num_buckets
+
+        # Assign the current reference to a bucket based on its position.
+        # The bucket number is determined by how far the position is from the global minimum,
+        # divided by the size of each bucket.
+        bucket = int((position - global_min) / bucket_size)
+
+        return bucket, ref
+
+    def global_combine_refs(self, refs) -> fsspec.FSMap:
+        """Performs a global combination of references to produce the final dataset."""
+        return fsspec.filesystem(
+            "reference",
+            fo=self.to_mzz(refs).translate(),
+            storage_options={
+                "remote_protocol": self.remote_protocol,
+                "skip_instance_cache": True,
+            },
+        ).get_mapper()
+
+    def expand(self, reference_lists: beam.PCollection) -> beam.PCollection:
+        min_max_count_positions = (
+            reference_lists
+            | "Get just the positions"
+            >> beam.MapTuple(lambda k, v: k.find_position(self.sort_dimension))
+            | "Get minimum/maximum positions" >> beam.CombineGlobally(MinMaxCountCombineFn())
+        )
+        return (
+            reference_lists
+            | "Handle special case of gribs" >> beam.Map(self.handle_gribs)
+            | "Bucket to preserve order"
+            >> beam.Map(
+                self.bucket_by_position,
+                global_position_min_max_count=beam.pvalue.AsSingleton(min_max_count_positions),
+            )
+            | "Group by buckets for ordering" >> beam.GroupByKey()
+            | "Distributed reduce" >> beam.MapTuple(lambda k, refs: self.to_mzz(refs).translate())
+            | "Assign global key for collecting to executor" >> beam.Map(lambda ref: (None, ref))
+            | "Group globally" >> beam.GroupByKey()
+            | "Global reduce" >> beam.MapTuple(lambda k, refs: self.global_combine_refs(refs))
         )
 
 
 @dataclass
 class WriteReference(beam.PTransform, ZarrWriterMixin):
-    """Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
+    """
+    Store a singleton PCollection consisting of a ``kerchunk.combine.MultiZarrToZarr`` object.
+
     :param store_name: Zarr store will be created with this name under ``target_root``.
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param target_root: Root path the Zarr store will be created inside; ``store_name``
-      will be appended to this prefix to create a full path.
-    :param output_file_name: Name to give the output references file
-      (``.json`` or ``.parquet`` suffix).
-      over which they are accessed. e.g.: "s3", "gcp", "https", etc.
+                        will be appended to this prefix to create a full path.
+    :param output_file_name: Name to give the output references file (``.json`` or ``.parquet``
+                             suffix) over which they are accessed. e.g.: "s3", "gcp", "https", etc.
     :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
     """
 
@@ -514,16 +582,11 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     :param concat_dims: Dimensions along which to concatenate inputs.
     :param identical_dims: Dimensions shared among all inputs.
     :param mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :param precombine_inputs: If ``True``, precombine each input with itself, using
-      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
-      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
-      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
-      into a single reference before adding to the accumulator. Also used for inputs
-      consisting of single reference, for cases where the output dataset concatenates
-      along a dimension that does not exist in the individual inputs. In this latter
-      case, precombining adds the additional dimension to the input so that its
-      dimensionality will match that of the accumulator.
-    :param target_root: Root path the Zarr store will be created inside; ``store_name``
+    :param remote_options: options to pass to ``kerchunk.combine.MultiZarrToZarr``
+      to read reference inputs (can include credentials).
+    :param remote_protocol: If files are accessed over the network, provide the remote protocol
+      over which they are accessed. e.g.: "s3", "https", etc.
+    :param target_root: Output root path the store will be created inside; ``store_name``
       will be appended to this prefix to create a full path.
     :param output_file_name: Name to give the output references file
       (``.json`` or ``.parquet`` suffix).
@@ -533,26 +596,23 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     concat_dims: List[str]
     identical_dims: List[str]
     mzz_kwargs: dict = field(default_factory=dict)
-    precombine_inputs: bool = False
+    remote_options: Optional[Dict] = field(default_factory=dict)
+    remote_protocol: Optional[str] = None
     target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
         default_factory=RequiredAtRuntimeDefault
     )
     output_file_name: str = "reference.json"
 
     def expand(self, references: beam.PCollection) -> beam.PCollection[zarr.storage.FSStore]:
-        # unpack fsspec options that will be used below for transforms without dep injection
-        storage_options = self.target_root.fsspec_kwargs  # type: ignore[union-attr]
-        remote_protocol = self.target_root.get_fsspec_remote_protocol()  # type: ignore[union-attr]
         return (
             references
             | CombineReferences(
                 concat_dims=self.concat_dims,
                 identical_dims=self.identical_dims,
-                target_options=storage_options,
-                remote_options=storage_options,
-                remote_protocol=remote_protocol,
+                target_options=self.remote_options,
+                remote_options=self.remote_options,
+                remote_protocol=self.remote_protocol,
                 mzz_kwargs=self.mzz_kwargs,
-                precombine_inputs=self.precombine_inputs,
             )
             | WriteReference(
                 store_name=self.store_name,
@@ -574,6 +634,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         `store_name` will be appended to this prefix to create a full path.
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
       If a dimension is a not named, the chunks will be inferred from the data.
+    :param consolidate_dimension_coordinates: Whether to rewrite coordinate variables as a
+      single chunk. We recommend consolidating coordinate variables to avoid
+      many small read requests to get the coordinates in xarray. Defaults to ``True``.
     :param dynamic_chunking_fn: Optionally provide a function that takes an ``xarray.Dataset``
       template dataset as its first argument and returns a dynamically generated chunking dict.
       If provided, ``target_chunks`` cannot also be passed. You can use this to determine chunking
@@ -582,8 +645,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
       out https://github.com/jbusecke/dynamic_chunks
     :param dynamic_chunking_fn_kwargs: Optional keyword arguments for ``dynamic_chunking_fn``.
     :param attrs: Extra group-level attributes to inject into the dataset.
-    :param consolidated_metadata: Bool controlling if xarray.to_zarr()
-    writes consolidated metadata. Default's to True.
+
     :param encoding: Dictionary encoding for xarray.to_zarr().
     """
 
@@ -598,7 +660,6 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     dynamic_chunking_fn: Optional[Callable[[xr.Dataset], dict]] = None
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
-    consolidated_metadata: Optional[bool] = True
     encoding: Optional[dict] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -620,6 +681,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
             )
         )
+        logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
 
         rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
 
@@ -627,7 +689,6 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             target=self.get_full_target(),
             target_chunks=target_chunks,
             attrs=self.attrs,
-            consolidated_metadata=self.consolidated_metadata,
             encoding=self.encoding,
         )
 
@@ -637,8 +698,6 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             | beam.combiners.Sample.FixedSizeGlobally(1)
             | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
         )
-        # TODO: optionally use `singleton_target_store` to
-        # consolidate metadata and/or coordinate dims here
 
         return singleton_target_store
 

@@ -1,6 +1,7 @@
 """
 Filename / URL patterns.
 """
+
 # This allows us to type annotate a method on a class as returning
 # that class, which is otherwise impossible as that class has not
 # been fully defined yet! https://peps.python.org/pep-0563/

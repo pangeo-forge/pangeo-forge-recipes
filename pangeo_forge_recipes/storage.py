@@ -83,12 +83,13 @@ def _hash_path(path: str) -> str:
 
 @dataclass
 class FSSpecTarget(AbstractTarget):
-    """Representation of a storage target for Pangeo Forge.
+    """
+    Representation of a storage target for Pangeo Forge.
 
     :param fs: The filesystem object we are writing to.
     :param root_path: The path under which the target data will be stored.
     :param fsspec_kwargs: The fsspec kwargs that can be reused as
-    `target_options` and `remote_options` for fsspec class instantiation
+                          `target_options` and `remote_options` for fsspec class instantiation
     """
 
     fs: fsspec.AbstractFileSystem

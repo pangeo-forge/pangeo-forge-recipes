@@ -14,6 +14,8 @@ from fsspec.implementations.reference import ReferenceFileSystem
 
 from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequence
 from pangeo_forge_recipes.transforms import (
+    ConsolidateDimensionCoordinates,
+    ConsolidateMetadata,
     Indexed,
     OpenWithKerchunk,
     OpenWithXarray,
@@ -119,6 +121,38 @@ def test_reference_netcdf(
             full_path, remote_protocol="file", target_protocol="file", lazy=True
         )
         ds = xr.open_dataset(fs.get_mapper(), engine="zarr", backend_kwargs={"consolidated": False})
+        xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
+
+
+def test_reference_netcdf_parallel(
+    daily_xarray_dataset,
+    netcdf_local_file_pattern_sequential_multivariable,
+    pipeline_parallel,
+    tmp_target,
+    output_file_name="reference.json",
+):
+    pattern = netcdf_local_file_pattern_sequential_multivariable
+    store_name = "daily-xarray-dataset"
+    with pipeline_parallel as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithKerchunk(file_type=pattern.file_type)
+            | WriteCombinedReference(
+                identical_dims=["lat", "lon"],
+                target_root=tmp_target,
+                store_name=store_name,
+                concat_dims=["time"],
+                output_file_name=output_file_name,
+            )
+        )
+    full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
+
+    file_ext = os.path.splitext(output_file_name)[-1]
+
+    if file_ext == ".json":
+        mapper = fsspec.get_mapper("reference://", fo=full_path)
+        ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
         xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
@@ -232,3 +266,29 @@ def test_pyramid(
     assert_isomorphic(pgf_dt, pyramid_datatree)  # every node has same # of children
     xr.testing.assert_allclose(pgf_dt["0"].to_dataset(), pyramid_datatree["0"].to_dataset())
     xr.testing.assert_allclose(pgf_dt["1"].to_dataset(), pyramid_datatree["1"].to_dataset())
+
+
+def test_xarray_zarr_consolidate_dimension_coordinates(
+    netcdf_local_file_pattern_sequential,
+    pipeline,
+    tmp_target,
+):
+    pattern = netcdf_local_file_pattern_sequential
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToZarr(
+                target_root=tmp_target,
+                store_name="subpath",
+                combine_dims=pattern.combine_dim_keys,
+            )
+            | ConsolidateDimensionCoordinates()
+            | ConsolidateMetadata()
+        )
+
+    path = os.path.join(tmp_target.root_path, "subpath")
+    ds = xr.open_dataset(path, engine="zarr", consolidated=True, chunks={})
+
+    assert ds.time.encoding["chunks"][0] == ds.time.shape[0]

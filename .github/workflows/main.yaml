@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0 # checkout tags (which is not done by default)
       - name: 🔁 Setup Python
         id: setup-python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -60,7 +60,7 @@ jobs:
         if: |
           github.event_name == 'push' ||
           github.event_name == 'pull_request'
-        uses: codecov/codecov-action@v3.1.6
+        uses: codecov/codecov-action@v4.0.2
         with:
           file: ./coverage.xml
           env_vars: OS,PYTHON
