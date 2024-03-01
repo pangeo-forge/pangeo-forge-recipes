@@ -1,13 +1,13 @@
 import operator
-from dataclasses import dataclass, field
+import sys
+from dataclasses import dataclass
 from functools import reduce
-from typing import List, Sequence, Tuple
+from typing import Callable, Sequence, TypeVar
 
 import apache_beam as beam
-from kerchunk.combine import MultiZarrToZarr
 
 from .aggregation import XarrayCombineAccumulator, XarraySchema
-from .types import CombineOp, Dimension, Index
+from .types import CombineOp, Dimension, Index, Indexed
 
 
 @dataclass
@@ -27,7 +27,7 @@ class CombineXarraySchemas(beam.CombineFn):
         concat_dim = self.dimension.name if self.dimension.operation == CombineOp.CONCAT else None
         return XarrayCombineAccumulator(concat_dim=concat_dim)
 
-    def add_input(self, accumulator: XarrayCombineAccumulator, item: Tuple[Index, XarraySchema]):
+    def add_input(self, accumulator: XarrayCombineAccumulator, item: Indexed[XarraySchema]):
         index, schema = item
         position = self.get_position(index)
         accumulator.add_input(schema, position)
@@ -45,51 +45,50 @@ class CombineXarraySchemas(beam.CombineFn):
         return accumulator.schema
 
 
-@dataclass
-class CombineMultiZarrToZarr(beam.CombineFn):
-    """A beam ``CombineFn`` for combining Kerchunk ``MultiZarrToZarr`` objects.
+Element = TypeVar("Element")
+Accumulator = TypeVar("Accumulator")
 
-    :param concat_dims: Dimensions along which to concatenate inputs.
-    :param identical_dims: Dimensions shared among all inputs.
-    :mzz_kwargs: Additional kwargs to pass to ``kerchunk.combine.MultiZarrToZarr``.
-    :precombine_inputs: If ``True``, precombine each input with itself, using
-      ``kerchunk.combine.MultiZarrToZarr``, before adding it to the accumulator.
-      Used for multi-message GRIB2 inputs, which produce > 1 reference when opened
-      with kerchunk's ``scan_grib`` function, and therefore need to be consolidated
-      into a single reference before adding to the accumulator. Also used for inputs
-      consisting of single reference, for cases where the output dataset concatenates
-      along a dimension that does not exist in the individual inputs. In this latter
-      case, precombining adds the additional dimension to the input so that its
-      dimensionality will match that of the accumulator.
-    """
 
-    concat_dims: List[str]
-    identical_dims: List[str]
-    mzz_kwargs: dict = field(default_factory=dict)
-    precombine_inputs: bool = False
+def build_reduce_fn(
+    accumulate_op: Callable[[Element, Element], Accumulator],
+    merge_op: Callable[[Accumulator, Accumulator], Accumulator],
+    initializer: Accumulator,
+) -> beam.CombineFn:
+    """Factory to construct reducers without so much ceremony"""
 
-    def to_mzz(self, references):
-        return MultiZarrToZarr(
-            references,
-            concat_dims=self.concat_dims,
-            identical_dims=self.identical_dims,
-            **self.mzz_kwargs,
-        )
+    class AnonymousCombineFn(beam.CombineFn):
+        def create_accumulator(self):
+            return initializer
 
-    def create_accumulator(self):
-        return None
+        def add_input(self, accumulator, input):
+            return accumulate_op(accumulator, input)
 
-    def add_input(self, accumulator: MultiZarrToZarr, item: list[dict]) -> MultiZarrToZarr:
-        item = item if not self.precombine_inputs else [self.to_mzz(item).translate()]
-        if not accumulator:
-            references = item
-        else:
-            references = [accumulator.translate()] + item
-        return self.to_mzz(references)
+        def merge_accumulators(self, accumulators):
+            acc = accumulators[0]
+            for accumulator in accumulators[1:]:
+                acc = merge_op(acc, accumulator)
+            return acc
 
-    def merge_accumulators(self, accumulators: Sequence[MultiZarrToZarr]) -> MultiZarrToZarr:
-        references = [a.translate() for a in accumulators]
-        return self.to_mzz(references)
+        def extract_output(self, accumulator):
+            return accumulator
 
-    def extract_output(self, accumulator: MultiZarrToZarr) -> MultiZarrToZarr:
-        return accumulator
+    return AnonymousCombineFn
+
+
+# Find minimum/maximum/count values.
+# The count is done as a slight optimization to avoid multiple passes across the distribution.
+# Note: MyPy struggles with type inference here due to the high degree of genericity.
+
+MinMaxCountCombineFn = build_reduce_fn(
+    accumulate_op=lambda acc, input: (
+        min(acc[0], input),  # type: ignore
+        max(acc[1], input),  # type: ignore
+        acc[2] + 1,  # type: ignore
+    ),
+    merge_op=lambda accLeft, accRight: (
+        min(accLeft[0], accRight[0]),  # type: ignore
+        max(accLeft[1], accRight[1]),  # type: ignore
+        accLeft[2] + accRight[2],  # type: ignore
+    ),
+    initializer=(sys.maxsize, -sys.maxsize, 0),
+)

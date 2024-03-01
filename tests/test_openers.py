@@ -9,6 +9,7 @@ from pytest_lazyfixture import lazy_fixture
 from pangeo_forge_recipes.openers import open_url, open_with_xarray
 from pangeo_forge_recipes.patterns import FileType
 from pangeo_forge_recipes.transforms import OpenWithKerchunk
+from pangeo_forge_recipes.types import Index
 
 
 @pytest.fixture(
@@ -160,9 +161,9 @@ def test_direct_open_with_xarray(public_url_and_type, load, xarray_open_kwargs):
 
 
 def is_valid_inline_threshold():
-    def _is_valid_inline_threshold(references):
-
-        assert isinstance(references[0][0]["refs"]["lat/0"], list)
+    def _is_valid_inline_threshold(indexed_references):
+        assert isinstance(indexed_references[0][0], Index)
+        assert isinstance(indexed_references[0][1][0]["refs"]["lat/0"], list)
 
     return _is_valid_inline_threshold
 

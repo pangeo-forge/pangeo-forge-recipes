@@ -163,10 +163,8 @@ pytest tests -v
 
 ## Releasing
 
-To make a new release, first add [](./release_notes.md) for the release to the docs.
+Navigate to <https://github.com/pangeo-forge/pangeo-forge-recipes/releases> and click "Draft a new release".
 
-Then just go to <https://github.com/pangeo-forge/pangeo-forge-recipes/releases>
-and click "Draft a new release".
+![How to release gif](https://github.com/pangeo-forge/pangeo-forge-recipes/assets/15016780/c6132967-4f6d-49d9-96eb-48a687130f97)
 
-The [release.yaml](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/main/.github/workflows/release.yaml)
-workflow should take care of the rest.
+The [release.yaml](https://github.com/pangeo-forge/pangeo-forge-recipes/blob/main/.github/workflows/release.yaml) will be trigged and will publish the new version of `pangeo-forge-recipes` to pypi.

@@ -1,11 +1,21 @@
+import os
+
+import apache_beam as beam
 import fsspec
 import pytest
 import xarray as xr
 import zarr
 
 from pangeo_forge_recipes.aggregation import schema_to_zarr
+from pangeo_forge_recipes.transforms import (
+    ConsolidateMetadata,
+    OpenWithKerchunk,
+    OpenWithXarray,
+    StoreToZarr,
+    WriteCombinedReference,
+)
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
-from pangeo_forge_recipes.writers import _select_single_protocol, store_dataset_fragment
+from pangeo_forge_recipes.writers import store_dataset_fragment
 
 from .data_generation import make_ds
 
@@ -144,8 +154,86 @@ def test_store_dataset_fragment(temp_store):
     assert ds.time.encoding.get("units") == ds_target.time.encoding.get("units")
 
 
-@pytest.mark.parametrize("protocol", ["s3", "https"])
-def test_select_single_protocol(protocol):
-    assert isinstance(
-        _select_single_protocol(fsspec.filesystem(protocol, anon=True).get_mapper()), str
+def test_zarr_consolidate_metadata(
+    netcdf_local_file_pattern,
+    pipeline,
+    tmp_target,
+):
+    pattern = netcdf_local_file_pattern
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToZarr(
+                target_root=tmp_target,
+                store_name="store",
+                combine_dims=pattern.combine_dim_keys,
+            )
+            | ConsolidateMetadata()
+        )
+
+    path = os.path.join(tmp_target.root_path, "store")
+    zc = zarr.storage.FSStore(path)
+    assert zc[".zmetadata"] is not None
+
+    assert xr.open_zarr(path, consolidated=True)
+
+
+def test_zarr_encoding(
+    netcdf_local_file_pattern,
+    pipeline,
+    tmp_target,
+):
+    pattern = netcdf_local_file_pattern
+    compressor = zarr.Blosc("zstd", clevel=3)
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToZarr(
+                target_root=tmp_target,
+                store_name="store",
+                combine_dims=pattern.combine_dim_keys,
+                encoding={"foo": {"compressor": compressor}},
+            )
+            | ConsolidateMetadata()
+        )
+    zc = zarr.storage.FSStore(os.path.join(tmp_target.root_path, "store"))
+    z = zarr.open(zc)
+    assert z.foo.compressor == compressor
+
+
+@pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
+def test_reference_netcdf(
+    netcdf_local_file_pattern_sequential,
+    pipeline,
+    tmp_target,
+    output_file_name,
+):
+    pattern = netcdf_local_file_pattern_sequential
+    store_name = "daily-xarray-dataset"
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithKerchunk(file_type=pattern.file_type)
+            | WriteCombinedReference(
+                identical_dims=["lat", "lon"],
+                target_root=tmp_target,
+                store_name=store_name,
+                concat_dims=["time"],
+                output_file_name=output_file_name,
+            )
+        )
+
+    full_path = os.path.join(tmp_target.root_path, store_name, output_file_name)
+    mapper = fsspec.get_mapper(
+        "reference://",
+        target_protocol=tmp_target.get_fsspec_remote_protocol(),
+        remote_protocol=tmp_target.get_fsspec_remote_protocol(),
+        fo=full_path,
     )
+
+    assert xr.open_zarr(mapper, consolidated=False)

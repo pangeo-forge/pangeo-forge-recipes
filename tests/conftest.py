@@ -13,6 +13,7 @@ Objects in this module belong to the following groups, delimited by inline comme
 Note:
    Recipe fixtures are defined in their respective test modules, e.g. `test_recipes.py`
 """
+
 import os
 import socket
 import subprocess
@@ -231,6 +232,18 @@ def pattern(request):
 def pipeline(scope="session"):
     # TODO: make this True and fix the weird ensuing type check errors
     options = PipelineOptions(runtime_type_check=False)
+    with TestPipeline(options=options) as p:
+        yield p
+
+
+@pytest.fixture
+def pipeline_parallel(scope="session"):
+    options = PipelineOptions(
+        runtime_type_check=False,
+        direct_num_workers=4,
+        direct_running_mode="multi_processing",
+        runner="DirectRunner",
+    )
     with TestPipeline(options=options) as p:
         yield p
 
@@ -486,12 +499,6 @@ def tmp_target(tmpdir_factory):
     fs = fsspec.get_filesystem_class("file")()
     path = str(tmpdir_factory.mktemp("target"))
     return FSSpecTarget(fs, path)
-
-
-@pytest.fixture()
-def tmp_target_url(tmpdir_factory):
-    path = str(tmpdir_factory.mktemp("target.zarr"))
-    return path
 
 
 @pytest.fixture()

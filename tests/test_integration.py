@@ -3,9 +3,11 @@ import os
 import secrets
 import subprocess
 import time
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
+from packaging.version import parse as parse_version
 
 # Run only when the `--run-integration` option is passed.
 # See also `pytest_addoption` in conftest. Reference:
@@ -111,15 +113,17 @@ def minio_confpath(minio, tmp_path_factory: pytest.TempPathFactory):
 @pytest.mark.parametrize("confpath_option", ["local_confpath", "minio_confpath"])
 def test_integration(confpath_option: str, recipe_id: str, request):
     """Run the example recipes in the ``examples/feedstock`` directory."""
-    # pytest tests/test_integration.py -k 'test_integration' --run-integration
     xfails = {
-        "hrrr-kerchunk-concat-step": "WriteCombineReference doesn't return zarr.storage.FSStore",
         "hrrr-kerchunk-concat-valid-time": "Can't serialize drop_unknown callback function.",
         "narr-opendap": "Hangs for unkown reason. Requires further debugging.",
         "terraclimate": "Hangs for unkown reason. Requires further debugging.",
     }
     if recipe_id in xfails:
         pytest.xfail(xfails[recipe_id])
+
+    runner_version = parse_version(version("pangeo-forge-runner"))
+    if recipe_id == "hrrr-kerchunk-concat-step" and runner_version <= parse_version("0.9.2"):
+        pytest.xfail("pg-runner version <= 0.9.2 didn't pass storage options")
 
     confpath = request.getfixturevalue(confpath_option)
 

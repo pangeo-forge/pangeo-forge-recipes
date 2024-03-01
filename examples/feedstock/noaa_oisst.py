@@ -3,7 +3,13 @@ import pandas as pd
 import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, StoreToZarr
+from pangeo_forge_recipes.transforms import (
+    ConsolidateDimensionCoordinates,
+    ConsolidateMetadata,
+    OpenURLWithFSSpec,
+    OpenWithXarray,
+    StoreToZarr,
+)
 
 dates = pd.date_range("1981-09-01", "2022-02-01", freq="D")
 
@@ -26,7 +32,7 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     # TODO: see if --setup-file option for runner fixes this
     import xarray as xr
 
-    ds = xr.open_dataset(store, engine="zarr", chunks={})
+    ds = xr.open_dataset(store, engine="zarr", consolidated=True, chunks={})
     for var in ["anom", "err", "ice", "sst"]:
         assert var in ds.data_vars
     return store
@@ -40,5 +46,7 @@ recipe = (
         store_name="noaa-oisst.zarr",
         combine_dims=pattern.combine_dim_keys,
     )
+    | ConsolidateDimensionCoordinates()
+    | ConsolidateMetadata()
     | beam.Map(test_ds)
 )
