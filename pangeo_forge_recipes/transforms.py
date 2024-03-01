@@ -762,10 +762,14 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
 
         # Add multiscales metadata to the root of the target store
         from ndpyramid.utils import get_version, multiscales_template
+
         save_kwargs = {"levels": self.n_levels, "pixels_per_tile": self.pixels_per_tile}
         attrs = {
             "multiscales": multiscales_template(
-                datasets=[{"path": str(i), "pixels_per_tile": self.pixels_per_tile} for i in range(self.n_levels)],
+                datasets=[
+                    {"path": str(i), "pixels_per_tile": self.pixels_per_tile}
+                    for i in range(self.n_levels)
+                ],
                 type="reduce",
                 method="pyramid_reproject",
                 version=get_version(),
@@ -777,7 +781,10 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             chunks |= self.other_chunks
 
         ds = xr.Dataset(attrs=attrs)
-        ds.to_zarr(store=f"{self.target_root.root_path}/{self.store_name}", storage_options=self.target_root.fsspec_kwargs)  # noqa
+        ds.to_zarr(
+            store=f"{self.target_root.root_path}/{self.store_name}",
+            storage_options=self.target_root.fsspec_kwargs,
+        )  # noqa
 
         # generate all pyramid levels
         lvl_list = list(range(0, self.n_levels))
