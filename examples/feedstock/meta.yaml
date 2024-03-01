@@ -1,6 +1,8 @@
 recipes:
   - id: "gpcp-from-gcs"
     object: "gpcp_from_gcs:recipe"
+  - id: "gpcp-from-gcs-w-custom-transform"
+    object: "gpcp_from_gcs_w_custom_transform:recipe"
   - id: "gpcp-from-gcs-dynamic-chunks"
     object: "gpcp_from_gcs_dynamic_chunks:recipe"
   - id: "noaa-oisst"
