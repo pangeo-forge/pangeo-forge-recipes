@@ -235,5 +235,4 @@ def create_pyramid(
     level_ds = level_reproject(ds, level=level, **pyramid_kwargs)
 
     level_ds = set_zarr_encoding(level_ds, float_dtype="float32", int_dtype="int32")
-
     return index, level_ds
