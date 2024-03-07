@@ -780,11 +780,15 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         if self.other_chunks is not None:
             chunks |= self.other_chunks
 
-        ds = xr.Dataset(attrs=attrs)
+        # ds = xr.Dataset(attrs=attrs)
+        ds = xr.tutorial.open_dataset("air_temperature")
+
         ds.to_zarr(
             store=f"{self.target_root.root_path}/{self.store_name}",
             storage_options=self.target_root.fsspec_kwargs,
-        )  # noqa
+        )
+        
+          # noqa
 
         # # generate all pyramid levels
         # lvl_list = list(range(0, self.n_levels))
