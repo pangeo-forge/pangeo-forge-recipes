@@ -786,24 +786,24 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             storage_options=self.target_root.fsspec_kwargs,
         )  # noqa
 
-        # generate all pyramid levels
-        lvl_list = list(range(0, self.n_levels))
+        # # generate all pyramid levels
+        # lvl_list = list(range(0, self.n_levels))
 
-        for lvl in lvl_list:
-            (
-                datasets
-                | f"Create Pyr level: {str(lvl)}"
-                >> CreatePyramid(
-                    level=lvl,
-                    epsg_code=self.epsg_code,
-                    rename_spatial_dims=self.rename_spatial_dims,
-                    pyramid_kwargs=self.pyramid_kwargs,
-                )
-                | f"Store Pyr level: {lvl}"
-                >> StoreToZarr(
-                    target_root=self.target_root,
-                    target_chunks=chunks,  # noqa
-                    store_name=f"{self.store_name}/{str(lvl)}",
-                    combine_dims=self.combine_dims,
-                )
-            )
+        # for lvl in lvl_list:
+        #     (
+        #         datasets
+        #         | f"Create Pyr level: {str(lvl)}"
+        #         >> CreatePyramid(
+        #             level=lvl,
+        #             epsg_code=self.epsg_code,
+        #             rename_spatial_dims=self.rename_spatial_dims,
+        #             pyramid_kwargs=self.pyramid_kwargs,
+        #         )
+        #         | f"Store Pyr level: {lvl}"
+        #         >> StoreToZarr(
+        #             target_root=self.target_root,
+        #             target_chunks=chunks,  # noqa
+        #             store_name=f"{self.store_name}/{str(lvl)}",
+        #             combine_dims=self.combine_dims,
+        #         )
+        #     )
