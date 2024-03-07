@@ -787,8 +787,8 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             store=f"{self.target_root.root_path}/{self.store_name}",
             storage_options=self.target_root.fsspec_kwargs,
         )
-        
-          # noqa
+
+        # noqa
 
         # # generate all pyramid levels
         # lvl_list = list(range(0, self.n_levels))
