@@ -153,7 +153,8 @@ class OpenURLWithFSSpec(beam.PTransform):
     max_concurrency: Optional[int] = None
 
     def expand(self, pcoll):
-        if isinstance(self.cache, str):
+        # avoid setting up the cache for an empty str
+        if self.cache and isinstance(self.cache, str):
             cache = CacheFSSpecTarget.from_url(self.cache)
         else:
             cache = self.cache
