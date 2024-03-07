@@ -90,11 +90,13 @@ class FSSpecTarget(AbstractTarget):
     :param root_path: The path under which the target data will be stored.
     :param fsspec_kwargs: The fsspec kwargs that can be reused as
                           `target_options` and `remote_options` for fsspec class instantiation
+    :param exist_ok: allow your target to overwrite what already exists
     """
 
     fs: fsspec.AbstractFileSystem
     root_path: str = ""
     fsspec_kwargs: Dict[Any, Any] = field(default_factory=dict)
+    exist_ok: bool = False
 
     def __truediv__(self, suffix: str) -> FSSpecTarget:
         """
@@ -164,7 +166,8 @@ class FSSpecTarget(AbstractTarget):
 
     def __post_init__(self):
         if not self.fs.isdir(self.root_path):
-            self.fs.mkdir(self.root_path)
+            # use mkdirs so we can overwrite
+            self.fs.mkdirs(self.root_path, exist_ok=self.exist_ok)
 
 
 class FlatFSSpecTarget(FSSpecTarget):
