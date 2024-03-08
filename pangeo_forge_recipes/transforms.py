@@ -781,7 +781,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             chunks |= self.other_chunks
 
         ds = xr.Dataset(attrs=attrs)
-        
+
         target_path = ((self.target_root / self.store_name)).get_mapper()
         ds.to_zarr(store=target_path, compute=False)  # noqa
 
@@ -806,8 +806,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
                     combine_dims=self.combine_dims,
                 )
             )
-             
-        consolidate_metadata(target_path)
 
+        consolidate_metadata(target_path)
 
         return target_path
