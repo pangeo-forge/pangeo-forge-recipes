@@ -796,9 +796,11 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
                 rename_spatial_dims=self.rename_spatial_dims,
                 pyramid_kwargs=self.pyramid_kwargs,
             )
-            zarr_stores = pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
+            pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
                 target_root=self.target_root,
                 target_chunks=chunks,  # noqa
                 store_name=f"{self.store_name}/{str(lvl)}",
                 combine_dims=self.combine_dims,
             )
+
+        return target_path
