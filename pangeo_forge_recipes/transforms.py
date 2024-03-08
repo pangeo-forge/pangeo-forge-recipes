@@ -781,13 +781,14 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             chunks |= self.other_chunks
 
         ds = xr.Dataset(attrs=attrs)
-        ds.to_zarr(store=(self.target_root.__truediv__(self.store_name)).get_mapper(), compute=False)  # noqa
+        target_path = ((self.target_root / self.store_name)).get_mapper()
+        ds.to_zarr(store=target_path, compute=False)  # noqa
 
         # generate all pyramid levels
         lvl_list = list(range(0, self.n_levels))
 
         for lvl in lvl_list:
-            (
+             (
                 datasets
                 | f"Create Pyr level: {str(lvl)}"
                 >> CreatePyramid(
@@ -804,3 +805,5 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
                     combine_dims=self.combine_dims,
                 )
             )
+
+        return target_path 
