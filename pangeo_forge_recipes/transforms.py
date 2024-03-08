@@ -789,7 +789,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         lvl_list = list(range(0, self.n_levels))
 
         for lvl in lvl_list:
-             (
+            (
                 datasets
                 | f"Create Pyr level: {str(lvl)}"
                 >> CreatePyramid(
@@ -810,4 +810,4 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         consolidate_metadata(target_path)
 
 
-        return target_path 
+        return target_path
