@@ -781,7 +781,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             chunks |= self.other_chunks
 
         ds = xr.Dataset(attrs=attrs)
-        ds.to_zarr(store=(self.target_root.__truediv__(self.store_name)).get_mapper())  # noqa
+        ds.to_zarr(store=(self.target_root.__truediv__(self.store_name)).get_mapper(), compute=False)  # noqa
 
         # generate all pyramid levels
         lvl_list = list(range(0, self.n_levels))
