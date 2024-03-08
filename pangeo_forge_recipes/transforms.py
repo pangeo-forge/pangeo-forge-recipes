@@ -781,7 +781,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             chunks |= self.other_chunks
 
         ds = xr.Dataset(attrs=attrs)
-        
+
         target_path = ((self.target_root / self.store_name)).get_mapper()
         ds.to_zarr(store=target_path, compute=False)  # noqa
 
@@ -789,25 +789,16 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         lvl_list = list(range(0, self.n_levels))
 
         for lvl in lvl_list:
-            (
-                datasets
-                | f"Create Pyr level: {str(lvl)}"
-                >> CreatePyramid(
-                    level=lvl,
-                    epsg_code=self.epsg_code,
-                    rename_spatial_dims=self.rename_spatial_dims,
-                    pyramid_kwargs=self.pyramid_kwargs,
-                )
-                | f"Store Pyr level: {lvl}"
-                >> StoreToZarr(
-                    target_root=self.target_root,
-                    target_chunks=chunks,  # noqa
-                    store_name=f"{self.store_name}/{str(lvl)}",
-                    combine_dims=self.combine_dims,
-                )
+
+            pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(
+                level=lvl,
+                epsg_code=self.epsg_code,
+                rename_spatial_dims=self.rename_spatial_dims,
+                pyramid_kwargs=self.pyramid_kwargs,
             )
-             
-        consolidate_metadata(target_path)
-
-
-        return target_path
+            zarr_stores = pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
+                target_root=self.target_root,
+                target_chunks=chunks,  # noqa
+                store_name=f"{self.store_name}/{str(lvl)}",
+                combine_dims=self.combine_dims,
+            )
