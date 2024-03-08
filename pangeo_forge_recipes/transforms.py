@@ -787,7 +787,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
 
         # generate all pyramid levels
         lvl_list = list(range(0, self.n_levels))
-
+        transform_pyr_lvls = []
         for lvl in lvl_list:
 
             pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(
@@ -796,11 +796,23 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
                 rename_spatial_dims=self.rename_spatial_dims,
                 pyramid_kwargs=self.pyramid_kwargs,
             )
-            pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
+            zarr_pyr_path = pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
                 target_root=self.target_root,
                 target_chunks=chunks,  # noqa
                 store_name=f"{self.store_name}/{str(lvl)}",
                 combine_dims=self.combine_dims,
             )
+            transform_pyr_lvls.append(zarr_pyr_path)
 
-        return target_path
+        # To consolidate the top level metadata, we need all the pyramid groups to be written.
+        # We are collecting all the pyramid level paths, doing a global combine to fake an AWAIT call,
+        # then consolidating the metadata
+        consolidated_path = (
+            transform_pyr_lvls
+            | beam.Flatten()
+            | beam.combiners.Sample.FixedSizeGlobally(1)
+            | beam.Map(lambda x: target_path)
+            | ConsolidateMetadata()
+        )
+
+        return consolidated_path
