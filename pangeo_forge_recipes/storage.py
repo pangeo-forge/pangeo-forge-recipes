@@ -81,6 +81,9 @@ def _hash_path(path: str) -> str:
     return str(hash(path))
 
 
+
+## 
+
 @dataclass
 class FSSpecTarget(AbstractTarget):
     """
@@ -98,7 +101,7 @@ class FSSpecTarget(AbstractTarget):
 
     def __truediv__(self, suffix: str) -> FSSpecTarget:
         """
-        Support / operator so FSSpecTarget actslike a pathlib.path
+        Support / operator so g actslike a pathlib.path
 
         Only supports getting a string suffix added in.
         """
