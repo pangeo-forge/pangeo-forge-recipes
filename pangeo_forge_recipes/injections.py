@@ -12,4 +12,5 @@ def get_injection_specs():
         "WriteCombinedReference": {
             "target_root": "TARGET_STORAGE",
         },
+        "OpenURLWithFSSpec": {"cache": "INPUT_CACHE_STORAGE"},
     }
