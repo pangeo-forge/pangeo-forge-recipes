@@ -211,28 +211,33 @@ class ZarrWriterMixin:
 
 
 def create_pyramid(
-    item: Tuple[Index, xr.Dataset],
+    item: Tuple[Index, str],
     level: int,
     epsg_code: Optional[str] = None,
     rename_spatial_dims: Optional[dict] = None,
     pyramid_kwargs: Optional[dict] = {},
+    fsspec_kwargs: Optional[dict] = {},
 ) -> zarr.storage.FSStore:
-    index, ds = item
+    index, url = item
     from ndpyramid.reproject import level_reproject
     from ndpyramid.utils import set_zarr_encoding
+    import xarray
+    import fsspec
 
-    if epsg_code:
-        import rioxarray  # noqa
+    with fsspec.open(url, mode='rb', **fsspec_kwargs) as open_file:
+        ds = xarray.open_dataset(open_file, engine='h5netcdf')
+        if epsg_code:
+            import rioxarray  # noqa
 
-        ds = ds.rio.write_crs(f"EPSG:{epsg_code}")
+            ds = ds.rio.write_crs(f"EPSG:{epsg_code}")
 
-    # Ideally we can use ds = ds.anom.rio.set_spatial_dims(x_dim='lon',y_dim='lat')
-    # But rioxarray.set_spatial_dims seems to only operate on the dataarray level
-    # For now, we can use ds.rename
-    if rename_spatial_dims:
-        ds = ds.rename(rename_spatial_dims)
+        # Ideally we can use ds = ds.anom.rio.set_spatial_dims(x_dim='lon',y_dim='lat')
+        # But rioxarray.set_spatial_dims seems to only operate on the dataarray level
+        # For now, we can use ds.rename
+        if rename_spatial_dims:
+            ds = ds.rename(rename_spatial_dims)
 
-    level_ds = level_reproject(ds, level=level, **pyramid_kwargs)
+        level_ds = level_reproject(ds, level=level, **pyramid_kwargs)
 
-    level_ds = set_zarr_encoding(level_ds, float_dtype="float32", int_dtype="int32")
-    return index, level_ds
+        level_ds = set_zarr_encoding(level_ds, float_dtype="float32", int_dtype="int32")
+        return index, level_ds

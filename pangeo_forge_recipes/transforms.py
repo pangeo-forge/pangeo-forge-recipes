@@ -708,6 +708,7 @@ class CreatePyramid(beam.PTransform):
     epsg_code: Optional[str] = None
     rename_spatial_dims: Optional[dict] = None
     pyramid_kwargs: Optional[dict] = field(default_factory=dict)
+    fsspec_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         return pcoll | beam.Map(
@@ -716,6 +717,7 @@ class CreatePyramid(beam.PTransform):
             epsg_code=self.epsg_code,
             rename_spatial_dims=self.rename_spatial_dims,
             pyramid_kwargs=self.pyramid_kwargs,
+            fsspec_kwargs=self.fsspec_kwargs,
         )
 
 
@@ -754,6 +756,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
     epsg_code: Optional[str] = None
     rename_spatial_dims: Optional[dict] = None
     pyramid_kwargs: Optional[dict] = field(default_factory=dict)
+    fsspec_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(
         self,
@@ -795,6 +798,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
                 epsg_code=self.epsg_code,
                 rename_spatial_dims=self.rename_spatial_dims,
                 pyramid_kwargs=self.pyramid_kwargs,
+                fsspec_kwargs=self.fsspec_kwargs,
             )
             zarr_pyr_path = pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
                 target_root=self.target_root,
