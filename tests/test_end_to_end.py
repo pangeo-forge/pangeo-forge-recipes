@@ -16,8 +16,10 @@ from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequenc
 from pangeo_forge_recipes.transforms import (
     ConsolidateDimensionCoordinates,
     ConsolidateMetadata,
+    Indexed,
     OpenWithKerchunk,
     OpenWithXarray,
+    StoreToPyramid,
     StoreToZarr,
     WriteCombinedReference,
 )
@@ -207,6 +209,63 @@ def test_reference_grib(
     # various inconsistencies (of dtype casting int to float, etc.). With the right combination of
     # options passed to the pipeline, seems like these should pass?
     # xr.testing.assert_equal(ds.load(), ds2)
+
+
+def test_pyramid(
+    pyramid_datatree,
+    netcdf_local_file_pattern,
+    pipeline,
+    tmp_target,
+):
+    class SetCRS(beam.PTransform):
+        """Updates CRS and coord naming"""
+
+        @staticmethod
+        def _set_CRS(item: Indexed[xr.Dataset]) -> Indexed[xr.Dataset]:
+            index, ds = item
+
+            import rioxarray  # noqa
+
+            ds = ds.rename({"lon": "longitude", "lat": "latitude"})
+            ds.rio.write_crs("epsg:4326", inplace=True)
+            return index, ds
+
+        def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+            return pcoll | beam.Map(self._set_CRS)
+
+    pattern = netcdf_local_file_pattern
+    with pipeline as p:
+        process = (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | SetCRS()
+        )
+
+        process | "Write Base Level" >> StoreToZarr(
+            target_root=tmp_target,
+            store_name="store",
+            combine_dims=pattern.combine_dim_keys,
+        )
+        process | "Write Pyramid Levels" >> StoreToPyramid(
+            target_root=tmp_target,
+            store_name="pyramid",
+            n_levels=2,
+            combine_dims=pattern.combine_dim_keys,
+        )
+
+    import datatree as dt
+    from datatree.testing import assert_isomorphic
+
+    assert xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr", chunks={})
+
+    pgf_dt = dt.open_datatree(
+        os.path.join(tmp_target.root_path, "pyramid"), engine="zarr", consolidated=False, chunks={}
+    )
+
+    assert_isomorphic(pgf_dt, pyramid_datatree)  # every node has same # of children
+    xr.testing.assert_allclose(pgf_dt["0"].to_dataset(), pyramid_datatree["0"].to_dataset())
+    xr.testing.assert_allclose(pgf_dt["1"].to_dataset(), pyramid_datatree["1"].to_dataset())
 
 
 def test_xarray_zarr_consolidate_dimension_coordinates(

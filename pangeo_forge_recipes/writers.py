@@ -1,4 +1,5 @@
 import os
+from pprint import pprint
 from typing import Dict, List, MutableMapping, Optional, Protocol, Tuple, Union
 
 import fsspec
@@ -10,6 +11,9 @@ from kerchunk.combine import MultiZarrToZarr
 
 from .patterns import CombineOp, Index
 from .storage import FSSpecTarget
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def _region_for(var: xr.Variable, index: Index) -> Tuple[slice, ...]:
@@ -99,6 +103,7 @@ def store_dataset_fragment(
     """
 
     index, ds = item
+
     zgroup = zarr.open_group(target_store)
     # TODO: check that the dataset and the index are compatible
 
@@ -207,3 +212,44 @@ class ZarrWriterMixin:
         else:
             target_root = self.target_root
         return target_root / self.store_name
+
+
+def create_pyramid(
+    item: Tuple[Index, xr.Dataset],
+    level: int,
+    epsg_code: Optional[str] = None,
+    rename_spatial_dims: Optional[dict] = None,
+    pyramid_kwargs: Optional[dict] = {},
+    fsspec_open_kwargs: Optional[dict] = {}
+) -> zarr.storage.FSStore:
+    index, ds = item
+    from ndpyramid.reproject import level_reproject
+    from ndpyramid.utils import set_zarr_encoding
+    logger.warning(f"[ create_pyramid index ]: {pprint(index)}")
+
+    # moving fast, just do this for now
+    # ignore the original ds and overwrite it
+    import xarray, fsspec
+    position = list(index.values())[0]
+    with fsspec.open(position.filename, mode='rb', **fsspec_open_kwargs) as open_file:
+        ds = xarray.open_dataset(open_file)
+        # yeah, this is dumb b/c we have to do this again
+        ds = ds.transpose('time', 'lat', 'lon', 'nv')
+        ds = ds.drop_vars('time_bnds')
+        ds = ds[['precipitation']]
+
+        if epsg_code:
+            import rioxarray  # noqa
+
+            ds = ds.rio.write_crs(f"EPSG:{epsg_code}")
+
+        # Ideally we can use ds = ds.anom.rio.set_spatial_dims(x_dim='lon',y_dim='lat')
+        # But rioxarray.set_spatial_dims seems to only operate on the dataarray level
+        # For now, we can use ds.rename
+        if rename_spatial_dims:
+            ds = ds.rename(rename_spatial_dims)
+
+        level_ds = level_reproject(ds, level=level, **pyramid_kwargs)
+
+        level_ds = set_zarr_encoding(level_ds, float_dtype="float32", int_dtype="int32")
+        return index, level_ds

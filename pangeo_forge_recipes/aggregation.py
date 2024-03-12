@@ -252,7 +252,6 @@ def schema_to_template_ds(
     attrs: Optional[Dict[str, str]] = None,
 ) -> xr.Dataset:
     """Convert a schema to an xarray dataset as lazily as possible."""
-
     target_chunks = determine_target_chunks(schema, specified_chunks)
 
     data_vars = {

@@ -30,6 +30,7 @@ from .types import Indexed
 from .writers import (
     ZarrWriterMixin,
     consolidate_metadata,
+    create_pyramid,
     store_dataset_fragment,
     write_combined_reference,
 )
@@ -153,7 +154,7 @@ class OpenURLWithFSSpec(beam.PTransform):
     max_concurrency: Optional[int] = None
 
     def expand(self, pcoll):
-        if isinstance(self.cache, str):
+        if self.cache and isinstance(self.cache, str):
             cache = CacheFSSpecTarget.from_url(self.cache)
         else:
             cache = self.cache
@@ -219,12 +220,14 @@ class OpenWithXarray(beam.PTransform):
        and pass the path to Xarray. Required for some file types (e.g. Grib).
        Can only be used with file-like-objects, not URLs.
     :param xarray_open_kwargs: Extra arguments to pass to Xarray's open function.
+    :param fsspec_open_kwargs: Extra rguments to pass to open fsspec
     """
 
     file_type: FileType = FileType.unknown
     load: bool = False
     copy_to_local: bool = False
     xarray_open_kwargs: Optional[dict] = field(default_factory=dict)
+    fsspec_open_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(self, pcoll):
         return pcoll | "Open with Xarray" >> beam.MapTuple(
@@ -236,6 +239,7 @@ class OpenWithXarray(beam.PTransform):
                     load=self.load,
                     copy_to_local=self.copy_to_local,
                     xarray_open_kwargs=self.xarray_open_kwargs,
+                    fsspec_open_kwargs=self.fsspec_open_kwargs,
                 ),
             )
         )
@@ -681,13 +685,16 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             )
         )
         logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
+
         rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
+
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(),
             target_chunks=target_chunks,
             attrs=self.attrs,
             encoding=self.encoding,
         )
+
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (
             n_target_stores
@@ -696,3 +703,122 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         )
 
         return singleton_target_store
+
+
+@dataclass
+class CreatePyramid(beam.PTransform):
+    level: int
+    epsg_code: Optional[str] = None
+    rename_spatial_dims: Optional[dict] = None
+    pyramid_kwargs: Optional[dict] = field(default_factory=dict)
+    fsspec_open_kwargs: Optional[dict] = field(default_factory=dict)
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(
+            create_pyramid,
+            level=self.level,
+            epsg_code=self.epsg_code,
+            rename_spatial_dims=self.rename_spatial_dims,
+            pyramid_kwargs=self.pyramid_kwargs,
+            fsspec_open_kwargs=self.fsspec_open_kwargs
+        )
+
+
+@dataclass
+class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
+
+    # Open design question. Should StoreToPyramid repeat all
+    # of the StoreToZarr kwargs and pass them through to the nested StoreToZarr
+    # or should it packaged them as store_to_zarr_kwargs and unpack?
+
+    """Store a PCollection of Xarray datasets as a Zarr Pyramid.
+    :param n_levels: Number of pyramid levels to generate
+    :param combine_dims: The dimensions to combine
+    :param store_name: Zarr store will be created with this name under ``target_root``.
+    :param other_chunks: Chunks for non-spatial dims.
+    Spatial dims are controlled by pixels_per_tile. Default is None
+      If a dimension is a not named, the chunks will be inferred from the data.
+    :param target_root: Root path the Zarr store will be created inside;
+        `store_name` will be appended to this prefix to create a full path.
+    :param epsg_code: EPSG code to set dataset CRS if CRS missing. If provided will overwrite.
+        Default is None.
+    :param rename_spatial_dims: Dict containing the new spatial dim names for Rioxarray.
+        Default is None.
+    :param pyramid_kwargs: Dict containing any kwargs that should be passed to ndpyramid.
+        Default is {}.
+    :param fsspec_open_kwargs: Dict containing any kwargs that should be passed to fsspec.
+        Default is {}.    """
+    n_levels: int
+    combine_dims: List[Dimension]
+    store_name: str
+    pixels_per_tile: Optional[int] = 128
+    other_chunks: Dict[str, int] = field(default_factory=dict)
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
+    epsg_code: Optional[str] = None
+    rename_spatial_dims: Optional[dict] = None
+    pyramid_kwargs: Optional[dict] = field(default_factory=dict)
+    fsspec_open_kwargs: Optional[dict] = field(default_factory=dict)
+
+    def expand(
+        self,
+        datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
+    ) -> beam.PCollection[zarr.storage.FSStore]:
+
+        # Add multiscales metadata to the root of the target store
+        from ndpyramid.utils import get_version, multiscales_template
+
+        save_kwargs = {"levels": self.n_levels, "pixels_per_tile": self.pixels_per_tile}
+        attrs = {
+            "multiscales": multiscales_template(
+                datasets=[
+                    {"path": str(i), "pixels_per_tile": self.pixels_per_tile}
+                    for i in range(self.n_levels)
+                ],
+                type="reduce",
+                method="pyramid_reproject",
+                version=get_version(),
+                kwargs=save_kwargs,
+            )
+        }
+        chunks = {"x": self.pixels_per_tile, "y": self.pixels_per_tile}
+        if self.other_chunks is not None:
+            chunks |= self.other_chunks
+
+        ds = xr.Dataset(attrs=attrs)
+        target_path = ((self.target_root / self.store_name)).get_mapper()
+        ds.to_zarr(store=target_path, compute=False)  # noqa
+
+        # generate all pyramid levels
+        lvl_list = list(range(0, self.n_levels))
+        transform_pyr_lvls = []
+        for lvl in lvl_list:
+
+            pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(
+                level=lvl,
+                epsg_code=self.epsg_code,
+                rename_spatial_dims=self.rename_spatial_dims,
+                pyramid_kwargs=self.pyramid_kwargs,
+                fsspec_open_kwargs=self.fsspec_open_kwargs
+            )
+            zarr_pyr_path = pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
+                target_root=self.target_root,
+                target_chunks=chunks,  # noqa
+                store_name=f"{self.store_name}/{str(lvl)}",
+                combine_dims=self.combine_dims,
+            )
+            transform_pyr_lvls.append(zarr_pyr_path)
+
+        # To consolidate the top level metadata, we need all the pyramid groups to be written.
+        # We are collecting all the pyramid level paths, doing a global combine to fake an AWAIT call,
+        # then consolidating the metadata
+        consolidated_path = (
+            transform_pyr_lvls
+            | beam.Flatten()
+            | beam.combiners.Sample.FixedSizeGlobally(1)
+            | beam.Map(lambda x: target_path)
+            | ConsolidateMetadata()
+        )
+
+        return consolidated_path

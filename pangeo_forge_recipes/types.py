@@ -22,7 +22,7 @@ class Dimension:
     operation: CombineOp
 
 
-@dataclass(frozen=True, order=True)
+@dataclass(order=True)
 class Position:
     """
     :param indexed: If True, this position represents an offset within a dataset
@@ -32,9 +32,10 @@ class Position:
     value: int
     # TODO: consider using a ClassVar here
     indexed: bool = False
+    filename: str = ""
 
 
-@dataclass(frozen=True, order=True)
+@dataclass(order=True)
 class IndexedPosition(Position):
     indexed: bool = True
     dimsize: int = 0

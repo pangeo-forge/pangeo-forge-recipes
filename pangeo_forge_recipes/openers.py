@@ -11,6 +11,8 @@ import zarr
 
 from .patterns import FileType
 from .storage import CacheFSSpecTarget, OpenFileType, _copy_btw_filesystems, _get_opener
+import logging
+logger = logging.getLogger(__name__)
 
 
 def open_url(
@@ -33,6 +35,7 @@ def open_url(
         open_file = cache.open_file(url, mode="rb")
     else:
         open_file = _get_opener(url, secrets, **kw)
+    logger.warning(f"[ open_url ]: cache={cache} open_file={open_file}")
     return open_file
 
 
@@ -204,6 +207,7 @@ def open_with_xarray(
     load: bool = False,
     copy_to_local=False,
     xarray_open_kwargs: Optional[Dict] = None,
+    fsspec_open_kwargs: Optional[Dict] = None,
 ) -> xr.Dataset:
     """Open item with Xarray. Accepts either fsspec open-file-like objects
     or string URLs that can be passed directly to Xarray.
@@ -215,9 +219,9 @@ def open_with_xarray(
        and pass the path to Xarray. Required for some file types (e.g. Grib).
        Can only be used with file-like-objects, not URLs.
     :xarray_open_kwargs: Extra arguments to pass to Xarray's open function.
+    :fsspec_open_kwargs: Extra arguments to pass to fsspec
     """
-    # TODO: check file type matrix
-
+    fsspec_open_kwargs = fsspec_open_kwargs or {}
     kw = xarray_open_kwargs or {}
     kw = _set_engine(file_type, kw)
     if copy_to_local:
@@ -235,7 +239,11 @@ def open_with_xarray(
 
     url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
 
-    ds = xr.open_dataset(url_or_file_obj, **kw)
+    # moving fast, just assume strings for our use case at least
+    import fsspec
+    with fsspec.open(url_or_file_obj, mode='rb', **fsspec_open_kwargs) as open_fs:
+        ds = xr.open_dataset(open_fs, **kw)
+
     if load:
         ds.load()
 
