@@ -228,7 +228,7 @@ def create_pyramid(
     import fsspec
 
     with fsspec.open(url, mode='rb', **fsspec_kwargs) as open_file:
-        ds = xarray.open_dataset(open_file, engine='h5netcdf')
+        ds = xarray.open_dataset(open_file, chunks={}, engine='h5netcdf')
         ds = ds.transpose('time', 'lat', 'lon', 'nv')
         ds = ds.drop_vars('time_bnds')
         ds = ds[['precipitation']]
