@@ -235,7 +235,7 @@ def open_with_xarray(
 
     url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
 
-    ds = xr.open_dataset(url_or_file_obj, chunks={},**kw)
+    ds = xr.open_dataset(url_or_file_obj, chunks={}, **kw)
     if load:
         ds.load()
 
