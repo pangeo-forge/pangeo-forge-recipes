@@ -88,13 +88,19 @@ class FSSpecTarget(AbstractTarget):
 
     :param fs: The filesystem object we are writing to.
     :param root_path: The path under which the target data will be stored.
-    :param fsspec_kwargs: The fsspec kwargs that can be reused as
+    :param _fsspec_kwargs: The fsspec kwargs that can be reused as
                           `target_options` and `remote_options` for fsspec class instantiation
+    :param enable_assume_role: boolean (default False) that allows us to assume role credentials when
+                            accessing 'FSSpecTarget.fsspec_kwargs' in workflows
+    :param assume_role_credential_kwargs: kwargs (default {}) to call 'aws sts --assume-role' role with
+                            such as '{"RoleArn": str, "RoleSessionName": str, "DurationSeconds: int}'
     """
 
     fs: fsspec.AbstractFileSystem
     root_path: str = ""
-    fsspec_kwargs: Dict[Any, Any] = field(default_factory=dict)
+    _fsspec_kwargs: Dict[Any, Any] = field(default_factory=dict)
+    enable_assume_role: bool = False
+    assume_role_credential_kwargs: Dict[Any, Any] = field(default_factory=dict)
 
     def __truediv__(self, suffix: str) -> FSSpecTarget:
         """
@@ -109,6 +115,56 @@ class FSSpecTarget(AbstractTarget):
         fs, _, root_paths = fsspec.get_fs_token_paths(url)
         assert len(root_paths) == 1
         return cls(fs, root_paths[0])
+
+    @property
+    def fsspec_kwargs(self):
+        """fsspec_kwargs property representing the kwargs that can be reused as
+        `target_options` and `remote_options` for fsspec class instantiation
+
+        For 's3' file protocols it can also go down and assume role flow
+        if 'self.enable_assume_role==True' in which case it sets 'self._fsspec_kwargs'
+        before returning it
+
+        :return: Dict[Any, Any]
+        """
+        if not self.enable_assume_role:
+            return self._fsspec_kwargs
+
+        # gate other types of fsspec protocols
+        if not self.get_fsspec_remote_protocol() == "s3":
+            return self._fsspec_kwargs
+
+        # quality check the enabled assume role branch
+        if not self.assume_role_credential_kwargs:
+            raise ValueError(
+                f"'assume_role_credentials_kwargs' cannot be empty if 'enable_assume_role==True'"
+            )
+
+        from importlib.metadata import distributions
+        dist_set = {d.metadata["Name"] for d in distributions()}
+        missing_deps = {"boto3", } - dist_set
+        if missing_deps:
+            raise ValueError(
+                f"'boto3' must be included in your job requirements.txt if "
+                f"'FSSpecTarget.fs.protocol' is 's3' and 'enable_assume_role==True`"
+            )
+
+        try:
+            import boto3
+            import botocore
+            client = boto3.client('sts')
+
+            payload = client.assume_role(**self.assume_role_credential_kwargs)
+            creds = payload['Credentials']
+            self._fsspec_kwargs = {
+                'key': creds['AccessKeyId'],
+                'secret': creds['SecretAccessKey'],
+                'token': creds['SessionToken'],
+                'anon': False,
+            }
+            return self._fsspec_kwargs
+        except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as exc:
+            logger.exception(exc)
 
     def get_fsspec_remote_protocol(self):
         """fsspec implementation-specific remote protocal"""
