@@ -681,7 +681,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
             )
         )
-        logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
+        logger.warning(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
 
         rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
 
@@ -792,7 +792,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         lvl_list = list(range(0, self.n_levels))
         transform_pyr_lvls = []
         for lvl in lvl_list:
-
+            logger.warning(f"[ LEVEL ]: {lvl}")
             pyr_ds = datasets | f"Create Pyr level: {str(lvl)}" >> CreatePyramid(
                 level=lvl,
                 epsg_code=self.epsg_code,

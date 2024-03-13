@@ -11,6 +11,9 @@ from kerchunk.combine import MultiZarrToZarr
 from .patterns import CombineOp, Index
 from .storage import FSSpecTarget
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 def _region_for(var: xr.Variable, index: Index) -> Tuple[slice, ...]:
     region_slice = []
@@ -233,16 +236,20 @@ def create_pyramid(
 
         if epsg_code:
             import rioxarray  # noqa
-
+            logger.warning(f"[ create_pyramid ]: before ds.rio.write_crs ")
             ds = ds.rio.write_crs(f"EPSG:{epsg_code}")
 
         # Ideally we can use ds = ds.anom.rio.set_spatial_dims(x_dim='lon',y_dim='lat')
         # But rioxarray.set_spatial_dims seems to only operate on the dataarray level
         # For now, we can use ds.rename
         if rename_spatial_dims:
+            logger.warning(f"[ create_pyramid ]: before ds.rename")
             ds = ds.rename(rename_spatial_dims)
 
+        logger.warning(f"[ create_pyramid ]: before level_reproject")
         level_ds = level_reproject(ds, level=level, **pyramid_kwargs)
 
+        logger.warning(f"[ create_pyramid ]: before set_zarr_encoding")
         level_ds = set_zarr_encoding(level_ds, float_dtype="float32", int_dtype="int32")
+        logger.warning(f"[ create_pyramid ]: before return ")
         return index, level_ds
