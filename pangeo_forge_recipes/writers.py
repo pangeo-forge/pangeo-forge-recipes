@@ -229,10 +229,10 @@ def create_pyramid(
 
     with fsspec.open(url, mode='rb', **fsspec_kwargs) as open_file:
         ds = xarray.open_dataset(open_file, engine='h5netcdf')
-        ds.load()
         ds = ds.transpose('time', 'lat', 'lon', 'nv')
         ds = ds.drop_vars('time_bnds')
         ds = ds[['precipitation']]
+        #ds.load()
 
         if epsg_code:
             import rioxarray  # noqa
