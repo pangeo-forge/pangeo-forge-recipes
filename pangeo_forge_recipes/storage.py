@@ -245,6 +245,21 @@ class FlatFSSpecTarget(FSSpecTarget):
         return os.path.join(self.root_path, new_path)
 
 
+class FSSpecInputTarget(FSSpecTarget):
+    """An instance used in dep injection to represent the source"""
+
+    def __post_init__(self):
+        # we do not want to try and mkdirs for the input
+        return
+
+    def rm(self, path: str, recursive: Optional[bool] = False) -> None:
+        # we do not want to try and rm dirs for the input
+        return
+
+    def makedir(self, path: str) -> None:
+        # we do not want to try and mkdirs for the input
+        return
+
 class CacheFSSpecTarget(FlatFSSpecTarget):
     """Alias for FlatFSSpecTarget"""
 

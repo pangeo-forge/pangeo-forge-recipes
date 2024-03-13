@@ -25,7 +25,7 @@ from .combiners import CombineXarraySchemas, MinMaxCountCombineFn
 from .openers import open_url, open_with_kerchunk, open_with_xarray
 from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
 from .rechunking import combine_fragments, consolidate_dimension_coordinates, split_fragment
-from .storage import CacheFSSpecTarget, FSSpecTarget
+from .storage import CacheFSSpecTarget, FSSpecTarget, FSSpecInputTarget
 from .types import Indexed
 from .writers import (
     ZarrWriterMixin,
@@ -183,6 +183,7 @@ class OpenWithKerchunk(beam.PTransform):
     :param kerchunk_open_kwargs: Additional kwargs to pass to kerchunk opener. Any kwargs which
       are specific to a particular input file type should be passed here;  e.g.,
       ``{"filter": ...}`` for GRIB; ``{"max_chunk_size": ...}`` for NetCDF3, etc.
+    :param: input_root: Root path the data inputs will be inside. Useful for s3 and assuming roles
     """
 
     # passed directly to `open_with_kerchunk`
@@ -191,6 +192,7 @@ class OpenWithKerchunk(beam.PTransform):
     storage_options: Optional[Dict] = field(default_factory=dict)
     remote_protocol: Optional[str] = None
     kerchunk_open_kwargs: Optional[dict] = field(default_factory=dict)
+    input_root: Optional[FSSpecInputTarget] = None
 
     def expand(self, pcoll):
         return pcoll | "Open with Kerchunk" >> beam.MapTuple(
@@ -203,6 +205,7 @@ class OpenWithKerchunk(beam.PTransform):
                     storage_options=self.storage_options,
                     remote_protocol=self.remote_protocol,
                     kerchunk_open_kwargs=self.kerchunk_open_kwargs,
+                    input_root=self.input_root
                 ),
             )
         )
