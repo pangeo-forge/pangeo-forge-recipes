@@ -10,7 +10,7 @@ import unicodedata
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, Iterator, Optional, Union
+from typing import Any, Dict, Iterator, Optional, Union, Literal
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
@@ -98,9 +98,9 @@ class FSSpecTarget(AbstractTarget):
 
     fs: fsspec.AbstractFileSystem
     root_path: str = ""
-    _fsspec_kwargs: Dict[Any, Any] = field(default_factory=dict)
-    enable_assume_role: bool = False
+    auth_mode: Literal["", "edl", "iamrole"] = ""
     assume_role_credential_kwargs: Dict[Any, Any] = field(default_factory=dict)
+    edl_credential_kwargs: Dict[Any, Any] = field(default_factory=dict)
 
     def __truediv__(self, suffix: str) -> FSSpecTarget:
         """
@@ -116,6 +116,41 @@ class FSSpecTarget(AbstractTarget):
         assert len(root_paths) == 1
         return cls(fs, root_paths[0])
 
+    def cache_credentials(self, cred_payload, expiry_seconds):
+        self._cred_cache['creds'] = (cred_payload, time.time() + expiry_seconds)
+
+    def get_credentials(self) -> Optional[tuple]:
+        return self._cred_cache.get("creds", None)
+
+    def delete_credentials(self):
+        try:
+            # handle race conditions
+            del self._cred_cache["creds"]
+        except KeyError:
+            pass
+
+    def earthdata_login(self):
+        # TODO
+        pass
+
+    def assume_role(self):
+        import boto3
+        import botocore
+
+        client = boto3.client('sts')
+
+        try:
+            payload = client.assume_role(**self.assume_role_credential_kwargs)
+            creds = payload['Credentials']
+            return {
+                'key': creds['AccessKeyId'],
+                'secret': creds['SecretAccessKey'],
+                'token': creds['SessionToken'],
+                'anon': False,
+            }
+        except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as exc:
+            logger.exception(exc)
+
     @property
     def fsspec_kwargs(self):
         """fsspec_kwargs property representing the kwargs that can be reused as
@@ -127,44 +162,72 @@ class FSSpecTarget(AbstractTarget):
 
         :return: Dict[Any, Any]
         """
-        if not self.enable_assume_role:
-            return self._fsspec_kwargs
+        default_kwargs = {"anon": True}
 
-        # gate other types of fsspec protocols
+        if not hasattr(self, '_cred_cache'):
+            setattr(self, '_cred_cache', {})
+
+        cached_creds = self.get_credentials()
+
+        if cached_creds:
+            cred_payload, expiry_seconds = cached_creds
+
+            if time.time() < expiry_seconds:
+                return cred_payload
+            else:
+                self.delete_credentials()
+
+        if not self.auth_mode:
+            return default_kwargs
+
+        # TODO: gate other types of fsspec protocols
         if not self.get_fsspec_remote_protocol() == "s3":
-            return self._fsspec_kwargs
+            return default_kwargs
 
-        # quality check the enabled assume role branch
-        if not self.assume_role_credential_kwargs:
-            raise ValueError(
-                f"'assume_role_credentials_kwargs' cannot be empty if 'enable_assume_role==True'"
-            )
+        # given the restrictions of assume role chaining
+        # we're sticking with an hour expiry minus 30 secs
+        # just so we actually never hit the expiry
+        expiry_seconds = (60 * 60) - 30
 
+        # setup distribution checks for each flow
         from importlib.metadata import distributions
         dist_set = {d.metadata["Name"] for d in distributions()}
-        missing_deps = {"boto3", } - dist_set
-        if missing_deps:
-            raise ValueError(
-                f"'boto3' must be included in your job requirements.txt if "
-                f"'FSSpecTarget.fs.protocol' is 's3' and 'enable_assume_role==True`"
-            )
 
-        try:
-            import boto3
-            import botocore
-            client = boto3.client('sts')
+        if self.auth_mode == "iamrole":
+            # quality check the enabled assume role branch
+            if not self.assume_role_credential_kwargs:
+                raise ValueError(
+                    f"'assume_role_credentials_kwargs' cannot be empty if 'auth_mode==iamrole'"
+                )
 
-            payload = client.assume_role(**self.assume_role_credential_kwargs)
-            creds = payload['Credentials']
-            self._fsspec_kwargs = {
-                'key': creds['AccessKeyId'],
-                'secret': creds['SecretAccessKey'],
-                'token': creds['SessionToken'],
-                'anon': False,
-            }
-            return self._fsspec_kwargs
-        except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as exc:
-            logger.exception(exc)
+            missing_deps = {"boto3", } - dist_set
+            if missing_deps:
+                raise ValueError(
+                    f"'boto3' must be included in your job requirements.txt if "
+                    f"'FSSpecTarget.fs.protocol' is 's3' and 'auth_mode==iamrole`"
+                )
+
+            cred_payload = self.assume_role()
+            self.cache_credentials(cred_payload, expiry_seconds)
+            return cred_payload
+
+        if self.auth_mode == "edl":
+            # quality check the enabled assume role branch
+            if not self.edl_credential_kwargs:
+                raise ValueError(
+                    f"'edl_credentials_kwargs' cannot be empty if 'auth_mode==edl'"
+                )
+
+            missing_deps = {"requests", } - dist_set
+            if missing_deps:
+                raise ValueError(
+                    f"'requests' must be included in your job requirements.txt if "
+                    f"'FSSpecTarget.fs.protocol' is 's3' and 'auth_mode==edl`"
+                )
+            cred_payload = self.assume_role()
+            self.cache_credentials(cred_payload, expiry_seconds)
+            return cred_payload
+
 
     def get_fsspec_remote_protocol(self):
         """fsspec implementation-specific remote protocal"""
