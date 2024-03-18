@@ -146,6 +146,7 @@ def _combine_attrs(a1: dict, a2: dict) -> dict:
     common_attrs = set(a1) & set(a2)
     new_attrs = {}
     for key in common_attrs:
+        # treat NaNs as equal in the attrs
         if (
             isinstance(a1[key], np.floating)
             and isinstance(a2[key], np.floating)
