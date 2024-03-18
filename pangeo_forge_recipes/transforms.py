@@ -807,6 +807,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         # To consolidate the top level metadata, we need all the pyramid groups to be written.
         # We are collecting all the pyramid level paths, doing a global combine to fake an AWAIT call,
         # then consolidating the metadata
+
         consolidated_path = (
             transform_pyr_lvls
             | beam.Flatten()
