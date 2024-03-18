@@ -4,8 +4,9 @@ import logging
 import math
 import random
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union, Any, NewType, Iterator
 
 # PEP612 Concatenate & ParamSpec are useful for annotating decorators, but their import
 # differs between Python versions 3.9 & 3.10. See: https://stackoverflow.com/a/71990006
@@ -669,30 +670,71 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         self,
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
-        schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
-        indexed_datasets = datasets | IndexItems(schema=schema)
-        target_chunks = (
-            self.target_chunks
-            if not self.dynamic_chunking_fn
-            else beam.pvalue.AsSingleton(
-                schema
-                | beam.Map(schema_to_template_ds)
-                | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
+        try:
+            schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
+            indexed_datasets = datasets | IndexItems(schema=schema)
+            target_chunks = (
+                self.target_chunks
+                if not self.dynamic_chunking_fn
+                else beam.pvalue.AsSingleton(
+                    schema
+                    | beam.Map(schema_to_template_ds)
+                    | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
+                )
             )
-        )
-        logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
-        rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
-        target_store = schema | PrepareZarrTarget(
-            target=self.get_full_target(),
-            target_chunks=target_chunks,
-            attrs=self.attrs,
-            encoding=self.encoding,
-        )
-        n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
-        singleton_target_store = (
-            n_target_stores
-            | beam.combiners.Sample.FixedSizeGlobally(1)
-            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
-        )
+            logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
+            rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
+            target_store = schema | PrepareZarrTarget(
+                target=self.get_full_target(),
+                target_chunks=target_chunks,
+                attrs=self.attrs,
+                encoding=self.encoding,
+            )
+            n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+            singleton_target_store = (
+                n_target_stores
+                | beam.combiners.Sample.FixedSizeGlobally(1)
+                | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+            )
 
-        return singleton_target_store
+            return singleton_target_store
+        except Exception as exc:
+            logger.exception(exc)
+
+
+@dataclass
+class FSXRWrapper:
+    """i suck at naming things"""
+
+    filepath: Optional[str] = None
+    fsspec_default_kwargs: Dict[Any, Any] = field(default_factory=dict)
+    xarray_default_kwargs: Dict[Any, Any] = field(default_factory=dict)
+
+    @contextmanager
+    def open_with_xarray(self, fsspec_override_kwargs=None, xarray_override_kwargs=None) -> Iterator[xr.Dataset]:
+        fsspec_kwargs = fsspec_override_kwargs or self.fsspec_default_kwargs
+        xarray_kwargs = xarray_override_kwargs or self.xarray_default_kwargs
+        # yes, two .open() calls :facepalm:
+        of = fsspec.open(self.filepath, mode="rb", **fsspec_kwargs).open()
+        ds = xr.Dataset(of, **xarray_kwargs)
+        yield ds
+        of.close()
+
+
+@dataclass
+class FSXRFactory(beam.PTransform):
+    "i suck at naming things"
+
+    fsspec_kwargs: Dict[Any, Any] = field(default_factory=dict)
+    xarray_kwargs: Dict[Any, Any] = field(default_factory=dict)
+
+    @staticmethod
+    def create(item, fsspec_kwargs, xarray_kwargs) -> FSXRWrapper:
+        index, url = item
+        return index, FSXRWrapper(url, fsspec_kwargs, xarray_kwargs)
+
+    def expand(
+        self,
+        urls: beam.PCollection[Tuple[Index, str]],
+    ) -> beam.PCollection[FSXRWrapper]:
+        return urls | beam.Map(self.create, self.fsspec_kwargs, self.xarray_kwargs)
