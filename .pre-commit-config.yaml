@@ -13,7 +13,7 @@ repos:
       exclude: "docs/"
 
 -   repo: https://github.com/psf/black
-    rev: 24.2.0
+    rev: 24.3.0
     hooks:
     - id: black
       args: ["--line-length", "100"]
@@ -30,7 +30,7 @@ repos:
     - id: seed-isort-config
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.8.0'
+    rev: 'v1.9.0'
     hooks:
     -   id: mypy
         exclude: tests,pangeo_forge_recipes/recipes
