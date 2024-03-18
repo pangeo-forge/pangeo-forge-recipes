@@ -30,7 +30,7 @@ def dataset_to_schema(ds: xr.Dataset) -> XarraySchema:
 
     # Remove redundant encoding options
     for v in ds.variables:
-        for option in ["_FillValue", "source"]:
+        for option in ["source"]:
             # TODO: should be okay to remove _FillValue?
             if option in ds[v].encoding:
                 del ds[v].encoding[option]
@@ -147,7 +147,9 @@ def _combine_attrs(a1: dict, a2: dict) -> dict:
     common_attrs = set(a1) & set(a2)
     new_attrs = {}
     for key in common_attrs:
-        if a1[key] == a2[key]:
+        if isinstance(a1[key], np.floating) and isinstance(a2[key], np.floating) and np.isnan(a1[key]) and np.isnan(a2[key]):
+            new_attrs[key] = a1[key]
+        elif a1[key] == a2[key]:
             new_attrs[key] = a1[key]
     return new_attrs
 
