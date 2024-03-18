@@ -1,6 +1,7 @@
 import logging
 
 import apache_beam as beam
+import numpy as np
 import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -102,11 +103,31 @@ def _strip_keys(item):
     return item[1]
 
 
+def _assert_schema_equal(a, b):
+    # This is used instead of ``assert dict1 == dict2`` so that NaNs are treated as equal.
+    assert set(a.keys()) == set(b.keys())
+
+    for key, value1 in a.items():
+        value2 = b[key]
+        if (
+            isinstance(value1, np.floating)
+            and isinstance(value2, np.floating)
+            and np.isnan(value1)
+            and np.isnan(value2)
+        ):
+            continue
+
+        if isinstance(value1, dict) and isinstance(value2, dict):
+            _assert_schema_equal(value1, value2)
+        else:
+            assert value1 == value2
+
+
 def has_correct_schema(expected_schema):
     def _check_results(actual):
         assert len(actual) == 1
         schema = actual[0]
-        assert schema == expected_schema
+        _assert_schema_equal(schema, expected_schema)
 
     return _check_results
 
