@@ -1,13 +1,14 @@
 import logging
 
 import apache_beam as beam
+import numpy as np
 import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that
 from pytest_lazyfixture import lazy_fixture
-import numpy as np
+
 from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.combiners import CombineXarraySchemas
 from pangeo_forge_recipes.patterns import FilePattern
@@ -101,18 +102,25 @@ def _get_concat_dim(pattern):
 def _strip_keys(item):
     return item[1]
 
+
 def _assert_schema_equal(a, b):
     assert set(a.keys()) == set(b.keys())
 
     for key, value1 in a.items():
         value2 = b[key]
-        if isinstance(value1, np.floating) and isinstance(value2, np.floating) and np.isnan(value1) and np.isnan(value2):
+        if (
+            isinstance(value1, np.floating)
+            and isinstance(value2, np.floating)
+            and np.isnan(value1)
+            and np.isnan(value2)
+        ):
             continue
 
         if isinstance(value1, dict) and isinstance(value2, dict):
             _assert_schema_equal(value1, value2)
         else:
             assert value1 == value2
+
 
 def has_correct_schema(expected_schema):
     def _check_results(actual):
