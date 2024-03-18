@@ -146,7 +146,8 @@ def _invert_meshgrid(*arrays):
         selectors[n] = tuple(selectors[n])
     xi = [a[s] for a, s in zip(arrays, selectors)]
     assert all(
-        np.equal(actual, expected).all() for actual, expected in zip(arrays, np.meshgrid(*xi))
+        np.equal(actual, expected.squeeze()).all()
+        for actual, expected in zip(arrays, np.meshgrid(*xi))
     )
     return xi
 
