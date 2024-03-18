@@ -104,6 +104,7 @@ def _strip_keys(item):
 
 
 def _assert_schema_equal(a, b):
+    # This is used instead of ``assert dict1 == dict2`` so that NaNs are treated as equal.
     assert set(a.keys()) == set(b.keys())
 
     for key, value1 in a.items():
