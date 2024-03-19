@@ -67,7 +67,7 @@ with pipeline as p:
         store_name="pyramid",
         epsg_code="4326",
         rename_spatial_dims={"lon": "longitude", "lat": "latitude"},
-        n_levels=4,
+        levels=4,
         pyramid_kwargs={"extra_dim": "zlev"},
         combine_dims=pattern.combine_dim_keys,
     )

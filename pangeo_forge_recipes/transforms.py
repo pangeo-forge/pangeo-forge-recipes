@@ -4,6 +4,7 @@ import logging
 import math
 import random
 import sys
+import typing
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
@@ -707,6 +708,7 @@ class CreatePyramid(beam.PTransform):
     level: int
     epsg_code: Optional[str] = None
     rename_spatial_dims: Optional[dict] = None
+    projection: typing.Literal["coarsen", "regrid", "reproject"] = "reproject"
     pyramid_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
@@ -715,6 +717,7 @@ class CreatePyramid(beam.PTransform):
             level=self.level,
             epsg_code=self.epsg_code,
             rename_spatial_dims=self.rename_spatial_dims,
+            projection=self.projection,
             pyramid_kwargs=self.pyramid_kwargs,
         )
 
@@ -739,11 +742,14 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         Default is None.
     :param rename_spatial_dims: Dict containing the new spatial dim names for Rioxarray.
         Default is None.
+    :param pyramid_method: type of pyramiding operation. ex: 'coarsen', 'regrid', 'reproject'.
+        Default is 'reproject'
+
     :param pyramid_kwargs: Dict containing any kwargs that should be passed to ndpyramid.
         Default is None.
 
     """
-    n_levels: int
+    levels: int
     combine_dims: List[Dimension]
     store_name: str
     pixels_per_tile: Optional[int] = 128
@@ -753,6 +759,8 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
     )
     epsg_code: Optional[str] = None
     rename_spatial_dims: Optional[dict] = None
+    projection: typing.Literal["coarsen", "regrid", "reproject"] = "reproject"
+
     pyramid_kwargs: Optional[dict] = field(default_factory=dict)
 
     def expand(
@@ -763,15 +771,15 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         # Add multiscales metadata to the root of the target store
         from ndpyramid.utils import get_version, multiscales_template
 
-        save_kwargs = {"levels": self.n_levels, "pixels_per_tile": self.pixels_per_tile}
+        save_kwargs = {"levels": self.levels, "pixels_per_tile": self.pixels_per_tile}
         attrs = {
             "multiscales": multiscales_template(
                 datasets=[
                     {"path": str(i), "pixels_per_tile": self.pixels_per_tile}
-                    for i in range(self.n_levels)
+                    for i in range(self.levels)
                 ],
                 type="reduce",
-                method="pyramid_reproject",
+                method=f"pyramid_{self.projection}",
                 version=get_version(),
                 kwargs=save_kwargs,
             )
@@ -783,10 +791,10 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
         ds = xr.Dataset(attrs=attrs)
 
         target_path = ((self.target_root / self.store_name)).get_mapper()
-        ds.to_zarr(store=target_path)  # noqa
+        ds.to_zarr(store=target_path, compute=False)  # noqa
 
         # generate all pyramid levels
-        lvl_list = list(range(0, self.n_levels))
+        lvl_list = list(range(0, self.levels))
         transform_pyr_lvls = []
         for lvl in lvl_list:
 
@@ -794,6 +802,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
                 level=lvl,
                 epsg_code=self.epsg_code,
                 rename_spatial_dims=self.rename_spatial_dims,
+                projection=self.projection,
                 pyramid_kwargs=self.pyramid_kwargs,
             )
             zarr_pyr_path = pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(

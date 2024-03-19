@@ -45,7 +45,7 @@ def make_ds(nt=10, ny=18, nx=36, non_dim_coords=False):
     return ds
 
 
-def make_pyramid(n_levels: int):
+def make_pyramid(levels: int):
     import rioxarray  # noqa
     from ndpyramid import pyramid_reproject
 
@@ -54,4 +54,4 @@ def make_pyramid(n_levels: int):
     ds = ds.rio.write_crs("EPSG:4326")
 
     # other_chunks added to e2e pass of pyramid b/c target_chunks invert_meshgrid error
-    return pyramid_reproject(ds, levels=n_levels, other_chunks={"time": 1})
+    return pyramid_reproject(ds, levels=levels, other_chunks={"time": 1})

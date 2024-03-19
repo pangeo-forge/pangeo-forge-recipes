@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, MutableMapping, Optional, Protocol, Tuple, Union
+from typing import Dict, List, Literal, MutableMapping, Optional, Protocol, Tuple, Union
 
 import fsspec
 import numpy as np
@@ -215,11 +215,15 @@ def create_pyramid(
     level: int,
     epsg_code: Optional[str] = None,
     rename_spatial_dims: Optional[dict] = None,
+    projection: Literal["coarsen", "regrid", "reproject"] = "reproject",
     pyramid_kwargs: Optional[dict] = {},
 ) -> zarr.storage.FSStore:
     index, ds = item
     from ndpyramid.reproject import level_reproject
     from ndpyramid.utils import set_zarr_encoding
+
+    if projection != "reproject":
+        raise NotImplementedError("Only reproject is currently supported.")
 
     if epsg_code:
         import rioxarray  # noqa

@@ -451,8 +451,8 @@ def netcdf_local_paths_sequential_with_coordinateless_dimension(
 
 
 @pytest.fixture(scope="session")
-def pyramid_datatree(n_levels: int = 2):
-    return make_pyramid(n_levels=n_levels)
+def pyramid_datatree(levels: int = 2):
+    return make_pyramid(levels=levels)
 
 
 # FilePattern fixtures ----------------------------------------------------------------------------

@@ -217,30 +217,10 @@ def test_pyramid(
     pipeline,
     tmp_target,
 ):
-    class SetCRS(beam.PTransform):
-        """Updates CRS and coord naming"""
-
-        @staticmethod
-        def _set_CRS(item: Indexed[xr.Dataset]) -> Indexed[xr.Dataset]:
-            index, ds = item
-
-            import rioxarray  # noqa
-
-            ds = ds.rename({"lon": "longitude", "lat": "latitude"})
-            ds.rio.write_crs("epsg:4326", inplace=True)
-            return index, ds
-
-        def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
-            return pcoll | beam.Map(self._set_CRS)
 
     pattern = netcdf_local_file_pattern
     with pipeline as p:
-        process = (
-            p
-            | beam.Create(pattern.items())
-            | OpenWithXarray(file_type=pattern.file_type)
-            | SetCRS()
-        )
+        process = p | beam.Create(pattern.items()) | OpenWithXarray(file_type=pattern.file_type)
 
         process | "Write Base Level" >> StoreToZarr(
             target_root=tmp_target,
@@ -250,7 +230,9 @@ def test_pyramid(
         process | "Write Pyramid Levels" >> StoreToPyramid(
             target_root=tmp_target,
             store_name="pyramid",
-            n_levels=2,
+            levels=2,
+            epsg_code="4326",
+            rename_spatial_dims={"lon": "longitude", "lat": "latitude"},
             combine_dims=pattern.combine_dim_keys,
         )
 
