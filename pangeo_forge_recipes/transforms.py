@@ -747,6 +747,8 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
     encoding: Optional[dict] = field(default_factory=dict)
+    fsspec_kwargs: Dict[Any, Any] = field(default_factory=dict)
+    xarray_kwargs: Dict[Any, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.target_chunks and self.dynamic_chunking_fn:
@@ -762,7 +764,7 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
         self,
         urls: beam.PCollection[Tuple[Index, str]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
-        fsxrsets = urls | FSXRFactory()
+        fsxrsets = urls | FSXRFactory(self.fsspec_kwargs, self.xarray_kwargs)
         datasets = fsxrsets | beam.Map(self.opener)
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
