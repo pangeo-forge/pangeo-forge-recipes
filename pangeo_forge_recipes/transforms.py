@@ -727,7 +727,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
     # or should it packaged them as store_to_zarr_kwargs and unpack?
 
     """Store a PCollection of Xarray datasets as a Zarr Pyramid.
-    :param n_levels: Number of pyramid levels to generate
+    :param levels: Number of pyramid levels to generate
     :param combine_dims: The dimensions to combine
     :param store_name: Zarr store will be created with this name under ``target_root``.
     :param other_chunks: Chunks for non-spatial dims.
