@@ -709,10 +709,11 @@ class FSXRWrapper:
         fsspec_kwargs = fsspec_override_kwargs or self.fsspec_default_kwargs
         xarray_kwargs = xarray_override_kwargs or self.xarray_default_kwargs
         # yes, two .open() calls :facepalm:
-        of = fsspec.open(self.filepath, mode="rb", **fsspec_kwargs).open()
-        ds = xr.Dataset(of, **xarray_kwargs)
+        of1 = fsspec.open(self.filepath, mode="rb", **fsspec_kwargs)
+        of2 = of1.open()
+        ds = xr.Dataset(of2, **xarray_kwargs)
         yield ds
-        of.close()
+        of2.close()
 
 
 @dataclass
