@@ -189,19 +189,26 @@ class FlatFSSpecTarget(FSSpecTarget):
         return os.path.join(self.root_path, new_path)
 
 
+@dataclass
 class CacheFSSpecTarget(FlatFSSpecTarget):
     """Alias for FlatFSSpecTarget"""
+
+    verify_existing: bool = True
 
     def cache_file(self, fname: str, secrets: Optional[dict], **open_kwargs) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
-        if self.exists(fname):
+        exists = self.exists(fname)
+        if exists and self.verify_existing:
             cached_size = self.size(fname)
             remote_size = _get_url_size(fname, secrets, **open_kwargs)
             if cached_size == remote_size:
                 # TODO: add checksumming here
-                logger.info(f"File '{fname}' is already cached")
+                logger.info(f"File '{fname}' is already cached, and matches remote size.")
                 return
+        elif exists and not self.verify_existing:
+            logger.info(f"File '{fname}' is already cached, skipping verification.")
+            return
 
         input_opener = _get_opener(fname, secrets, **open_kwargs)
         target_opener = self.open(fname, mode="wb")
