@@ -634,9 +634,6 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         `store_name` will be appended to this prefix to create a full path.
     :param target_chunks: Dictionary mapping dimension names to chunks sizes.
       If a dimension is a not named, the chunks will be inferred from the data.
-    :param consolidate_dimension_coordinates: Whether to rewrite coordinate variables as a
-      single chunk. We recommend consolidating coordinate variables to avoid
-      many small read requests to get the coordinates in xarray. Defaults to ``True``.
     :param dynamic_chunking_fn: Optionally provide a function that takes an ``xarray.Dataset``
       template dataset as its first argument and returns a dynamically generated chunking dict.
       If provided, ``target_chunks`` cannot also be passed. You can use this to determine chunking
