@@ -670,36 +670,33 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         self,
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
-        try:
-            schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
-            indexed_datasets = datasets | IndexItems(schema=schema)
-            target_chunks = (
-                self.target_chunks
-                if not self.dynamic_chunking_fn
-                else beam.pvalue.AsSingleton(
-                    schema
-                    | beam.Map(schema_to_template_ds)
-                    | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
-                )
+        schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
+        indexed_datasets = datasets | IndexItems(schema=schema)
+        target_chunks = (
+            self.target_chunks
+            if not self.dynamic_chunking_fn
+            else beam.pvalue.AsSingleton(
+                schema
+                | beam.Map(schema_to_template_ds)
+                | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
             )
-            logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
-            rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
-            target_store = schema | PrepareZarrTarget(
-                target=self.get_full_target(),
-                target_chunks=target_chunks,
-                attrs=self.attrs,
-                encoding=self.encoding,
-            )
-            n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
-            singleton_target_store = (
-                n_target_stores
-                | beam.combiners.Sample.FixedSizeGlobally(1)
-                | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
-            )
+        )
+        logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
+        rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
+        target_store = schema | PrepareZarrTarget(
+            target=self.get_full_target(),
+            target_chunks=target_chunks,
+            attrs=self.attrs,
+            encoding=self.encoding,
+        )
+        n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+        singleton_target_store = (
+            n_target_stores
+            | beam.combiners.Sample.FixedSizeGlobally(1)
+            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+        )
 
-            return singleton_target_store
-        except Exception as exc:
-            logger.exception(exc)
+        return singleton_target_store
 
 
 @dataclass
@@ -738,3 +735,61 @@ class FSXRFactory(beam.PTransform):
         urls: beam.PCollection[Tuple[Index, str]],
     ) -> beam.PCollection[FSXRWrapper]:
         return urls | beam.Map(self.create, self.fsspec_kwargs, self.xarray_kwargs)
+
+
+@dataclass
+class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
+    combine_dims: List[Dimension]
+    store_name: str
+    target_root: Union[str, FSSpecTarget, RequiredAtRuntimeDefault] = field(
+        default_factory=RequiredAtRuntimeDefault
+    )
+    target_chunks: Dict[str, int] = field(default_factory=dict)
+    dynamic_chunking_fn: Optional[Callable[[xr.Dataset], dict]] = None
+    dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
+    attrs: Dict[str, str] = field(default_factory=dict)
+    encoding: Optional[dict] = field(default_factory=dict)
+
+    def __post_init__(self):
+        if self.target_chunks and self.dynamic_chunking_fn:
+            raise ValueError("Passing both `target_chunks` and `dynamic_chunking_fn` not allowed.")
+
+    @staticmethod
+    def opener(item) -> Tuple[Index, xr.Dataset]:
+        index, fsrx = item
+        with fsrx.open_with_xarray() as ds:
+            return index, ds
+
+    def expand(
+        self,
+        urls: beam.PCollection[Tuple[Index, str]],
+    ) -> beam.PCollection[zarr.storage.FSStore]:
+        fsxrsets = urls | FSXRFactory()
+        datasets = fsxrsets | beam.Map(self.opener)
+        schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
+        indexed_datasets = datasets | IndexItems(schema=schema)
+        target_chunks = (
+            self.target_chunks
+            if not self.dynamic_chunking_fn
+            else beam.pvalue.AsSingleton(
+                schema
+                | beam.Map(schema_to_template_ds)
+                | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
+            )
+        )
+        logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
+        rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
+        target_store = schema | PrepareZarrTarget(
+            target=self.get_full_target(),
+            target_chunks=target_chunks,
+            attrs=self.attrs,
+            encoding=self.encoding,
+        )
+        n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+        singleton_target_store = (
+            n_target_stores
+            | beam.combiners.Sample.FixedSizeGlobally(1)
+            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+        )
+
+        return singleton_target_store
