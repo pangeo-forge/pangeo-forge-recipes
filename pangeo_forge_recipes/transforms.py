@@ -711,7 +711,7 @@ class FSXRWrapper:
         # yes, two .open() calls :facepalm:
         of1 = fsspec.open(self.filepath, mode="rb", **fsspec_kwargs)
         of2 = of1.open()
-        ds = xr.Dataset(of2, **xarray_kwargs)
+        ds = xr.open_dataset(of2, **xarray_kwargs)
         yield ds
         of2.close()
 
