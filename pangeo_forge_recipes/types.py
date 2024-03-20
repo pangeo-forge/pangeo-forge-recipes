@@ -11,7 +11,6 @@ class CombineOp(Enum):
     SUBSET = 3
 
 
-@dataclass(frozen=True, order=True)
 class Dimension:
     """
     :param name: The name of the dimension we are combining over.
@@ -20,6 +19,7 @@ class Dimension:
 
     name: str
     operation: CombineOp
+    filepath: ""
 
 
 @dataclass(frozen=True, order=True)
@@ -77,6 +77,13 @@ class Index(Dict[Dimension, Position]):
         dimension = self.find_concat_dim(dim_name)
         if dimension:
             return self[dimension].value
+        else:
+            raise ValueError(f"No dimension found with name {dim_name}")
+
+    def find_filepath(self, dim_name: str) -> str:
+        dimension = self.find_concat_dim(dim_name)
+        if dimension:
+            return dimension.filepath
         else:
             raise ValueError(f"No dimension found with name {dim_name}")
 

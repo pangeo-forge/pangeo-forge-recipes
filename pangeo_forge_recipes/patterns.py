@@ -219,7 +219,12 @@ class FilePattern:
     def items(self):
         """Iterate over key, filename pairs."""
         for key in self:
-            yield key, self[key]
+            value = self[key]
+            dimension = list(key.keys())[0]
+            position = list(key.values())[0]
+            dimension.filepath = value
+            key = Index({dimension: position})
+            yield key, value
 
     def sha256(self):
         """Compute a sha256 hash for the instance."""
