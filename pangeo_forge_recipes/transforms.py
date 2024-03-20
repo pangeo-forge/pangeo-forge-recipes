@@ -799,7 +799,7 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
         #n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         #n_target_stores = indexed_datasets | StoreDatasetFragments(target_store=target_store)
         n_target_stores = indexed_datasets | beam.Map(
-            self.src_to_target, beam.pvalue.AsSingleton(self.target_store), self.combine_dims[-1].name
+            self.src_to_target, beam.pvalue.AsSingleton(target_store), self.combine_dims[-1].name
         )
         singleton_target_store = (
             n_target_stores
