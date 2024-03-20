@@ -11,7 +11,7 @@ class CombineOp(Enum):
     SUBSET = 3
 
 
-@dataclass(order=True)
+@dataclass()
 class Dimension:
     """
     :param name: The name of the dimension we are combining over.
