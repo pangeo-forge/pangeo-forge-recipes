@@ -767,7 +767,6 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
         index, src_ds_meta_closed = item
         # TODO: deal with multiple combine_dims
         fsspec_kwargs, xarray_kwargs = {}, {}
-        logger.warning(f"FUUUUUCK: {dimension_name} {index.find_filepath(dimension_name)}")
         with fsspec.open(index.find_filepath(dimension_name), mode="rb", **fsspec_kwargs) as open_fs:
             src_ds = xr.open_dataset(open_fs, mode="rb", **xarray_kwargs)
             item = (index, src_ds)
