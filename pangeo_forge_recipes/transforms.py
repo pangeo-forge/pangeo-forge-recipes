@@ -761,11 +761,11 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
             return index, ds
 
     @staticmethod
-    def src_to_target(item, target_store, combine_dims) -> zarr.storage.FSStore:
+    def src_to_target(item, target_store, dimension_name) -> zarr.storage.FSStore:
         index, src_ds_meta_closed = item
         # TODO: deal with multiple combine_dims
         fsspec_kwargs, xarray_kwargs = {}, {}
-        with fsspec.open(index.find_filepath(combine_dims[0].name), mode="rb", **fsspec_kwargs) as open_fs:
+        with fsspec.open(index.find_filepath(dimension_name), mode="rb", **fsspec_kwargs) as open_fs:
             src_ds = xr.open_dataset(open_fs, mode="rb", **xarray_kwargs)
             item = (index, src_ds)
             return store_dataset_fragment(item, target_store)
@@ -799,7 +799,7 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
         #n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         #n_target_stores = indexed_datasets | StoreDatasetFragments(target_store=target_store)
         n_target_stores = indexed_datasets | beam.Map(
-            self.src_to_target, beam.pvalue.AsSingleton(self.target_store), self.combine_dims
+            self.src_to_target, beam.pvalue.AsSingleton(self.target_store), self.combine_dims[-1].name
         )
         singleton_target_store = (
             n_target_stores

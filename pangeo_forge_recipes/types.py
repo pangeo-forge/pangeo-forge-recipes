@@ -11,7 +11,7 @@ class CombineOp(Enum):
     SUBSET = 3
 
 
-@dataclass()
+@dataclass(frozen=True, order=True)
 class Dimension:
     """
     :param name: The name of the dimension we are combining over.
@@ -20,10 +20,9 @@ class Dimension:
 
     name: str
     operation: CombineOp
-    filepath: str = ""
 
 
-@dataclass(frozen=True, order=True)
+@dataclass
 class Position:
     """
     :param indexed: If True, this position represents an offset within a dataset
@@ -33,9 +32,10 @@ class Position:
     value: int
     # TODO: consider using a ClassVar here
     indexed: bool = False
+    filepath: str = ""
 
 
-@dataclass(frozen=True, order=True)
+@dataclass
 class IndexedPosition(Position):
     indexed: bool = True
     dimsize: int = 0
@@ -84,7 +84,7 @@ class Index(Dict[Dimension, Position]):
     def find_filepath(self, dim_name: str) -> str:
         dimension = self.find_concat_dim(dim_name)
         if dimension:
-            return dimension.filepath
+            return self[dimension].filepath
         else:
             raise ValueError(f"No dimension found with name {dim_name}")
 

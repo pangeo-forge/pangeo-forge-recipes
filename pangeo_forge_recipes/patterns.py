@@ -222,7 +222,7 @@ class FilePattern:
             value = self[key]
             dimension = list(key.keys())[0]
             position = list(key.values())[0]
-            dimension.filepath = value
+            position.filepath = value
             key = Index({dimension: position})
             yield key, value
 
