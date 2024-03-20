@@ -308,13 +308,13 @@ class IndexItems(beam.PTransform):
         index, ds = item
         new_index = Index()
         for dimkey, dimval in index.items():
+            filepath = dimval.filepath
             if dimkey.operation == CombineOp.CONCAT:
                 item_len_dict = schema["chunks"][dimkey.name]
                 item_lens = [item_len_dict[n] for n in range(len(item_len_dict))]
                 dimval = augment_index_with_start_stop(dimval, item_lens)
+                dimval.filepath = filepath
             new_index[dimkey] = dimval
-        import pdb; pdb.set_trace()
-        new_index.filepath = index.filepath
         return new_index, ds
 
     def expand(self, pcoll: beam.PCollection):
