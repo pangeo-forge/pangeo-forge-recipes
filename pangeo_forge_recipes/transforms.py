@@ -778,14 +778,15 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
             )
         )
         logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
-        rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
+        #rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(),
             target_chunks=target_chunks,
             attrs=self.attrs,
             encoding=self.encoding,
         )
-        n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+        #n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+        n_target_stores = indexed_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (
             n_target_stores
             | beam.combiners.Sample.FixedSizeGlobally(1)
