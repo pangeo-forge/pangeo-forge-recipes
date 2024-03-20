@@ -19,7 +19,7 @@ class Dimension:
 
     name: str
     operation: CombineOp
-    filepath: ""
+    filepath: str = ""
 
 
 @dataclass(frozen=True, order=True)
