@@ -54,7 +54,7 @@ test = [
 ]
 
 pyramid = [
-    "ndpyramid @ git+https://github.com/carbonplan/ndpyramid@split-levels",
+    "ndpyramid @ git+https://github.com/carbonplan/ndpyramid",
     "rioxarray"
 ]
 
