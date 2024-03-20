@@ -82,6 +82,7 @@ class Index(Dict[Dimension, Position]):
             raise ValueError(f"No dimension found with name {dim_name}")
 
     def find_filepath(self, dim_name: str) -> str:
+        import pdb; pdb.set_trace()
         dimension = self.find_concat_dim(dim_name)
         if dimension:
             return self[dimension].filepath
