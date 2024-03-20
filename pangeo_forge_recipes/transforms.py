@@ -313,6 +313,7 @@ class IndexItems(beam.PTransform):
                 item_lens = [item_len_dict[n] for n in range(len(item_len_dict))]
                 dimval = augment_index_with_start_stop(dimval, item_lens)
             new_index[dimkey] = dimval
+        import pdb; pdb.set_trace()
         new_index.filepath = index.filepath
         return new_index, ds
 
