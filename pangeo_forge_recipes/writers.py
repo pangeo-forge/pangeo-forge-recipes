@@ -242,7 +242,7 @@ def create_pyramid(
         level_ds,
         float_dtype="float32",
         int_dtype="int32",
-        datetype_dtype="int32",
+        datetime_dtype="int32",
         object_dtype="str",
     )
     return index, level_ds
