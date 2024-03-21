@@ -737,6 +737,19 @@ class FSXRFactory(beam.PTransform):
         return urls | beam.Map(self.create, self.fsspec_kwargs, self.xarray_kwargs)
 
 
+class DropVars(beam.PTransform):
+
+    @staticmethod
+    def _dropvarcoord(item: Indexed[xr.Dataset]) -> Indexed[xr.Dataset]:
+        index, ds = item
+        ds = ds.drop_vars('time_bnds')  # b/c it points to nv dimension
+        ds = ds[['precipitation']]
+        return index, ds
+
+    def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
+        return pcoll | beam.Map(self._dropvarcoord)
+
+
 @dataclass
 class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
     combine_dims: List[Dimension]
@@ -790,6 +803,7 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
             self.fsspec_kwargs,
             self.xarray_kwargs,
         )
+        datasets =  datasets | DropVars()
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
         target_chunks = (
