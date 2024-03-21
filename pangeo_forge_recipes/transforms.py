@@ -757,18 +757,26 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
             raise ValueError("Passing both `target_chunks` and `dynamic_chunking_fn` not allowed.")
 
     @staticmethod
-    def opener(item) -> Tuple[Index, xr.Dataset]:
-        index, fsrx = item
-        with fsrx.open_with_xarray() as ds:
+    def opener(item, fsspec_kwargs, xarray_kwargs) -> Tuple[Index, xr.Dataset]:
+        index, url = item
+        with fsspec.open(url, mode='rb', **fsspec_kwargs) as open_fs:
+            ds = xr.open_dataset(open_fs, **xarray_kwargs)
             return index, ds
 
     @staticmethod
-    def src_to_target(item, target_store, dimension_name) -> zarr.storage.FSStore:
-        index, src_ds_meta_closed = item
-        # TODO: deal with multiple combine_dims
-        fsspec_kwargs, xarray_kwargs = {}, {}
+    def src_to_target(item, target_store, dimension_name, fsspec_kwargs, xarray_kwargs) -> zarr.storage.FSStore:
+        index, src_ds_with_operations = item
         with fsspec.open(index.find_filepath(dimension_name), mode="rb", **fsspec_kwargs) as open_fs:
             src_ds = xr.open_dataset(open_fs, **xarray_kwargs)
+
+            # copy any operations from old ds to new ds
+            variables = {k: v for k, v in src_ds_with_operations._variables.items()}
+            coord_names = {k for k in src_ds_with_operations._coord_names}
+            indexes = {k: v for k, v in src_ds_with_operations._indexes.items()}
+            src_ds = src_ds._replace_with_new_dims(
+                variables, coord_names=coord_names, indexes=indexes
+            )
+
             item = (index, src_ds)
             return store_dataset_fragment(item, target_store)
 
@@ -777,8 +785,11 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
         self,
         urls: beam.PCollection[Tuple[Index, str]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
-        fsxrsets = urls | FSXRFactory(self.fsspec_kwargs, self.xarray_kwargs)
-        datasets = fsxrsets | beam.Map(self.opener)
+        datasets = urls | beam.Map(
+            self.opener,
+            self.fsspec_kwargs,
+            self.xarray_kwargs,
+        )
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema)
         target_chunks = (
@@ -801,7 +812,11 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
         #n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         #n_target_stores = indexed_datasets | StoreDatasetFragments(target_store=target_store)
         n_target_stores = indexed_datasets | beam.Map(
-            self.src_to_target, beam.pvalue.AsSingleton(target_store), self.combine_dims[-1].name
+            self.src_to_target,
+            beam.pvalue.AsSingleton(target_store),
+            self.combine_dims[-1].name,
+            self.fsspec_kwargs,
+            self.xarray_kwargs,
         )
         singleton_target_store = (
             n_target_stores
