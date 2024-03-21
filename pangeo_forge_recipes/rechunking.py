@@ -221,6 +221,7 @@ def combine_fragments(
     try:
         # reversing order is necessary here because _sort_by_speed_of_varying puts the
         # arrays into the opposite order as wanted by np.meshgrid
+
         starts = _invert_meshgrid(*starts_cube[::-1])[::-1]
         sizes = _invert_meshgrid(*sizes_cube[::-1])[::-1]
     except AssertionError:
@@ -251,7 +252,9 @@ def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
 def consolidate_dimension_coordinates(
     singleton_target_store: zarr.storage.FSStore,
 ) -> zarr.storage.FSStore:
-    """Consolidate dimension coordinates chunking"""
+    """Transform to rewrite coordinate variables as a
+    single chunk. This can be useful to avoid
+    many small read requests to get the coordinates in xarray."""
     group = zarr.open_group(singleton_target_store)
 
     dims = (dim for dim in _gather_coordinate_dimensions(group) if dim in group)
