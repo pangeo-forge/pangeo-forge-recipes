@@ -822,6 +822,7 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             | beam.Flatten()
             | beam.combiners.Sample.FixedSizeGlobally(1)
             | beam.Map(lambda x: target_path)
+            | ConsolidateDimensionCoordinates()
             | ConsolidateMetadata()
         )
 
