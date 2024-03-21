@@ -805,12 +805,19 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
                 projection=self.projection,
                 pyramid_kwargs=self.pyramid_kwargs,
             )
-            zarr_pyr_path = pyr_ds | f"Store Pyr level: {lvl}" >> StoreToZarr(
-                target_root=self.target_root,
-                target_chunks=chunks,  # noqa
-                store_name=f"{self.store_name}/{str(lvl)}",
-                combine_dims=self.combine_dims,
+            zarr_pyr_path = (
+                pyr_ds
+                | f"Store Pyr level: {lvl}"
+                >> StoreToZarr(
+                    target_root=self.target_root,
+                    target_chunks=chunks,  # noqa
+                    store_name=f"{self.store_name}/{str(lvl)}",
+                    combine_dims=self.combine_dims,
+                )
+                | f"Consolidate Dimension Coordinates for: {lvl}"
+                >> ConsolidateDimensionCoordinates()
             )
+
             transform_pyr_lvls.append(zarr_pyr_path)
 
         # To consolidate the top level metadata, we need all the pyramid groups to be written.
@@ -822,7 +829,6 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             | beam.Flatten()
             | beam.combiners.Sample.FixedSizeGlobally(1)
             | beam.Map(lambda x: target_path)
-            | ConsolidateDimensionCoordinates()
             | ConsolidateMetadata()
         )
 
