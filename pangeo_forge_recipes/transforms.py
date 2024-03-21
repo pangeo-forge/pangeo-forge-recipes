@@ -782,13 +782,13 @@ class StoreToZarrUgly(beam.PTransform, ZarrWriterMixin):
         with fsspec.open(index.find_filepath(dimension_name), mode="rb", **fsspec_kwargs) as open_fs:
             src_ds = xr.open_dataset(open_fs, **xarray_kwargs)
 
-            # copy any operations from old ds to new ds
-            variables = {k: v for k, v in src_ds_with_operations._variables.items()}
-            coord_names = {k for k in src_ds_with_operations._coord_names}
-            indexes = {k: v for k, v in src_ds_with_operations._indexes.items()}
-            src_ds = src_ds._replace_with_new_dims(
-                variables, coord_names=coord_names, indexes=indexes
-            )
+            # # copy any operations from old ds to new ds
+            # variables = {k: v for k, v in src_ds_with_operations._variables.items()}
+            # coord_names = {k for k in src_ds_with_operations._coord_names}
+            # indexes = {k: v for k, v in src_ds_with_operations._indexes.items()}
+            # src_ds = src_ds._replace_with_new_dims(
+            #     variables, coord_names=coord_names, indexes=indexes
+            # )
 
             item = (index, src_ds)
             return store_dataset_fragment(item, target_store)
