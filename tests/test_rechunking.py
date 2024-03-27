@@ -142,7 +142,7 @@ def test_split_multidim():
 
     nt = 2
     ds = make_ds(nt=nt)
-    nlat = ds.dims["lat"]
+    nlat = ds.sizes["lat"]
     dimension = Dimension("time", CombineOp.CONCAT)
     index = Index({dimension: IndexedPosition(0, dimsize=nt)})
 
@@ -211,7 +211,7 @@ def test_combine_fragments_multidim(time_chunk, lat_chunk):
 
     nt = 10
     ds = make_ds(nt=nt)
-    ny = ds.dims["lat"]
+    ny = ds.sizes["lat"]
 
     fragments = []
     time_dim = Dimension("time", CombineOp.CONCAT)
