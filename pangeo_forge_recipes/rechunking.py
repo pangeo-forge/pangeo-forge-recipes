@@ -195,7 +195,7 @@ def combine_fragments(
         (
             dim.name,
             [index[dim].value for index in all_indexes],
-            [ds.dims[dim.name] for ds in all_dsets],
+            [ds.sizes[dim.name] for ds in all_dsets],
         )
         for dim in concat_dims
     ]
