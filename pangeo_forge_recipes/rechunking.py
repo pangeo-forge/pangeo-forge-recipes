@@ -57,7 +57,7 @@ def split_fragment(
             dimsize = getattr(index[concat_dim], "dimsize", 0)
             concat_position = index[concat_dim]
             start = concat_position.value
-            stop = start + ds.dims[dim_name]
+            stop = start + ds.sizes[dim_name]
             dim_slice = slice(start, stop)
             rechunked_concat_dims.append(concat_dim)
         else:
@@ -65,7 +65,7 @@ def split_fragment(
             # in the fragment index, then we can assume that the entire span of
             # that dimension is present in the dataset.
             # This would arise e.g. when decimating a contiguous dimension
-            dimsize = ds.dims[dim_name]
+            dimsize = ds.sizes[dim_name]
             dim_slice = slice(0, dimsize)
 
         target_chunks_and_dims[dim_name] = (chunk, dimsize)
