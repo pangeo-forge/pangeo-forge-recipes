@@ -35,7 +35,7 @@ dependencies = [
     "kerchunk >= 0.0.7",
     "netcdf4",
     "numcodecs >= 0.9.0",
-    "xarray >= 0.18.0",
+    "xarray",
     "zarr >= 2.12.0",
 ]
 
