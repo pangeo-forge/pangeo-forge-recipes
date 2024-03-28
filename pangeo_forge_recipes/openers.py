@@ -105,8 +105,8 @@ def _preprocess_url_or_file_obj(
         # LocalFileOpener is a subclass of io.IOBase
         pass
     elif hasattr(url_or_file_obj, "open"):
-        # work around fsspec inconsistencies
-        url_or_file_obj = url_or_file_obj.open()
+        # just ignore the fsspec garbage interfaces for now and force it
+        url_or_file_obj = url_or_file_obj.fs.open(url_or_file_obj.path, mode="rb", cache_type="none")
 
     return url_or_file_obj
 
