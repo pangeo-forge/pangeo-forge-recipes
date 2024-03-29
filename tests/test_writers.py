@@ -154,6 +154,11 @@ def test_store_dataset_fragment(temp_store):
     assert ds.time.encoding.get("units") == ds_target.time.encoding.get("units")
 
 
+def test_store_dataset_fragment_appending(temp_store):
+    ...
+    # test that we can write in append mode with correct index offsets
+
+
 def test_zarr_consolidate_metadata(
     netcdf_local_file_pattern,
     pipeline,
