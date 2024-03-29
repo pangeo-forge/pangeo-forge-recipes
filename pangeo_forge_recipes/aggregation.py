@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Dict, Literal, Optional, TypedDict
+from typing import Dict, Optional, TypedDict
 
 import cftime
 import dask.array as dsa
@@ -287,14 +287,14 @@ def schema_to_zarr(
     attrs: Optional[Dict[str, str]] = None,
     consolidated_metadata: Optional[bool] = True,
     encoding: Optional[Dict] = None,
-    mode: Literal["w", "a"] = "w",
+    append_dim: Optional[str] = None,
 ) -> zarr.storage.FSStore:
     """Initialize a zarr group based on a schema."""
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
     # using mode="w" makes this function idempotent
     ds.to_zarr(
         target_store,
-        mode=mode,
+        append_dim=append_dim,
         compute=False,
         consolidated=consolidated_metadata,
         encoding=encoding,
