@@ -8,7 +8,9 @@ from pangeo_forge_recipes.aggregation import (
     dataset_to_schema,
     determine_target_chunks,
     schema_to_template_ds,
+    schema_to_zarr,
 )
+from pangeo_forge_recipes.storage import FSSpecTarget
 
 from .data_generation import make_ds
 
@@ -190,3 +192,26 @@ def test_concat_accumulator():
     assert (
         merge_accumulator.schema["data_vars"]["bar"] == merge_accumulator.schema["data_vars"]["BAR"]
     )
+
+
+def test_schema_to_zarr(daily_xarray_dataset: xr.Dataset, tmp_target: FSSpecTarget):
+    target_store = tmp_target.get_mapper()
+    schema = dataset_to_schema(daily_xarray_dataset)
+    schema_to_zarr(
+        schema=schema,
+        target_store=target_store,
+        target_chunks={},
+        attrs={},
+        consolidated_metadata=False,
+        encoding=None,
+        mode="w",
+    )
+    ds = xr.open_dataset(target_store, engine="zarr")
+    assert len(ds.time) == len(daily_xarray_dataset.time)
+    assert len(ds.lon) == len(daily_xarray_dataset.lon)
+    assert len(ds.lat) == len(daily_xarray_dataset.lat)
+
+
+def test_schema_to_zarr_append_mode(
+    daily_xarray_datasets_to_append: tuple[xr.Dataset, xr.Dataset],
+): ...
