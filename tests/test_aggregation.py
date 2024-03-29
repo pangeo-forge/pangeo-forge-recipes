@@ -220,19 +220,13 @@ def test_schema_to_zarr_append_mode(
 
     ds0, ds1 = daily_xarray_datasets_to_append
     target_store = tmp_target.get_mapper()
-    common_kws = dict(
-        target_store=target_store,
-        target_chunks={},
-        attrs={},
-        consolidated_metadata=False,
-        encoding=None,
-    )
+
     schema_ds0 = dataset_to_schema(ds0)
-    schema_to_zarr(schema=schema_ds0, append_dim=None, **common_kws)
+    schema_to_zarr(schema=schema_ds0, append_dim=None, target_store=target_store)
     ds0_zarr = xr.open_dataset(target_store, engine="zarr")
     assert len(ds0_zarr.time) == len(ds0.time)
 
     schema_ds1 = dataset_to_schema(ds1)
-    schema_to_zarr(schema=schema_ds1, append_dim="time", **common_kws)
+    schema_to_zarr(schema=schema_ds1, append_dim="time", target_store=target_store)
     appended_zarr = xr.open_dataset(target_store, engine="zarr")
     assert len(appended_zarr.time) == len(ds0.time) + len(ds1.time)
