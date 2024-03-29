@@ -313,6 +313,7 @@ def test_StoreToZarr_dynamic_chunking_interface(
             store_name="test.zarr",
             combine_dims=pattern.combine_dim_keys,
             attrs={},
+            mode="w",
             dynamic_chunking_fn=dynamic_chunking_fn,
             **kws,
         )
