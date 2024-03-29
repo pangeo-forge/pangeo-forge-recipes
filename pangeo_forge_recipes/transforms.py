@@ -5,7 +5,7 @@ import math
 import random
 import sys
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Callable, Dict, List, Literal, Optional, Tuple, TypeVar, Union
 
 # PEP612 Concatenate & ParamSpec are useful for annotating decorators, but their import
 # differs between Python versions 3.9 & 3.10. See: https://stackoverflow.com/a/71990006
@@ -341,6 +341,7 @@ class PrepareZarrTarget(beam.PTransform):
                                   then falling out of sync with coordinates if
                                   ConsolidateDimensionCoordinates() is applied to the output of
                                   StoreToZarr().
+    :param mode: One of "w" for writing a new store, or "a" for appending to an existing store.
     """
 
     target: str | FSSpecTarget
@@ -348,6 +349,7 @@ class PrepareZarrTarget(beam.PTransform):
     attrs: Dict[str, str] = field(default_factory=dict)
     consolidated_metadata: Optional[bool] = True
     encoding: Optional[dict] = field(default_factory=dict)
+    mode: Literal["w", "a"] = "w"
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         if isinstance(self.target, str):
@@ -362,6 +364,7 @@ class PrepareZarrTarget(beam.PTransform):
             attrs=self.attrs,
             encoding=self.encoding,
             consolidated_metadata=False,
+            mode=self.mode,
         )
         return initialized_target
 
@@ -641,8 +644,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
       out https://github.com/jbusecke/dynamic_chunks
     :param dynamic_chunking_fn_kwargs: Optional keyword arguments for ``dynamic_chunking_fn``.
     :param attrs: Extra group-level attributes to inject into the dataset.
-
     :param encoding: Dictionary encoding for xarray.to_zarr().
+    :param mode: One of "w" for writing a new store, or "a" for appending to an existing store.
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
@@ -657,6 +660,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
     encoding: Optional[dict] = field(default_factory=dict)
+    mode: Literal["w", "a"] = "w"
 
     def __post_init__(self):
         if self.target_chunks and self.dynamic_chunking_fn:
@@ -684,6 +688,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             target_chunks=target_chunks,
             attrs=self.attrs,
             encoding=self.encoding,
+            mode=self.mode,
         )
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (
