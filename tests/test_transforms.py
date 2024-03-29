@@ -209,7 +209,7 @@ def test_rechunk(
     def correct_chunks():
         def _check_chunks(actual):
             for index, ds in actual:
-                actual_chunked_dims = {dim: ds.dims[dim] for dim in target_chunks}
+                actual_chunked_dims = {dim: ds.sizes[dim] for dim in target_chunks}
                 assert all(
                     position.indexed
                     for dimension, position in index.items()
