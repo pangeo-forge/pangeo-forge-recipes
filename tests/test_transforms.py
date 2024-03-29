@@ -304,7 +304,7 @@ def test_StoreToZarr_dynamic_chunking_interface(
         assert isinstance(template_ds, xr.Dataset)
         return {"time": int(time_len / divisor)}
 
-    kws = {} if not with_kws else {"dynamic_chunking_fn_kwargs": {"divisor": 2}}
+    dynamic_chunking_fn_kwargs = {} if not with_kws else {"divisor": 2}
 
     with pipeline as p:
         datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
@@ -312,10 +312,8 @@ def test_StoreToZarr_dynamic_chunking_interface(
             target_root=tmp_target,
             store_name="test.zarr",
             combine_dims=pattern.combine_dim_keys,
-            attrs={},
-            mode="w",
             dynamic_chunking_fn=dynamic_chunking_fn,
-            **kws,
+            dynamic_chunking_fn_kwargs=dynamic_chunking_fn_kwargs,
         )
         open_store = target_store | OpenZarrStore()
         assert_that(open_store, has_dynamically_set_chunks())
