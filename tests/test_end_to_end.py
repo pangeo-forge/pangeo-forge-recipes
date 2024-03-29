@@ -87,7 +87,6 @@ def test_xarray_zarr_append(
     daily_xarray_datasets_to_append,
     netcdf_local_file_patterns_to_append,
     tmp_target,
-    pipeline,
 ):
     ds0_fixture, ds1_fixture = daily_xarray_datasets_to_append
     pattern0, pattern1 = netcdf_local_file_patterns_to_append
@@ -102,34 +101,42 @@ def test_xarray_zarr_append(
         store_name="store",
         combine_dims=pattern0.combine_dim_keys,
     )
+    store_path = os.path.join(tmp_target.root_path, "store")
     # build an initial zarr store, to which we will append
-    with pipeline as p:
+    options = PipelineOptions(runtime_type_check=False)
+    # we run two pipelines in this test, so instantiate them separately to
+    # avoid any potential of strange co-mingling between the same pipeline
+    with TestPipeline(options=options) as p0:
         (
-            p
+            p0
             | "CreateInitial" >> beam.Create(pattern0.items())
             | "OpenInitial" >> OpenWithXarray()
             | "StoreInitial" >> StoreToZarr(**common_kws)
         )
 
     # make sure the initial zarr store looks good
-    ds0 = xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr")
+    ds0 = xr.open_dataset(store_path, engine="zarr")
     assert len(ds0.time) == 10
     xr.testing.assert_equal(ds0.load(), ds0_fixture)
 
     # now append to it. the two differences here are
     # using `pattern1` in Create and `mode="a"` in `StoreToZarr`
-    with pipeline as p:
+    with TestPipeline(options=options) as p1:
         (
-            p
+            p1
             | "CreateAppend" >> beam.Create(pattern1.items())
             | "OpenAppend" >> OpenWithXarray()
-            | "StoreAppend" >> StoreToZarr(mode="a", **common_kws)
+            | "StoreAppend" >> StoreToZarr(append_dim="time", **common_kws)
         )
 
     # now see if we have appended to time dimension as intended
-    ds_concat = xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr")
+    ds_concat = xr.open_dataset(store_path, engine="zarr")
     assert len(ds_concat.time) == 20
-    # xr.testing.assert_equal(ds1.load(), daily_xarray_dataset)
+    # FIXME: now check that the data is actually written where we want it to be
+    # we don't expect this to be the case yet, since we haven't added offests to
+    # the _store_data writer. in this test, presumably the append is just
+    # overwriting the existing data. (but we are getting dimension resizing, which
+    # is a good start!)
 
 
 @pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
