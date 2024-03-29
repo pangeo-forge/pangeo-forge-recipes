@@ -83,6 +83,55 @@ def test_xarray_zarr_subpath(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
+def test_xarray_zarr_append(
+    daily_xarray_datasets_to_append,
+    netcdf_local_file_patterns_to_append,
+    tmp_target,
+    pipeline,
+):
+    ds0_fixture, ds1_fixture = daily_xarray_datasets_to_append
+    pattern0, pattern1 = netcdf_local_file_patterns_to_append
+    assert pattern0.combine_dim_keys == pattern1.combine_dim_keys
+
+    ds_fixture_concat = xr.concat([ds0_fixture, ds1_fixture], dim="time")
+    assert len(ds_fixture_concat.time) == 20
+
+    # these kws are reused across both initial and append pipelines
+    common_kws = dict(
+        target_root=tmp_target,
+        store_name="store",
+        combine_dims=pattern0.combine_dim_keys,
+    )
+    # build an initial zarr store, to which we will append
+    with pipeline as p:
+        (
+            p
+            | "CreateInitial" >> beam.Create(pattern0.items())
+            | "OpenInitial" >> OpenWithXarray()
+            | "StoreInitial" >> StoreToZarr(**common_kws)
+        )
+
+    # make sure the initial zarr store looks good
+    ds0 = xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr")
+    assert len(ds0.time) == 10
+    xr.testing.assert_equal(ds0.load(), ds0_fixture)
+
+    # now append to it. the two differences here are
+    # using `pattern1` in Create and `mode="a"` in `StoreToZarr`
+    with pipeline as p:
+        (
+            p
+            | "CreateAppend" >> beam.Create(pattern1.items())
+            | "OpenAppend" >> OpenWithXarray()
+            | "StoreAppend" >> StoreToZarr(mode="a", **common_kws)
+        )
+
+    # now see if we have appended to time dimension as intended
+    ds_concat = xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr")
+    assert len(ds_concat.time) == 20
+    # xr.testing.assert_equal(ds1.load(), daily_xarray_dataset)
+
+
 @pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
 def test_reference_netcdf(
     daily_xarray_dataset,
