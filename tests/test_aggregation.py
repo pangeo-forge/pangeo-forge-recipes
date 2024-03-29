@@ -204,7 +204,7 @@ def test_schema_to_zarr(daily_xarray_dataset: xr.Dataset, tmp_target: FSSpecTarg
         attrs={},
         consolidated_metadata=False,
         encoding=None,
-        mode="w",
+        append_dim=None,
     )
     ds = xr.open_dataset(target_store, engine="zarr")
     assert len(ds.time) == len(daily_xarray_dataset.time)
@@ -214,4 +214,25 @@ def test_schema_to_zarr(daily_xarray_dataset: xr.Dataset, tmp_target: FSSpecTarg
 
 def test_schema_to_zarr_append_mode(
     daily_xarray_datasets_to_append: tuple[xr.Dataset, xr.Dataset],
-): ...
+    tmp_target: FSSpecTarget,
+):
+    """Tests dimension resizing for append."""
+
+    ds0, ds1 = daily_xarray_datasets_to_append
+    target_store = tmp_target.get_mapper()
+    common_kws = dict(
+        target_store=target_store,
+        target_chunks={},
+        attrs={},
+        consolidated_metadata=False,
+        encoding=None,
+    )
+    schema_ds0 = dataset_to_schema(ds0)
+    schema_to_zarr(schema=schema_ds0, append_dim=None, **common_kws)
+    ds0_zarr = xr.open_dataset(target_store, engine="zarr")
+    assert len(ds0_zarr.time) == len(ds0.time)
+
+    schema_ds1 = dataset_to_schema(ds1)
+    schema_to_zarr(schema=schema_ds1, append_dim="time", **common_kws)
+    appended_zarr = xr.open_dataset(target_store, engine="zarr")
+    assert len(appended_zarr.time) == len(ds0.time) + len(ds1.time)
