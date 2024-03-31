@@ -673,6 +673,10 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
 
         self._append_offset = 0
         if self.append_dim:
+            logger.warn(
+                "When `append_dim` is given, StoreToZarr is NOT idempotent. Successive deployment "
+                "with the same inputs will append duplicate data to the existing store."
+            )
             dim = [d for d in self.combine_dims if d.name == self.append_dim]
             assert dim, f"Append dim not in {self.combine_dims=}."
             assert dim[0].operation == CombineOp.CONCAT, "Append dim operation must be CONCAT."
