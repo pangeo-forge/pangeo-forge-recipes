@@ -7,7 +7,7 @@ from apache_beam.testing.util import BeamAssertException, assert_that, is_not_em
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.patterns import FilePattern, FileType
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, MergeDim
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 from pangeo_forge_recipes.transforms import (
     DetermineSchema,
@@ -338,6 +338,25 @@ def test_StoreToZarr_dynamic_chunking_with_target_chunks_raises(
             target_chunks={"time": 1},
             dynamic_chunking_fn=fn,
         )
+
+
+@pytest.mark.parametrize(
+    "append_dim, match",
+    [
+        ("date", "Append dim not in self.combine_dims"),
+        ("var", "Append dim operation must be CONCAT."),
+    ],
+)
+def test_StoreToZarr_append_dim_asserts_raises(append_dim, match):
+    pattern = FilePattern(lambda x: x, ConcatDim("time", [1, 2]), MergeDim("var", ["foo", "bar"]))
+    kws = dict(
+        target_root="target",
+        store_name="test.zarr",
+        combine_dims=pattern.combine_dim_keys,
+        target_chunks={"time": 1},
+    )
+    with pytest.raises(AssertionError, match=match):
+        _ = StoreToZarr(append_dim=append_dim, **kws)
 
 
 def test_StoreToZarr_target_root_default_unrunnable(
