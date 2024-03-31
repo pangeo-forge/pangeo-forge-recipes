@@ -115,12 +115,12 @@ def test_xarray_zarr_append(
         )
 
     # make sure the initial zarr store looks good
-    ds0 = xr.open_dataset(store_path, engine="zarr")
-    assert len(ds0.time) == 10
-    xr.testing.assert_equal(ds0.load(), ds0_fixture)
+    initial_actual = xr.open_dataset(store_path, engine="zarr")
+    assert len(initial_actual.time) == 10
+    xr.testing.assert_equal(initial_actual.load(), ds0_fixture)
 
     # now append to it. the two differences here are
-    # using `pattern1` in Create and `mode="a"` in `StoreToZarr`
+    # passing `pattern1` in `Create` and `append_dim="time"` in `StoreToZarr`
     with TestPipeline(options=options) as p1:
         (
             p1
@@ -130,13 +130,10 @@ def test_xarray_zarr_append(
         )
 
     # now see if we have appended to time dimension as intended
-    ds_concat = xr.open_dataset(store_path, engine="zarr")
-    assert len(ds_concat.time) == 20
-    # FIXME: now check that the data is actually written where we want it to be
-    # we don't expect this to be the case yet, since we haven't added offests to
-    # the _store_data writer. in this test, presumably the append is just
-    # overwriting the existing data. (but we are getting dimension resizing, which
-    # is a good start!)
+    append_actual = xr.open_dataset(store_path, engine="zarr")
+    assert len(append_actual.time) == 20
+    append_expected = xr.concat([ds0_fixture, ds1_fixture], dim="time")
+    xr.testing.assert_equal(append_actual.load(), append_expected)
 
 
 @pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
