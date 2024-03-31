@@ -290,11 +290,16 @@ def schema_to_zarr(
     append_dim: Optional[str] = None,
 ) -> zarr.storage.FSStore:
     """Initialize a zarr group based on a schema."""
+    if append_dim:
+        # if appending, only keep schema for coordinate to append. if we don't drop other
+        # coords, we may end up overwriting existing data on the `ds.to_zarr` call below.
+        schema["coords"] = {k: v for k, v in schema["coords"].items() if k == append_dim}
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
-    # using mode="w" makes this function idempotent
+    # using mode="w" makes this function idempotent when not appending
     ds.to_zarr(
         target_store,
         append_dim=append_dim,
+        mode=("a" if append_dim else "w"),
         compute=False,
         consolidated=consolidated_metadata,
         encoding=encoding,
