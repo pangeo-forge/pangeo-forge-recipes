@@ -29,13 +29,7 @@ def _region_for(var: xr.Variable, index: Index) -> Tuple[slice, ...]:
     return tuple(region_slice)
 
 
-def _store_data(
-    vname: str,
-    var: xr.Variable,
-    index: Index,
-    zgroup: zarr.Group,
-    offset: Optional[int] = None,
-) -> None:
+def _store_data(vname: str, var: xr.Variable, index: Index, zgroup: zarr.Group) -> None:
     zarr_array = zgroup[vname]
     # get encoding for variable from zarr attributes
     var_coded = var.copy()  # copy needed for test suit to avoid modifying inputs in-place
@@ -43,11 +37,6 @@ def _store_data(
     var_coded.attrs = {}
     var = xr.backends.zarr.encode_zarr_variable(var_coded)
     data = np.asarray(var.data)
-    # FIXME: index here will be with respect to the currently running recipe, but NOT
-    # with respect to the aggregate (pre-existing) dataset, in the case of appending.
-    # So to make appending work, we will need to to pass an offset through here (from
-    # the outer transform layer) to make sure we're indexed to the correct offset for
-    # appending.
     region = _region_for(var, index)
     # check that the region evenly overlaps the zarr chunks
     for dimsize, chunksize, region_slice in zip(zarr_array.shape, zarr_array.chunks, region):
