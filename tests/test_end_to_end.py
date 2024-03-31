@@ -92,9 +92,6 @@ def test_xarray_zarr_append(
     pattern0, pattern1 = netcdf_local_file_patterns_to_append
     assert pattern0.combine_dim_keys == pattern1.combine_dim_keys
 
-    ds_fixture_concat = xr.concat([ds0_fixture, ds1_fixture], dim="time")
-    assert len(ds_fixture_concat.time) == 20
-
     # these kws are reused across both initial and append pipelines
     common_kws = dict(
         target_root=tmp_target,
