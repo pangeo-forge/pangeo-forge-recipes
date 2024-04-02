@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
-from dataclasses import dataclass, field
 from typing import Dict, Optional, TypedDict
 
 import cftime
@@ -44,20 +42,31 @@ def dataset_to_schema(ds: xr.Dataset) -> XarraySchema:
 
 
 def _combine_xarray_schemas(
-    s1: XarraySchema, s2: XarraySchema, concat_dim: Optional[str] = None
+    s1: Optional[XarraySchema], s2: Optional[XarraySchema], concat_dim: Optional[str] = None
 ) -> XarraySchema:
-    dims = _combine_dims(s1["dims"], s2["dims"], concat_dim)
-    chunks = _combine_chunks(s1["chunks"], s2["chunks"], concat_dim)
-    attrs = _combine_attrs(s1["attrs"], s2["attrs"])
-    data_vars = _combine_vars(s1["data_vars"], s2["data_vars"], concat_dim)
-    coords = _combine_vars(s1["coords"], s2["coords"], concat_dim, allow_both=True)
-    return {
-        "attrs": attrs,
-        "coords": coords,
-        "data_vars": data_vars,
-        "dims": dims,
-        "chunks": chunks,
-    }
+    if s1 is None and s2 is None:
+        raise ValueError(
+            "Encountered two empty XarraySchemas during combine: one must be non-empty"
+        )
+    if s1 is None:
+        assert s2 is not None
+        return s2
+    elif s2 is None:
+        assert s1 is not None
+        return s1
+    else:
+        dims = _combine_dims(s1["dims"], s2["dims"], concat_dim)
+        chunks = _combine_chunks(s1["chunks"], s2["chunks"], concat_dim)
+        attrs = _combine_attrs(s1["attrs"], s2["attrs"])
+        data_vars = _combine_vars(s1["data_vars"], s2["data_vars"], concat_dim)
+        coords = _combine_vars(s1["coords"], s2["coords"], concat_dim, allow_both=True)
+        return {
+            "attrs": attrs,
+            "coords": coords,
+            "data_vars": data_vars,
+            "dims": dims,
+            "chunks": chunks,
+        }
 
 
 def _combine_dims(
