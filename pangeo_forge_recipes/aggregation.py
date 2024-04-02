@@ -43,38 +43,6 @@ def dataset_to_schema(ds: xr.Dataset) -> XarraySchema:
     )
 
 
-def empty_xarray_schema() -> XarraySchema:
-    return {"attrs": {}, "coords": {}, "data_vars": {}, "dims": {}, "chunks": {}}
-
-
-@dataclass
-class XarrayCombineAccumulator:
-    """An object used to help combine Xarray schemas.
-
-    :param schema: A schema to initialize the accumulator with.
-    :param concat_dim: If set, this accumulator applies concat rules.
-       Otherwise applies merge rules.
-    """
-
-    schema: XarraySchema = field(default_factory=empty_xarray_schema)
-    concat_dim: Optional[str] = None
-
-    def add_input(self, s: XarraySchema, position: int) -> None:
-        s = deepcopy(s)  # avoid modifying input
-        if self.concat_dim:
-            assert (
-                self.concat_dim not in s["chunks"]
-            ), "Concat dim should be unchunked for new input"
-            s["chunks"][self.concat_dim] = {position: s["dims"][self.concat_dim]}
-        self.schema = _combine_xarray_schemas(self.schema, s, concat_dim=self.concat_dim)
-
-    def __add__(self, other: XarrayCombineAccumulator) -> XarrayCombineAccumulator:
-        if other.concat_dim != self.concat_dim:
-            raise DatasetCombineError("Can't merge accumulators with different concat_dims")
-        new_schema = _combine_xarray_schemas(self.schema, other.schema, self.concat_dim)
-        return XarrayCombineAccumulator(new_schema, self.concat_dim)
-
-
 def _combine_xarray_schemas(
     s1: XarraySchema, s2: XarraySchema, concat_dim: Optional[str] = None
 ) -> XarraySchema:

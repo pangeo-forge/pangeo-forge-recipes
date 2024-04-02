@@ -2,11 +2,11 @@ import operator
 import sys
 from dataclasses import dataclass
 from functools import reduce
-from typing import Callable, Sequence, TypeVar
+from typing import Callable, Optional, Sequence, TypeVar, Tuple
 
 import apache_beam as beam
 
-from .aggregation import XarrayCombineAccumulator, XarraySchema
+from .aggregation import _combine_xarray_schemas, DatasetCombineError, XarraySchema
 from .types import CombineOp, Dimension, Index, Indexed
 
 
@@ -23,26 +23,37 @@ class CombineXarraySchemas(beam.CombineFn):
     def get_position(self, index: Index) -> int:
         return index[self.dimension].value
 
-    def create_accumulator(self) -> XarrayCombineAccumulator:
+    def create_accumulator(self) -> Tuple[Optional[XarraySchema], str]:
         concat_dim = self.dimension.name if self.dimension.operation == CombineOp.CONCAT else None
-        return XarrayCombineAccumulator(concat_dim=concat_dim)
+        return (None, concat_dim)
 
-    def add_input(self, accumulator: XarrayCombineAccumulator, item: Indexed[XarraySchema]):
-        index, schema = item
-        position = self.get_position(index)
-        accumulator.add_input(schema, position)
-        return accumulator
+    def add_input(self, accumulator: Tuple[Optional[XarraySchema], str], item: Indexed[XarraySchema]):
+        next_index, next_schema = item
+        position = self.get_position(next_index)
+
+        acc_schema, acc_concat_dim = accumulator
+        if acc_concat_dim:
+            assert (
+                acc_concat_dim not in next_schema["chunks"]
+            ), "Concat dim should be unchunked for new input"
+            next_schema["chunks"][acc_concat_dim] = {position: next_schema["dims"][acc_concat_dim]}
+        if acc_schema:
+            result = (_combine_xarray_schemas(acc_schema, next_schema, concat_dim=acc_concat_dim), acc_concat_dim)
+        else:
+            result = (next_schema, acc_concat_dim)
+        return result
 
     def merge_accumulators(
-        self, accumulators: Sequence[XarrayCombineAccumulator]
-    ) -> XarrayCombineAccumulator:
-        if len(accumulators) == 1:
-            return accumulators[0]
-        # mypy did not like sum(accumulators)
-        return reduce(operator.add, accumulators)
+        self, accumulators: Sequence[Tuple[Optional[XarraySchema], str]]
+    ) -> Sequence[Tuple[Optional[XarraySchema], str]]:
+        if len(set([accumulator[1] for accumulator in accumulators])) > 1:
+            raise DatasetCombineError("Can't merge accumulators with different concat_dims")
+        else:
+            return reduce(lambda acc1, acc2: _combine_xarray_schemas(acc1[0], acc2[0], acc1[1]), accumulators)
 
     def extract_output(self, accumulator) -> dict:
-        return accumulator.schema
+        # Toss out the concat dim info and just take the schema
+        return accumulator[0]
 
 
 Element = TypeVar("Element")
