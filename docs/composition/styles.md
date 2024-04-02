@@ -43,7 +43,7 @@ store dimensions need to be resized, and that writes are parallelized via Apache
 ensuring that the named `append_dim` already exists in the dataset to which you are appending, use of
 this option does not ensure logical consistency (e.g. contiguousness, etc.) of the appended data. When
 selecting this option, it is therefore up to you, the user, to ensure that the inputs provided in the
-{doc} `file pattern <file_patterns>` for the appending recipe are limited to those which you want to
+{doc}`file pattern <file_patterns>` for the appending recipe are limited to those which you want to
 append.
 ```
 
