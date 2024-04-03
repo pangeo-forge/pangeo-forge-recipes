@@ -83,6 +83,56 @@ def test_xarray_zarr_subpath(
     xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
+def test_xarray_zarr_append(
+    daily_xarray_datasets_to_append,
+    netcdf_local_file_patterns_to_append,
+    tmp_target,
+):
+    ds0_fixture, ds1_fixture = daily_xarray_datasets_to_append
+    pattern0, pattern1 = netcdf_local_file_patterns_to_append
+    assert pattern0.combine_dim_keys == pattern1.combine_dim_keys
+
+    # these kws are reused across both initial and append pipelines
+    common_kws = dict(
+        target_root=tmp_target,
+        store_name="store",
+        combine_dims=pattern0.combine_dim_keys,
+    )
+    store_path = os.path.join(tmp_target.root_path, "store")
+    # build an initial zarr store, to which we will append
+    options = PipelineOptions(runtime_type_check=False)
+    # we run two pipelines in this test, so instantiate them separately to
+    # avoid any potential of strange co-mingling between the same pipeline
+    with TestPipeline(options=options) as p0:
+        (
+            p0
+            | "CreateInitial" >> beam.Create(pattern0.items())
+            | "OpenInitial" >> OpenWithXarray()
+            | "StoreInitial" >> StoreToZarr(**common_kws)
+        )
+
+    # make sure the initial zarr store looks good
+    initial_actual = xr.open_dataset(store_path, engine="zarr")
+    assert len(initial_actual.time) == 10
+    xr.testing.assert_equal(initial_actual.load(), ds0_fixture)
+
+    # now append to it. the two differences here are
+    # passing `pattern1` in `Create` and `append_dim="time"` in `StoreToZarr`
+    with TestPipeline(options=options) as p1:
+        (
+            p1
+            | "CreateAppend" >> beam.Create(pattern1.items())
+            | "OpenAppend" >> OpenWithXarray()
+            | "StoreAppend" >> StoreToZarr(append_dim="time", **common_kws)
+        )
+
+    # now see if we have appended to time dimension as intended
+    append_actual = xr.open_dataset(store_path, engine="zarr")
+    assert len(append_actual.time) == 20
+    append_expected = xr.concat([ds0_fixture, ds1_fixture], dim="time")
+    xr.testing.assert_equal(append_actual.load(), append_expected)
+
+
 @pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
 def test_reference_netcdf(
     daily_xarray_dataset,

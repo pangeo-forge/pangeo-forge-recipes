@@ -301,21 +301,26 @@ class IndexItems(beam.PTransform):
     """Augment dataset indexes with information about start and stop position."""
 
     schema: beam.PCollection
+    append_offset: int = 0
 
     @staticmethod
-    def index_item(item: Indexed[T], schema: XarraySchema) -> Indexed[T]:
+    def index_item(item: Indexed[T], schema: XarraySchema, append_offset: int) -> Indexed[T]:
         index, ds = item
         new_index = Index()
         for dimkey, dimval in index.items():
             if dimkey.operation == CombineOp.CONCAT:
                 item_len_dict = schema["chunks"][dimkey.name]
                 item_lens = [item_len_dict[n] for n in range(len(item_len_dict))]
-                dimval = augment_index_with_start_stop(dimval, item_lens)
+                dimval = augment_index_with_start_stop(dimval, item_lens, append_offset)
             new_index[dimkey] = dimval
         return new_index, ds
 
     def expand(self, pcoll: beam.PCollection):
-        return pcoll | beam.Map(self.index_item, schema=beam.pvalue.AsSingleton(self.schema))
+        return pcoll | beam.Map(
+            self.index_item,
+            schema=beam.pvalue.AsSingleton(self.schema),
+            append_offset=self.append_offset,
+        )
 
 
 @dataclass
@@ -341,6 +346,7 @@ class PrepareZarrTarget(beam.PTransform):
                                   then falling out of sync with coordinates if
                                   ConsolidateDimensionCoordinates() is applied to the output of
                                   StoreToZarr().
+    :param append_dim: Optional name of the dimension to append to.
     """
 
     target: str | FSSpecTarget
@@ -348,6 +354,7 @@ class PrepareZarrTarget(beam.PTransform):
     attrs: Dict[str, str] = field(default_factory=dict)
     consolidated_metadata: Optional[bool] = True
     encoding: Optional[dict] = field(default_factory=dict)
+    append_dim: Optional[str] = None
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         if isinstance(self.target, str):
@@ -362,6 +369,7 @@ class PrepareZarrTarget(beam.PTransform):
             attrs=self.attrs,
             encoding=self.encoding,
             consolidated_metadata=False,
+            append_dim=self.append_dim,
         )
         return initialized_target
 
@@ -641,8 +649,8 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
       out https://github.com/jbusecke/dynamic_chunks
     :param dynamic_chunking_fn_kwargs: Optional keyword arguments for ``dynamic_chunking_fn``.
     :param attrs: Extra group-level attributes to inject into the dataset.
-
     :param encoding: Dictionary encoding for xarray.to_zarr().
+    :param append_dim: Optional name of the dimension to append to.
     """
 
     # TODO: make it so we don't have to explicitly specify combine_dims
@@ -657,17 +665,31 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     dynamic_chunking_fn_kwargs: Optional[dict] = field(default_factory=dict)
     attrs: Dict[str, str] = field(default_factory=dict)
     encoding: Optional[dict] = field(default_factory=dict)
+    append_dim: Optional[str] = None
 
     def __post_init__(self):
         if self.target_chunks and self.dynamic_chunking_fn:
             raise ValueError("Passing both `target_chunks` and `dynamic_chunking_fn` not allowed.")
+
+        self._append_offset = 0
+        if self.append_dim:
+            logger.warn(
+                "When `append_dim` is given, StoreToZarr is NOT idempotent. Successive deployment "
+                "with the same inputs will append duplicate data to the existing store."
+            )
+            dim = [d for d in self.combine_dims if d.name == self.append_dim]
+            assert dim, f"Append dim not in {self.combine_dims=}."
+            assert dim[0].operation == CombineOp.CONCAT, "Append dim operation must be CONCAT."
+            existing_ds = xr.open_dataset(self.get_full_target().get_mapper(), engine="zarr")
+            assert self.append_dim in existing_ds, "Append dim must be in existing dataset."
+            self._append_offset = len(existing_ds[self.append_dim])
 
     def expand(
         self,
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
-        indexed_datasets = datasets | IndexItems(schema=schema)
+        indexed_datasets = datasets | IndexItems(schema=schema, append_offset=self._append_offset)
         target_chunks = (
             self.target_chunks
             if not self.dynamic_chunking_fn
@@ -684,6 +706,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             target_chunks=target_chunks,
             attrs=self.attrs,
             encoding=self.encoding,
+            append_dim=self.append_dim,
         )
         n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
         singleton_target_store = (

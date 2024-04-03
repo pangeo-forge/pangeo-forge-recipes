@@ -205,8 +205,9 @@ def test_setting_file_types(file_type_value):
     "position,start",
     [(0, 0), (1, 2), (2, 4), (3, 7), (4, 9)],
 )
-def test_augment_index_with_start_stop(position, start):
+@pytest.mark.parametrize("append_offset", [0, 5, 500])
+def test_augment_index_with_start_stop(position, start, append_offset):
     dk = Position(position)
-    expected = IndexedPosition(start, dimsize=11)
-    actual = augment_index_with_start_stop(dk, [2, 2, 3, 2, 2])
+    expected = IndexedPosition(start + append_offset, dimsize=11 + append_offset)
+    actual = augment_index_with_start_stop(dk, [2, 2, 3, 2, 2], append_offset)
     assert actual == expected

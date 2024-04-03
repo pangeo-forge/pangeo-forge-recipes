@@ -3,13 +3,13 @@ import pandas as pd
 import xarray as xr
 
 
-def make_ds(nt=10, non_dim_coords=False):
+def make_ds(nt=10, non_dim_coords=False, start="2010-01-01"):
     """Return a synthetic random xarray dataset."""
     np.random.seed(2)
     # TODO: change nt to 11 in order to catch the edge case where
     # items_per_input does not evenly divide the length of the sequence dimension
     ny, nx = 18, 36
-    time = pd.date_range(start="2010-01-01", periods=nt, freq="D")
+    time = pd.date_range(start=start, periods=nt, freq="D")
     lon = (np.arange(nx) + 0.5) * 360 / nx
     lon_attrs = {"units": "degrees_east", "long_name": "longitude"}
     lat = (np.arange(ny) + 0.5) * 180 / ny

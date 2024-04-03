@@ -8,7 +8,9 @@ from pangeo_forge_recipes.aggregation import (
     dataset_to_schema,
     determine_target_chunks,
     schema_to_template_ds,
+    schema_to_zarr,
 )
+from pangeo_forge_recipes.storage import FSSpecTarget
 
 from .data_generation import make_ds
 
@@ -190,3 +192,41 @@ def test_concat_accumulator():
     assert (
         merge_accumulator.schema["data_vars"]["bar"] == merge_accumulator.schema["data_vars"]["BAR"]
     )
+
+
+def test_schema_to_zarr(daily_xarray_dataset: xr.Dataset, tmp_target: FSSpecTarget):
+    target_store = tmp_target.get_mapper()
+    schema = dataset_to_schema(daily_xarray_dataset)
+    schema_to_zarr(
+        schema=schema,
+        target_store=target_store,
+        target_chunks={},
+        attrs={},
+        consolidated_metadata=False,
+        encoding=None,
+        append_dim=None,
+    )
+    ds = xr.open_dataset(target_store, engine="zarr")
+    assert len(ds.time) == len(daily_xarray_dataset.time)
+    assert len(ds.lon) == len(daily_xarray_dataset.lon)
+    assert len(ds.lat) == len(daily_xarray_dataset.lat)
+
+
+def test_schema_to_zarr_append_mode(
+    daily_xarray_datasets_to_append: tuple[xr.Dataset, xr.Dataset],
+    tmp_target: FSSpecTarget,
+):
+    """Tests dimension resizing for append."""
+
+    ds0, ds1 = daily_xarray_datasets_to_append
+    target_store = tmp_target.get_mapper()
+
+    schema_ds0 = dataset_to_schema(ds0)
+    schema_to_zarr(schema=schema_ds0, append_dim=None, target_store=target_store)
+    ds0_zarr = xr.open_dataset(target_store, engine="zarr")
+    assert len(ds0_zarr.time) == len(ds0.time)
+
+    schema_ds1 = dataset_to_schema(ds1)
+    schema_to_zarr(schema=schema_ds1, append_dim="time", target_store=target_store)
+    appended_zarr = xr.open_dataset(target_store, engine="zarr")
+    assert len(appended_zarr.time) == len(ds0.time) + len(ds1.time)

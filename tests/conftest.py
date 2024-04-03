@@ -277,6 +277,11 @@ def daily_xarray_dataset():
 
 
 @pytest.fixture(scope="session")
+def daily_xarray_datasets_to_append():
+    return make_ds(nt=10, start="2010-01-01"), make_ds(nt=10, start="2010-01-11")
+
+
+@pytest.fixture(scope="session")
 def daily_xarray_dataset_with_coordinateless_dimension(daily_xarray_dataset):
     """
     A Dataset with a coordinateless dimension.
@@ -293,6 +298,23 @@ def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
     return make_local_paths(
         daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf4"
     )
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_paths_sequential_1d_to_append(
+    daily_xarray_datasets_to_append,
+    tmpdir_factory,
+):
+    return [
+        make_local_paths(
+            ds,
+            tmpdir_factory,
+            "D",
+            split_up_files_by_day,
+            file_type="netcdf4",
+        )
+        for ds in daily_xarray_datasets_to_append
+    ]
 
 
 @pytest.fixture(scope="session")
@@ -446,6 +468,11 @@ def netcdf_local_paths_sequential_with_coordinateless_dimension(
 
 
 # FilePattern fixtures ----------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_patterns_to_append(netcdf_local_paths_sequential_1d_to_append):
+    return [make_file_pattern(paths) for paths in netcdf_local_paths_sequential_1d_to_append]
 
 
 @pytest.fixture(scope="session")
