@@ -14,7 +14,7 @@ from typing import Any, Dict, Iterator, Optional, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
-from fsspec.implementations.local import LocalFileSystem
+#from fsspec.implementations.local import LocalFileSystem
 from zarr.storage import FSStore
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ class FSSpecTarget(AbstractTarget):
                           `target_options` and `remote_options` for fsspec class instantiation
     """
 
-    fs: fsspec.AbstractFileSystem
+    fs: None  # we don't want pangeo-forge-recipes codebase dependent on apache-beam imports so leave like this for now
     root_path: str = ""
     fsspec_kwargs: Dict[Any, Any] = field(default_factory=dict)
 
@@ -104,25 +104,19 @@ class FSSpecTarget(AbstractTarget):
         """
         return replace(self, root_path=os.path.join(self.root_path, suffix))
 
-    @classmethod
-    def from_url(cls, url: str):
-        fs, _, root_paths = fsspec.get_fs_token_paths(url)
-        assert len(root_paths) == 1
-        return cls(fs, root_paths[0])
+    # BIGTODO: let's avoid these paths for now
+    # @classmethod
+    # def from_url(cls, url: str):
+    #     fs, _, root_paths = fsspec.get_fs_token_paths(url)
+    #     assert len(root_paths) == 1
+    #     return cls(fs, root_paths[0])
 
     def get_fsspec_remote_protocol(self):
         """fsspec implementation-specific remote protocal"""
-        fsspec_protocol = self.fs.protocol
-        if isinstance(fsspec_protocol, str):
-            return fsspec_protocol
-        elif isinstance(fsspec_protocol, tuple):
-            return fsspec_protocol[0]
-        elif isinstance(fsspec_protocol, list):
-            return fsspec_protocol[0]
-        else:
-            raise ValueError(
-                f"could not resolve fsspec protocol '{fsspec_protocol}' from underlying filesystem"
-            )
+        protocol = self.fs.scheme()
+        if protocol is None:
+            return "local"
+        return protocol
 
     def get_mapper(self) -> fsspec.mapping.FSMap:
         """Get a mutable mapping object suitable for storing Zarr data."""
@@ -137,13 +131,14 @@ class FSSpecTarget(AbstractTarget):
 
     def rm(self, path: str, recursive: Optional[bool] = False) -> None:
         """Remove file from the cache."""
-        self.fs.rm(self._full_path(path), recursive=recursive)
+        self.fs.delete([self._full_path(path),])
 
     def size(self, path: str) -> int:
         return self.fs.size(self._full_path(path))
 
     def makedir(self, path: str) -> None:
-        self.fs.makedir(self._full_path(path))
+        # BIGTODO: why is this not a thing in beam.io
+        self.fs.mkdirs(self._full_path(path))
 
     @contextmanager
     def open(self, path: str, **kwargs) -> Iterator[OpenFileType]:
@@ -163,8 +158,10 @@ class FSSpecTarget(AbstractTarget):
         return self.fs.open(full_path, **kwargs)
 
     def __post_init__(self):
-        if not self.fs.isdir(self.root_path):
-            self.fs.mkdir(self.root_path)
+        # BIGTODO: how do handle dir checks when beam considers this a flat
+        # filesytem (which it is)
+        #if not self.fs.isdir(self.root_path):
+        self.fs.mkdirs(self.root_path)
 
 
 class FlatFSSpecTarget(FSSpecTarget):
@@ -175,6 +172,8 @@ class FlatFSSpecTarget(FSSpecTarget):
     """
 
     def _full_path(self, path: str) -> str:
+        from apache_beam.io.localfilesystem import LocalFileSystem
+
         # this is just in case _slugify(path) is non-unique
         prefix = hashlib.md5(path.encode()).hexdigest()
         slug = _slugify(path)
@@ -230,6 +229,7 @@ def _add_query_string_secrets(fname: str, secrets: dict) -> str:
 
 def _get_opener(fname, secrets, **open_kwargs):
     fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
+    # BIGTODO: i think this means we just deprecate OpenURLWithFsspec
     return fsspec.open(fname, mode="rb", **open_kwargs)
 
 

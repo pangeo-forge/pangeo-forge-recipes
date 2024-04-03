@@ -157,11 +157,12 @@ def write_combined_reference(
         # call to write reference to empty parquet store
         out.flush()
 
+    # BIGTODO: disabling the whole fsspec.ReferenceFileSystem for now and json kerchunk writing
     # If reference is a ReferenceFileSystem, write to json
-    elif isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
-        # context manager reuses dep injected auth credentials without passing storage options
-        with full_target.fs.open(outpath, "wb") as f:
-            f.write(ujson.dumps(reference.fs.references).encode())
+    # elif isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
+    #     # context manager reuses dep injected auth credentials without passing storage options
+    #     with full_target.fs.open(outpath, "wb") as f:
+    #         f.write(ujson.dumps(reference.fs.references).encode())
 
     else:
         raise NotImplementedError(f"{file_ext = } not supported.")

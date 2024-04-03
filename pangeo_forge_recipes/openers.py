@@ -89,28 +89,6 @@ def _set_engine(file_type, xr_open_kwargs):
 UrlOrFileObj = Union[OpenFileType, str, zarr.storage.FSStore]
 
 
-def _preprocess_url_or_file_obj(
-    url_or_file_obj: UrlOrFileObj,
-    file_type: FileType,
-) -> UrlOrFileObj:
-    """Validate and preprocess inputs for opener functions."""
-
-    if isinstance(url_or_file_obj, str):
-        pass
-    elif isinstance(url_or_file_obj, zarr.storage.FSStore):
-        if file_type is not FileType.zarr:
-            raise ValueError(f"FSStore object can only be opened as FileType.zarr; got {file_type}")
-    elif isinstance(url_or_file_obj, io.IOBase):
-        # required to make mypy happy
-        # LocalFileOpener is a subclass of io.IOBase
-        pass
-    elif hasattr(url_or_file_obj, "open"):
-        # work around fsspec inconsistencies
-        url_or_file_obj = url_or_file_obj.open()
-
-    return url_or_file_obj
-
-
 def _url_as_str(url_or_file_obj: UrlOrFileObj, remote_protocol: Optional[str] = None) -> str:
     as_str: str = url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
 

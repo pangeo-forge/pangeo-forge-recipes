@@ -15,8 +15,10 @@ else:
     from typing import ParamSpec
 
 import apache_beam as beam
+from apache_beam.io.aws import s3io
 import fsspec
 import xarray as xr
+import io
 import zarr
 from kerchunk.combine import MultiZarrToZarr
 
@@ -693,3 +695,15 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         )
 
         return singleton_target_store
+
+
+@dataclass
+class OpenWithBeamS3IO(beam.PTransform):
+
+    @staticmethod
+    def opener(url: Tuple[Index, str]) -> io.Base:
+        s3_client = s3io.S3IO()
+        return s3_client.open(url, mode="wb")
+
+    def expand(self, pcoll: beam.PCollection):
+        return pcoll | beam.Map(self.opener)
