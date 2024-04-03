@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import apache_beam as beam
@@ -19,6 +20,8 @@ from pangeo_forge_recipes.transforms import (
     _NestDim,
 )
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index, Position
+
+from .data_generation import make_ds
 
 
 @pytest.fixture
@@ -132,6 +135,92 @@ def has_correct_schema(expected_schema):
     return _check_results
 
 
+def test_CombineXarraySchemas_aggregation(schema_pcoll_concat):
+    concat_dim = "time"
+    cxs = CombineXarraySchemas(Dimension(name=concat_dim, operation=CombineOp.CONCAT))
+
+    def idx_at_position(position: int) -> Index:
+        return Index({Dimension(concat_dim, CombineOp.CONCAT): Position(value=position)})
+
+    # Test create initial accumulator
+    assert cxs.create_accumulator() == (None, concat_dim)
+
+    # Test per-element combine
+    ds = make_ds(nt=3)
+    s = dataset_to_schema(ds)
+
+    combined_s_0 = cxs.add_input(cxs.create_accumulator(), (idx_at_position(0), s))
+    s1 = s.copy()
+    s1["chunks"] = {"time": {0: 3}}
+    assert combined_s_0[0] == s1
+
+    combined_s_1 = cxs.add_input(combined_s_0, (idx_at_position(1), s))
+    s2 = dataset_to_schema(make_ds(nt=6))
+    s2["chunks"] = {"time": {0: 3, 1: 3}}
+    assert combined_s_1[0] == s2
+
+    # test merger
+    to_merge = cxs.add_input(cxs.create_accumulator(), (idx_at_position(2), s))
+    merged = cxs.merge_accumulators([combined_s_1, to_merge])
+    s3 = dataset_to_schema(make_ds(nt=9))
+    s3["chunks"] = {"time": {0: 3, 1: 3, 2: 3}}
+    assert merged[0] == s3
+
+    # modify attrs to see that fields get dropped correctly
+    ds2 = make_ds(nt=4)
+    ds2.attrs["conventions"] = "wack conventions"
+    ds2.bar.attrs["long_name"] = "nonsense name"
+    dropped_fields = cxs.add_input(merged, (idx_at_position(3), dataset_to_schema(ds2)))
+    ds_expected = make_ds(nt=13)
+    del ds_expected.attrs["conventions"]
+    del ds_expected.bar.attrs["long_name"]
+    s4 = dataset_to_schema(ds_expected)
+    s4["chunks"] = {"time": {0: 3, 1: 3, 2: 3, 3: 4}}
+    assert dropped_fields[0] == s4
+
+    # make sure we can add in different order
+    first_add = cxs.add_input(
+        dropped_fields, (idx_at_position(5), dataset_to_schema(make_ds(nt=1)))
+    )
+    second_add = cxs.add_input(first_add, (idx_at_position(4), dataset_to_schema(make_ds(nt=2))))
+    time_chunks = {0: 3, 1: 3, 2: 3, 3: 4, 4: 2, 5: 1}
+    assert second_add[0]["chunks"]["time"] == time_chunks
+
+    # now start checking errors
+    ds3 = make_ds(nt=1).isel(lon=slice(1, None))
+    with pytest.raises(ValueError, match="different sizes"):
+        cxs.add_input(second_add, (idx_at_position(6), dataset_to_schema(ds3)))
+
+    with pytest.raises(ValueError, match="overlapping keys"):
+        cxs.add_input(second_add, (idx_at_position(5), s))
+
+    # now pretend we are concatenating along a new dimension
+    concat_dim = "lon"
+    cxs = CombineXarraySchemas(Dimension(name=concat_dim, operation=CombineOp.CONCAT))
+    s_time_concat = second_add[0]
+    first_lon = cxs.add_input(cxs.create_accumulator(), (idx_at_position(0), s_time_concat))
+    second_lon = cxs.add_input(first_lon, (idx_at_position(1), s_time_concat))
+    assert second_lon[0]["chunks"]["time"] == time_chunks
+    assert second_lon[0]["chunks"]["lon"] == {0: 36, 1: 36}
+    assert second_lon[0]["dims"] == {"time": 16, "lat": 18, "lon": 72}
+
+    # check error if we try to concat something with incompatible chunks
+    bad_schema = copy.deepcopy(s_time_concat)
+    bad_schema["chunks"]["time"] = {0: 3, 1: 3, 2: 3, 3: 4, 4: 1, 5: 2}
+    with pytest.raises(ValueError, match="Non concat_dim chunks must be the same"):
+        cxs.add_input(second_lon, (idx_at_position(2), bad_schema))
+
+    # test merge combination behavior
+    modified_schema = copy.deepcopy(s_time_concat)
+    modified_schema["data_vars"] = {k.upper(): v for k, v in s_time_concat["data_vars"].items()}
+
+    cxs = CombineXarraySchemas(Dimension(name=concat_dim, operation=CombineOp.MERGE))
+    first_result = cxs.add_input(cxs.create_accumulator(), (idx_at_position(0), s_time_concat))
+    second_result = cxs.add_input(first_result, (idx_at_position(0), modified_schema))
+    assert second_result[0]["data_vars"]["foo"] == second_result[0]["data_vars"]["FOO"]
+    assert second_result[0]["data_vars"]["bar"] == second_result[0]["data_vars"]["BAR"]
+
+
 def test_CombineXarraySchemas_concat_1D(schema_pcoll_concat, pipeline):
     pattern, expected_schema, pcoll = schema_pcoll_concat
     concat_dim = _get_concat_dim(pattern)
@@ -207,7 +296,7 @@ _dimensions = [
     "dimensions", [_dimensions, _dimensions[::-1]], ids=["concat_first", "merge_first"]
 )
 def test_DetermineSchema_concat_merge(dimensions, dsets_pcoll_concat_merge, pipeline):
-    pattern, expected_schema, pcoll = dsets_pcoll_concat_merge
+    _, expected_schema, pcoll = dsets_pcoll_concat_merge
 
     with pipeline as p:
         input = p | pcoll

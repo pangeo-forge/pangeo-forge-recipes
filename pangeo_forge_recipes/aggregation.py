@@ -9,10 +9,6 @@ import xarray as xr
 import zarr
 
 
-class DatasetCombineError(Exception):
-    pass
-
-
 class XarraySchema(TypedDict):
     attrs: Dict
     coords: Dict
@@ -82,7 +78,7 @@ def _combine_dims(
         if dim == concat_dim:
             dim_len = l1 + l2
         elif l1 != l2:
-            raise DatasetCombineError(f"Dimensions for {dim} have different sizes: {l1}, {l2}")
+            raise ValueError(f"Dimensions for {dim} have different sizes: {l1}, {l2}")
         else:
             dim_len = l1
         new_dims[dim] = dim_len
@@ -101,17 +97,17 @@ def _combine_chunks(c1: ChunkDict, c2: ChunkDict, concat_dim: Optional[str]) -> 
 
     chunks = {}
     if set(c1) != set(c2):
-        raise DatasetCombineError("Expect the same dims in both chunk sets")
+        raise ValueError("Expect the same dims in both chunk sets")
     for dim in c1:
         if dim == concat_dim:
             # merge chunks
             # check for overlapping keys
             if set(c1[dim]) & set(c2[dim]):
-                raise DatasetCombineError("Found overlapping keys in concat_dim")
+                raise ValueError("Found overlapping keys in concat_dim")
             chunks[dim] = {**c1[dim], **c2[dim]}
         else:
             if c1[dim] != c2[dim]:
-                raise DatasetCombineError("Non concat_dim chunks must be the same")
+                raise ValueError("Non concat_dim chunks must be the same")
             chunks[dim] = c1[dim]
     return chunks
 
@@ -152,7 +148,7 @@ def _combine_vars(v1, v2, concat_dim, allow_both=False):
             new_vars[vname] = v1[vname]
         else:
             if concat_dim is None and not allow_both:
-                raise DatasetCombineError(f"Can't merge datasets with the same variable {vname}")
+                raise ValueError(f"Can't merge datasets with the same variable {vname}")
             attrs = _combine_attrs(v1[vname]["attrs"], v2[vname]["attrs"])
             dtype = _combine_dtype(v1[vname]["dtype"], v2[vname]["dtype"])
             # Can combine encoding using the same approach as attrs
@@ -163,16 +159,14 @@ def _combine_vars(v1, v2, concat_dim, allow_both=False):
             )
             if d1 != d2:
                 # should we make this logic insensitive to permutations?
-                raise DatasetCombineError(f"Can't merge variables with different dims {d1}, {d2}")
+                raise ValueError(f"Can't merge variables with different dims {d1}, {d2}")
             dims = d1
             shape = []
             for dname, l1, l2 in zip(dims, s1, s2):
                 if dname == concat_dim:
                     shape.append(l1 + l2)
                 elif l1 != l2:
-                    raise DatasetCombineError(
-                        f"Can't merge variables with different shapes {s1}, {s2}"
-                    )
+                    raise ValueError(f"Can't merge variables with different shapes {s1}, {s2}")
                 else:
                     shape.append(l1)
             new_vars[vname] = {
