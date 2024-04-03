@@ -8,7 +8,7 @@ from pangeo_forge_recipes.patterns import (
     FilePattern,
     FileType,
     MergeDim,
-    augment_index_with_start_stop,
+    augment_index_with_byte_range,
     pattern_from_file_sequence,
 )
 from pangeo_forge_recipes.types import IndexedPosition, Position
@@ -206,8 +206,8 @@ def test_setting_file_types(file_type_value):
     [(0, 0), (1, 2), (2, 4), (3, 7), (4, 9)],
 )
 @pytest.mark.parametrize("append_offset", [0, 5, 500])
-def test_augment_index_with_start_stop(position, start, append_offset):
+def test_augment_index_with_byte_range(position, start, append_offset):
     dk = Position(position)
     expected = IndexedPosition(start + append_offset, dimsize=11 + append_offset)
-    actual = augment_index_with_start_stop(dk, [2, 2, 3, 2, 2], append_offset)
+    actual = augment_index_with_byte_range(dk, [2, 2, 3, 2, 2], append_offset)
     assert actual == expected

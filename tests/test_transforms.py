@@ -10,12 +10,12 @@ from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, MergeDim
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 from pangeo_forge_recipes.transforms import (
+    ChunkToTarget,
     DetermineSchema,
-    IndexItems,
+    IndexWithPosition,
     OpenWithKerchunk,
     OpenWithXarray,
     PrepareZarrTarget,
-    Rechunk,
     StoreToZarr,
 )
 from pangeo_forge_recipes.types import CombineOp, Index
@@ -184,8 +184,11 @@ def test_PrepareZarrTarget(pipeline, tmp_target, target_chunks):
         return _check_target
 
     with pipeline as p:
-        input = p | beam.Create([schema])
-        target = input | PrepareZarrTarget(target=tmp_target, target_chunks=target_chunks)
+        input = p | "pcollect schema" >> beam.Create([schema])
+        target_chunk_pcoll = p | "pcollect target_chunks" >> beam.Create([target_chunks])
+        target = PrepareZarrTarget(target=tmp_target).expand(
+            input, target_chunks=beam.pvalue.AsSingleton(target_chunk_pcoll)
+        )
         assert_that(target, correct_target())
 
 
@@ -231,10 +234,17 @@ def test_rechunk(
     pattern = netcdf_local_file_pattern_sequential
     with pipeline as p:
         inputs = p | beam.Create(pattern.items())
+        target_chunks_pcoll = p | "Creating target_chunks pcoll" >> beam.Create([target_chunks])
         datasets = inputs | OpenWithXarray(file_type=pattern.file_type)
         schema = datasets | DetermineSchema(combine_dims=pattern.combine_dim_keys)
-        indexed_datasets = datasets | IndexItems(schema=schema)
-        rechunked = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
+        indexed_datasets = datasets | beam.ParDo(
+            IndexWithPosition(), schema=beam.pvalue.AsSingleton(schema)
+        )
+        rechunked = ChunkToTarget().expand(
+            indexed_datasets,
+            target_chunks=beam.pvalue.AsSingleton(target_chunks_pcoll),
+            schema=beam.pvalue.AsSingleton(schema),
+        )
         assert_that(rechunked, correct_chunks())
 
 
@@ -304,7 +314,13 @@ def test_StoreToZarr_dynamic_chunking_interface(
         assert isinstance(template_ds, xr.Dataset)
         return {"time": int(time_len / divisor)}
 
-    dynamic_chunking_fn_kwargs = {} if not with_kws else {"divisor": 2}
+    if with_kws:
+
+        def chunking_fn(template_ds):
+            return dynamic_chunking_fn(template_ds, divisor=2)
+
+    else:
+        chunking_fn = dynamic_chunking_fn
 
     with pipeline as p:
         datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
@@ -312,8 +328,7 @@ def test_StoreToZarr_dynamic_chunking_interface(
             target_root=tmp_target,
             store_name="test.zarr",
             combine_dims=pattern.combine_dim_keys,
-            dynamic_chunking_fn=dynamic_chunking_fn,
-            dynamic_chunking_fn_kwargs=dynamic_chunking_fn_kwargs,
+            dynamic_chunking_fn=chunking_fn,
         )
         open_store = target_store | OpenZarrStore()
         assert_that(open_store, has_dynamically_set_chunks())

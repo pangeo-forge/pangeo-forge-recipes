@@ -17,7 +17,7 @@ from pangeo_forge_recipes.transforms import (
     CombineReferences,
     DatasetToSchema,
     DetermineSchema,
-    _NestDim,
+    _nest_dim,
 )
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index, Position
 
@@ -264,12 +264,12 @@ def test_NestDim(schema_pcoll_concat_merge, pipeline):
         input = p | pcoll
         group1 = (
             input
-            | "Nest CONCAT" >> _NestDim(Dimension("time", CombineOp.CONCAT))
+            | "Nest CONCAT" >> beam.Map(_nest_dim, dimension=Dimension("time", CombineOp.CONCAT))
             | "Groupby CONCAT" >> beam.GroupByKey()
         )
         group2 = (
             input
-            | "Nest MERGE" >> _NestDim(Dimension("variable", CombineOp.MERGE))
+            | "Nest MERGE" >> beam.Map(_nest_dim, dimension=Dimension("variable", CombineOp.MERGE))
             | "Groupy MERGE" >> beam.GroupByKey()
         )
         assert_that(group1, check_key(merge_only_indexes, concat_only_indexes), label="merge")

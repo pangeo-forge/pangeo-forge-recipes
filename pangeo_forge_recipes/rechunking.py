@@ -31,7 +31,6 @@ def split_fragment(
     :param fragment: the indexed fragment.
     :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
     """
-
     logger.info(f"Splitting {fragment = }, with {target_chunks = } and {schema = }")
 
     if target_chunks is None and schema is None:
@@ -41,7 +40,6 @@ def split_fragment(
         target_chunks = determine_target_chunks(schema, target_chunks, include_all_dims=False)
     else:
         assert target_chunks is not None
-
     index, ds = fragment
 
     # target_chunks_and_dims contains both the chunk size and global dataset dimension size

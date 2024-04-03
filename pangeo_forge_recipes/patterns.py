@@ -63,12 +63,13 @@ class MergeDim(CombineDim):
     operation: ClassVar[CombineOp] = CombineOp.MERGE
 
 
-def augment_index_with_start_stop(
+def augment_index_with_byte_range(
     position: Position,
     item_lens: List[int],
     append_offset: int = 0,
 ) -> IndexedPosition:
-    """Take an index _without_ start / stop and add them based on the lens defined in sequence_lens.
+    """Take an index _without_ start / stop (byte range) and add them based on the lens defined in
+        sequence_lens.
 
     :param index: The ``DimIndex`` instance to augment.
     :param item_lens: A list of integer lengths for all items in the sequence.
