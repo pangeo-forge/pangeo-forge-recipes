@@ -6,9 +6,7 @@ from pangeo_forge_recipes.aggregation import (
     dataset_to_schema,
     determine_target_chunks,
     schema_to_template_ds,
-    schema_to_zarr,
 )
-from pangeo_forge_recipes.storage import FSSpecTarget
 
 from .data_generation import make_ds
 
