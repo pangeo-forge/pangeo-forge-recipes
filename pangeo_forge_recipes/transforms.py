@@ -704,7 +704,7 @@ class OpenWithBeamS3IO(beam.PTransform):
     def opener(item: Tuple[Index, str]) -> Tuple[Index, io.Base]:
         index, url = item
         s3_client = s3io.S3IO(options={})
-        return index, s3_client.open(url, mode="wb")
+        return index, s3_client.open(url, mode="rb")
 
     def expand(self, pcoll: beam.PCollection):
         return pcoll | beam.Map(self.opener)
