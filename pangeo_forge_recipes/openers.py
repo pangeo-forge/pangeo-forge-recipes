@@ -5,6 +5,7 @@ import tempfile
 import warnings
 from typing import Dict, Optional, Union
 from urllib.parse import urlparse
+from apache_beam.io.aws import s3io
 
 import xarray as xr
 import zarr
@@ -211,7 +212,11 @@ def open_with_xarray(
         _copy_btw_filesystems(url_or_file_obj, target_opener)
         url_or_file_obj = tmp_name
 
-    ds = xr.open_dataset(url_or_file_obj, **kw)
+    s3_client = s3io.S3IO(options={})
+    # url_or_file_obj here is just string
+    io_bufferedfile = s3_client.open(url_or_file_obj, mode="rb")
+    ds = xr.open_dataset(io_bufferedfile, **kw)
+
     if load:
         ds.load()
 
