@@ -617,12 +617,11 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
 
     Example of using a wrapper function to reduce the arity of a more complex dynamic_chunking_fn:
 
-        Suppose there's a function `calculate_dynamic_chunks` that requires extra parameters: an
-        `xarray.Dataset`, a `target_chunk_size` in bytes, and a `dim_name` along which to chunk.
-        To fit the expected signature for `dynamic_chunking_fn`, we can define a wrapper function
-        that presets `target_chunk_size` and `dim_name`:
+    Suppose there's a function `calculate_dynamic_chunks` that requires extra parameters: an
+    `xarray.Dataset`, a `target_chunk_size` in bytes, and a `dim_name` along which to chunk.
+    To fit the expected signature for `dynamic_chunking_fn`, we can define a wrapper function
+    that presets `target_chunk_size` and `dim_name`:
 
-        ```python
         def calculate_dynamic_chunks(ds, target_chunk_size, dim_name) -> Dict[str, int]:
             ...
 
@@ -632,7 +631,6 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             return calculate_dynamic_chunks(ds, target_chunk_size, dim_name)
 
         StoreToZarr(..., dynamic_chunking_fn=dynamic_chunking_wrapper, ...)
-        ```
     """
 
     combine_dims: List[Dimension]
@@ -709,9 +707,16 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         ).expand(schema, beam.pvalue.AsSingleton(target_chunks_pcoll))
 
         # Actually attempt to write datasets to their target bytes/files
-        rechunked_datasets | "write chunks" >> beam.Map(
+        rechunking = rechunked_datasets | "write chunks" >> beam.Map(
             store_dataset_fragment, target_store=beam.pvalue.AsSingleton(target_store)
         )
 
-        # return the target store pcollection (a singleton of the fsspec target)
-        return target_store
+        # the last thing we need to do is extract the zarrstore target. To do this *after*
+        # rechunking, we need to make the dependency on `rechunking` (and its side effects) explicit
+        singleton_target_store = (
+            rechunking
+            | beam.combiners.Sample.FixedSizeGlobally(1)
+            | beam.FlatMap(lambda x: x)  # https://stackoverflow.com/a/47146582
+        )
+
+        return singleton_target_store
