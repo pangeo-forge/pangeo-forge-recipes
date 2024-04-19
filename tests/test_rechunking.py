@@ -35,7 +35,7 @@ def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks, ot
     ds = make_ds(nt=nt)
     dsets, _, _ = split_up_files_by_variable_and_day(ds, dayparam)
 
-    # replicates indexes created by IndexItems transform.
+    # replicates indexes created by IndexWithPosition transform.
     time_positions = {t: i for i, t in enumerate(ds.time.values)}
     merge_dim = Dimension("variable", CombineOp.MERGE)
     concat_dim = Dimension("time", CombineOp.CONCAT)

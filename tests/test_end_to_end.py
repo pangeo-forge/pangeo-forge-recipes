@@ -274,6 +274,7 @@ def test_xarray_zarr_consolidate_dimension_coordinates(
                 target_root=tmp_target,
                 store_name="subpath",
                 combine_dims=pattern.combine_dim_keys,
+                target_chunks={"time": 10, "lat": 18, "lon": 36},
             )
             | ConsolidateDimensionCoordinates()
             | ConsolidateMetadata()
