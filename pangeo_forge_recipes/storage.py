@@ -230,7 +230,7 @@ def _add_query_string_secrets(fname: str, secrets: dict) -> str:
 
 def _get_opener(fname, secrets, **open_kwargs):
     fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
-    return fsspec.open(fname, mode="rb", **open_kwargs)
+    return fsspec.filesystem("s3", profile="veda-data-reader").open(fname, mode="rb", **open_kwargs)
 
 
 def file_opener(*args, **kwargs):

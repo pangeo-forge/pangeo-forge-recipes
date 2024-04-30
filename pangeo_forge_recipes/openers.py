@@ -233,7 +233,8 @@ def open_with_xarray(
         _copy_btw_filesystems(url_or_file_obj, target_opener)
         url_or_file_obj = tmp_name
 
-    url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
+    #url_or_file_obj = _preprocess
+    # _url_or_file_obj(url_or_file_obj, file_type)
 
     ds = xr.open_dataset(url_or_file_obj, **kw)
     if load:
