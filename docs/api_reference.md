@@ -34,6 +34,14 @@
     :members:
 ```
 
+### Convenience functions
+
+```{eval-rst}
+.. automodule:: pangeo_forge_recipes.patterns
+    :members:
+        pattern_from_file_sequence
+```
+
 ## Storage
 
 ```{eval-rst}
@@ -57,14 +65,6 @@ These are those functions.
 .. automodule:: pangeo_forge_recipes.openers
     :members:
 ```
-
-```{eval-rst}
-.. autoclass:: pangeo_forge_recipes.aggregation.XarrayCombineAccumulator
-    :members:
-    :special-members: __add__
-```
-
-
 
 ## PTransforms
 
