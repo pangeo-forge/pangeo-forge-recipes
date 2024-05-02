@@ -168,7 +168,7 @@ def combine_fragments(
         logger.info(f"Casting `fragments` from {type(fragments)=} to list")
         fragments = list(fragments)
 
-    logger.info(f"Combining {group = }, containing {fragments=}")
+    logger.info(f"Combining {group=}, containing {fragments=}")
 
     # we are combining over all the concat dims found in the indexes
     # first check indexes for consistency
