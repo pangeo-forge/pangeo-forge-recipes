@@ -699,7 +699,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
             )
         )
-        logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
+        logger.info(f"Storing Zarr with {target_chunks=} to {self.get_full_target()}")
         rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(),
