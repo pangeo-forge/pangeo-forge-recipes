@@ -32,7 +32,7 @@ def split_fragment(
     :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
     """
 
-    logger.info(f"Splitting {fragment = }, with {target_chunks = } and {schema = }")
+    logger.info(f"Splitting {fragment=}, with {target_chunks=} and {schema=}")
 
     if target_chunks is None and schema is None:
         raise ValueError("Must specify either target_chunks or schema (or both).")
@@ -165,10 +165,10 @@ def combine_fragments(
     """
     if not isinstance(fragments, list):
         # patch for https://github.com/pangeo-forge/pangeo-forge-recipes/issues/552
-        logger.info(f"Casting `fragments` from {type(fragments) = } to list")
+        logger.info(f"Casting `fragments` from {type(fragments)=} to list")
         fragments = list(fragments)
 
-    logger.info(f"Combining {group = }, containing {fragments = }")
+    logger.info(f"Combining {group = }, containing {fragments=}")
 
     # we are combining over all the concat dims found in the indexes
     # first check indexes for consistency
