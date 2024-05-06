@@ -235,7 +235,7 @@ def _get_opener(fname, secrets, **open_kwargs):
     import s3fs
     fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
     #return fsspec.open(fname, mode="rb", **open_kwargs)
-    fs = s3fs.S3SyncFileSystem(skip_instance_cache=True)
+    fs = s3fs.S3SyncFileSystem(skip_instance_cache=True, use_listings_cache=True)
     open_kwargs.update({"cache_type": "none"})
     return fs.open(fname, mode="rb", **open_kwargs)
 
