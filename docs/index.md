@@ -111,5 +111,4 @@ advanced/index
 ecosystem
 api_reference
 contributing
-release_notes
 ```

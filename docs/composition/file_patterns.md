@@ -177,6 +177,23 @@ pattern
 
 To see the full code in one place, please refer back to [](#sneak-peek-the-full-code).
 
+### Create a  `FilePattern` from a list of files
+
+Alternatively, we can also use the convenience function {meth}`pangeo_forge_recipes.patterns.pattern_from_file_sequence` to create a file pattern from a list of files.
+
+```{code-cell} ipython3
+from pangeo_forge_recipes.patterns import pattern_from_file_sequence
+
+file_list = [
+    "http://data-provider.org/data/humidity/humidity_01.txt",
+    "http://data-provider.org/data/humidity/humidity_02.txt",
+    "http://data-provider.org/data/humidity/humidity_03.txt",
+]
+
+pattern = pattern_from_file_sequence(file_list, concat_dim="time")
+```
+
+
 ## Inspect a `FilePattern`
 
 We can inspect file patterns manually to understand how they work. This is not necessary
