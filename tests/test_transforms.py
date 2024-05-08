@@ -7,7 +7,7 @@ from apache_beam.testing.util import BeamAssertException, assert_that, is_not_em
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.patterns import FilePattern, FileType
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, MergeDim
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 from pangeo_forge_recipes.transforms import (
     DetermineSchema,
@@ -209,7 +209,7 @@ def test_rechunk(
     def correct_chunks():
         def _check_chunks(actual):
             for index, ds in actual:
-                actual_chunked_dims = {dim: ds.dims[dim] for dim in target_chunks}
+                actual_chunked_dims = {dim: ds.sizes[dim] for dim in target_chunks}
                 assert all(
                     position.indexed
                     for dimension, position in index.items()
@@ -304,7 +304,7 @@ def test_StoreToZarr_dynamic_chunking_interface(
         assert isinstance(template_ds, xr.Dataset)
         return {"time": int(time_len / divisor)}
 
-    kws = {} if not with_kws else {"dynamic_chunking_fn_kwargs": {"divisor": 2}}
+    dynamic_chunking_fn_kwargs = {} if not with_kws else {"divisor": 2}
 
     with pipeline as p:
         datasets = p | beam.Create(pattern.items()) | OpenWithXarray()
@@ -312,9 +312,8 @@ def test_StoreToZarr_dynamic_chunking_interface(
             target_root=tmp_target,
             store_name="test.zarr",
             combine_dims=pattern.combine_dim_keys,
-            attrs={},
             dynamic_chunking_fn=dynamic_chunking_fn,
-            **kws,
+            dynamic_chunking_fn_kwargs=dynamic_chunking_fn_kwargs,
         )
         open_store = target_store | OpenZarrStore()
         assert_that(open_store, has_dynamically_set_chunks())
@@ -339,6 +338,25 @@ def test_StoreToZarr_dynamic_chunking_with_target_chunks_raises(
             target_chunks={"time": 1},
             dynamic_chunking_fn=fn,
         )
+
+
+@pytest.mark.parametrize(
+    "append_dim, match",
+    [
+        ("date", "Append dim not in self.combine_dims"),
+        ("var", "Append dim operation must be CONCAT."),
+    ],
+)
+def test_StoreToZarr_append_dim_asserts_raises(append_dim, match):
+    pattern = FilePattern(lambda x: x, ConcatDim("time", [1, 2]), MergeDim("var", ["foo", "bar"]))
+    kws = dict(
+        target_root="target",
+        store_name="test.zarr",
+        combine_dims=pattern.combine_dim_keys,
+        target_chunks={"time": 1},
+    )
+    with pytest.raises(AssertionError, match=match):
+        _ = StoreToZarr(append_dim=append_dim, **kws)
 
 
 def test_StoreToZarr_target_root_default_unrunnable(

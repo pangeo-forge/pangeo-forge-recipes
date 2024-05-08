@@ -32,7 +32,7 @@ def split_fragment(
     :param target_chunks_and_dims: mapping from dimension name to a tuple of (chunksize, dimsize)
     """
 
-    logger.info(f"Splitting {fragment = }, with {target_chunks = } and {schema = }")
+    logger.info(f"Splitting {fragment=}, with {target_chunks=} and {schema=}")
 
     if target_chunks is None and schema is None:
         raise ValueError("Must specify either target_chunks or schema (or both).")
@@ -57,7 +57,7 @@ def split_fragment(
             dimsize = getattr(index[concat_dim], "dimsize", 0)
             concat_position = index[concat_dim]
             start = concat_position.value
-            stop = start + ds.dims[dim_name]
+            stop = start + ds.sizes[dim_name]
             dim_slice = slice(start, stop)
             rechunked_concat_dims.append(concat_dim)
         else:
@@ -65,7 +65,7 @@ def split_fragment(
             # in the fragment index, then we can assume that the entire span of
             # that dimension is present in the dataset.
             # This would arise e.g. when decimating a contiguous dimension
-            dimsize = ds.dims[dim_name]
+            dimsize = ds.sizes[dim_name]
             dim_slice = slice(0, dimsize)
 
         target_chunks_and_dims[dim_name] = (chunk, dimsize)
@@ -165,10 +165,10 @@ def combine_fragments(
     """
     if not isinstance(fragments, list):
         # patch for https://github.com/pangeo-forge/pangeo-forge-recipes/issues/552
-        logger.info(f"Casting `fragments` from {type(fragments) = } to list")
+        logger.info(f"Casting `fragments` from {type(fragments)=} to list")
         fragments = list(fragments)
 
-    logger.info(f"Combining {group = }, containing {fragments = }")
+    logger.info(f"Combining {group=}, containing {fragments=}")
 
     # we are combining over all the concat dims found in the indexes
     # first check indexes for consistency
@@ -195,7 +195,7 @@ def combine_fragments(
         (
             dim.name,
             [index[dim].value for index in all_indexes],
-            [ds.dims[dim.name] for ds in all_dsets],
+            [ds.sizes[dim.name] for ds in all_dsets],
         )
         for dim in concat_dims
     ]

@@ -277,8 +277,8 @@ def daily_xarray_dataset():
 
 
 @pytest.fixture(scope="session")
-def daily_xarray_dataset_global():
-    return make_ds(nt=10, ny=180, nx=360)
+def daily_xarray_datasets_to_append():
+    return make_ds(nt=10, start="2010-01-01"), make_ds(nt=10, start="2010-01-11")
 
 
 @pytest.fixture(scope="session")
@@ -298,6 +298,23 @@ def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
     return make_local_paths(
         daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf4"
     )
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_paths_sequential_1d_to_append(
+    daily_xarray_datasets_to_append,
+    tmpdir_factory,
+):
+    return [
+        make_local_paths(
+            ds,
+            tmpdir_factory,
+            "D",
+            split_up_files_by_day,
+            file_type="netcdf4",
+        )
+        for ds in daily_xarray_datasets_to_append
+    ]
 
 
 @pytest.fixture(scope="session")
@@ -456,6 +473,11 @@ def pyramid_datatree(levels: int = 2):
 
 
 # FilePattern fixtures ----------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_patterns_to_append(netcdf_local_paths_sequential_1d_to_append):
+    return [make_file_pattern(paths) for paths in netcdf_local_paths_sequential_1d_to_append]
 
 
 @pytest.fixture(scope="session")

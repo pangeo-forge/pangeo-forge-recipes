@@ -165,7 +165,7 @@ def write_combined_reference(
             f.write(ujson.dumps(reference.fs.references).encode())
 
     else:
-        raise NotImplementedError(f"{file_ext = } not supported.")
+        raise NotImplementedError(f"{file_ext=} not supported.")
     return ReferenceFileSystem(
         outpath,
         target_options=storage_options,

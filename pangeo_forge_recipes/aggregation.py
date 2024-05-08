@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
-from dataclasses import dataclass, field
 from typing import Dict, Optional, TypedDict
 
 import cftime
@@ -9,10 +7,6 @@ import dask.array as dsa
 import numpy as np
 import xarray as xr
 import zarr
-
-
-class DatasetCombineError(Exception):
-    pass
 
 
 class XarraySchema(TypedDict):
@@ -43,53 +37,32 @@ def dataset_to_schema(ds: xr.Dataset) -> XarraySchema:
     )
 
 
-def empty_xarray_schema() -> XarraySchema:
-    return {"attrs": {}, "coords": {}, "data_vars": {}, "dims": {}, "chunks": {}}
-
-
-@dataclass
-class XarrayCombineAccumulator:
-    """An object used to help combine Xarray schemas.
-
-    :param schema: A schema to initialize the accumulator with.
-    :param concat_dim: If set, this accumulator applies concat rules.
-       Otherwise applies merge rules.
-    """
-
-    schema: XarraySchema = field(default_factory=empty_xarray_schema)
-    concat_dim: Optional[str] = None
-
-    def add_input(self, s: XarraySchema, position: int) -> None:
-        s = deepcopy(s)  # avoid modifying input
-        if self.concat_dim:
-            assert (
-                self.concat_dim not in s["chunks"]
-            ), "Concat dim should be unchunked for new input"
-            s["chunks"][self.concat_dim] = {position: s["dims"][self.concat_dim]}
-        self.schema = _combine_xarray_schemas(self.schema, s, concat_dim=self.concat_dim)
-
-    def __add__(self, other: XarrayCombineAccumulator) -> XarrayCombineAccumulator:
-        if other.concat_dim != self.concat_dim:
-            raise DatasetCombineError("Can't merge accumulators with different concat_dims")
-        new_schema = _combine_xarray_schemas(self.schema, other.schema, self.concat_dim)
-        return XarrayCombineAccumulator(new_schema, self.concat_dim)
-
-
 def _combine_xarray_schemas(
-    s1: XarraySchema, s2: XarraySchema, concat_dim: Optional[str] = None
+    s1: Optional[XarraySchema], s2: Optional[XarraySchema], concat_dim: Optional[str] = None
 ) -> XarraySchema:
-    dims = _combine_dims(s1["dims"], s2["dims"], concat_dim)
-    chunks = _combine_chunks(s1["chunks"], s2["chunks"], concat_dim)
-    attrs = _combine_attrs(s1["attrs"], s2["attrs"])
-    data_vars = _combine_vars(s1["data_vars"], s2["data_vars"], concat_dim)
-    coords = _combine_vars(s1["coords"], s2["coords"], concat_dim, allow_both=True)
-    return {
-        "attrs": attrs,
-        "coords": coords,
-        "data_vars": data_vars,
-        "dims": dims,
-        "chunks": chunks,
-    }
+    if s1 is None and s2 is None:
+        raise ValueError(
+            "Encountered two empty XarraySchemas during combine: one must be non-empty"
+        )
+    if s1 is None:
+        assert s2 is not None
+        return s2
+    elif s2 is None:
+        assert s1 is not None
+        return s1
+    else:
+        dims = _combine_dims(s1["dims"], s2["dims"], concat_dim)
+        chunks = _combine_chunks(s1["chunks"], s2["chunks"], concat_dim)
+        attrs = _combine_attrs(s1["attrs"], s2["attrs"])
+        data_vars = _combine_vars(s1["data_vars"], s2["data_vars"], concat_dim)
+        coords = _combine_vars(s1["coords"], s2["coords"], concat_dim, allow_both=True)
+        return {
+            "attrs": attrs,
+            "coords": coords,
+            "data_vars": data_vars,
+            "dims": dims,
+            "chunks": chunks,
+        }
 
 
 def _combine_dims(
@@ -105,7 +78,7 @@ def _combine_dims(
         if dim == concat_dim:
             dim_len = l1 + l2
         elif l1 != l2:
-            raise DatasetCombineError(f"Dimensions for {dim} have different sizes: {l1}, {l2}")
+            raise ValueError(f"Dimensions for {dim} have different sizes: {l1}, {l2}")
         else:
             dim_len = l1
         new_dims[dim] = dim_len
@@ -124,17 +97,17 @@ def _combine_chunks(c1: ChunkDict, c2: ChunkDict, concat_dim: Optional[str]) -> 
 
     chunks = {}
     if set(c1) != set(c2):
-        raise DatasetCombineError("Expect the same dims in both chunk sets")
+        raise ValueError("Expect the same dims in both chunk sets")
     for dim in c1:
         if dim == concat_dim:
             # merge chunks
             # check for overlapping keys
             if set(c1[dim]) & set(c2[dim]):
-                raise DatasetCombineError("Found overlapping keys in concat_dim")
+                raise ValueError("Found overlapping keys in concat_dim")
             chunks[dim] = {**c1[dim], **c2[dim]}
         else:
             if c1[dim] != c2[dim]:
-                raise DatasetCombineError("Non concat_dim chunks must be the same")
+                raise ValueError("Non concat_dim chunks must be the same")
             chunks[dim] = c1[dim]
     return chunks
 
@@ -175,7 +148,7 @@ def _combine_vars(v1, v2, concat_dim, allow_both=False):
             new_vars[vname] = v1[vname]
         else:
             if concat_dim is None and not allow_both:
-                raise DatasetCombineError(f"Can't merge datasets with the same variable {vname}")
+                raise ValueError(f"Can't merge datasets with the same variable {vname}")
             attrs = _combine_attrs(v1[vname]["attrs"], v2[vname]["attrs"])
             dtype = _combine_dtype(v1[vname]["dtype"], v2[vname]["dtype"])
             # Can combine encoding using the same approach as attrs
@@ -186,16 +159,14 @@ def _combine_vars(v1, v2, concat_dim, allow_both=False):
             )
             if d1 != d2:
                 # should we make this logic insensitive to permutations?
-                raise DatasetCombineError(f"Can't merge variables with different dims {d1}, {d2}")
+                raise ValueError(f"Can't merge variables with different dims {d1}, {d2}")
             dims = d1
             shape = []
             for dname, l1, l2 in zip(dims, s1, s2):
                 if dname == concat_dim:
                     shape.append(l1 + l2)
                 elif l1 != l2:
-                    raise DatasetCombineError(
-                        f"Can't merge variables with different shapes {s1}, {s2}"
-                    )
+                    raise ValueError(f"Can't merge variables with different shapes {s1}, {s2}")
                 else:
                     shape.append(l1)
             new_vars[vname] = {
@@ -286,13 +257,19 @@ def schema_to_zarr(
     attrs: Optional[Dict[str, str]] = None,
     consolidated_metadata: Optional[bool] = True,
     encoding: Optional[Dict] = None,
+    append_dim: Optional[str] = None,
 ) -> zarr.storage.FSStore:
     """Initialize a zarr group based on a schema."""
+    if append_dim:
+        # if appending, only keep schema for coordinate to append. if we don't drop other
+        # coords, we may end up overwriting existing data on the `ds.to_zarr` call below.
+        schema["coords"] = {k: v for k, v in schema["coords"].items() if k == append_dim}
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
-    # using mode="w" makes this function idempotent
+    # using mode="w" makes this function idempotent when not appending
     ds.to_zarr(
         target_store,
-        mode="w",
+        append_dim=append_dim,
+        mode=("a" if append_dim else "w"),
         compute=False,
         consolidated=consolidated_metadata,
         encoding=encoding,
