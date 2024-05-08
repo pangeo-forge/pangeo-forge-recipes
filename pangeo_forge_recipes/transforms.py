@@ -701,12 +701,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
             )
         )
-<<<<<<< HEAD
-        logger.info(f"Storing Zarr with {target_chunks =} to {self.get_full_target()}")
-
-=======
         logger.info(f"Storing Zarr with {target_chunks=} to {self.get_full_target()}")
->>>>>>> main
         rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
 
         target_store = schema | PrepareZarrTarget(
@@ -845,7 +840,8 @@ class StoreToPyramid(beam.PTransform, ZarrWriterMixin):
             transform_pyr_lvls.append(zarr_pyr_path)
 
         # To consolidate the top level metadata, we need all the pyramid groups to be written.
-        # We are collecting all the pyramid level paths, doing a global combine to fake an AWAIT call,
+        # We are collecting all the pyramid level paths,
+        # doing a global combine to fake an AWAIT call,
         # then consolidating the metadata
 
         consolidated_path = (

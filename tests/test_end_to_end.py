@@ -16,7 +16,6 @@ from pangeo_forge_recipes.patterns import FilePattern, pattern_from_file_sequenc
 from pangeo_forge_recipes.transforms import (
     ConsolidateDimensionCoordinates,
     ConsolidateMetadata,
-    Indexed,
     OpenWithKerchunk,
     OpenWithXarray,
     StoreToPyramid,

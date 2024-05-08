@@ -49,7 +49,7 @@ def make_pyramid(levels: int):
     import rioxarray  # noqa
     from ndpyramid import pyramid_reproject
 
-    ds = make_ds(ny=180, nx=360)
+    ds = make_ds(nt=10)
     ds = ds.rename({"lon": "longitude", "lat": "latitude"})
     ds = ds.rio.write_crs("EPSG:4326")
 
