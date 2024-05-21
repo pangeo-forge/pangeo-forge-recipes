@@ -58,7 +58,7 @@ jobs:
         if: |
           github.event_name == 'push' ||
           github.event_name == 'pull_request'
-        uses: codecov/codecov-action@v4.4.0
+        uses: codecov/codecov-action@v4.4.1
         with:
           file: ./coverage.xml
           env_vars: OS,PYTHON
