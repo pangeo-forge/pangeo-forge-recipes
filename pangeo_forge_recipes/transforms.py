@@ -169,7 +169,9 @@ class OpenURLWithFSSpec(beam.PTransform):
             open_kwargs=self.open_kwargs,
         )
         return pcoll | MapWithConcurrencyLimit(
-            open_url, kwargs=kws, max_concurrency=self.max_concurrency
+            open_url,
+            kwargs=kws,
+            max_concurrency=self.max_concurrency,
         )
 
 
