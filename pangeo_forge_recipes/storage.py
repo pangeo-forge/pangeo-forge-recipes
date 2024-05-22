@@ -195,7 +195,8 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
 
         if self.exists(fname):
             cached_size = self.size(fname)
-            remote_size = input_opener.size
+            with input_opener as of:
+                remote_size = of.size
             if cached_size == remote_size:
                 # TODO: add checksumming here
                 logger.info(f"File '{fname}' is already cached")
