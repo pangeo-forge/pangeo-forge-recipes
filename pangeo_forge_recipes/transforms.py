@@ -165,7 +165,7 @@ class OpenURLWithFSSpec(beam.PTransform):
         kws = dict(
             cache=cache,
             secrets=self.secrets,
-            fsspec_sync_patch=self.sync_patch,
+            fsspec_sync_patch=self.fsspec_sync_patch,
             open_kwargs=self.open_kwargs,
         )
         return pcoll | MapWithConcurrencyLimit(
