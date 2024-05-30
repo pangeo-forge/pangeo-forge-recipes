@@ -145,8 +145,8 @@ class TransferFilesWithConcurrency(beam.DoFn):
     Attributes:
         transfer_target: The target directory to which files will be transferred.
         concurrency_per_executor: The number of concurrent threads per executor.
-        secrets): Optional dictionary containing secrets required for accessing the transfer target.
-        open_kwargs: Optional dictionary of keyword arguments to be passed when opening files.
+        secrets: Optional dictionary containing secrets required for accessing the transfer target.
+        open_kwargs: Dictionary of keyword arguments to be passed when opening files.
     """
 
     transfer_target: CacheFSSpecTarget
@@ -181,14 +181,12 @@ class CheckpointFileTransfer(beam.PTransform):
     A Beam transform that transfers files to a cache target with concurrency and grouping by key.
 
     Attributes:
-        transfer_target (Union[str, CacheFSSpecTarget]): The target to which files will be
-            transferred. This can be a string URL or a CacheFSSpecTarget instance.
-        secrets (Optional[dict]): Optional dictionary containing secrets required for accessing
-            the transfer target.
-        open_kwargs (Optional[dict]): Optional dictionary of keyword arguments to be passed when
-            opening files.
-        max_executors (Optional[int]): The maximum number of executors to be used. Elements will
-            be grouped by this number to limit total cluster concurrency.
+        transfer_target: The target to which files will be transferred. This can be a string URL
+            or a CacheFSSpecTarget instance.
+        secrets: Optional dictionary containing secrets required for accessing the transfer target.
+        open_kwargs: Optional dictionary of keyword arguments to be passed when opening files.
+        max_executors: The maximum number of executors to be used. Elements will be grouped by this
+            number to limit total cluster concurrency. Default is 20.
         concurrency_per_executor (Optional[int]): The number of concurrent threads per executor.
             Default is 10.
     """
