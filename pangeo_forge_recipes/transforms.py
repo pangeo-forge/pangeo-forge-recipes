@@ -146,13 +146,13 @@ class TransferFilesWithConcurrency(beam.DoFn):
         transfer_target: The target directory to which files will be transferred.
         concurrency_per_executor: The number of concurrent threads per executor.
         secrets: Optional dictionary containing secrets required for accessing the transfer target.
-        open_kwargs: Dictionary of keyword arguments to be passed when opening files.
+        open_kwargs: Optional dictionary of keyword arguments to be passed when opening files.
     """
 
     transfer_target: CacheFSSpecTarget
     max_concurrency: int
     secrets: Optional[Dict] = None
-    open_kwargs: Dict = {}
+    open_kwargs: Optional[Dict] = None
 
     def process(self, element):
         # key here is assigned solely to limit number of workers; we drop it immediately
@@ -171,7 +171,8 @@ class TransferFilesWithConcurrency(beam.DoFn):
                     logger.error(f"Error transferring file {url}: {e}")
 
     def transfer_file(self, index: Index, url: str) -> Tuple[Index, str]:
-        self.transfer_target.cache_file(url, self.secrets, **self.open_kwargs)
+        open_kwargs = self.open_kwargs or {}
+        self.transfer_target.cache_file(url, self.secrets, **open_kwargs)
         return (index, self.transfer_target._full_path(url))
 
 
