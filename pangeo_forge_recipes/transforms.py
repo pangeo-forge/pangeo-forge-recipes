@@ -4,8 +4,9 @@ import logging
 import math
 import random
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
 # PEP612 Concatenate & ParamSpec are useful for annotating decorators, but their import
 # differs between Python versions 3.9 & 3.10. See: https://stackoverflow.com/a/71990006
@@ -131,6 +132,95 @@ class MapWithConcurrencyLimit(beam.PTransform):
                     lambda kvlist: [
                         (kv[0], self.fn(kv[1], *self.args, **self.kwargs)) for kv in kvlist
                     ]
+                )
+            )
+        )
+
+
+@dataclass
+class TransferFilesWithConcurrency(beam.DoFn):
+    """
+    A DoFn for transferring files with concurrency.
+
+    Attributes:
+        transfer_target: The target directory to which files will be transferred.
+        concurrency_per_executor: The number of concurrent threads per executor.
+        secrets): Optional dictionary containing secrets required for accessing the transfer target.
+        open_kwargs: Optional dictionary of keyword arguments to be passed when opening files.
+    """
+
+    transfer_target: CacheFSSpecTarget
+    max_concurrency: int
+    secrets: Optional[Dict] = None
+    open_kwargs: Dict = {}
+
+    def process(self, element):
+        # key here is assigned solely to limit number of workers; we drop it immediately
+        key, indexed_urls = element
+        with ThreadPoolExecutor(max_workers=self.max_concurrency) as executor:
+            futures = {
+                executor.submit(self.transfer_file, index, url): (index, url)
+                for index, url in indexed_urls
+            }
+            for future in as_completed(futures):
+                try:
+                    index, new_url = future.result()
+                    yield (index, new_url)
+                except Exception as e:
+                    _, url = futures[future]
+                    logger.error(f"Error transferring file {url}: {e}")
+
+    def transfer_file(self, index: Index, url: str) -> Tuple[Index, str]:
+        self.transfer_target.cache_file(url, self.secrets, **self.open_kwargs)
+        return (index, self.transfer_target._full_path(url))
+
+
+@dataclass
+class CheckpointFileTransfer(beam.PTransform):
+    """
+    A Beam transform that transfers files to a cache target with concurrency and grouping by key.
+
+    Attributes:
+        transfer_target (Union[str, CacheFSSpecTarget]): The target to which files will be
+            transferred. This can be a string URL or a CacheFSSpecTarget instance.
+        secrets (Optional[dict]): Optional dictionary containing secrets required for accessing
+            the transfer target.
+        open_kwargs (Optional[dict]): Optional dictionary of keyword arguments to be passed when
+            opening files.
+        max_executors (Optional[int]): The maximum number of executors to be used. Elements will
+            be grouped by this number to limit total cluster concurrency.
+        concurrency_per_executor (Optional[int]): The number of concurrent threads per executor.
+            Default is 10.
+    """
+
+    transfer_target: Union[str, CacheFSSpecTarget]
+    secrets: Optional[dict] = None
+    open_kwargs: Optional[dict] = None
+    max_executors: int = 20
+    concurrency_per_executor: int = 10
+
+    def assign_keys(self, element) -> Tuple[int, Any]:
+        index, url = element
+        key = random.randint(0, self.max_executors - 1)
+        return (key, (index, url))
+
+    def expand(self, pcoll):
+        if isinstance(self.transfer_target, str):
+            target = CacheFSSpecTarget.from_url(self.transfer_target)
+        else:
+            target = self.transfer_target
+
+        return (
+            pcoll
+            | "Assign Executor Grouping Key" >> beam.Map(self.assign_keys)
+            | "Group per-executor work" >> beam.GroupByKey()
+            | "Limited concurrency file transfer"
+            >> beam.ParDo(
+                TransferFilesWithConcurrency(
+                    transfer_target=target,
+                    secrets=self.secrets,
+                    open_kwargs=self.open_kwargs,
+                    max_concurrency=self.concurrency_per_executor,
                 )
             )
         )
