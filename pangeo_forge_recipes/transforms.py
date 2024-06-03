@@ -154,9 +154,7 @@ class TransferFilesWithConcurrency(beam.DoFn):
     secrets: Optional[Dict] = None
     open_kwargs: Optional[Dict] = None
 
-    def process(self, element):
-        # key here is assigned solely to limit number of workers; we drop it immediately
-        key, indexed_urls = element
+    def process(self, indexed_urls):
         with ThreadPoolExecutor(max_workers=self.max_concurrency) as executor:
             futures = {
                 executor.submit(self.transfer_file, index, url): (index, url)
@@ -213,6 +211,7 @@ class CheckpointFileTransfer(beam.PTransform):
             pcoll
             | "Assign Executor Grouping Key" >> beam.Map(self.assign_keys)
             | "Group per-executor work" >> beam.GroupByKey()
+            | "Unkey after grouping" >> beam.Values()
             | "Limited concurrency file transfer"
             >> beam.ParDo(
                 TransferFilesWithConcurrency(
