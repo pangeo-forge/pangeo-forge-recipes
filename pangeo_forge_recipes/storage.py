@@ -234,7 +234,6 @@ def _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs):
         SyncHTTPFileSystem.overwrite_async_registration()
         logger.debug("Synchronous HTTP implementation enabled.")
 
-
     fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
     return fsspec.open(fname, mode="rb", **open_kwargs)
 
