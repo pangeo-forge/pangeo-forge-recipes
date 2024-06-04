@@ -4,6 +4,7 @@ import logging
 import math
 import random
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union
@@ -150,6 +151,9 @@ class TransferFilesWithConcurrency(beam.DoFn):
         fsspec_sync_patch: Experimental. Likely slower. When enabled, this attempts to
             replace asynchronous code with synchronous implementations to potentially address
             deadlocking issues. cf. https://github.com/h5py/h5py/issues/2019
+        max_retries: The maximum number of retries for failed file transfers.
+        initial_backoff: The initial backoff time in seconds before retrying a failed transfer.
+        backoff_factor: The factor by which the backoff time is multiplied after each retry.
     """
 
     transfer_target: CacheFSSpecTarget
@@ -157,6 +161,9 @@ class TransferFilesWithConcurrency(beam.DoFn):
     secrets: Optional[Dict] = None
     open_kwargs: Optional[Dict] = None
     fsspec_sync_patch: bool = False
+    max_retries: int
+    initial_backoff: float
+    backoff_factor: float
 
     def process(self, indexed_urls):
         with ThreadPoolExecutor(max_workers=self.max_concurrency) as executor:
@@ -172,10 +179,22 @@ class TransferFilesWithConcurrency(beam.DoFn):
                     _, url = futures[future]
                     logger.error(f"Error transferring file {url}: {e}")
 
-    def transfer_file(self, index: Index, url: str) -> Tuple[Index, str]:
-        open_kwargs = self.open_kwargs or {}
-        self.transfer_target.cache_file(url, self.secrets, self.fsspec_sync_patch, **open_kwargs)
-        return (index, self.transfer_target._full_path(url))
+    def transfer_file(self, index: int, url: str) -> Tuple[int, str]:
+        retries = 0
+        while retries <= self.max_retries:
+            try:
+                open_kwargs = self.open_kwargs or {}
+                self.transfer_target.cache_file(url, self.secrets, self.fsspec_sync_patch, **open_kwargs)
+                return (index, self.transfer_target._full_path(url))
+            except Exception as e:
+                if retries == self.max_retries:
+                    logger.error(f"Max retries reached for {url}: {e}")
+                    raise e
+                else:
+                    backoff_time = self.initial_backoff * (self.backoff_factor ** retries)
+                    logger.warning(f"Error transferring file {url}: {e}. Retrying in {backoff_time} seconds...")
+                    time.sleep(backoff_time)
+                    retries += 1
 
 
 @dataclass
@@ -195,6 +214,9 @@ class CheckpointFileTransfer(beam.PTransform):
         fsspec_sync_patch: Experimental. Likely slower. When enabled, this attempts to
             replace asynchronous code with synchronous implementations to potentially address
             deadlocking issues. cf. https://github.com/h5py/h5py/issues/2019
+        max_retries: The maximum number of retries for failed file transfers.
+        initial_backoff: The initial backoff time in seconds before retrying a failed transfer.
+        backoff_factor: The factor by which the backoff time is multiplied after each retry.
     """
 
     transfer_target: Union[str, CacheFSSpecTarget]
@@ -203,6 +225,9 @@ class CheckpointFileTransfer(beam.PTransform):
     max_executors: int = 20
     concurrency_per_executor: int = 10
     fsspec_sync_patch: bool = False
+    max_retries: int = 5
+    initial_backoff: float = 1.0
+    backoff_factor: float = 2.0
 
     def assign_keys(self, element) -> Tuple[int, Any]:
         index, url = element
@@ -228,6 +253,9 @@ class CheckpointFileTransfer(beam.PTransform):
                     open_kwargs=self.open_kwargs,
                     max_concurrency=self.concurrency_per_executor,
                     fsspec_sync_patch=self.fsspec_sync_patch,
+                    max_retries=self.max_retries,
+                    initial_backoff=self.initial_backoff,
+                    backoff_factor=self.backoff_factor
                 )
             )
         )
