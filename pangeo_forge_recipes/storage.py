@@ -22,12 +22,6 @@ logger = logging.getLogger(__name__)
 OpenFileType = Union[fsspec.core.OpenFile, fsspec.spec.AbstractBufferedFile, io.IOBase]
 
 
-def _get_url_size(fname, secrets, **open_kwargs):
-    with _get_opener(fname, secrets, **open_kwargs) as of:
-        size = of.size
-    return size
-
-
 def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
     with input_opener as source:
         with output_opener as target:
@@ -192,18 +186,22 @@ class FlatFSSpecTarget(FSSpecTarget):
 class CacheFSSpecTarget(FlatFSSpecTarget):
     """Alias for FlatFSSpecTarget"""
 
-    def cache_file(self, fname: str, secrets: Optional[dict], **open_kwargs) -> None:
+    def cache_file(
+        self, fname: str, secrets: Optional[dict], fsspec_sync_patch=False, **open_kwargs
+    ) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
+        input_opener = _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs)
+
         if self.exists(fname):
             cached_size = self.size(fname)
-            remote_size = _get_url_size(fname, secrets, **open_kwargs)
+            with input_opener as of:
+                remote_size = of.size
             if cached_size == remote_size:
                 # TODO: add checksumming here
                 logger.info(f"File '{fname}' is already cached")
                 return
 
-        input_opener = _get_opener(fname, secrets, **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Copying remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
@@ -228,7 +226,14 @@ def _add_query_string_secrets(fname: str, secrets: dict) -> str:
     return urlunparse(parsed)
 
 
-def _get_opener(fname, secrets, **open_kwargs):
+def _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs):
+    if fsspec_sync_patch:
+        logger.debug("Attempting to enable synchronous filesystem implementations in FSSpec")
+        from httpfs_sync.core import SyncHTTPFileSystem
+
+        SyncHTTPFileSystem.overwrite_async_registration()
+        logger.debug("Synchronous HTTP implementation enabled.")
+
     fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
     return fsspec.open(fname, mode="rb", **open_kwargs)
 
