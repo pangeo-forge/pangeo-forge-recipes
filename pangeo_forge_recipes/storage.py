@@ -229,15 +229,11 @@ def _add_query_string_secrets(fname: str, secrets: dict) -> str:
 def _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs):
     if fsspec_sync_patch:
         logger.debug("Attempting to enable synchronous filesystem implementations in FSSpec")
-        try:
-            from httpfs_sync.core import SyncHTTPFileSystem
+        from httpfs_sync.core import SyncHTTPFileSystem
 
-            SyncHTTPFileSystem.overwrite_async_registration()
-            logger.debug("Synchronous HTTP implementation enabled.")
-        except ImportError:
-            logger.warning(
-                "httpfs_sync could not be imported. Falling back to async http implementation."
-            )
+        SyncHTTPFileSystem.overwrite_async_registration()
+        logger.debug("Synchronous HTTP implementation enabled.")
+
 
     fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
     return fsspec.open(fname, mode="rb", **open_kwargs)
