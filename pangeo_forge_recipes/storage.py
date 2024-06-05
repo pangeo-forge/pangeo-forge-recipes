@@ -191,17 +191,13 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
     ) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
-        input_opener = _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs)
 
         if self.exists(fname):
-            cached_size = self.size(fname)
-            with input_opener as of:
-                remote_size = of.size
-            if cached_size == remote_size:
-                # TODO: add checksumming here
-                logger.info(f"File '{fname}' is already cached")
-                return
+            # TODO: revisit the changes here
+            logger.info(f"File '{fname}' is already cached")
+            return
 
+        input_opener = _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Copying remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
