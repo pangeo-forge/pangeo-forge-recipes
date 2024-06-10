@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import math
 import random
@@ -7,7 +8,7 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
 # PEP612 Concatenate & ParamSpec are useful for annotating decorators, but their import
 # differs between Python versions 3.9 & 3.10. See: https://stackoverflow.com/a/71990006
@@ -237,10 +238,12 @@ class CheckpointFileTransfer(beam.PTransform):
     initial_backoff: float = 1.0
     backoff_factor: float = 2.0
 
-    def assign_keys(self, element) -> Tuple[int, Any]:
+    @staticmethod
+    def assign_keys(element, max_executors):
+        """Assign a heuristically balanced key via hashlib for determinacy"""
         index, url = element
-        key = random.randint(0, self.max_executors - 1)
-        return (key, (index, url))
+        key = int(hashlib.md5(url.encode()).hexdigest(), 16) % max_executors
+        return key, element
 
     @staticmethod
     def filter_existing_files(element, transfer_target):
@@ -255,15 +258,13 @@ class CheckpointFileTransfer(beam.PTransform):
             target = self.transfer_target
 
         if self.filter_transferred_files:
-            pcollection = pcoll | "Filter already-transferred" >> beam.ParDo(
+            pcoll = pcoll | "Filter already-transferred" >> beam.ParDo(
                 lambda element: self.filter_existing_files(element, target)
             )
-        else:
-            pcollection = pcoll
 
         return (
-            pcollection
-            | "Assign Executor Grouping Key" >> beam.Map(self.assign_keys)
+            pcoll
+            | "Assign keys via hash" >> beam.Map(lambda element: self.assign_keys(element, self.max_executors))
             | "Group per-executor work" >> beam.GroupByKey()
             | "Unkey after grouping" >> beam.Values()
             | "Limited concurrency file transfer"
