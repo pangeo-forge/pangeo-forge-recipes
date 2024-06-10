@@ -264,7 +264,8 @@ class CheckpointFileTransfer(beam.PTransform):
 
         return (
             pcoll
-            | "Assign keys via hash" >> beam.Map(lambda element: self.assign_keys(element, self.max_executors))
+            | "Assign keys via hash"
+            >> beam.Map(lambda element: self.assign_keys(element, self.max_executors))
             | "Group per-executor work" >> beam.GroupByKey()
             | "Unkey after grouping" >> beam.Values()
             | "Limited concurrency file transfer"
