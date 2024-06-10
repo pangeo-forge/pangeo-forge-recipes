@@ -179,7 +179,7 @@ class TransferFilesWithConcurrency(beam.DoFn):
                     _, url = futures[future]
                     logger.error(f"Error transferring file {url}: {e}")
 
-    def transfer_file(self, index: int, url: str) -> Tuple[int, str]:
+    def transfer_file(self, index: Index, url: str) -> Tuple[Index, str]:
         retries = 0
         while retries <= self.max_retries:
             try:
@@ -217,6 +217,7 @@ class CheckpointFileTransfer(beam.PTransform):
             number to limit total cluster concurrency. Default is 20.
         concurrency_per_executor (Optional[int]): The number of concurrent threads per executor.
             Default is 10.
+        filter_transferred_files: Attempt to filter file transfers where target URLs already exist.
         fsspec_sync_patch: Experimental. Likely slower. When enabled, this attempts to
             replace asynchronous code with synchronous implementations to potentially address
             deadlocking issues. cf. https://github.com/h5py/h5py/issues/2019
@@ -231,6 +232,7 @@ class CheckpointFileTransfer(beam.PTransform):
     max_executors: int = 20
     concurrency_per_executor: int = 10
     fsspec_sync_patch: bool = False
+    filter_transferred_files: bool = False
     max_retries: int = 5
     initial_backoff: float = 1.0
     backoff_factor: float = 2.0
@@ -240,14 +242,27 @@ class CheckpointFileTransfer(beam.PTransform):
         key = random.randint(0, self.max_executors - 1)
         return (key, (index, url))
 
+    @staticmethod
+    def filter_existing_files(element, transfer_target):
+        index, url = element
+        if not transfer_target.exists(url):
+            yield element
+
     def expand(self, pcoll):
         if isinstance(self.transfer_target, str):
             target = CacheFSSpecTarget.from_url(self.transfer_target)
         else:
             target = self.transfer_target
 
+        if self.filter_transferred_files:
+            pcollection = pcoll | "Filter already-transferred" >> beam.ParDo(
+                lambda element: self.filter_existing_files(element, target)
+            )
+        else:
+            pcollection = pcoll
+
         return (
-            pcoll
+            pcollection
             | "Assign Executor Grouping Key" >> beam.Map(self.assign_keys)
             | "Group per-executor work" >> beam.GroupByKey()
             | "Unkey after grouping" >> beam.Values()
