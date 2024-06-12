@@ -162,10 +162,12 @@ class TransferFilesWithConcurrency(beam.DoFn):
     secrets: Optional[Dict] = None
     open_kwargs: Optional[Dict] = None
     fsspec_sync_patch: bool = False
-    max_retries: int = 5
-    initial_backoff: float = 1.0
+    max_retries: int = 3
+    initial_backoff: float = 2.0
     backoff_factor: float = 2.0
 
+    # TODO: Fall back to lower concurrency per-worker rather than simply retrying per request
+    # TODO: Make sure to keep track of what has succeeded so as not to duplicate reads/writes
     def process(self, indexed_urls):
         with ThreadPoolExecutor(max_workers=self.max_concurrency) as executor:
             futures = {
@@ -204,6 +206,7 @@ class TransferFilesWithConcurrency(beam.DoFn):
         raise RuntimeError(f"Failed to transfer file {url} after {self.max_retries} attempts.")
 
 
+#TODO: MAKE SURE ALL URLS PUT IN COME OUT
 @dataclass
 class CheckpointFileTransfer(beam.PTransform):
     """
