@@ -23,8 +23,8 @@ OpenFileType = Union[fsspec.core.OpenFile, fsspec.spec.AbstractBufferedFile, io.
 
 
 def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
-    with input_opener as source:
-        with output_opener as target:
+    try:
+        with input_opener as source, output_opener as target:
             start = time.time()
             interval = 5  # seconds
             bytes_read = log_count = 0
@@ -42,7 +42,10 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                         f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
                     )
                     log_count += 1
-    logger.debug("_copy_btw_filesystems done")
+    except Exception as e:
+        logger.error(f"Failed during file copy after reading {bytes_read} bytes: {e}")
+        raise e
+    logger.debug("_copy_btw_filesystems completed successfully")
 
 
 class AbstractTarget(ABC):
@@ -191,13 +194,17 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
     ) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
+        input_opener = _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs)
 
         if self.exists(fname):
-            # TODO: revisit the changes here
-            logger.info(f"File '{fname}' is already cached")
-            return
+            cached_size = self.size(fname)
+            with input_opener as of:
+                remote_size = of.size
+            if cached_size == remote_size:
+                # TODO: add checksumming here
+                logger.info(f"File '{fname}' is already cached")
+                return
 
-        input_opener = _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs)
         target_opener = self.open(fname, mode="wb")
         logger.info(f"Copying remote file '{fname}' to cache")
         _copy_btw_filesystems(input_opener, target_opener)
