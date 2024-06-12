@@ -15,6 +15,7 @@ from .storage import CacheFSSpecTarget, OpenFileType, _copy_btw_filesystems, _ge
 
 logger = logging.getLogger(__name__)
 
+
 def open_url(
     url: str,
     cache: Optional[CacheFSSpecTarget] = None,
