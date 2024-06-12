@@ -235,14 +235,14 @@ def _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs):
             SyncHTTPFileSystem.overwrite_async_registration()
             logger.debug("Synchronous HTTP implementation enabled.")
         except ImportError:
-            logger.error("'httpfs_sync' is not installed")
+            logger.exception("'httpfs_sync' is not installed")
 
         try:
             import s3fs
             s3fs.S3SyncFileSystem.overwrite_async_registration()
             logger.debug("Synchronous S3FileSystem implementation enabled.")
         except ImportError:
-            logger.error("'s3fs' is not installed")
+            logger.exception("'s3fs' is not installed")
 
 
     fname = fname if not secrets else _add_query_string_secrets(fname, secrets)
