@@ -206,7 +206,6 @@ class TransferFilesWithConcurrency(beam.DoFn):
         raise RuntimeError(f"Failed to transfer file {url} after {self.max_retries} attempts.")
 
 
-# TODO: MAKE SURE ALL URLS PUT IN COME OUT
 @dataclass
 class CheckpointFileTransfer(beam.PTransform):
     """
@@ -254,6 +253,11 @@ class CheckpointFileTransfer(beam.PTransform):
         if not transfer_target.exists(url):
             yield element
 
+    @staticmethod
+    def get_target_urls(element, transfer_target):
+        index, url = element
+        return (index, transfer_target._full_path(url))
+
     def expand(self, pcoll):
         if isinstance(self.transfer_target, str):
             target = CacheFSSpecTarget.from_url(self.transfer_target)
@@ -261,12 +265,14 @@ class CheckpointFileTransfer(beam.PTransform):
             target = self.transfer_target
 
         if self.filter_transferred_files:
-            pcoll = pcoll | "Filter already-transferred" >> beam.ParDo(
+            filtered_pcoll = pcoll | "Filter already-transferred" >> beam.ParDo(
                 lambda element: self.filter_existing_files(element, target)
             )
+        else:
+            filtered_pcoll = pcoll
 
-        return (
-            pcoll
+        transfer_steps = (
+            filtered_pcoll
             | "Assign keys via hash"
             >> beam.Map(lambda element: self.assign_keys(element, self.max_executors))
             | "Group per-executor work" >> beam.GroupByKey()
@@ -284,6 +290,12 @@ class CheckpointFileTransfer(beam.PTransform):
                     backoff_factor=self.backoff_factor,
                 )
             )
+        )
+
+        return (
+            pcoll
+            | beam.WaitOn(transfer_steps)
+            | beam.Map(lambda element: self.get_target_urls(element, target))
         )
 
 
