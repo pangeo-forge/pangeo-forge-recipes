@@ -466,7 +466,14 @@ class IndexItems(beam.PTransform):
         for dimkey, dimval in index.items():
             if dimkey.operation == CombineOp.CONCAT:
                 item_len_dict = schema["chunks"][dimkey.name]
-                item_lens = [item_len_dict[n] for n in range(len(item_len_dict))]
+                try:
+                    item_lens = [item_len_dict[n] for n in range(len(item_len_dict))]
+                except KeyError as e:
+                    logger.error(f"KeyError while indexing {dimkey.name} with start/stop positions")
+                    logger.error(
+                        f"Key {e.args[0]} not in item_len_dict keys: {list(item_len_dict.keys())}"
+                    )
+                    raise e
                 dimval = augment_index_with_start_stop(dimval, item_lens, append_offset)
             new_index[dimkey] = dimval
         return new_index, ds
