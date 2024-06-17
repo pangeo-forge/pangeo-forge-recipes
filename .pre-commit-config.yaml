@@ -19,7 +19,7 @@ repos:
       args: ["--line-length", "100"]
 
 -   repo: https://github.com/PyCQA/flake8
-    rev: 7.0.0
+    rev: 7.1.0
     hooks:
     - id: flake8
       exclude: pangeo_forge_recipes/recipes
