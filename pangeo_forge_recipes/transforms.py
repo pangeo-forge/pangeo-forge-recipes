@@ -145,12 +145,16 @@ class OpenURLWithFSSpec(beam.PTransform):
     :param secrets: If provided these secrets will be injected into the URL as a query string.
     :param open_kwargs: Extra arguments passed to fsspec.open.
     :param max_concurrency: Max concurrency for this transform.
+    :param fsspec_sync_patch: Experimental. Likely slower. When enabled, this attempts to
+        replace asynchronous code with synchronous implementations to potentially address
+        deadlocking issues. cf. https://github.com/h5py/h5py/issues/2019
     """
 
     cache: Optional[str | CacheFSSpecTarget] = None
     secrets: Optional[dict] = None
     open_kwargs: Optional[dict] = None
     max_concurrency: Optional[int] = None
+    fsspec_sync_patch: bool = False
 
     def expand(self, pcoll):
         if isinstance(self.cache, str):
@@ -161,6 +165,7 @@ class OpenURLWithFSSpec(beam.PTransform):
         kws = dict(
             cache=cache,
             secrets=self.secrets,
+            fsspec_sync_patch=self.fsspec_sync_patch,
             open_kwargs=self.open_kwargs,
         )
         return pcoll | MapWithConcurrencyLimit(
@@ -699,7 +704,6 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
             )
         )
-        logger.info(f"Storing Zarr with {target_chunks=} to {self.get_full_target()}")
         rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(),

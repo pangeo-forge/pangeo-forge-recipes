@@ -18,6 +18,7 @@ def open_url(
     cache: Optional[CacheFSSpecTarget] = None,
     secrets: Optional[Dict] = None,
     open_kwargs: Optional[Dict] = None,
+    fsspec_sync_patch: bool = False,
 ) -> OpenFileType:
     """Open a string-based URL with fsspec.
 
@@ -29,10 +30,10 @@ def open_url(
     kw = open_kwargs or {}
     if cache is not None:
         # this has side effects
-        cache.cache_file(url, secrets, **kw)
+        cache.cache_file(url, secrets, fsspec_sync_patch, **kw)
         open_file = cache.open_file(url, mode="rb")
     else:
-        open_file = _get_opener(url, secrets, **kw)
+        open_file = _get_opener(url, secrets, fsspec_sync_patch, **kw)
     return open_file
 
 
