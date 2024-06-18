@@ -42,6 +42,7 @@ OPENER_MAP = {
     FileType.zarr: dict(engine="zarr"),
     FileType.opendap: dict(engine="netcdf4"),
     FileType.grib: dict(engine="cfgrib"),
+    FileType.kerchunk: dict(engine="kerchunk"),
 }
 
 
