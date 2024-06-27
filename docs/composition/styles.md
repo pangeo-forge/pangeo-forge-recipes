@@ -27,6 +27,15 @@ the recipe pipeline will contain at a minimum the following transforms applied t
 * {class}`pangeo_forge_recipes.transforms.ConsolidateDimensionCoordinates`: consolidate the Dimension Coordinates for dataset read performance.
 * {class}`pangeo_forge_recipes.transforms.ConsolidateMetadata`: calls Zarr's convinience function to consolidate metadata.
 
+### Open existing Zarr Store
+* {class}`pangeo_forge_recipes.transforms.OpenWithXarray` supports opening existing Zarr stores. This might be useful for rechunking a Zarr store into an alternative chunking scheme.
+An example of this recipe can be found in - {doc}`examples/gpcp-rechunk`
+
+
+
+
+
+
 ```{tip}
 If using the {class}`pangeo_forge_recipes.transforms.ConsolidateDimensionCoordinates` transform, make sure to chain on the {class}`pangeo_forge_recipes.transforms.ConsolidateMetadata` transform to your recipe.
 
