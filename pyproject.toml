@@ -42,7 +42,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "click",
-  "pytest<8.0.0",
+  "pytest<9.0.0",
   "pytest-cov",
   "pytest-xdist",
   "pytest-lazy-fixtures",
