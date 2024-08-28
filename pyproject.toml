@@ -27,7 +27,7 @@ keywords = ["pangeo", "data"]
 dependencies = [
     "apache-beam",
     "cftime",
-    "dask,
+    "dask",
     "fastparquet",
     "fsspec[http]",
     "h5netcdf",
