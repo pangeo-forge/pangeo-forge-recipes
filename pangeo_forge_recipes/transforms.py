@@ -20,11 +20,26 @@ import xarray as xr
 import zarr
 from kerchunk.combine import MultiZarrToZarr
 
-from .aggregation import XarraySchema, dataset_to_schema, schema_to_template_ds, schema_to_zarr
+from .aggregation import (
+    XarraySchema,
+    dataset_to_schema,
+    schema_to_template_ds,
+    schema_to_zarr,
+)
 from .combiners import CombineXarraySchemas, MinMaxCountCombineFn
 from .openers import open_url, open_with_kerchunk, open_with_xarray
-from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
-from .rechunking import combine_fragments, consolidate_dimension_coordinates, split_fragment
+from .patterns import (
+    CombineOp,
+    Dimension,
+    FileType,
+    Index,
+    augment_index_with_start_stop,
+)
+from .rechunking import (
+    combine_fragments,
+    consolidate_dimension_coordinates,
+    split_fragment,
+)
 from .storage import CacheFSSpecTarget, FSSpecTarget
 from .types import Indexed
 from .writers import (
