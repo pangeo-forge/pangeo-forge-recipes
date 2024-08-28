@@ -12,7 +12,18 @@ from dataclasses import dataclass, field, replace
 from enum import Enum, auto
 from hashlib import sha256
 from itertools import product
-from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from .serialization import dict_drop_empty, dict_to_sha256
 from .types import CombineOp, Dimension, Index, IndexedPosition, Position
