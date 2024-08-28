@@ -15,13 +15,7 @@ from pangeo_forge_recipes.rechunking import (
     consolidate_dimension_coordinates,
     split_fragment,
 )
-from pangeo_forge_recipes.types import (
-    CombineOp,
-    Dimension,
-    Index,
-    IndexedPosition,
-    Position,
-)
+from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
 
 from .conftest import split_up_files_by_variable_and_day
 from .data_generation import make_ds

@@ -14,13 +14,7 @@ from pangeo_forge_recipes.transforms import (
     StoreToZarr,
     WriteCombinedReference,
 )
-from pangeo_forge_recipes.types import (
-    CombineOp,
-    Dimension,
-    Index,
-    IndexedPosition,
-    Position,
-)
+from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
 from pangeo_forge_recipes.writers import store_dataset_fragment
 
 from .data_generation import make_ds
