@@ -32,7 +32,7 @@ dependencies = [
     "fsspec[http]",
     "h5netcdf",
     "h5py",
-    "kerchunk",
+    "kerchunk==0.2.4",
     "netcdf4",
     "numcodecs",
     "xarray",
