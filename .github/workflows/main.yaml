@@ -38,7 +38,7 @@ jobs:
       - name: 🌈 Install pangeo-forge-recipes package
         shell: bash -l {0}
         run: |
-          python -m pip install -e  ".[test]"
+          python -m pip install -e  ".[test]" "apache-beam>=2.54"
       # - name: 🧑‍💻 On the nightly run, test upstream dev versions
       #   if: |
       #     github.event_name == 'schedule'
