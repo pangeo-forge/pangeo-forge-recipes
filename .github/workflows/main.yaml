@@ -32,25 +32,29 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      #     cache-dependency-path: pyproject.toml
-      # - name: 🎯 Check cache hit
-      #   run: echo '${{ steps.setup-python.outputs.cache-hit }}'
+          cache-dependency-path: pyproject.toml
+      - name: 🎯 Check cache hit
+        run: echo '${{ steps.setup-python.outputs.cache-hit }}'
       - name: 🌈 Install pangeo-forge-recipes package
         shell: bash -l {0}
         run: |
           python -m pip install -e  ".[test]"
-      # - name: 🧑‍💻 On the nightly run, test upstream dev versions
-      #   if: |
-      #     github.event_name == 'schedule'
-      #   shell: bash -l {0}
-      #   run: |
-      #     python -m pip install -Ur ci/requirements-upstream-dev.txt
-      #     python -m pip install -U --pre apache-beam
+      - name: 🧑‍💻 On the nightly run, test upstream dev versions
+        if: |
+          github.event_name == 'schedule'
+        shell: bash -l {0}
+        run: |
+          python -m pip install -Ur ci/requirements-upstream-dev.txt
+          python -m pip install -U --pre apache-beam
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
         run: |
-          py.test tests -v
 
+        py.test tests -v -n auto \
+            --cov=pangeo_forge_recipes --cov-config .coveragerc \
+            --cov-report term-missing \
+            --cov-report xml \
+            --durations=10 --durations-min=1.0
       - name: 🚦 Run Codecov
         if: |
           github.event_name == 'push' ||
