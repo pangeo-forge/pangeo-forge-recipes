@@ -25,18 +25,18 @@ classifiers = [
 license = { text = "Apache-2.0" }
 keywords = ["pangeo", "data"]
 dependencies = [
-    "apache-beam",
+    "apache-beam>=2.48",
     "cftime",
-    "dask >= 2021.11.2",
+    "dask",
     "fastparquet",
-    "fsspec[http] >= 2023.4.0",
+    "fsspec[http]",
     "h5netcdf",
-    "h5py >= 3.3.0",
-    "kerchunk >= 0.0.7",
+    "h5py",
+    "kerchunk!=0.2.6",
     "netcdf4",
-    "numcodecs >= 0.9.0",
-    "xarray >= 0.18.0",
-    "zarr >= 2.12.0",
+    "numcodecs",
+    "xarray",
+    "zarr",
 ]
 
 [project.optional-dependencies]
