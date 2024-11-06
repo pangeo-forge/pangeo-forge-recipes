@@ -32,6 +32,35 @@ def pipeline():
     with TestPipeline(options=options) as p:
         yield p
 
+def test_single_file_no_time(
+        xarray_dataset_one_file_no_time,
+        netcdf_local_file_pattern_single,
+        pipeline,
+        tmp_target,
+):
+    target_chunks = {} # TODO explore more options
+    pattern = netcdf_local_file_pattern_single
+    with pipeline as p:
+        (
+            p
+            | beam.Create(pattern.items())
+            | OpenWithXarray(file_type=pattern.file_type)
+            | StoreToZarr(
+                target_root=tmp_target,
+                store_name="store",
+                target_chunks=target_chunks,
+                combine_dims=pattern.combine_dim_keys,
+            )
+        )
+
+    ds = xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr")
+    ds = ds.load()
+    for dim, chunk_size in target_chunks.items():
+        assert ds[dim].encoding["chunks"] == (chunk_size,)
+    for dim, length in ds.sizes.items():
+        if dim not in target_chunks:
+            assert len(ds[dim]) == length
+    xr.testing.assert_equal(ds, xarray_dataset_one_file_no_time)
 
 @pytest.mark.parametrize("target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}])
 def test_xarray_zarr(
