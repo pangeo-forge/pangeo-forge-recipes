@@ -56,8 +56,13 @@ def test_xarray_zarr(
         )
 
     ds = xr.open_dataset(os.path.join(tmp_target.root_path, "store"), engine="zarr")
-    assert ds.time.encoding["chunks"] == (target_chunks["time"],)
-    xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
+    ds = ds.load()
+    for dim, chunk_size in target_chunks.items():
+        assert ds[dim].encoding["chunks"] == (chunk_size,)
+    for dim, length in ds.sizes.items():
+        if dim not in target_chunks:
+            assert len(ds[dim]) == length
+    xr.testing.assert_equal(ds, daily_xarray_dataset)
 
 
 def test_xarray_zarr_subpath(
