@@ -32,13 +32,14 @@ def pipeline():
     with TestPipeline(options=options) as p:
         yield p
 
+
 def test_single_file_no_time(
-        xarray_dataset_one_file_no_time,
-        netcdf_local_file_pattern_single,
-        pipeline,
-        tmp_target,
+    xarray_dataset_one_file_no_time,
+    netcdf_local_file_pattern_single,
+    pipeline,
+    tmp_target,
 ):
-    target_chunks = {} # TODO explore more options
+    target_chunks = {}  # TODO explore more options
     pattern = netcdf_local_file_pattern_single
     with pipeline as p:
         (
@@ -61,6 +62,7 @@ def test_single_file_no_time(
         if dim not in target_chunks:
             assert len(ds[dim]) == length
     xr.testing.assert_equal(ds, xarray_dataset_one_file_no_time)
+
 
 @pytest.mark.parametrize("target_chunks", [{"time": 1}, {"time": 2}, {"time": 3}])
 def test_xarray_zarr(
