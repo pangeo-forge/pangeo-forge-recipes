@@ -75,6 +75,43 @@ pangeo_forge_recipes = ["py.typed"]
 [tool.black]
 line-length = 100
 
+[tool.ruff]
+target-version = "py310"
+builtins = ["ellipsis"]
+exclude = [".git", ".eggs", "build", "dist", "__pycache__"]
+line-length = 100
+
+[tool.ruff.lint]
+ignore = [
+  "E402",  # module level import not at top of file
+  "E501",  # line too long - let black worry about that
+  "E731",  # do not assign a lambda expression, use a def
+  "UP038", # type union instead of tuple for isinstance etc
+]
+per-file-ignores = {
+  "examples/runner-config/local.py" = ["F821"]
+}
+select = [
+  "F",   # Pyflakes
+  "E",   # Pycodestyle
+  "I",   # isort
+  "UP",  # Pyupgrade
+  "TID", # flake8-tidy-imports
+  "W",
+]
+extend-safe-fixes = [
+  "TID252", # absolute imports
+]
+fixable = ["I", "TID252", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pangeo_forge_recipes"]
+combine-as-imports = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
+
 [tool.isort]
 known_first_party = "pangeo_forge_recipes"
 known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "gcsfs", "kerchunk", "numpy", "packaging", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "xarray", "zarr"]
