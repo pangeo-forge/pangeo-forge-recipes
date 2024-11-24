@@ -112,15 +112,6 @@ combine-as-imports = true
 # Disallow all relative imports.
 ban-relative-imports = "all"
 
-[tool.isort]
-known_first_party = "pangeo_forge_recipes"
-known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "gcsfs", "kerchunk", "numpy", "packaging", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "xarray", "zarr"]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-combine_as_imports = true
-line_length = 100
-
 [tool.pytest.ini_options]
 log_cli = false
 timeout = 30
