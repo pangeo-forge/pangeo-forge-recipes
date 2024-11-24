@@ -2,10 +2,10 @@ name: Integration tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
-    types: [ opened, reopened, synchronize, labeled ]
+    branches: ["main"]
+    types: [opened, reopened, synchronize, labeled]
 
 env:
   PYTEST_ADDOPTS: "--color=yes"
@@ -29,12 +29,11 @@ jobs:
         # https://github.com/pangeo-forge/pangeo-forge-recipes/issues/540#issuecomment-1685096271
         # Once https://github.com/pangeo-forge/pangeo-forge-runner/pull/90 goes in, we can add back
         # integration testing for 3.10 and 3.11 (for runner versions that follow that PR).
-        python-version: ["3.9"]  # , "3.10", "3.11"]
-        runner-version: [
-          "pangeo-forge-runner==0.9.1",
-          "pangeo-forge-runner==0.9.2",
-          "pangeo-forge-runner==0.9.3",
-        ]
+        python-version: ["3.9"] # , "3.10", "3.11"]
+        runner-version:
+          - "pangeo-forge-runner==0.9.1"
+          - "pangeo-forge-runner==0.9.2"
+          - "pangeo-forge-runner==0.9.3"
     steps:
       - uses: actions/checkout@v4
       - name: 🔁 Setup Python
@@ -44,7 +43,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
-
 
       - name: Install pangeo-forge recipes and runner
         shell: bash -l {0}
@@ -57,7 +55,7 @@ jobs:
         run: |
           python -m pip install ecmwflibs eccodes cfgrib
 
-      - name: 'Setup minio'
+      - name: "Setup minio"
         run: |
           wget --quiet https://dl.min.io/server/minio/release/linux-amd64/minio
           chmod +x minio

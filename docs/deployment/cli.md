@@ -50,13 +50,14 @@ A recipe in your {doc}`feedstock <feedstocks>` can be deployed with the followin
 language: bash
 ---
 ```
+
 Where the variables have the following values assigned to them:
 
 - `REPO`: Path to the feedstock repo. This can be a
-local path or a URL to a GitHub repo.
+  local path or a URL to a GitHub repo.
 - `CONFIG_FILE`: Local path to the deployment [](#configuration-file).
 - `RECIPE_ID`: The `id` of the recipe you'd like to run as it appears
-in your feedstock's [](./feedstocks.md#metayaml).
+  in your feedstock's [](./feedstocks.md#metayaml).
 - `JOB_NAME`: A unique name for this deployment.
 
 ```{tip}

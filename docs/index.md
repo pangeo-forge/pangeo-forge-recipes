@@ -14,8 +14,8 @@ Pangeo Forge is made of three official components:
 - `pangeo-forge-runner` **Command Line Interface (CLI)** - A utility for managing the configuration
   and deployment of version-controlled recipes. See {doc}`deployment/cli` for details.
 - **Deploy Recipe Action** - A Github Action that wraps the CLI, providing an interface
-for configuration and deployment of recipes in response to to GitHub Event triggers.
-See {doc}`deployment/action` for details.
+  for configuration and deployment of recipes in response to to GitHub Event triggers.
+  See {doc}`deployment/action` for details.
 
 A growing {doc}`ecosystem` of third-party extensions provide additional reusable components for
 customization of recipes.
@@ -56,7 +56,6 @@ transparency remain consistent over time, implementation details and project sco
 since publication.
 ```
 
-
 ## Frequently Asked Questions
 
 ### Is Pangeo Forge the right tool for my dataset?
@@ -90,13 +89,12 @@ Check out {doc}`contributing` for how to get started!
 Pangeo Forge is a community run effort with a variety of roles:
 
 - **Recipe developers** — Data engineers and enthusiasts who write recipes to define the data conversions.
-This can be anyone with a desire to create analysis ready cloud-optimized (ARCO) data. Explore
-{doc}`composition/index` for more on this role.
+  This can be anyone with a desire to create analysis ready cloud-optimized (ARCO) data. Explore
+  {doc}`composition/index` for more on this role.
 - **Data users** - Analysts, scientists, and domain experts who use the ARCO data produced by Pangeo Forge
-in their work and research.
+  in their work and research.
 - **Tooling developers** - Scientists and software developers who maintain and enhance the
-open-source code base which makes Pangeo Forge run. See {doc}`contributing` for more.
-
+  open-source code base which makes Pangeo Forge run. See {doc}`contributing` for more.
 
 ## Site Contents
 
