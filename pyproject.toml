@@ -97,10 +97,10 @@ select = [
   "TID", # flake8-tidy-imports
   "W",
 ]
-extend-safe-fixes = [
-  "TID252", # absolute imports
-]
-fixable = ["I", "TID252", "UP"]
+# extend-safe-fixes = [
+#   "TID252", # absolute imports
+# ]
+fixable = ["I", "UP"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["pangeo_forge_recipes"]
