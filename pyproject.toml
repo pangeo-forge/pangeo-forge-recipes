@@ -90,17 +90,17 @@ ignore = [
 ]
 per-file-ignores = { "examples/runner-config/local.py" = ["F821"] }
 select = [
-  "F",   # Pyflakes
-  "E",   # Pycodestyle
-  "I",   # isort
-  "UP",  # Pyupgrade
-  "TID", # flake8-tidy-imports
+  "F", # Pyflakes
+  "E", # Pycodestyle
+  "I", # isort
+  # "UP",  # Pyupgrade
+  # "TID", # flake8-tidy-imports
   "W",
 ]
 # extend-safe-fixes = [
 #   "TID252", # absolute imports
 # ]
-fixable = ["I", "UP"]
+fixable = ["I"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["pangeo_forge_recipes"]
