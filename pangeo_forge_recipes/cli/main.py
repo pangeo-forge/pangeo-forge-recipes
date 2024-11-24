@@ -22,15 +22,7 @@ def init(path):
     initialize_recipe(path)
 
 
-@main.command(help="run the recipe in PATH")
-@click.option(
-    "-f",
-    "--function-name",
-    "func_name",
-    default="recipe",
-    type=str,
-    help="The name of the recipe function.",
-)
+@main.command(help="run the feedstock in PATH")
 @click.option(
     "--runtime-config",
     type=click.File("r"),
@@ -43,12 +35,11 @@ def init(path):
         path_type=pathlib.Path,
         exists=True,
         readable=True,
-        writable=False,
         file_okay=False,
         dir_okay=True,
     ),
 )
-def run(path, func_name, runtime_config):
+def run(path, runtime_config):
     config = yaml.safe_load(runtime_config)
 
-    run_recipe(path, func_name, config)
+    run_recipe(path, config)
