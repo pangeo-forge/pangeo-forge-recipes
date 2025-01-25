@@ -48,6 +48,7 @@ test = [
     "pytest-lazy-fixture",
     "pytest-sugar",
     "pytest-timeout",
+    "pytest-reportlog",
     "s3fs",
     "gcsfs",
     "scipy",
