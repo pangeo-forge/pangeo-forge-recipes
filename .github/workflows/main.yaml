@@ -17,6 +17,7 @@ env:
 
 jobs:
   run-tests:
+    if: github.repository_owner == 'pangeo-forge'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
