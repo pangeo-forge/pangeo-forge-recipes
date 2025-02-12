@@ -40,7 +40,11 @@ def minio():
     )
     time.sleep(10)  # give it time to boot
     # enter
-    yield {"endpoint": f"http://localhost:{port}", "username": username, "password": password}
+    yield {
+        "endpoint": f"http://localhost:{port}",
+        "username": username,
+        "password": password,
+    }
     # exit
     minio_container.stop()
     minio_container.remove()
@@ -53,8 +57,12 @@ def test_python_json_configs_identical():
     from pangeo_forge_runner.commands.base import BaseCommand  # type: ignore
 
     python_, json_ = BaseCommand(), BaseCommand()
-    python_.load_config_file((EXAMPLES / "runner-config" / "local.py").absolute().as_posix())
-    json_.load_config_file((EXAMPLES / "runner-config" / "local.json").absolute().as_posix())
+    python_.load_config_file(
+        (EXAMPLES / "runner-config" / "local.py").absolute().as_posix()
+    )
+    json_.load_config_file(
+        (EXAMPLES / "runner-config" / "local.json").absolute().as_posix()
+    )
 
     assert python_.config and json_.config  # make sure we actually loaded something
     assert python_.config == json_.config
@@ -123,7 +131,9 @@ def test_integration(confpath_option: str, recipe_id: str, request):
         pytest.xfail(xfails[recipe_id])
 
     runner_version = parse_version(version("pangeo-forge-runner"))
-    if recipe_id == "hrrr-kerchunk-concat-step" and runner_version <= parse_version("0.9.2"):
+    if recipe_id == "hrrr-kerchunk-concat-step" and runner_version <= parse_version(
+        "0.9.2"
+    ):
         pytest.xfail("pg-runner version <= 0.9.2 didn't pass storage options")
 
     confpath = request.getfixturevalue(confpath_option)

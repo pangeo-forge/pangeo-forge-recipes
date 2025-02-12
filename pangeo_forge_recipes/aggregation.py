@@ -38,7 +38,9 @@ def dataset_to_schema(ds: xr.Dataset) -> XarraySchema:
 
 
 def _combine_xarray_schemas(
-    s1: Optional[XarraySchema], s2: Optional[XarraySchema], concat_dim: Optional[str] = None
+    s1: Optional[XarraySchema],
+    s2: Optional[XarraySchema],
+    concat_dim: Optional[str] = None,
 ) -> XarraySchema:
     if s1 is None and s2 is None:
         raise ValueError(
@@ -91,7 +93,9 @@ ChunkDict = Dict[str, Dict[int, int]]
 #  dim_name: {position, chunk_len}
 
 
-def _combine_chunks(c1: ChunkDict, c2: ChunkDict, concat_dim: Optional[str]) -> ChunkDict:
+def _combine_chunks(
+    c1: ChunkDict, c2: ChunkDict, concat_dim: Optional[str]
+) -> ChunkDict:
     if not c1:
         return c2
 
@@ -159,14 +163,18 @@ def _combine_vars(v1, v2, concat_dim, allow_both=False):
             )
             if d1 != d2:
                 # should we make this logic insensitive to permutations?
-                raise ValueError(f"Can't merge variables with different dims {d1}, {d2}")
+                raise ValueError(
+                    f"Can't merge variables with different dims {d1}, {d2}"
+                )
             dims = d1
             shape = []
             for dname, l1, l2 in zip(dims, s1, s2):
                 if dname == concat_dim:
                     shape.append(l1 + l2)
                 elif l1 != l2:
-                    raise ValueError(f"Can't merge variables with different shapes {s1}, {s2}")
+                    raise ValueError(
+                        f"Can't merge variables with different shapes {s1}, {s2}"
+                    )
                 else:
                     shape.append(l1)
             new_vars[vname] = {
@@ -192,7 +200,9 @@ def _to_variable(template, target_chunks):
 
     # special case for cftime object dtypes
     if dtype == "object" and "calendar" in encoding and "units" in encoding:
-        value = cftime.num2date(0, units=encoding["units"], calendar=encoding["calendar"])
+        value = cftime.num2date(
+            0, units=encoding["units"], calendar=encoding["calendar"]
+        )
         data = dsa.full(shape, value, chunks=chunks)
     else:
         # we pick zeros as the safest value to initialize empty data with
@@ -218,7 +228,9 @@ def determine_target_chunks(
     target_chunks.update(specified_chunks or {})
     if not include_all_dims:
         # remove chunks with the same size as their dimension
-        dims_to_remove = [dim for dim, cs in target_chunks.items() if cs == schema["dims"][dim]]
+        dims_to_remove = [
+            dim for dim, cs in target_chunks.items() if cs == schema["dims"][dim]
+        ]
         for dim in dims_to_remove:
             del target_chunks[dim]
     return target_chunks
@@ -239,7 +251,8 @@ def schema_to_template_ds(
     }
 
     coords = {
-        name: _to_variable(template, target_chunks) for name, template in schema["coords"].items()
+        name: _to_variable(template, target_chunks)
+        for name, template in schema["coords"].items()
     }
     dataset_attrs = schema["attrs"]
 
@@ -264,7 +277,9 @@ def schema_to_zarr(
     if append_dim:
         # if appending, only keep schema for coordinate to append. if we don't drop other
         # coords, we may end up overwriting existing data on the `ds.to_zarr` call below.
-        schema["coords"] = {k: v for k, v in schema["coords"].items() if k == append_dim}
+        schema["coords"] = {
+            k: v for k, v in schema["coords"].items() if k == append_dim
+        }
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
     # using mode="w" makes this function idempotent when not appending
     ds.to_zarr(

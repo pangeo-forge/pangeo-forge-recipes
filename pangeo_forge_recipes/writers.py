@@ -32,19 +32,25 @@ def _region_for(var: xr.Variable, index: Index) -> Tuple[slice, ...]:
 def _store_data(vname: str, var: xr.Variable, index: Index, zgroup: zarr.Group) -> None:
     zarr_array = zgroup[vname]
     # get encoding for variable from zarr attributes
-    var_coded = var.copy()  # copy needed for test suit to avoid modifying inputs in-place
+    var_coded = (
+        var.copy()
+    )  # copy needed for test suit to avoid modifying inputs in-place
     var_coded.encoding.update(zarr_array.attrs)
     var_coded.attrs = {}
     var = xr.backends.zarr.encode_zarr_variable(var_coded)
     data = np.asarray(var.data)
     region = _region_for(var, index)
     # check that the region evenly overlaps the zarr chunks
-    for dimsize, chunksize, region_slice in zip(zarr_array.shape, zarr_array.chunks, region):
+    for dimsize, chunksize, region_slice in zip(
+        zarr_array.shape, zarr_array.chunks, region
+    ):
         if region_slice.start is None:
             continue
         try:
             assert region_slice.start % chunksize == 0
-            assert (region_slice.stop % chunksize == 0) or (region_slice.stop == dimsize)
+            assert (region_slice.stop % chunksize == 0) or (
+                region_slice.stop == dimsize
+            )
         except AssertionError:
             raise ValueError(
                 f"Region {region} does not align with Zarr chunks {zarr_array.chunks}."
@@ -158,7 +164,9 @@ def write_combined_reference(
         out.flush()
 
     # If reference is a ReferenceFileSystem, write to json
-    elif isinstance(reference, fsspec.FSMap) and isinstance(reference.fs, ReferenceFileSystem):
+    elif isinstance(reference, fsspec.FSMap) and isinstance(
+        reference.fs, ReferenceFileSystem
+    ):
         # context manager reuses dep injected auth credentials without passing storage options
         with full_target.fs.open(outpath, "wb") as f:
             f.write(ujson.dumps(reference.fs.references).encode())

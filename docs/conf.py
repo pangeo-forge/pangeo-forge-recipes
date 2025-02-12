@@ -19,8 +19,14 @@ extensions = [
 ]
 
 extlinks = {
-    "issue": ("https://github.com/pangeo-forge/pangeo-forge-recipes/issues/%s", "GH issue %s"),
-    "pull": ("https://github.com/pangeo-forge/pangeo-forge-recipes/pull/%s", "GH PR %s"),
+    "issue": (
+        "https://github.com/pangeo-forge/pangeo-forge-recipes/issues/%s",
+        "GH issue %s",
+    ),
+    "pull": (
+        "https://github.com/pangeo-forge/pangeo-forge-recipes/pull/%s",
+        "GH PR %s",
+    ),
 }
 
 exclude_patterns = ["_build"]

@@ -20,7 +20,12 @@ from pangeo_forge_recipes.types import Index
         lazy_fixture("netcdf3_public_http_paths_sequential_1d"),
         lazy_fixture("netcdf_private_http_paths_sequential_1d"),
     ],
-    ids=["netcdf4_local", "netcdf4_http_public", "netcdf3_http_public", "netcdf4_http_private"],
+    ids=[
+        "netcdf4_local",
+        "netcdf4_http_public",
+        "netcdf3_http_public",
+        "netcdf4_http_private",
+    ],
 )
 def url_and_type(request):
     all_urls, _, _, _, extra_kwargs, type_str = request.param
@@ -103,13 +108,17 @@ def xarray_open_kwargs(request):
 def is_valid_dataset(ds, in_memory=False):
     ds = loads(dumps(ds))  # make sure it serializes
     assert isinstance(ds, xr.Dataset)
-    offending_vars = [vname for vname in ds.data_vars if ds[vname].variable._in_memory != in_memory]
+    offending_vars = [
+        vname for vname in ds.data_vars if ds[vname].variable._in_memory != in_memory
+    ]
     if offending_vars:
         msg = "were NOT in memory" if in_memory else "were in memory"
         raise AssertionError(f"The following vars {msg}: {offending_vars}")
 
 
-def validate_open_file_with_xarray(url_and_type, cache, load, copy_to_local, xarray_open_kwargs):
+def validate_open_file_with_xarray(
+    url_and_type, cache, load, copy_to_local, xarray_open_kwargs
+):
     # open fsspec OpenFile objects
     url, kwargs, file_type = url_and_type
     open_file = open_url(url, cache=cache, **kwargs)
@@ -125,7 +134,9 @@ def validate_open_file_with_xarray(url_and_type, cache, load, copy_to_local, xar
     is_valid_dataset(ds, in_memory=load)
 
 
-def test_open_file_with_xarray(url_and_type, cache, load, copy_to_local, xarray_open_kwargs):
+def test_open_file_with_xarray(
+    url_and_type, cache, load, copy_to_local, xarray_open_kwargs
+):
     validate_open_file_with_xarray(
         url_and_type=url_and_type,
         cache=cache,
@@ -155,7 +166,9 @@ def test_direct_open_with_xarray(public_url_and_type, load, xarray_open_kwargs):
     # open string URLs
     url, file_type = public_url_and_type
     xr_kwargs, validate_fn = xarray_open_kwargs
-    ds = open_with_xarray(url, file_type=file_type, load=load, xarray_open_kwargs=xr_kwargs)
+    ds = open_with_xarray(
+        url, file_type=file_type, load=load, xarray_open_kwargs=xr_kwargs
+    )
     validate_fn(ds)
     is_valid_dataset(ds, in_memory=load)
 

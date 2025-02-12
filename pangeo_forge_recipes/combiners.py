@@ -26,7 +26,11 @@ class CombineXarraySchemas(beam.CombineFn):
         return index[self.dimension].value
 
     def create_accumulator(self) -> SchemaAccumulator:
-        concat_dim = self.dimension.name if self.dimension.operation == CombineOp.CONCAT else None
+        concat_dim = (
+            self.dimension.name
+            if self.dimension.operation == CombineOp.CONCAT
+            else None
+        )
         return (None, concat_dim)
 
     def add_input(
@@ -35,28 +39,37 @@ class CombineXarraySchemas(beam.CombineFn):
         acc_schema, acc_concat_dim = accumulator
         next_index, next_schema = item
         if acc_concat_dim:
-            assert (
-                acc_concat_dim not in next_schema["chunks"]
-            ), "Concat dim should be unchunked for new input"
+            assert acc_concat_dim not in next_schema["chunks"], (
+                "Concat dim should be unchunked for new input"
+            )
             position = self.get_position(next_index)
             # Copy to avoid side effects (just python things)
             next_schema = copy.deepcopy(next_schema)
-            next_schema["chunks"][acc_concat_dim] = {position: next_schema["dims"][acc_concat_dim]}
+            next_schema["chunks"][acc_concat_dim] = {
+                position: next_schema["dims"][acc_concat_dim]
+            }
         if acc_schema:
             result = (
-                _combine_xarray_schemas(acc_schema, next_schema, concat_dim=acc_concat_dim),
+                _combine_xarray_schemas(
+                    acc_schema, next_schema, concat_dim=acc_concat_dim
+                ),
                 acc_concat_dim,
             )
         else:
             result = (next_schema, acc_concat_dim)
         return result
 
-    def merge_accumulators(self, accumulators: Sequence[SchemaAccumulator]) -> SchemaAccumulator:
+    def merge_accumulators(
+        self, accumulators: Sequence[SchemaAccumulator]
+    ) -> SchemaAccumulator:
         if len(set([accumulator[1] for accumulator in accumulators])) > 1:
             raise ValueError("Can't merge accumulators with different concat_dims")
         else:
             return reduce(
-                lambda acc1, acc2: (_combine_xarray_schemas(acc1[0], acc2[0], acc1[1]), acc1[1]),
+                lambda acc1, acc2: (
+                    _combine_xarray_schemas(acc1[0], acc2[0], acc1[1]),
+                    acc1[1],
+                ),
                 accumulators,
                 self.create_accumulator(),
             )

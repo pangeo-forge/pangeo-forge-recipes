@@ -37,9 +37,11 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                 elapsed = time.time() - start
                 throughput = bytes_read / elapsed
                 if elapsed // interval >= log_count:
-                    logger.debug(f"_copy_btw_filesystems total bytes copied: {bytes_read}")
                     logger.debug(
-                        f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
+                        f"_copy_btw_filesystems total bytes copied: {bytes_read}"
+                    )
+                    logger.debug(
+                        f"avg throughput over {elapsed / 60:.2f} min: {throughput / 1e6:.2f} MB/sec"
                     )
                     log_count += 1
     logger.debug("_copy_btw_filesystems done")
@@ -187,7 +189,11 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
     """Alias for FlatFSSpecTarget"""
 
     def cache_file(
-        self, fname: str, secrets: Optional[dict], fsspec_sync_patch=False, **open_kwargs
+        self,
+        fname: str,
+        secrets: Optional[dict],
+        fsspec_sync_patch=False,
+        **open_kwargs,
     ) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
@@ -212,7 +218,9 @@ def _slugify(value: str) -> str:
     # https://github.com/django/django/blob/master/django/utils/text.py
     # https://stackoverflow.com/questions/295135/turn-a-string-into-a-valid-filename
     value = str(value)
-    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    value = (
+        unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    )
     value = re.sub(r"[^.\w\s-]+", "_", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
 
@@ -228,7 +236,9 @@ def _add_query_string_secrets(fname: str, secrets: dict) -> str:
 
 def _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs):
     if fsspec_sync_patch:
-        logger.debug("Attempting to enable synchronous filesystem implementations in FSSpec")
+        logger.debug(
+            "Attempting to enable synchronous filesystem implementations in FSSpec"
+        )
         from httpfs_sync.core import SyncHTTPFileSystem
 
         SyncHTTPFileSystem.overwrite_async_registration()

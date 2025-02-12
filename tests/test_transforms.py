@@ -75,9 +75,13 @@ def is_xr_dataset(in_memory=False):
     def _is_xr_dataset(actual):
         for _, ds in actual:
             if not isinstance(ds, xr.Dataset):
-                raise BeamAssertException(f"Object {ds} has type {type(ds)}, expected xr.Dataset.")
+                raise BeamAssertException(
+                    f"Object {ds} has type {type(ds)}, expected xr.Dataset."
+                )
             offending_vars = [
-                vname for vname in ds.data_vars if ds[vname].variable._in_memory != in_memory
+                vname
+                for vname in ds.data_vars
+                if ds[vname].variable._in_memory != in_memory
             ]
             if offending_vars:
                 msg = "were NOT in memory" if in_memory else "were in memory"
@@ -154,9 +158,10 @@ def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
         assert_that(output, is_list_of_idx_refs_dicts())
 
 
-@pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])
+@pytest.mark.parametrize(
+    "target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}]
+)
 def test_PrepareZarrTarget(pipeline, tmp_target, target_chunks):
-
     ds = make_ds()
     schema = dataset_to_schema(ds)
 
@@ -177,7 +182,8 @@ def test_PrepareZarrTarget(pipeline, tmp_target, target_chunks):
 
                 zarr_chunks = zgroup[vname].chunks
                 expected_chunks = tuple(
-                    target_chunks.get(dim) or dimsize for dim, dimsize in v.sizes.items()
+                    target_chunks.get(dim) or dimsize
+                    for dim, dimsize in v.sizes.items()
                 )
                 assert zarr_chunks == expected_chunks
 
@@ -185,7 +191,9 @@ def test_PrepareZarrTarget(pipeline, tmp_target, target_chunks):
 
     with pipeline as p:
         input = p | beam.Create([schema])
-        target = input | PrepareZarrTarget(target=tmp_target, target_chunks=target_chunks)
+        target = input | PrepareZarrTarget(
+            target=tmp_target, target_chunks=target_chunks
+        )
         assert_that(target, correct_target())
 
 
@@ -234,7 +242,9 @@ def test_rechunk(
         datasets = inputs | OpenWithXarray(file_type=pattern.file_type)
         schema = datasets | DetermineSchema(combine_dims=pattern.combine_dim_keys)
         indexed_datasets = datasets | IndexItems(schema=schema)
-        rechunked = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
+        rechunked = indexed_datasets | Rechunk(
+            target_chunks=target_chunks, schema=schema
+        )
         assert_that(rechunked, correct_chunks())
 
 
@@ -348,7 +358,9 @@ def test_StoreToZarr_dynamic_chunking_with_target_chunks_raises(
     ],
 )
 def test_StoreToZarr_append_dim_asserts_raises(append_dim, match):
-    pattern = FilePattern(lambda x: x, ConcatDim("time", [1, 2]), MergeDim("var", ["foo", "bar"]))
+    pattern = FilePattern(
+        lambda x: x, ConcatDim("time", [1, 2]), MergeDim("var", ["foo", "bar"])
+    )
     kws = dict(
         target_root="target",
         store_name="test.zarr",

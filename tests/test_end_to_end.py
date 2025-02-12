@@ -161,14 +161,18 @@ def test_reference_netcdf(
 
     if file_ext == ".json":
         mapper = fsspec.get_mapper("reference://", fo=full_path)
-        ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
+        ds = xr.open_dataset(
+            mapper, engine="zarr", backend_kwargs={"consolidated": False}
+        )
         xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
     elif file_ext == ".parquet":
         fs = ReferenceFileSystem(
             full_path, remote_protocol="file", target_protocol="file", lazy=True
         )
-        ds = xr.open_dataset(fs.get_mapper(), engine="zarr", backend_kwargs={"consolidated": False})
+        ds = xr.open_dataset(
+            fs.get_mapper(), engine="zarr", backend_kwargs={"consolidated": False}
+        )
         xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
@@ -200,7 +204,9 @@ def test_reference_netcdf_parallel(
 
     if file_ext == ".json":
         mapper = fsspec.get_mapper("reference://", fo=full_path)
-        ds = xr.open_dataset(mapper, engine="zarr", backend_kwargs={"consolidated": False})
+        ds = xr.open_dataset(
+            mapper, engine="zarr", backend_kwargs={"consolidated": False}
+        )
         xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
@@ -220,7 +226,11 @@ def test_reference_grib(
     # This test adapted from:
     # https://github.com/fsspec/kerchunk/blob/33b00d60d02b0da3f05ccee70d6ebc42d8e09932/kerchunk/tests/test_grib.py#L14-L31
 
-    fn = Path(__file__).parent / "data" / "CMC_reg_DEPR_ISBL_10_ps10km_2022072000_P000.grib2"
+    fn = (
+        Path(__file__).parent
+        / "data"
+        / "CMC_reg_DEPR_ISBL_10_ps10km_2022072000_P000.grib2"
+    )
     pattern: FilePattern = pattern_from_file_sequence(
         [str(fn)], concat_dim="time", file_type="grib"
     )

@@ -19,7 +19,9 @@ def _expected_chunks(shape, chunk):
     return base + extra
 
 
-@pytest.mark.parametrize("specified_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])
+@pytest.mark.parametrize(
+    "specified_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}]
+)
 def test_schema_to_template_ds(specified_chunks):
     nt = 3
     ds = make_ds(nt=nt)
@@ -40,7 +42,14 @@ def test_schema_to_template_ds(specified_chunks):
 
 @pytest.mark.parametrize(
     "specified_chunks",
-    [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}, {"time": 3}, {"time": 3, "lon": 7}],
+    [
+        {},
+        {"time": 1},
+        {"time": 2},
+        {"time": 2, "lon": 9},
+        {"time": 3},
+        {"time": 3, "lon": 7},
+    ],
 )
 @pytest.mark.parametrize("include_all_dims", [True, False])
 def test_determine_target_chunks(specified_chunks, include_all_dims):
@@ -84,7 +93,6 @@ def test_schema_to_template_ds_cftime():
 
 
 def test_schema_to_template_ds_attrs():
-
     attrs = {"test_attr_key": "test_attr_value"}
     ds = xr.decode_cf(
         xr.DataArray(

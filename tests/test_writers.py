@@ -14,7 +14,13 @@ from pangeo_forge_recipes.transforms import (
     StoreToZarr,
     WriteCombinedReference,
 )
-from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
+from pangeo_forge_recipes.types import (
+    CombineOp,
+    Dimension,
+    Index,
+    IndexedPosition,
+    Position,
+)
 from pangeo_forge_recipes.writers import store_dataset_fragment
 
 from .data_generation import make_ds
@@ -26,7 +32,6 @@ def temp_store(tmp_path):
 
 
 def test_store_dataset_fragment(temp_store):
-
     ds = make_ds(non_dim_coords=True)
     schema = ds.to_dict(data=False, encoding=True)
     schema["chunks"] = {}

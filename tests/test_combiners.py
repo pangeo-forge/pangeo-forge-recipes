@@ -140,7 +140,9 @@ def test_CombineXarraySchemas_aggregation(schema_pcoll_concat):
     cxs = CombineXarraySchemas(Dimension(name=concat_dim, operation=CombineOp.CONCAT))
 
     def idx_at_position(position: int) -> Index:
-        return Index({Dimension(concat_dim, CombineOp.CONCAT): Position(value=position)})
+        return Index(
+            {Dimension(concat_dim, CombineOp.CONCAT): Position(value=position)}
+        )
 
     # Test create initial accumulator
     assert cxs.create_accumulator() == (None, concat_dim)
@@ -182,7 +184,9 @@ def test_CombineXarraySchemas_aggregation(schema_pcoll_concat):
     first_add = cxs.add_input(
         dropped_fields, (idx_at_position(5), dataset_to_schema(make_ds(nt=1)))
     )
-    second_add = cxs.add_input(first_add, (idx_at_position(4), dataset_to_schema(make_ds(nt=2))))
+    second_add = cxs.add_input(
+        first_add, (idx_at_position(4), dataset_to_schema(make_ds(nt=2)))
+    )
     time_chunks = {0: 3, 1: 3, 2: 3, 3: 4, 4: 2, 5: 1}
     assert second_add[0]["chunks"]["time"] == time_chunks
 
@@ -198,7 +202,9 @@ def test_CombineXarraySchemas_aggregation(schema_pcoll_concat):
     concat_dim = "lon"
     cxs = CombineXarraySchemas(Dimension(name=concat_dim, operation=CombineOp.CONCAT))
     s_time_concat = second_add[0]
-    first_lon = cxs.add_input(cxs.create_accumulator(), (idx_at_position(0), s_time_concat))
+    first_lon = cxs.add_input(
+        cxs.create_accumulator(), (idx_at_position(0), s_time_concat)
+    )
     second_lon = cxs.add_input(first_lon, (idx_at_position(1), s_time_concat))
     assert second_lon[0]["chunks"]["time"] == time_chunks
     assert second_lon[0]["chunks"]["lon"] == {0: 36, 1: 36}
@@ -212,10 +218,14 @@ def test_CombineXarraySchemas_aggregation(schema_pcoll_concat):
 
     # test merge combination behavior
     modified_schema = copy.deepcopy(s_time_concat)
-    modified_schema["data_vars"] = {k.upper(): v for k, v in s_time_concat["data_vars"].items()}
+    modified_schema["data_vars"] = {
+        k.upper(): v for k, v in s_time_concat["data_vars"].items()
+    }
 
     cxs = CombineXarraySchemas(Dimension(name=concat_dim, operation=CombineOp.MERGE))
-    first_result = cxs.add_input(cxs.create_accumulator(), (idx_at_position(0), s_time_concat))
+    first_result = cxs.add_input(
+        cxs.create_accumulator(), (idx_at_position(0), s_time_concat)
+    )
     second_result = cxs.add_input(first_result, (idx_at_position(0), modified_schema))
     assert second_result[0]["data_vars"]["foo"] == second_result[0]["data_vars"]["FOO"]
     assert second_result[0]["data_vars"]["bar"] == second_result[0]["data_vars"]["BAR"]
@@ -272,8 +282,12 @@ def test_NestDim(schema_pcoll_concat_merge, pipeline):
             | "Nest MERGE" >> _NestDim(Dimension("variable", CombineOp.MERGE))
             | "Groupy MERGE" >> beam.GroupByKey()
         )
-        assert_that(group1, check_key(merge_only_indexes, concat_only_indexes), label="merge")
-        assert_that(group2, check_key(concat_only_indexes, merge_only_indexes), label="concat")
+        assert_that(
+            group1, check_key(merge_only_indexes, concat_only_indexes), label="merge"
+        )
+        assert_that(
+            group2, check_key(concat_only_indexes, merge_only_indexes), label="concat"
+        )
 
 
 def test_DetermineSchema_concat_1D(dsets_pcoll_concat, pipeline):
@@ -282,7 +296,9 @@ def test_DetermineSchema_concat_1D(dsets_pcoll_concat, pipeline):
 
     with pipeline as p:
         input = p | pcoll
-        output = input | DetermineSchema([Dimension(name=concat_dim, operation=CombineOp.CONCAT)])
+        output = input | DetermineSchema(
+            [Dimension(name=concat_dim, operation=CombineOp.CONCAT)]
+        )
         assert_that(output, has_correct_schema(expected_schema), label="correct schema")
 
 
@@ -327,32 +343,50 @@ def combine_references_fixture():
         # assume contiguous data but show examples offsets
         # across the array and assume default max_refs_per_merge==5
         (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(0)}), {"url": "s3://blah.hdf5"}),
+            (
+                Index({Dimension("time", CombineOp.CONCAT): Position(0)}),
+                {"url": "s3://blah.hdf5"},
+            ),
             (0, 100, 101),
             (0, {"url": "s3://blah.hdf5"}),
         ),
         (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(4)}), {"url": "s3://blah.hdf5"}),
+            (
+                Index({Dimension("time", CombineOp.CONCAT): Position(4)}),
+                {"url": "s3://blah.hdf5"},
+            ),
             (0, 100, 101),
             (0, {"url": "s3://blah.hdf5"}),
         ),
         (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(5)}), {"url": "s3://blah.hdf5"}),
+            (
+                Index({Dimension("time", CombineOp.CONCAT): Position(5)}),
+                {"url": "s3://blah.hdf5"},
+            ),
             (0, 100, 101),
             (1, {"url": "s3://blah.hdf5"}),
         ),
         (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(10)}), {"url": "s3://blah.hdf5"}),
+            (
+                Index({Dimension("time", CombineOp.CONCAT): Position(10)}),
+                {"url": "s3://blah.hdf5"},
+            ),
             (0, 100, 101),
             (2, {"url": "s3://blah.hdf5"}),
         ),
         (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(25)}), {"url": "s3://blah.hdf5"}),
+            (
+                Index({Dimension("time", CombineOp.CONCAT): Position(25)}),
+                {"url": "s3://blah.hdf5"},
+            ),
             (0, 100, 101),
             (5, {"url": "s3://blah.hdf5"}),
         ),
         (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(50)}), {"url": "s3://blah.hdf5"}),
+            (
+                Index({Dimension("time", CombineOp.CONCAT): Position(50)}),
+                {"url": "s3://blah.hdf5"},
+            ),
             (0, 100, 101),
             (10, {"url": "s3://blah.hdf5"}),
         ),
@@ -375,7 +409,11 @@ def combine_references_fixture():
     ],
 )
 def test_bucket_by_position_contiguous_offsets(
-    combine_references_fixture, indexed_reference, global_position_min_max_count, expected, caplog
+    combine_references_fixture,
+    indexed_reference,
+    global_position_min_max_count,
+    expected,
+    caplog,
 ):
     with caplog.at_level(logging.WARNING):
         result = combine_references_fixture.bucket_by_position(

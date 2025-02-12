@@ -16,7 +16,12 @@ import xarray as xr
 import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim
-from pangeo_forge_recipes.transforms import Indexed, OpenURLWithFSSpec, OpenWithXarray, StoreToZarr
+from pangeo_forge_recipes.transforms import (
+    Indexed,
+    OpenURLWithFSSpec,
+    OpenWithXarray,
+    StoreToZarr,
+)
 
 # for the example, we only select two years to keep the example small;
 # this time range can be extended if you are running the recipe yourself.
@@ -52,7 +57,9 @@ def make_filename(variable, time):
 
 
 pattern = FilePattern(
-    make_filename, ConcatDim(name="time", keys=years), MergeDim(name="variable", keys=variables)
+    make_filename,
+    ConcatDim(name="time", keys=years),
+    MergeDim(name="variable", keys=variables),
 )
 
 

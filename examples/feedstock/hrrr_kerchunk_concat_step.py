@@ -15,11 +15,15 @@ storage_options = {"anon": True}
 
 
 def format_function(step: int) -> str:
-    url_template = "s3://noaa-hrrr-bdp-pds/hrrr.20220722/conus/hrrr.t22z.wrfsfcf{step:02d}.grib2"
+    url_template = (
+        "s3://noaa-hrrr-bdp-pds/hrrr.20220722/conus/hrrr.t22z.wrfsfcf{step:02d}.grib2"
+    )
     return url_template.format(step=step)
 
 
-pattern = FilePattern(format_function, ConcatDim("step", [0, 1, 2, 3]), file_type="grib")
+pattern = FilePattern(
+    format_function, ConcatDim("step", [0, 1, 2, 3]), file_type="grib"
+)
 
 identical_dims = ["time", "surface", "latitude", "longitude", "y", "x"]
 grib_filters = {"typeOfLevel": "surface", "shortName": "t"}

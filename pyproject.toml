@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.0"]
+requires = ["setuptools>=61.0.0", "wheel", "setuptools_scm[toml]>=7.0",]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pangeo-forge-recipes"
 dynamic = ["version"]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 description = "Pipeline tools for building and publishing analysis ready datasets."
 readme = "README.md"
 authors = [
@@ -18,8 +18,9 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering",
 ]
 license = { text = "Apache-2.0" }
@@ -51,6 +52,8 @@ test = [
     "s3fs",
     "gcsfs",
     "scipy",
+    "ruff",
+
 ]
 
 minio = [
@@ -72,17 +75,20 @@ exclude = ["docs_src"]
 [tool.setuptools.package-data]
 pangeo_forge_recipes = ["py.typed"]
 
-[tool.black]
-line-length = 100
+[tool.coverage.run]
+include = ["pangeo_forge_recipes"]
+omit = ["/tests/*", "/examples/*"]
 
-[tool.isort]
-known_first_party = "pangeo_forge_recipes"
-known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "gcsfs", "kerchunk", "numpy", "packaging", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "xarray", "zarr"]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-combine_as_imports = true
-line_length = 100
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py310"
+extend-exclude = ["tests", "examples"]
+
+
+[tool.ruff.lint.isort]
+known-first-party = ["pangeo_forge_recipes"]
+known-third-party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "gcsfs", "kerchunk", "numpy", "packaging", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "xarray", "zarr"]
 
 [tool.pytest.ini_options]
 log_cli = false

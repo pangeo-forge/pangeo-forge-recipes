@@ -50,7 +50,10 @@ def test_cache(tmp_cache):
 @pytest.fixture
 def fname_longer_than_posix_max():
     extension = ".nc"
-    fname = "".join(["a" for i in range(POSIX_MAX_FNAME_LENGTH + 1 - len(extension))]) + extension
+    fname = (
+        "".join(["a" for i in range(POSIX_MAX_FNAME_LENGTH + 1 - len(extension))])
+        + extension
+    )
     assert len(fname) > POSIX_MAX_FNAME_LENGTH
     return fname, extension
 
@@ -63,7 +66,9 @@ def test_caching_local_fname_length_not_greater_than_255_bytes(
     fname, extension = fname_longer_than_posix_max
 
     obj_without_fname_len_control = FSSpecTarget(LocalFileSystem(), tmp_path)
-    _, uncontrolled_fname = os.path.split(obj_without_fname_len_control._full_path(fname))
+    _, uncontrolled_fname = os.path.split(
+        obj_without_fname_len_control._full_path(fname)
+    )
     assert len(uncontrolled_fname) > POSIX_MAX_FNAME_LENGTH
     with pytest.raises(OSError, match="File name too long"):
         with obj_without_fname_len_control.open(fname, mode="w"):
@@ -72,7 +77,9 @@ def test_caching_local_fname_length_not_greater_than_255_bytes(
     cache_with_fname_len_control = CacheFSSpecTarget(LocalFileSystem(), tmp_path)
     _, controlled_fname = os.path.split(cache_with_fname_len_control._full_path(fname))
     assert len(controlled_fname) == POSIX_MAX_FNAME_LENGTH
-    _, actual_extension = os.path.splitext(cache_with_fname_len_control._full_path(fname))
+    _, actual_extension = os.path.splitext(
+        cache_with_fname_len_control._full_path(fname)
+    )
     assert actual_extension == extension
     expected_prefix = hashlib.md5(fname.encode()).hexdigest()
     assert controlled_fname.startswith(expected_prefix)
@@ -81,7 +88,9 @@ def test_caching_local_fname_length_not_greater_than_255_bytes(
 
 
 @pytest.mark.parametrize("fs_cls", [LocalFileSystem, HTTPFileSystem])
-def test_caching_only_truncates_long_fnames_for_local_fs(fs_cls, fname_longer_than_posix_max):
+def test_caching_only_truncates_long_fnames_for_local_fs(
+    fs_cls, fname_longer_than_posix_max
+):
     cache = CacheFSSpecTarget(fs_cls(), "root_path")
     fname, _ = fname_longer_than_posix_max
 
@@ -99,12 +108,16 @@ def test_suffix(tmp_path):
     )
 
 
-@pytest.mark.parametrize("fs_cls", [LocalFileSystem, HTTPFileSystem, S3FileSystem, GCSFileSystem])
+@pytest.mark.parametrize(
+    "fs_cls", [LocalFileSystem, HTTPFileSystem, S3FileSystem, GCSFileSystem]
+)
 def test_target_storage_get_remote_protocol(fs_cls, monkeypatch):
     # we need to use patch here for s3fs and gcsfs b/c they try to do so much on __init__
     monkeypatch.setattr("s3fs.S3FileSystem.__init__", lambda x: None)
     monkeypatch.setattr("gcsfs.GCSFileSystem.__init__", lambda x: None)
-    monkeypatch.setattr("pangeo_forge_recipes.storage.FSSpecTarget.__post_init__", lambda x: None)
+    monkeypatch.setattr(
+        "pangeo_forge_recipes.storage.FSSpecTarget.__post_init__", lambda x: None
+    )
     target_root = FSSpecTarget(fs_cls())
     if isinstance(target_root, LocalFileSystem):
         assert target_root.fs.get_fsspec_remote_protocol() == "local"

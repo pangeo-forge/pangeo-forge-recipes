@@ -15,7 +15,13 @@ from pangeo_forge_recipes.rechunking import (
     consolidate_dimension_coordinates,
     split_fragment,
 )
-from pangeo_forge_recipes.types import CombineOp, Dimension, Index, IndexedPosition, Position
+from pangeo_forge_recipes.types import (
+    CombineOp,
+    Dimension,
+    Index,
+    IndexedPosition,
+    Position,
+)
 
 from .conftest import split_up_files_by_variable_and_day
 from .data_generation import make_ds
@@ -27,7 +33,9 @@ from .data_generation import make_ds
 )
 @pytest.mark.parametrize("time_chunks", [1, 2, 5])
 @pytest.mark.parametrize("other_chunks", [{}, {"lat": 5}, {"lat": 5, "lon": 5}])
-def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks, other_chunks):
+def test_split_and_combine_fragments_with_merge_dim(
+    nt_dayparam, time_chunks, other_chunks
+):
     """Test if sub-fragments split from datasets with merge dims can be combined with each other."""
 
     target_chunks = {"time": time_chunks, **other_chunks}
@@ -43,7 +51,9 @@ def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks, ot
         Index(
             {
                 merge_dim: Position((0 if "bar" in ds.data_vars else 1)),
-                concat_dim: IndexedPosition(time_positions[ds.time[0].values], dimsize=nt),
+                concat_dim: IndexedPosition(
+                    time_positions[ds.time[0].values], dimsize=nt
+                ),
             }
         )
         for ds in dsets
@@ -58,7 +68,9 @@ def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks, ot
         for index, ds in zip(indexes, dsets)
     ]
     Subfragment = namedtuple("Subfragment", "groupkey, content")
-    subfragments = list(itertools.chain(*[[Subfragment(*s) for s in split] for split in splits]))
+    subfragments = list(
+        itertools.chain(*[[Subfragment(*s) for s in split] for split in splits])
+    )
 
     # combine subfragments, starting by grouping subfragments by groupkey.
     # replicates behavior of `... | beam.GroupByKey() | beam.MapTuple(combine_fragments)`
@@ -74,7 +86,9 @@ def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks, ot
         # for the merge dimension of each subfragment in the current group, assert that there
         # is only one positional value present. this verifies that `split_fragments` has not
         # grouped distinct merge dimension positional values together under the same groupkey.
-        merge_position_vals = [sf.content[0][merge_dim].value for sf in grouped_subfragments[g]]
+        merge_position_vals = [
+            sf.content[0][merge_dim].value for sf in grouped_subfragments[g]
+        ]
         assert all([v == merge_position_vals[0] for v in merge_position_vals])
         # now actually try to combine the fragments
         _, ds_combined = combine_fragments(
@@ -109,7 +123,9 @@ def test_split_fragment(time_chunks, offset):
         (Dimension("bar", CombineOp.MERGE), Position(1)),
     ]
 
-    index = Index([(dimension, IndexedPosition(offset, dimsize=nt_total))] + extra_indexes)
+    index = Index(
+        [(dimension, IndexedPosition(offset, dimsize=nt_total))] + extra_indexes
+    )
 
     all_splits = list(split_fragment((index, ds), target_chunks=target_chunks))
 
@@ -126,7 +142,8 @@ def test_split_fragment(time_chunks, offset):
         fragment_stop = min(chunk_stop, fragment_start + time_chunks, offset + nt)
         # other dimensions in the index should be passed through unchanged
         assert new_indexes[n] == Index(
-            [(dimension, IndexedPosition(fragment_start, dimsize=nt_total))] + extra_indexes
+            [(dimension, IndexedPosition(fragment_start, dimsize=nt_total))]
+            + extra_indexes
         )
         start, stop = fragment_start - offset, fragment_stop - offset
         xr.testing.assert_equal(new_datasets[n], ds.isel(time=slice(start, stop)))
@@ -164,17 +181,25 @@ def test_split_multidim():
     for group_key, (fragment_index, fragment_ds) in all_splits:
         n_lat_chunk = group_key[0][1]
         n_time_chunk = group_key[1][1]
-        time_start, time_stop = n_time_chunk * time_chunks, (n_time_chunk + 1) * time_chunks
+        time_start, time_stop = (
+            n_time_chunk * time_chunks,
+            (n_time_chunk + 1) * time_chunks,
+        )
         lat_start, lat_stop = n_lat_chunk * lat_chunks, (n_lat_chunk + 1) * lat_chunks
         expected_index = Index(
             {
-                Dimension("time", CombineOp.CONCAT): IndexedPosition(time_start, dimsize=nt),
-                Dimension("lat", CombineOp.CONCAT): IndexedPosition(lat_start, dimsize=nlat),
+                Dimension("time", CombineOp.CONCAT): IndexedPosition(
+                    time_start, dimsize=nt
+                ),
+                Dimension("lat", CombineOp.CONCAT): IndexedPosition(
+                    lat_start, dimsize=nlat
+                ),
             }
         )
         assert fragment_index == expected_index
         xr.testing.assert_equal(
-            fragment_ds, ds.isel(time=slice(time_start, time_stop), lat=slice(lat_start, lat_stop))
+            fragment_ds,
+            ds.isel(time=slice(time_start, time_stop), lat=slice(lat_start, lat_stop)),
         )
 
 
@@ -236,7 +261,6 @@ def test_combine_fragments_multidim(time_chunk, lat_chunk):
 
 
 def test_combine_fragments_errors():
-
     ds = make_ds(nt=1)
     group = (("time", 0),)  # not actually used
 
@@ -285,7 +309,9 @@ def test_consolidate_dimension_coordinates():
     group.data.attrs["_ARRAY_DIMENSIONS"] = ["time"]
     group.time.attrs["_ARRAY_DIMENSIONS"] = ["time"]
 
-    consolidated_zarr = consolidate_dimension_coordinates(zarr.storage.FSStore(store_path))
+    consolidated_zarr = consolidate_dimension_coordinates(
+        zarr.storage.FSStore(store_path)
+    )
     store = zarr.open(consolidated_zarr)
     assert store.time.chunks[0] == 100
     assert store.data.chunks[0] == 10

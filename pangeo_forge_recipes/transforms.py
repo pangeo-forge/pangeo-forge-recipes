@@ -20,11 +20,26 @@ import xarray as xr
 import zarr
 from kerchunk.combine import MultiZarrToZarr
 
-from .aggregation import XarraySchema, dataset_to_schema, schema_to_template_ds, schema_to_zarr
+from .aggregation import (
+    XarraySchema,
+    dataset_to_schema,
+    schema_to_template_ds,
+    schema_to_zarr,
+)
 from .combiners import CombineXarraySchemas, MinMaxCountCombineFn
 from .openers import open_url, open_with_kerchunk, open_with_xarray
-from .patterns import CombineOp, Dimension, FileType, Index, augment_index_with_start_stop
-from .rechunking import combine_fragments, consolidate_dimension_coordinates, split_fragment
+from .patterns import (
+    CombineOp,
+    Dimension,
+    FileType,
+    Index,
+    augment_index_with_start_stop,
+)
+from .rechunking import (
+    combine_fragments,
+    consolidate_dimension_coordinates,
+    split_fragment,
+)
 from .storage import CacheFSSpecTarget, FSSpecTarget
 from .types import Indexed
 from .writers import (
@@ -129,7 +144,8 @@ class MapWithConcurrencyLimit(beam.PTransform):
                 | f"{self.fn.__name__} (max_concurrency={self.max_concurrency})"
                 >> beam.FlatMap(
                     lambda kvlist: [
-                        (kv[0], self.fn(kv[1], *self.args, **self.kwargs)) for kv in kvlist
+                        (kv[0], self.fn(kv[1], *self.args, **self.kwargs))
+                        for kv in kvlist
                     ]
                 )
             )
@@ -309,7 +325,9 @@ class IndexItems(beam.PTransform):
     append_offset: int = 0
 
     @staticmethod
-    def index_item(item: Indexed[T], schema: XarraySchema, append_offset: int) -> Indexed[T]:
+    def index_item(
+        item: Indexed[T], schema: XarraySchema, append_offset: int
+    ) -> Indexed[T]:
         index, ds = item
         new_index = Index()
         for dimkey, dimval in index.items():
@@ -385,7 +403,8 @@ class StoreDatasetFragments(beam.PTransform):
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         return pcoll | beam.Map(
-            store_dataset_fragment, target_store=beam.pvalue.AsSingleton(self.target_store)
+            store_dataset_fragment,
+            target_store=beam.pvalue.AsSingleton(self.target_store),
         )
 
 
@@ -463,7 +482,9 @@ class CombineReferences(beam.PTransform):
             **self.mzz_kwargs,
         )
 
-    def handle_gribs(self, indexed_references: Tuple[Index, list[dict]]) -> Tuple[Index, dict]:
+    def handle_gribs(
+        self, indexed_references: Tuple[Index, list[dict]]
+    ) -> Tuple[Index, dict]:
         """Handles the special case of GRIB format files by combining multiple references."""
 
         references = indexed_references[1]
@@ -536,7 +557,8 @@ class CombineReferences(beam.PTransform):
             reference_lists
             | "Get just the positions"
             >> beam.MapTuple(lambda k, v: k.find_position(self.sort_dimension))
-            | "Get minimum/maximum positions" >> beam.CombineGlobally(MinMaxCountCombineFn())
+            | "Get minimum/maximum positions"
+            >> beam.CombineGlobally(MinMaxCountCombineFn())
         )
         return (
             reference_lists
@@ -544,13 +566,18 @@ class CombineReferences(beam.PTransform):
             | "Bucket to preserve order"
             >> beam.Map(
                 self.bucket_by_position,
-                global_position_min_max_count=beam.pvalue.AsSingleton(min_max_count_positions),
+                global_position_min_max_count=beam.pvalue.AsSingleton(
+                    min_max_count_positions
+                ),
             )
             | "Group by buckets for ordering" >> beam.GroupByKey()
-            | "Distributed reduce" >> beam.MapTuple(lambda k, refs: self.to_mzz(refs).translate())
-            | "Assign global key for collecting to executor" >> beam.Map(lambda ref: (None, ref))
+            | "Distributed reduce"
+            >> beam.MapTuple(lambda k, refs: self.to_mzz(refs).translate())
+            | "Assign global key for collecting to executor"
+            >> beam.Map(lambda ref: (None, ref))
             | "Group globally" >> beam.GroupByKey()
-            | "Global reduce" >> beam.MapTuple(lambda k, refs: self.global_combine_refs(refs))
+            | "Global reduce"
+            >> beam.MapTuple(lambda k, refs: self.global_combine_refs(refs))
         )
 
 
@@ -615,7 +642,9 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     )
     output_file_name: str = "reference.json"
 
-    def expand(self, references: beam.PCollection) -> beam.PCollection[zarr.storage.FSStore]:
+    def expand(
+        self, references: beam.PCollection
+    ) -> beam.PCollection[zarr.storage.FSStore]:
         return (
             references
             | CombineReferences(
@@ -674,7 +703,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
 
     def __post_init__(self):
         if self.target_chunks and self.dynamic_chunking_fn:
-            raise ValueError("Passing both `target_chunks` and `dynamic_chunking_fn` not allowed.")
+            raise ValueError(
+                "Passing both `target_chunks` and `dynamic_chunking_fn` not allowed."
+            )
 
         self._append_offset = 0
         if self.append_dim:
@@ -684,9 +715,15 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             )
             dim = [d for d in self.combine_dims if d.name == self.append_dim]
             assert dim, f"Append dim not in {self.combine_dims=}."
-            assert dim[0].operation == CombineOp.CONCAT, "Append dim operation must be CONCAT."
-            existing_ds = xr.open_dataset(self.get_full_target().get_mapper(), engine="zarr")
-            assert self.append_dim in existing_ds, "Append dim must be in existing dataset."
+            assert dim[0].operation == CombineOp.CONCAT, (
+                "Append dim operation must be CONCAT."
+            )
+            existing_ds = xr.open_dataset(
+                self.get_full_target().get_mapper(), engine="zarr"
+            )
+            assert self.append_dim in existing_ds, (
+                "Append dim must be in existing dataset."
+            )
             self._append_offset = len(existing_ds[self.append_dim])
 
     def expand(
@@ -694,7 +731,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
     ) -> beam.PCollection[zarr.storage.FSStore]:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
-        indexed_datasets = datasets | IndexItems(schema=schema, append_offset=self._append_offset)
+        indexed_datasets = datasets | IndexItems(
+            schema=schema, append_offset=self._append_offset
+        )
         target_chunks = (
             self.target_chunks
             if not self.dynamic_chunking_fn
@@ -704,7 +743,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
                 | beam.Map(self.dynamic_chunking_fn, **self.dynamic_chunking_fn_kwargs)
             )
         )
-        rechunked_datasets = indexed_datasets | Rechunk(target_chunks=target_chunks, schema=schema)
+        rechunked_datasets = indexed_datasets | Rechunk(
+            target_chunks=target_chunks, schema=schema
+        )
         target_store = schema | PrepareZarrTarget(
             target=self.get_full_target(),
             target_chunks=target_chunks,
@@ -712,7 +753,9 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             encoding=self.encoding,
             append_dim=self.append_dim,
         )
-        n_target_stores = rechunked_datasets | StoreDatasetFragments(target_store=target_store)
+        n_target_stores = rechunked_datasets | StoreDatasetFragments(
+            target_store=target_store
+        )
         singleton_target_store = (
             n_target_stores
             | beam.combiners.Sample.FixedSizeGlobally(1)

@@ -71,7 +71,9 @@ def test_chunk_grid():
     assert cg.array_index_to_chunk_index({"x": 7, "time": 10}) == {"x": 2, "time": 1}
 
     assert cg.array_slice_to_chunk_slice({"x": slice(0, 9)}) == {"x": slice(0, 3)}
-    assert cg.array_slice_to_chunk_slice({"time": slice(0, 15)}) == {"time": slice(0, 2)}
+    assert cg.array_slice_to_chunk_slice({"time": slice(0, 15)}) == {
+        "time": slice(0, 2)
+    }
     assert cg.array_slice_to_chunk_slice({"x": slice(0, 9), "time": slice(0, 15)}) == {
         "x": slice(0, 3),
         "time": slice(0, 2),

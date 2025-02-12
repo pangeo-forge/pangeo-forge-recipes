@@ -24,7 +24,9 @@ class ChunkGrid:
     """
 
     def __init__(self, chunks: Dict[str, Tuple[int, ...]]):
-        self._chunk_axes = {name: ChunkAxis(axis_chunks) for name, axis_chunks in chunks.items()}
+        self._chunk_axes = {
+            name: ChunkAxis(axis_chunks) for name, axis_chunks in chunks.items()
+        }
 
     def __eq__(self, other):
         if self.dims != other.dims:
@@ -100,7 +102,9 @@ class ChunkGrid:
         }
         return new
 
-    def chunk_index_to_array_slice(self, chunk_index: Dict[str, int]) -> Dict[str, slice]:
+    def chunk_index_to_array_slice(
+        self, chunk_index: Dict[str, int]
+    ) -> Dict[str, slice]:
         """Convert a single index from chunk space to a slice in array space
         for each specified dimension."""
 
@@ -117,7 +121,9 @@ class ChunkGrid:
             for name, idx in array_index.items()
         }
 
-    def array_slice_to_chunk_slice(self, array_slices: Dict[str, slice]) -> Dict[str, slice]:
+    def array_slice_to_chunk_slice(
+        self, array_slices: Dict[str, slice]
+    ) -> Dict[str, slice]:
         """Find all chunks that intersect with a given array-space slice
         for each specified dimension."""
         return {
@@ -125,7 +131,9 @@ class ChunkGrid:
             for name, array_slice in array_slices.items()
         }
 
-    def chunk_conflicts(self, chunk_index: Dict[str, int], other: ChunkGrid) -> Dict[str, Set[int]]:
+    def chunk_conflicts(
+        self, chunk_index: Dict[str, int], other: ChunkGrid
+    ) -> Dict[str, Set[int]]:
         """Figure out which chunks from the other ChunkGrid might potentially
         be written by other chunks from this array.
         Returns a set of chunk indexes from the _other_ ChunkGrid that would
@@ -189,7 +197,9 @@ class ChunkAxis:
 
         if chunk_index < 0 or chunk_index >= self.nchunks:
             raise IndexError("chunk_index out of range")
-        return slice(self._chunk_bounds[chunk_index], self._chunk_bounds[chunk_index + 1])
+        return slice(
+            self._chunk_bounds[chunk_index], self._chunk_bounds[chunk_index + 1]
+        )
 
     def array_index_to_chunk_index(self, array_index: int) -> int:
         """Figure out which chunk a single array-space index comes from."""

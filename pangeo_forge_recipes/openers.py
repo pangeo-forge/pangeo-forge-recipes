@@ -101,7 +101,9 @@ def _preprocess_url_or_file_obj(
         pass
     elif isinstance(url_or_file_obj, zarr.storage.FSStore):
         if file_type is not FileType.zarr:
-            raise ValueError(f"FSStore object can only be opened as FileType.zarr; got {file_type}")
+            raise ValueError(
+                f"FSStore object can only be opened as FileType.zarr; got {file_type}"
+            )
     elif isinstance(url_or_file_obj, io.IOBase):
         # required to make mypy happy
         # LocalFileOpener is a subclass of io.IOBase
@@ -113,8 +115,12 @@ def _preprocess_url_or_file_obj(
     return url_or_file_obj
 
 
-def _url_as_str(url_or_file_obj: UrlOrFileObj, remote_protocol: Optional[str] = None) -> str:
-    as_str: str = url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
+def _url_as_str(
+    url_or_file_obj: UrlOrFileObj, remote_protocol: Optional[str] = None
+) -> str:
+    as_str: str = (
+        url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
+    )
 
     if remote_protocol and not urlparse(as_str).scheme:
         # `.full_path` attributes (which include scheme/protocol) are not present on all
@@ -195,7 +201,9 @@ def open_with_kerchunk(
         )
 
     elif file_type == FileType.zarr:
-        raise NotImplementedError("Filetype Zarr is not supported for Reference recipes.")
+        raise NotImplementedError(
+            "Filetype Zarr is not supported for Reference recipes."
+        )
 
     return refs
 

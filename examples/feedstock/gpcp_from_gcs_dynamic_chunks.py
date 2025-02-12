@@ -6,7 +6,11 @@ import xarray as xr
 import zarr
 
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
-from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, StoreToZarr
+from pangeo_forge_recipes.transforms import (
+    OpenURLWithFSSpec,
+    OpenWithXarray,
+    StoreToZarr,
+)
 
 dates = [
     d.to_pydatetime().strftime("%Y%m%d")
@@ -30,7 +34,8 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
 
     ds = xr.open_dataset(store, engine="zarr", chunks={})
     assert ds.title == (
-        "Global Precipitation Climatatology Project (GPCP) " "Climate Data Record (CDR), Daily V1.3"
+        "Global Precipitation Climatatology Project (GPCP) "
+        "Climate Data Record (CDR), Daily V1.3"
     )
 
     assert ds.chunks["time"][0] == 2
@@ -44,7 +49,9 @@ def chunk_func(ds: xr.Dataset) -> Dict[str, int]:
 recipe = (
     beam.Create(pattern.items())
     | OpenURLWithFSSpec()
-    | OpenWithXarray(file_type=pattern.file_type, xarray_open_kwargs={"decode_coords": "all"})
+    | OpenWithXarray(
+        file_type=pattern.file_type, xarray_open_kwargs={"decode_coords": "all"}
+    )
     | StoreToZarr(
         dynamic_chunking_fn=chunk_func,
         store_name="gpcp.zarr",

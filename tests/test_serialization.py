@@ -42,7 +42,6 @@ def base_pattern(end_date):
 
 
 def get_new_pattern_with_next_url(end_date, nitems_per_file):
-
     fmt = "%Y-%m-%d"
 
     def increment_end_date(ndays):
@@ -70,13 +69,20 @@ def pattern_pair(base_pattern, end_date, request):
     [
         ({}, {}),
         ({}, dict(fsspec_open_kwargs={"block_size": 0})),
-        (dict(fsspec_open_kwargs={"block_size": 0}), dict(fsspec_open_kwargs={"block_size": 0})),
+        (
+            dict(fsspec_open_kwargs={"block_size": 0}),
+            dict(fsspec_open_kwargs={"block_size": 0}),
+        ),
         (dict(file_type=FileType.opendap), dict(fsspec_open_kwargs={"block_size": 0})),
         (dict(file_type=FileType.opendap), dict(file_type=FileType.opendap)),
     ],
 )
-def test_start_processing_from(base_pattern, end_date, new_pattern_nitems_per_file, kwargs):
-    new_pattern, next_url = get_new_pattern_with_next_url(end_date, new_pattern_nitems_per_file)
+def test_start_processing_from(
+    base_pattern, end_date, new_pattern_nitems_per_file, kwargs
+):
+    new_pattern, next_url = get_new_pattern_with_next_url(
+        end_date, new_pattern_nitems_per_file
+    )
 
     for i, pattern in enumerate((base_pattern, new_pattern)):
         for k, v in kwargs[i].items():

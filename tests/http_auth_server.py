@@ -13,7 +13,6 @@ import click
 @click.option("--password")
 @click.option("--required-query-string")
 def serve_forever(address, port, username, password, required_query_string):
-
     port = int(port)
 
     class Handler(http.server.SimpleHTTPRequestHandler):
@@ -24,7 +23,10 @@ def serve_forever(address, port, username, password, required_query_string):
                     auth is None
                     or not auth.startswith("Basic")
                     or auth[6:]
-                    != str(base64.b64encode((username + ":" + password).encode("utf-8")), "utf-8")
+                    != str(
+                        base64.b64encode((username + ":" + password).encode("utf-8")),
+                        "utf-8",
+                    )
                 ):
                     self.send_response(401)
                     self.send_header("WWW-Authenticate", "Basic")

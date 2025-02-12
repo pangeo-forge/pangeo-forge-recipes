@@ -38,7 +38,9 @@ def split_fragment(
         raise ValueError("Must specify either target_chunks or schema (or both).")
     if schema is not None:
         # we don't want to include the dims that are not getting rechunked
-        target_chunks = determine_target_chunks(schema, target_chunks, include_all_dims=False)
+        target_chunks = determine_target_chunks(
+            schema, target_chunks, include_all_dims=False
+        )
     else:
         assert target_chunks is not None
 
@@ -72,7 +74,9 @@ def split_fragment(
         fragment_slices[dim_name] = dim_slice
 
     if any(item[1] == 0 for item in target_chunks_and_dims.values()):
-        raise ValueError("A dimsize of 0 means that this fragment has not been properly indexed.")
+        raise ValueError(
+            "A dimsize of 0 means that this fragment has not been properly indexed."
+        )
 
     # all index fragments will have this as a base
     common_index = {k: v for k, v in index.items() if k not in rechunked_concat_dims}
@@ -103,7 +107,9 @@ def split_fragment(
     # this iteration yields new fragments, indexed by their target chunk group
     for target_chunk_group in all_chunks:
         # now we need to figure out which piece of the fragment belongs in which chunk
-        chunk_array_slices = chunk_grid.chunk_index_to_array_slice(dict(target_chunk_group))
+        chunk_array_slices = chunk_grid.chunk_index_to_array_slice(
+            dict(target_chunk_group)
+        )
         sub_fragment_indexer = {}  # passed to ds.isel
         # initialize the new index with the items we want to keep from the original index
         # TODO: think about whether we want to always rechunk concat dims
@@ -182,7 +188,9 @@ def combine_fragments(
         raise ValueError(
             f"Cannot combine fragments for elements with different combine dims: {all_indexes}"
         )
-    concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
+    concat_dims = [
+        dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT
+    ]
 
     if not all(all(index[dim].indexed for index in all_indexes) for dim in concat_dims):
         raise ValueError(
@@ -224,11 +232,15 @@ def combine_fragments(
         starts = _invert_meshgrid(*starts_cube[::-1])[::-1]
         sizes = _invert_meshgrid(*sizes_cube[::-1])[::-1]
     except AssertionError:
-        raise ValueError("Cannot combine fragments because they do not form a regular hypercube.")
+        raise ValueError(
+            "Cannot combine fragments because they do not form a regular hypercube."
+        )
 
     expected_sizes = [np.diff(s) for s in starts]
     if not all(np.equal(s[:-1], es).all() for s, es in zip(sizes, expected_sizes)):
-        raise ValueError(f"Dataset {sizes} and index starts {starts} are not consistent.")
+        raise ValueError(
+            f"Dataset {sizes} and index starts {starts} are not consistent."
+        )
 
     # some tricky workarounds to put xarray datasets into a nested list
     all_datasets = np.empty(shape, dtype="O").ravel()
@@ -244,7 +256,11 @@ def combine_fragments(
 
 def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
     return list(
-        set(itertools.chain(*(group[var].attrs.get("_ARRAY_DIMENSIONS", []) for var in group)))
+        set(
+            itertools.chain(
+                *(group[var].attrs.get("_ARRAY_DIMENSIONS", []) for var in group)
+            )
+        )
     )
 
 
@@ -263,7 +279,9 @@ def consolidate_dimension_coordinates(
         # This will generally use bulk-delete API calls
         # config.storage_config.target.rm(dim, recursive=True)
 
-        singleton_target_store.fs.rm(singleton_target_store.path + "/" + dim, recursive=True)
+        singleton_target_store.fs.rm(
+            singleton_target_store.path + "/" + dim, recursive=True
+        )
 
         new = group.array(
             dim,

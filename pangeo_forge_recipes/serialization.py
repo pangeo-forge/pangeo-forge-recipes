@@ -50,7 +50,11 @@ def dict_drop_empty(pairs: Sequence[Sequence]) -> dict:
 
     # https://death.andgravity.com/stable-hashing#problem-we-need-to-ignore-empty-values
 
-    return dict((k, v) for k, v in pairs if not (v is None or not v and isinstance(v, Collection)))
+    return dict(
+        (k, v)
+        for k, v in pairs
+        if not (v is None or not v and isinstance(v, Collection))
+    )
 
 
 def dataclass_sha256(dclass: Any, ignore_keys: List[str]) -> bytes:
