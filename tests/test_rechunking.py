@@ -4,6 +4,7 @@ import random
 from collections import namedtuple
 from tempfile import TemporaryDirectory
 
+import fsspec
 import numpy as np
 import pytest
 import xarray as xr
@@ -284,8 +285,10 @@ def test_consolidate_dimension_coordinates():
     # raise an error, while Xarray does
     group.data.attrs["_ARRAY_DIMENSIONS"] = ["time"]
     group.time.attrs["_ARRAY_DIMENSIONS"] = ["time"]
-
-    consolidated_zarr = consolidate_dimension_coordinates(zarr.storage.FsspecStore(store_path))
+    fs = fsspec.filesystem("file")
+    consolidated_zarr = consolidate_dimension_coordinates(
+        zarr.storage.FsspecStore(path=store_path, fs=fs)
+    )
     store = zarr.open(consolidated_zarr)
     assert store.time.chunks[0] == 100
     assert store.data.chunks[0] == 10

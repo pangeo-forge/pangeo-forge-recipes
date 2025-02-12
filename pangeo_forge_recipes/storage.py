@@ -120,7 +120,7 @@ class FSSpecTarget(AbstractTarget):
 
     def get_mapper(self) -> fsspec.mapping.FSMap:
         """Get a mutable mapping object suitable for storing Zarr data."""
-        return FsspecStore(self.root_path, fs=self.fs)
+        return FsspecStore(path=self.root_path, fs=self.fs)
 
     def _full_path(self, path: str):
         return os.path.join(self.root_path, path)
