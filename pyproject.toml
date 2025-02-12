@@ -9,52 +9,52 @@ requires-python = ">=3.8"
 description = "Pipeline tools for building and publishing analysis ready datasets."
 readme = "README.md"
 authors = [
-  { name = "Ryan Abernathey", email = "rpa@ldeo.columbia.edu" }
+  { name = "Ryan Abernathey", email = "rpa@ldeo.columbia.edu" },
 ]
 classifiers = [
-    "Development Status :: 1 - Planning",
-    "License :: OSI Approved :: Apache Software License",
-    "Operating System :: OS Independent",
-    "Intended Audience :: Science/Research",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Topic :: Scientific/Engineering",
+  "Development Status :: 1 - Planning",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Topic :: Scientific/Engineering",
 ]
 license = { text = "Apache-2.0" }
 keywords = ["pangeo", "data"]
 dependencies = [
-    "apache-beam>=2.48",
-    "cftime",
-    "dask",
-    "fastparquet",
-    "fsspec[http]",
-    "h5netcdf",
-    "h5py",
-    "kerchunk!=0.2.6",
-    "netcdf4",
-    "numcodecs",
-    "xarray",
-    "zarr",
+  "apache-beam>=2.48",
+  "cftime",
+  "dask",
+  "fastparquet",
+  "fsspec[http]",
+  "h5netcdf",
+  "h5py",
+  "kerchunk!=0.2.6",
+  "netcdf4",
+  "numcodecs",
+  "xarray",
+  "zarr",
 ]
 
 [project.optional-dependencies]
 test = [
-    "click",
-    "pytest<8.0.0",
-    "pytest-cov",
-    "pytest-xdist",
-    "pytest-lazy-fixture",
-    "pytest-sugar",
-    "pytest-timeout",
-    "s3fs",
-    "gcsfs",
-    "scipy",
+  "click",
+  "pytest<8.0.0",
+  "pytest-cov",
+  "pytest-xdist",
+  "pytest-lazy-fixture",
+  "pytest-sugar",
+  "pytest-timeout",
+  "s3fs",
+  "gcsfs",
+  "scipy",
 ]
 
 minio = [
-    "docker",
+  "docker",
 ]
 
 [project.urls]
@@ -75,14 +75,40 @@ pangeo_forge_recipes = ["py.typed"]
 [tool.black]
 line-length = 100
 
-[tool.isort]
-known_first_party = "pangeo_forge_recipes"
-known_third_party = ["aiohttp", "apache_beam", "cftime", "click", "dask", "fsspec", "gcsfs", "kerchunk", "numpy", "packaging", "pandas", "pytest", "pytest_lazyfixture", "s3fs", "xarray", "zarr"]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-combine_as_imports = true
-line_length = 100
+[tool.ruff]
+target-version = "py310"
+builtins = ["ellipsis"]
+exclude = [".git", ".eggs", "build", "dist", "__pycache__"]
+line-length = 100
+
+[tool.ruff.lint]
+ignore = [
+  "E402",  # module level import not at top of file
+  "E501",  # line too long - let black worry about that
+  "E731",  # do not assign a lambda expression, use a def
+  "UP038", # type union instead of tuple for isinstance etc
+]
+per-file-ignores = { "examples/runner-config/local.py" = ["F821"] }
+select = [
+  "F", # Pyflakes
+  "E", # Pycodestyle
+  "I", # isort
+  # "UP",  # Pyupgrade
+  # "TID", # flake8-tidy-imports
+  "W",
+]
+# extend-safe-fixes = [
+#   "TID252", # absolute imports
+# ]
+fixable = ["I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pangeo_forge_recipes"]
+combine-as-imports = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
 
 [tool.pytest.ini_options]
 log_cli = false

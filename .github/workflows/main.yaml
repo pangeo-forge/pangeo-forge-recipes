@@ -2,15 +2,15 @@ name: Tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths-ignore:
-    - 'docs/**'
+      - "docs/**"
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
     paths-ignore:
-    - 'docs/**'
+      - "docs/**"
   schedule:
-    - cron: '0 4 * * *'  # run once a day at 4 AM
+    - cron: "0 4 * * *" # run once a day at 4 AM
 
 env:
   PYTEST_ADDOPTS: "--color=yes"
@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11","3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
         with:
