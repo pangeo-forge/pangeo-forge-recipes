@@ -134,6 +134,7 @@ def is_list_of_idx_refs_dicts():
     return _is_list_of_idx_refs_dicts
 
 
+@pytest.mark.xfail(reason="kerchunk related issue")
 def test_OpenWithKerchunk_via_fsspec(pcoll_opened_files, pipeline):
     input, pattern, cache_url = pcoll_opened_files
     with pipeline as p:

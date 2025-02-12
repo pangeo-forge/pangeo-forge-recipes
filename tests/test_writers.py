@@ -186,7 +186,7 @@ def test_zarr_encoding(
     tmp_target,
 ):
     pattern = netcdf_local_file_pattern
-    compressor = zarr.Blosc("zstd", clevel=3)
+    compressor = zarr.codecs.BloscCodec(cname="zstd", clevel=3)
     with pipeline as p:
         (
             p

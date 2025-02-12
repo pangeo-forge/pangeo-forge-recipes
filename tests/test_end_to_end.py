@@ -133,6 +133,7 @@ def test_xarray_zarr_append(
     xr.testing.assert_equal(append_actual.load(), append_expected)
 
 
+@pytest.mark.xfail(reason="kerchunk related issue")
 @pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
 def test_reference_netcdf(
     daily_xarray_dataset,
@@ -172,6 +173,7 @@ def test_reference_netcdf(
         xr.testing.assert_equal(ds.load(), daily_xarray_dataset)
 
 
+@pytest.mark.xfail(reason="kerchunk related issue")
 def test_reference_netcdf_parallel(
     daily_xarray_dataset,
     netcdf_local_file_pattern_sequential_multivariable,
