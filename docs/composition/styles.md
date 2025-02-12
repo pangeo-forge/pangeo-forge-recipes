@@ -55,37 +55,3 @@ selecting this option, it is therefore up to you, the user, to ensure that the i
 {doc}`file pattern <file_patterns>` for the appending recipe are limited to those which you want to
 append.
 ```
-
-
-## Open with Kerchunk, write to virtual Zarr
-
-The standard Zarr recipe creates a copy of the original dataset in the Zarr format, this
-[kerchunk](https://fsspec.github.io/kerchunk/)-based reference recipe style does not copy the
-data and instead creates a Kerchunk mapping, which allows archival formats (including NetCDF, GRIB2, etc.) to be read _as if_ they were Zarr datasets. More details about how Kerchunk works can be found in the
-[kerchunk docs](https://fsspec.github.io/kerchunk/detail.html) and
-[this blog post](https://medium.com/pangeo/fake-it-until-you-make-it-reading-goes-netcdf4-data-on-aws-s3-as-zarr-for-rapid-data-access-61e33f8fe685).
-
-```{note}
-Examples of this recipe style currently exist in development form, and will be cited here as soon as they
-are integration tested, which is pending <https://github.com/pangeo-forge/pangeo-forge-recipes/issues/608>.
-```
-
-### Is this style right for my dataset?
-
-For archival data stored on highly-throughput storage devices, and for which
-preprocessing is not required, reference recipes are an ideal and storage-efficient option.
-When choosing whether to create a reference recipe, it is important to consider questions such as:
-
-#### Where are the archival (i.e. source) files for this dataset currently stored?
-
-If the original data are not already in the cloud (or some other high-bandwidth storage device,
-such as an on-prem data center), the performance benefits of using a reference recipe may be limited,
-because network speeds to access the original data will constrain I/O throughput.
-
-#### Does this dataset require preprocessing?
-
-With reference recipes, modification of the underlying data is not possible. For example, the
-chunking schema of a dataset cannot be modified with Kerchunk, so you are limited to the chunk schema of the
-archival data. If you need to optimize your datasets chunking schema for space or time, the standard Zarr
-recipe is the only option. While you cannot modify chunking in a reference recipe, changes in the metadata
-(attributes, encoding, etc.) can be applied.

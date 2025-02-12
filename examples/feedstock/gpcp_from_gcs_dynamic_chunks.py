@@ -8,10 +8,7 @@ import zarr
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
 from pangeo_forge_recipes.transforms import OpenURLWithFSSpec, OpenWithXarray, StoreToZarr
 
-dates = [
-    d.to_pydatetime().strftime("%Y%m%d")
-    for d in pd.date_range("1996-10-01", "1999-02-01", freq="D")
-]
+dates = [d.to_pydatetime().strftime("%Y%m%d") for d in pd.date_range("1996-10-01", "1999-02-01", freq="D")]
 
 
 def make_url(time):
@@ -29,9 +26,7 @@ def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
     import xarray as xr
 
     ds = xr.open_dataset(store, engine="zarr", chunks={})
-    assert ds.title == (
-        "Global Precipitation Climatatology Project (GPCP) " "Climate Data Record (CDR), Daily V1.3"
-    )
+    assert ds.title == ("Global Precipitation Climatatology Project (GPCP) " "Climate Data Record (CDR), Daily V1.3")
 
     assert ds.chunks["time"][0] == 2
     return store

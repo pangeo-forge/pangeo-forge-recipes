@@ -41,9 +41,7 @@ def _combine_xarray_schemas(
     s1: Optional[XarraySchema], s2: Optional[XarraySchema], concat_dim: Optional[str] = None
 ) -> XarraySchema:
     if s1 is None and s2 is None:
-        raise ValueError(
-            "Encountered two empty XarraySchemas during combine: one must be non-empty"
-        )
+        raise ValueError("Encountered two empty XarraySchemas during combine: one must be non-empty")
     if s1 is None:
         assert s2 is not None
         return s2
@@ -65,9 +63,7 @@ def _combine_xarray_schemas(
         }
 
 
-def _combine_dims(
-    d1: Dict[str, int], d2: Dict[str, int], concat_dim: Optional[str]
-) -> Dict[str, int]:
+def _combine_dims(d1: Dict[str, int], d2: Dict[str, int], concat_dim: Optional[str]) -> Dict[str, int]:
     if not d1:
         return d2
     all_dims = set(d1) | set(d2)
@@ -233,14 +229,9 @@ def schema_to_template_ds(
 
     target_chunks = determine_target_chunks(schema, specified_chunks)
 
-    data_vars = {
-        name: _to_variable(template, target_chunks)
-        for name, template in schema["data_vars"].items()
-    }
+    data_vars = {name: _to_variable(template, target_chunks) for name, template in schema["data_vars"].items()}
 
-    coords = {
-        name: _to_variable(template, target_chunks) for name, template in schema["coords"].items()
-    }
+    coords = {name: _to_variable(template, target_chunks) for name, template in schema["coords"].items()}
     dataset_attrs = schema["attrs"]
 
     if attrs and isinstance(attrs, dict):

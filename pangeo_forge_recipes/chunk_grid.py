@@ -49,10 +49,7 @@ class ChunkGrid:
                 raise ValueError("chunksize must be greater than 0")
             if chunksize > dimsize:
                 # TODO: make sure this path is more thoroughly tested
-                warnings.warn(
-                    f"chunksize ({chunksize}) > dimsize ({dimsize}). "
-                    f"Decreasing chunksize to {dimsize}"
-                )
+                warnings.warn(f"chunksize ({chunksize}) > dimsize ({dimsize}). " f"Decreasing chunksize to {dimsize}")
                 chunksize = dimsize
             chunks = (dimsize // chunksize) * (chunksize,)
             if dimsize % chunksize > 0:
@@ -83,8 +80,7 @@ class ChunkGrid:
         # doesn't seem like the kosher way to do this but /shrug
         new = self.__class__({})
         new._chunk_axes = {
-            name: ca.consolidate(factors[name]) if name in factors else ca
-            for name, ca in self._chunk_axes.items()
+            name: ca.consolidate(factors[name]) if name in factors else ca for name, ca in self._chunk_axes.items()
         }
         return new
 
@@ -95,8 +91,7 @@ class ChunkGrid:
         # doesn't seem like the kosher way to do this but /shrug
         new = self.__class__({})
         new._chunk_axes = {
-            name: ca.subset(factors[name]) if name in factors else ca
-            for name, ca in self._chunk_axes.items()
+            name: ca.subset(factors[name]) if name in factors else ca for name, ca in self._chunk_axes.items()
         }
         return new
 
@@ -104,18 +99,12 @@ class ChunkGrid:
         """Convert a single index from chunk space to a slice in array space
         for each specified dimension."""
 
-        return {
-            name: self._chunk_axes[name].chunk_index_to_array_slice(idx)
-            for name, idx in chunk_index.items()
-        }
+        return {name: self._chunk_axes[name].chunk_index_to_array_slice(idx) for name, idx in chunk_index.items()}
 
     def array_index_to_chunk_index(self, array_index: Dict[str, int]) -> Dict[str, int]:
         """Figure out which chunk a single array-space index comes from
         for each specified dimension."""
-        return {
-            name: self._chunk_axes[name].array_index_to_chunk_index(idx)
-            for name, idx in array_index.items()
-        }
+        return {name: self._chunk_axes[name].array_index_to_chunk_index(idx) for name, idx in array_index.items()}
 
     def array_slice_to_chunk_slice(self, array_slices: Dict[str, slice]) -> Dict[str, slice]:
         """Find all chunks that intersect with a given array-space slice

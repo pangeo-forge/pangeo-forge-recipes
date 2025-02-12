@@ -94,9 +94,7 @@ def test_caching_only_truncates_long_fnames_for_local_fs(fs_cls, fname_longer_th
 
 
 def test_suffix(tmp_path):
-    assert str((FSSpecTarget(LocalFileSystem(), tmp_path) / "test").root_path) == str(
-        tmp_path / "test"
-    )
+    assert str((FSSpecTarget(LocalFileSystem(), tmp_path) / "test").root_path) == str(tmp_path / "test")
 
 
 @pytest.mark.parametrize("fs_cls", [LocalFileSystem, HTTPFileSystem, S3FileSystem, GCSFileSystem])

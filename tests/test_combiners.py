@@ -1,5 +1,4 @@
 import copy
-import logging
 
 import apache_beam as beam
 import numpy as np
@@ -13,12 +12,7 @@ from pytest_lazyfixture import lazy_fixture
 from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.combiners import CombineXarraySchemas
 from pangeo_forge_recipes.patterns import FilePattern
-from pangeo_forge_recipes.transforms import (
-    CombineReferences,
-    DatasetToSchema,
-    DetermineSchema,
-    _NestDim,
-)
+from pangeo_forge_recipes.transforms import DatasetToSchema, DetermineSchema, _NestDim
 from pangeo_forge_recipes.types import CombineOp, Dimension, Index, Position
 
 from .data_generation import make_ds
@@ -41,9 +35,7 @@ def _get_schema(path):
 def _expected_schema(pattern):
     expected_ds = xr.open_mfdataset(item[1] for item in pattern.items())
     expected_schema = dataset_to_schema(expected_ds)
-    expected_schema["chunks"] = {
-        "time": {pos: v for pos, v in enumerate(expected_ds.chunks["time"])}
-    }
+    expected_schema["chunks"] = {"time": {pos: v for pos, v in enumerate(expected_ds.chunks["time"])}}
     return expected_schema
 
 
@@ -179,9 +171,7 @@ def test_CombineXarraySchemas_aggregation(schema_pcoll_concat):
     assert dropped_fields[0] == s4
 
     # make sure we can add in different order
-    first_add = cxs.add_input(
-        dropped_fields, (idx_at_position(5), dataset_to_schema(make_ds(nt=1)))
-    )
+    first_add = cxs.add_input(dropped_fields, (idx_at_position(5), dataset_to_schema(make_ds(nt=1))))
     second_add = cxs.add_input(first_add, (idx_at_position(4), dataset_to_schema(make_ds(nt=2))))
     time_chunks = {0: 3, 1: 3, 2: 3, 3: 4, 4: 2, 5: 1}
     assert second_add[0]["chunks"]["time"] == time_chunks
@@ -292,9 +282,7 @@ _dimensions = [
 ]
 
 
-@pytest.mark.parametrize(
-    "dimensions", [_dimensions, _dimensions[::-1]], ids=["concat_first", "merge_first"]
-)
+@pytest.mark.parametrize("dimensions", [_dimensions, _dimensions[::-1]], ids=["concat_first", "merge_first"])
 def test_DetermineSchema_concat_merge(dimensions, dsets_pcoll_concat_merge, pipeline):
     _, expected_schema, pcoll = dsets_pcoll_concat_merge
 
@@ -302,87 +290,3 @@ def test_DetermineSchema_concat_merge(dimensions, dsets_pcoll_concat_merge, pipe
         input = p | pcoll
         output = input | DetermineSchema(dimensions)
         assert_that(output, has_correct_schema(expected_schema))
-
-
-def _is_expected_dataset(expected_ds):
-    def _impl(actual):
-        actual_ds = xr.open_dataset(actual[0], engine="zarr")
-
-        assert expected_ds == actual_ds
-
-    return _impl
-
-
-@pytest.fixture
-def combine_references_fixture():
-    return CombineReferences(
-        concat_dims=["time"],
-        identical_dims=["x", "y"],
-    )
-
-
-@pytest.mark.parametrize(
-    "indexed_reference, global_position_min_max_count, expected",
-    [
-        # assume contiguous data but show examples offsets
-        # across the array and assume default max_refs_per_merge==5
-        (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(0)}), {"url": "s3://blah.hdf5"}),
-            (0, 100, 101),
-            (0, {"url": "s3://blah.hdf5"}),
-        ),
-        (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(4)}), {"url": "s3://blah.hdf5"}),
-            (0, 100, 101),
-            (0, {"url": "s3://blah.hdf5"}),
-        ),
-        (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(5)}), {"url": "s3://blah.hdf5"}),
-            (0, 100, 101),
-            (1, {"url": "s3://blah.hdf5"}),
-        ),
-        (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(10)}), {"url": "s3://blah.hdf5"}),
-            (0, 100, 101),
-            (2, {"url": "s3://blah.hdf5"}),
-        ),
-        (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(25)}), {"url": "s3://blah.hdf5"}),
-            (0, 100, 101),
-            (5, {"url": "s3://blah.hdf5"}),
-        ),
-        (
-            (Index({Dimension("time", CombineOp.CONCAT): Position(50)}), {"url": "s3://blah.hdf5"}),
-            (0, 100, 101),
-            (10, {"url": "s3://blah.hdf5"}),
-        ),
-        (
-            (
-                Index({Dimension("time", CombineOp.CONCAT): Position(100)}),
-                {"url": "s3://blah.hdf5"},
-            ),
-            (0, 100, 101),
-            (21, {"url": "s3://blah.hdf5"}),
-        ),
-        (
-            (
-                Index({Dimension("time", CombineOp.CONCAT): Position(80)}),
-                {"url": "s3://blah.hdf5"},
-            ),
-            (0, 80, 101),
-            False,
-        ),
-    ],
-)
-def test_bucket_by_position_contiguous_offsets(
-    combine_references_fixture, indexed_reference, global_position_min_max_count, expected, caplog
-):
-    with caplog.at_level(logging.WARNING):
-        result = combine_references_fixture.bucket_by_position(
-            indexed_reference, global_position_min_max_count
-        )
-
-    if not expected:
-        assert "The distribution of indexes is not contiguous/uniform" in caplog.text
-    else:
-        assert result == expected
