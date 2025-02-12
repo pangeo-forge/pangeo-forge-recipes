@@ -43,7 +43,6 @@ OPENER_MAP = {
     FileType.zarr: dict(engine="zarr"),
     FileType.opendap: dict(engine="netcdf4"),
     FileType.grib: dict(engine="cfgrib"),
-    FileType.kerchunk: dict(engine="kerchunk"),
 }
 
 
@@ -130,76 +129,6 @@ def _url_as_str(url_or_file_obj: UrlOrFileObj, remote_protocol: Optional[str] = 
     return as_str
 
 
-def open_with_kerchunk(
-    url_or_file_obj: UrlOrFileObj,
-    file_type: FileType = FileType.unknown,
-    inline_threshold: Optional[int] = 100,
-    storage_options: Optional[Dict] = None,
-    remote_protocol: Optional[str] = None,
-    kerchunk_open_kwargs: Optional[dict] = None,
-) -> list[dict]:
-    """Scan through item(s) with one of Kerchunk's file readers (SingleHdf5ToZarr, scan_grib etc.)
-    and create reference objects.
-
-    All file readers return dicts, with the exception of scan_grib, which returns a list of dicts.
-    Therefore, to provide a consistent return type, this function always returns a list of dicts
-    (placing dicts inside a single-element list as needed).
-
-    :param url_or_file_obj: The url or file object to be opened.
-    :param file_type: The type of file to be openend; e.g. "netcdf4", "netcdf3", "grib", etc.
-    :param inline_threshold: Passed to kerchunk opener.
-    :param storage_options: Storage options dict to pass to the kerchunk opener.
-    :param remote_protocol: If files are accessed over the network, provide the remote protocol
-      over which they are accessed. e.g.: "s3", "https", etc.
-    :param kerchunk_open_kwargs: Additional kwargs to pass to kerchunk opener. Any kwargs which
-      are specific to a particular input file type should be passed here;  e.g.,
-      ``{"filter": ...}`` for GRIB; ``{"max_chunk_size": ...}`` for NetCDF3, etc.
-    """
-    if isinstance(file_type, str):
-        file_type = FileType(file_type)
-
-    url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
-    url_as_str = _url_as_str(url_or_file_obj, remote_protocol)
-
-    if file_type == FileType.netcdf4:
-        from kerchunk.hdf import SingleHdf5ToZarr
-
-        h5chunks = SingleHdf5ToZarr(
-            url_or_file_obj,
-            url=url_as_str,
-            inline_threshold=inline_threshold,
-            storage_options=storage_options,
-            **(kerchunk_open_kwargs or {}),
-        )
-        refs = [h5chunks.translate()]
-
-    elif file_type == FileType.netcdf3:
-        from kerchunk.netCDF3 import NetCDF3ToZarr
-
-        chunks = NetCDF3ToZarr(
-            url_as_str,
-            inline_threshold=inline_threshold,
-            storage_options=storage_options,
-            **(kerchunk_open_kwargs or {}),
-        )
-        refs = [chunks.translate()]
-
-    elif file_type == FileType.grib:
-        from kerchunk.grib2 import scan_grib
-
-        refs = scan_grib(
-            url=url_as_str,
-            inline_threshold=inline_threshold,
-            storage_options=storage_options,
-            **(kerchunk_open_kwargs or {}),
-        )
-
-    elif file_type == FileType.zarr:
-        raise NotImplementedError("Filetype Zarr is not supported for Reference recipes.")
-
-    return refs
-
-
 def open_with_xarray(
     url_or_file_obj: Union[OpenFileType, str, zarr.storage.FSStore],
     file_type: FileType = FileType.unknown,
@@ -226,9 +155,7 @@ def open_with_xarray(
         if file_type in [FileType.zarr or FileType.opendap]:
             raise ValueError(f"File type {file_type} can't be copied to a local file.")
         if isinstance(url_or_file_obj, str):
-            raise ValueError(
-                "Won't copy string URLs to local files. Please call ``open_url`` first."
-            )
+            raise ValueError("Won't copy string URLs to local files. Please call ``open_url`` first.")
         ntf = tempfile.NamedTemporaryFile()
         tmp_name = ntf.name
         target_opener = open(tmp_name, mode="wb")

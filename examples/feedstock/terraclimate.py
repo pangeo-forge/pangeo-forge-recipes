@@ -51,9 +51,7 @@ def make_filename(variable, time):
     )
 
 
-pattern = FilePattern(
-    make_filename, ConcatDim(name="time", keys=years), MergeDim(name="variable", keys=variables)
-)
+pattern = FilePattern(make_filename, ConcatDim(name="time", keys=years), MergeDim(name="variable", keys=variables))
 
 
 class Munge(beam.PTransform):
@@ -109,9 +107,7 @@ class Munge(beam.PTransform):
                 "using a water balance model and plant extractable soil water capacity derived "
                 "from Wang-Erlandsson et al (2016)."
             ),
-            "title": (
-                "TerraClimate: monthly climate and climatic water balance for global land surfaces"
-            ),
+            "title": ("TerraClimate: monthly climate and climatic water balance for global land surfaces"),
             "summary": (
                 "This archive contains a dataset of high-spatial resolution (1/24th degree, ~4-km) "
                 "monthly climate and climatic water balance for global terrestrial surfaces from "

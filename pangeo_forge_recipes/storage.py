@@ -38,9 +38,7 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                 throughput = bytes_read / elapsed
                 if elapsed // interval >= log_count:
                     logger.debug(f"_copy_btw_filesystems total bytes copied: {bytes_read}")
-                    logger.debug(
-                        f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
-                    )
+                    logger.debug(f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec")
                     log_count += 1
     logger.debug("_copy_btw_filesystems done")
 
@@ -114,9 +112,7 @@ class FSSpecTarget(AbstractTarget):
         elif isinstance(fsspec_protocol, list):
             return fsspec_protocol[0]
         else:
-            raise ValueError(
-                f"could not resolve fsspec protocol '{fsspec_protocol}' from underlying filesystem"
-            )
+            raise ValueError(f"could not resolve fsspec protocol '{fsspec_protocol}' from underlying filesystem")
 
     def get_mapper(self) -> fsspec.mapping.FSMap:
         """Get a mutable mapping object suitable for storing Zarr data."""
@@ -186,9 +182,7 @@ class FlatFSSpecTarget(FSSpecTarget):
 class CacheFSSpecTarget(FlatFSSpecTarget):
     """Alias for FlatFSSpecTarget"""
 
-    def cache_file(
-        self, fname: str, secrets: Optional[dict], fsspec_sync_patch=False, **open_kwargs
-    ) -> None:
+    def cache_file(self, fname: str, secrets: Optional[dict], fsspec_sync_patch=False, **open_kwargs) -> None:
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
         input_opener = _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs)

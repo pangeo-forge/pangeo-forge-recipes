@@ -42,7 +42,6 @@ you'll need to open it somehow. Pangeo Forge currently provides the following op
 - {class}`pangeo_forge_recipes.transforms.OpenURLWithFSSpec`
     - ⚙️ `cache` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
 - {class}`pangeo_forge_recipes.transforms.OpenWithXarray`
-- {class}`pangeo_forge_recipes.transforms.OpenWithKerchunk`
 
 ## Preprocessors
 
@@ -57,8 +56,6 @@ for this purpose and included in your recipe.
 ## Writers
 
 - {class}`pangeo_forge_recipes.transforms.StoreToZarr`
-    - ⚙️ `target_root` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
-- {class}`pangeo_forge_recipes.transforms.WriteCombinedReference`
     - ⚙️ `target_root` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
 
 ## What's next

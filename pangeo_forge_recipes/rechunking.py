@@ -93,11 +93,7 @@ def split_fragment(
     # (which consumes the output of this function) receives groups of fragments which are
     # homogenous in all merge dimensions. a possible value here would be `[("variable", 0)]`.
     merge_dim_positions = sorted(
-        [
-            (dim.name, position.value)
-            for dim, position in common_index.items()
-            if dim.operation == CombineOp.MERGE
-        ]
+        [(dim.name, position.value) for dim, position in common_index.items() if dim.operation == CombineOp.MERGE]
     )
 
     # this iteration yields new fragments, indexed by their target chunk group
@@ -112,13 +108,9 @@ def split_fragment(
             fragment_slice = fragment_slices[dim]
             start = max(chunk_slice.start, fragment_slice.start)
             stop = min(chunk_slice.stop, fragment_slice.stop)
-            sub_fragment_indexer[dim] = slice(
-                start - fragment_slice.start, stop - fragment_slice.start
-            )
+            sub_fragment_indexer[dim] = slice(start - fragment_slice.start, stop - fragment_slice.start)
             dimension = Dimension(dim, CombineOp.CONCAT)
-            sub_fragment_index[dimension] = IndexedPosition(
-                start, dimsize=target_chunks_and_dims[dim][1]
-            )
+            sub_fragment_index[dimension] = IndexedPosition(start, dimsize=target_chunks_and_dims[dim][1])
         sub_fragment_ds = ds.isel(**sub_fragment_indexer)
 
         yield (
@@ -145,17 +137,12 @@ def _invert_meshgrid(*arrays):
         selectors[n][ndim - n - 1] = slice(None)
         selectors[n] = tuple(selectors[n])
     xi = [a[s] for a, s in zip(arrays, selectors)]
-    assert all(
-        np.equal(actual, expected.squeeze()).all()
-        for actual, expected in zip(arrays, np.meshgrid(*xi))
-    )
+    assert all(np.equal(actual, expected.squeeze()).all() for actual, expected in zip(arrays, np.meshgrid(*xi)))
     return xi
 
 
 # TODO: figure out a type hint that beam likes
-def combine_fragments(
-    group: GroupKey, fragments: List[Tuple[Index, xr.Dataset]]
-) -> Tuple[Index, xr.Dataset]:
+def combine_fragments(group: GroupKey, fragments: List[Tuple[Index, xr.Dataset]]) -> Tuple[Index, xr.Dataset]:
     """Combine multiple dataset fragments into a single fragment.
 
     Only combines concat dims; merge dims are not combined.
@@ -179,15 +166,11 @@ def combine_fragments(
     first_index = all_indexes[0]
     dimensions = tuple(first_index)
     if not all([tuple(index) == dimensions for index in all_indexes]):
-        raise ValueError(
-            f"Cannot combine fragments for elements with different combine dims: {all_indexes}"
-        )
+        raise ValueError(f"Cannot combine fragments for elements with different combine dims: {all_indexes}")
     concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
 
     if not all(all(index[dim].indexed for index in all_indexes) for dim in concat_dims):
-        raise ValueError(
-            "All concat dimension positions must be indexed in order to combine fragments."
-        )
+        raise ValueError("All concat dimension positions must be indexed in order to combine fragments.")
 
     # now we need to unstack the 1D concat dims into an ND nested data structure
     # first step is figuring out the shape
@@ -212,8 +195,7 @@ def combine_fragments(
     if len(fragments) != total_size:
         # this error path is currently untested
         raise ValueError(
-            "Cannot combine fragments. "
-            f"Expected a hypercube of shape {shape} but got {len(fragments)} fragments."
+            "Cannot combine fragments. " f"Expected a hypercube of shape {shape} but got {len(fragments)} fragments."
         )
 
     starts_cube = [np.array(item[1]).reshape(shape) for item in dims_starts_sizes]
@@ -243,9 +225,7 @@ def combine_fragments(
 
 
 def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
-    return list(
-        set(itertools.chain(*(group[var].attrs.get("_ARRAY_DIMENSIONS", []) for var in group)))
-    )
+    return list(set(itertools.chain(*(group[var].attrs.get("_ARRAY_DIMENSIONS", []) for var in group))))
 
 
 def consolidate_dimension_coordinates(

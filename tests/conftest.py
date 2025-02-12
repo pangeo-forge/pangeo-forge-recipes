@@ -110,9 +110,7 @@ def make_file_pattern(path_fixture):
     return file_pattern
 
 
-def make_local_paths(
-    daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter, file_type="netcdf4"
-):
+def make_local_paths(daily_xarray_dataset, tmpdir_factory, items_per_file, file_splitter, file_type="netcdf4"):
     tmp_path = tmpdir_factory.mktemp("netcdf_data")
     file_splitter_tuple = file_splitter(daily_xarray_dataset.copy(), items_per_file)
 
@@ -136,9 +134,7 @@ def make_local_paths(
     items_per_file = {"D": 1, "2D": 2}[items_per_file]
 
     fnames_by_variable = file_splitter_tuple[-1] if len(file_splitter_tuple) == 3 else None
-    path_format = (
-        str(tmp_path) + "/{variable}_{time:03d}" + f".{suffix}" if fnames_by_variable else None
-    )
+    path_format = str(tmp_path) + "/{variable}_{time:03d}" + f".{suffix}" if fnames_by_variable else None
 
     kwargs = {}
 
@@ -295,9 +291,7 @@ def daily_xarray_dataset_with_coordinateless_dimension(daily_xarray_dataset):
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
-    return make_local_paths(
-        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf4"
-    )
+    return make_local_paths(daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf4")
 
 
 @pytest.fixture(scope="session")
@@ -319,23 +313,17 @@ def netcdf_local_paths_sequential_1d_to_append(
 
 @pytest.fixture(scope="session")
 def netcdf3_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
-    return make_local_paths(
-        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf3"
-    )
+    return make_local_paths(daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="netcdf3")
 
 
 @pytest.fixture(scope="session")
 def zarr_local_paths_sequential_1d(daily_xarray_dataset, tmpdir_factory):
-    return make_local_paths(
-        daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="zarr"
-    )
+    return make_local_paths(daily_xarray_dataset, tmpdir_factory, "D", split_up_files_by_day, file_type="zarr")
 
 
 @pytest.fixture(scope="session")
 def netcdf_local_paths_sequential_2d(daily_xarray_dataset, tmpdir_factory):
-    return make_local_paths(
-        daily_xarray_dataset, tmpdir_factory, "2D", split_up_files_by_day, file_type="netcdf4"
-    )
+    return make_local_paths(daily_xarray_dataset, tmpdir_factory, "2D", split_up_files_by_day, file_type="netcdf4")
 
 
 @pytest.fixture(

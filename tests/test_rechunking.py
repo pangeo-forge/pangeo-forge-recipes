@@ -53,10 +53,7 @@ def test_split_and_combine_fragments_with_merge_dim(nt_dayparam, time_chunks, ot
     # the splits list are nested tuples which are a bit confusing for humans to think about.
     # create a namedtuple to help remember the structure of these tuples and cast the
     # elements of splits list to this more descriptive type.
-    splits = [
-        list(split_fragment((index, ds), target_chunks=target_chunks))
-        for index, ds in zip(indexes, dsets)
-    ]
+    splits = [list(split_fragment((index, ds), target_chunks=target_chunks)) for index, ds in zip(indexes, dsets)]
     Subfragment = namedtuple("Subfragment", "groupkey, content")
     subfragments = list(itertools.chain(*[[Subfragment(*s) for s in split] for split in splits]))
 
@@ -125,9 +122,7 @@ def test_split_fragment(time_chunks, offset):
         fragment_start = max(chunk_start, offset)
         fragment_stop = min(chunk_stop, fragment_start + time_chunks, offset + nt)
         # other dimensions in the index should be passed through unchanged
-        assert new_indexes[n] == Index(
-            [(dimension, IndexedPosition(fragment_start, dimsize=nt_total))] + extra_indexes
-        )
+        assert new_indexes[n] == Index([(dimension, IndexedPosition(fragment_start, dimsize=nt_total))] + extra_indexes)
         start, stop = fragment_start - offset, fragment_stop - offset
         xr.testing.assert_equal(new_datasets[n], ds.isel(time=slice(start, stop)))
 
@@ -173,9 +168,7 @@ def test_split_multidim():
             }
         )
         assert fragment_index == expected_index
-        xr.testing.assert_equal(
-            fragment_ds, ds.isel(time=slice(time_start, time_stop), lat=slice(lat_start, lat_stop))
-        )
+        xr.testing.assert_equal(fragment_ds, ds.isel(time=slice(time_start, time_stop), lat=slice(lat_start, lat_stop)))
 
 
 @pytest.mark.parametrize("time_chunk", [1, 2, 3, 5, 10])
@@ -221,9 +214,7 @@ def test_combine_fragments_multidim(time_chunk, lat_chunk):
         for start_y in range(0, ny, lat_chunk):
             stop_y = min(start_y + lat_chunk, ny)
             ds_frag = ds.isel(time=slice(start_t, stop_t), lat=slice(start_y, stop_y))
-            index_frag = Index(
-                {time_dim: IndexedPosition(start_t), lat_dim: IndexedPosition(start_y)}
-            )
+            index_frag = Index({time_dim: IndexedPosition(start_t), lat_dim: IndexedPosition(start_y)})
             fragments.append((index_frag, ds_frag))
 
     # fragments will arrive in a random order
