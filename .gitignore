@@ -136,3 +136,6 @@ dask-worker-space
 
 # vscode
 .vscode/
+
+# linter caches
+.prettier_cache

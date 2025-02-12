@@ -12,11 +12,11 @@ kernelspec:
 Once you have a {doc}`file pattern <file_patterns>` for your source data, it's time to define
 a set of transforms to apply to the data, which may include:
 
-  - Standard transforms from Apache Beam's
-    [Python transform catalog](https://beam.apache.org/documentation/transforms/python/overview/)
-  - `pangeo-forge-recipes` core transforms, such as [](#openers) and [](#writers)
-  - Third-party extensions from the Pangeo Forge {doc}`../ecosystem`
-  - Your own transforms, such as custom [](#preprocessors)
+- Standard transforms from Apache Beam's
+  [Python transform catalog](https://beam.apache.org/documentation/transforms/python/overview/)
+- `pangeo-forge-recipes` core transforms, such as [](#openers) and [](#writers)
+- Third-party extensions from the Pangeo Forge {doc}`../ecosystem`
+- Your own transforms, such as custom [](#preprocessors)
 
 ```{hint}
 Please refer to the [](./index.md#generic-sequence) and [](./styles.md) for discussion of
@@ -40,7 +40,7 @@ Once you've created a {doc}`file pattern <file_patterns>` for your source data,
 you'll need to open it somehow. Pangeo Forge currently provides the following openers:
 
 - {class}`pangeo_forge_recipes.transforms.OpenURLWithFSSpec`
-    - ⚙️ `cache` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
+  - ⚙️ `cache` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
 - {class}`pangeo_forge_recipes.transforms.OpenWithXarray`
 - {class}`pangeo_forge_recipes.transforms.OpenWithKerchunk`
 
@@ -57,9 +57,9 @@ for this purpose and included in your recipe.
 ## Writers
 
 - {class}`pangeo_forge_recipes.transforms.StoreToZarr`
-    - ⚙️ `target_root` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
+  - ⚙️ `target_root` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
 - {class}`pangeo_forge_recipes.transforms.WriteCombinedReference`
-    - ⚙️ `target_root` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
+  - ⚙️ `target_root` - <a href="#configurable-kwargs">Deploy-time configurable keyword argument</a>
 
 ## What's next
 
