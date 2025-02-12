@@ -179,9 +179,7 @@ def test_prune(nkeep, concat_merge_pattern_with_kwargs, runtime_secrets):
     def get_kwargs(file_pattern):
         sig = inspect.signature(file_pattern.__init__)
         kwargs = {
-            param: getattr(file_pattern, param)
-            for param in sig.parameters.keys()
-            if param not in ["combine_dims"]
+            param: getattr(file_pattern, param) for param in sig.parameters.keys() if param not in ["combine_dims"]
         }
         return kwargs
 

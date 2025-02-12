@@ -91,7 +91,6 @@ class AutoName(Enum):
 
 class FileType(AutoName):
     grib = auto()
-    kerchunk = auto()
     netcdf3 = auto()
     netcdf4 = auto()
     opendap = auto()
@@ -199,11 +198,7 @@ class FilePattern:
         assert len(indexer) == len(self.combine_dims)
         format_function_kwargs = {}
         for dimension, position in indexer.items():
-            dims = [
-                combine_dim
-                for combine_dim in self.combine_dims
-                if combine_dim.dimension == dimension
-            ]
+            dims = [combine_dim for combine_dim in self.combine_dims if combine_dim.dimension == dimension]
             if len(dims) != 1:
                 raise KeyError(f"Could not valid combine_dim for dimension {dimension}")
             dim = dims[0]
@@ -214,12 +209,7 @@ class FilePattern:
     def __iter__(self) -> Iterator[Index]:
         """Iterate over all keys in the pattern."""
         for val in product(*[range(n) for n in self.shape]):
-            index = Index(
-                {
-                    Dimension(op.name, op.operation): Position(v)
-                    for op, v in zip(self.combine_dims, val)
-                }
-            )
+            index = Index({Dimension(op.name, op.operation): Position(v) for op, v in zip(self.combine_dims, val)})
             yield index
 
     def items(self):
@@ -278,9 +268,7 @@ class FilePattern:
             "query_string_secrets": self.query_string_secrets,
             "file_type": self.file_type,
             "nitems_per_file": {
-                op.name: op.nitems_per_file  # type: ignore
-                for op in self.combine_dims
-                if op.name in self.concat_dims
+                op.name: op.nitems_per_file for op in self.combine_dims if op.name in self.concat_dims  # type: ignore
             },
         }
         # by dropping empty values from ``root``, we allow for the attributes of ``FilePattern`` to
@@ -318,9 +306,7 @@ class FilePattern:
         return None
 
 
-def pattern_from_file_sequence(
-    file_list, concat_dim, nitems_per_file=None, **kwargs
-) -> FilePattern:
+def pattern_from_file_sequence(file_list, concat_dim, nitems_per_file=None, **kwargs) -> FilePattern:
     """Convenience function for creating a FilePattern from a list of files."""
 
     keys = list(range(len(file_list)))

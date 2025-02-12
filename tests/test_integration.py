@@ -114,7 +114,6 @@ def minio_confpath(minio, tmp_path_factory: pytest.TempPathFactory):
 def test_integration(confpath_option: str, recipe_id: str, request):
     """Run the example recipes in the ``examples/feedstock`` directory."""
     xfails = {
-        "hrrr-kerchunk-concat-valid-time": "Can't serialize drop_unknown callback function.",
         "narr-opendap": "Hangs for unkown reason. Requires further debugging.",
         "terraclimate": "Hangs for unkown reason. Requires further debugging.",
         "gpcp_rechunk": "Unknown failure in integration tests.",

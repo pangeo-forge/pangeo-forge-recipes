@@ -29,15 +29,11 @@ class CombineXarraySchemas(beam.CombineFn):
         concat_dim = self.dimension.name if self.dimension.operation == CombineOp.CONCAT else None
         return (None, concat_dim)
 
-    def add_input(
-        self, accumulator: SchemaAccumulator, item: Indexed[XarraySchema]
-    ) -> SchemaAccumulator:
+    def add_input(self, accumulator: SchemaAccumulator, item: Indexed[XarraySchema]) -> SchemaAccumulator:
         acc_schema, acc_concat_dim = accumulator
         next_index, next_schema = item
         if acc_concat_dim:
-            assert (
-                acc_concat_dim not in next_schema["chunks"]
-            ), "Concat dim should be unchunked for new input"
+            assert acc_concat_dim not in next_schema["chunks"], "Concat dim should be unchunked for new input"
             position = self.get_position(next_index)
             # Copy to avoid side effects (just python things)
             next_schema = copy.deepcopy(next_schema)

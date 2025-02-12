@@ -60,14 +60,9 @@ class Index(Dict[Dimension, Position]):
         self.__init__({k: v for k, v in state})
 
     def find_concat_dim(self, dim_name: str) -> Optional[Dimension]:
-        possible_concat_dims = [
-            d for d in self if (d.name == dim_name and d.operation == CombineOp.CONCAT)
-        ]
+        possible_concat_dims = [d for d in self if (d.name == dim_name and d.operation == CombineOp.CONCAT)]
         if len(possible_concat_dims) > 1:
-            raise ValueError(
-                f"Found {len(possible_concat_dims)} concat dims named {dim_name} "
-                f"in the index {self}."
-            )
+            raise ValueError(f"Found {len(possible_concat_dims)} concat dims named {dim_name} " f"in the index {self}.")
         elif len(possible_concat_dims) == 0:
             return None
         else:

@@ -2,11 +2,7 @@ import cftime
 import pytest
 import xarray as xr
 
-from pangeo_forge_recipes.aggregation import (
-    dataset_to_schema,
-    determine_target_chunks,
-    schema_to_template_ds,
-)
+from pangeo_forge_recipes.aggregation import dataset_to_schema, determine_target_chunks, schema_to_template_ds
 
 from .data_generation import make_ds
 

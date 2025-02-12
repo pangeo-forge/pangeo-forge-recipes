@@ -7,18 +7,17 @@ from apache_beam.testing.util import BeamAssertException, assert_that, is_not_em
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
-from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, MergeDim
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, MergeDim
 from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 from pangeo_forge_recipes.transforms import (
     DetermineSchema,
     IndexItems,
-    OpenWithKerchunk,
     OpenWithXarray,
     PrepareZarrTarget,
     Rechunk,
     StoreToZarr,
 )
-from pangeo_forge_recipes.types import CombineOp, Index
+from pangeo_forge_recipes.types import CombineOp
 
 from .data_generation import make_ds
 
@@ -44,9 +43,7 @@ def test_OpenURLWithFSSpec(pcoll_opened_files):
         def _expected_len(actual):
             actual_len = len(actual)
             if actual_len != n:
-                raise BeamAssertException(
-                    f"Failed assert: actual len is {actual_len}, expected {n}"
-                )
+                raise BeamAssertException(f"Failed assert: actual len is {actual_len}, expected {n}")
 
         return _expected_len
 
@@ -76,9 +73,7 @@ def is_xr_dataset(in_memory=False):
         for _, ds in actual:
             if not isinstance(ds, xr.Dataset):
                 raise BeamAssertException(f"Object {ds} has type {type(ds)}, expected xr.Dataset.")
-            offending_vars = [
-                vname for vname in ds.data_vars if ds[vname].variable._in_memory != in_memory
-            ]
+            offending_vars = [vname for vname in ds.data_vars if ds[vname].variable._in_memory != in_memory]
             if offending_vars:
                 msg = "were NOT in memory" if in_memory else "were in memory"
                 raise BeamAssertException(f"The following vars {msg}: {offending_vars}")
@@ -121,39 +116,6 @@ def test_OpenWithXarray_via_fsspec_load(pcoll_opened_files, pipeline):
         assert_that(loaded_dsets, is_xr_dataset(in_memory=True))
 
 
-def is_list_of_idx_refs_dicts():
-    def _is_list_of_idx_refs_dicts(results):
-        for result in results:
-            idx = result[0]
-            references = result[1]
-            test_ref = references[0]
-            assert isinstance(idx, Index)
-            assert isinstance(test_ref, dict)
-            assert "refs" in test_ref
-
-    return _is_list_of_idx_refs_dicts
-
-
-def test_OpenWithKerchunk_via_fsspec(pcoll_opened_files, pipeline):
-    input, pattern, cache_url = pcoll_opened_files
-    with pipeline as p:
-        output = p | input | OpenWithKerchunk(pattern.file_type)
-        assert_that(output, is_list_of_idx_refs_dicts())
-
-
-def test_OpenWithKerchunk_direct(pattern_direct, pipeline):
-    if pattern_direct.file_type == FileType.zarr:
-        pytest.skip("Zarr filetype not supported for Reference recipe.")
-
-    with pipeline as p:
-        output = (
-            p
-            | beam.Create(pattern_direct.items())
-            | OpenWithKerchunk(file_type=pattern_direct.file_type)
-        )
-        assert_that(output, is_list_of_idx_refs_dicts())
-
-
 @pytest.mark.parametrize("target_chunks", [{}, {"time": 1}, {"time": 2}, {"time": 2, "lon": 9}])
 def test_PrepareZarrTarget(pipeline, tmp_target, target_chunks):
 
@@ -176,9 +138,7 @@ def test_PrepareZarrTarget(pipeline, tmp_target, target_chunks):
                 assert v.attrs == v_actual.attrs
 
                 zarr_chunks = zgroup[vname].chunks
-                expected_chunks = tuple(
-                    target_chunks.get(dim) or dimsize for dim, dimsize in v.sizes.items()
-                )
+                expected_chunks = tuple(target_chunks.get(dim) or dimsize for dim, dimsize in v.sizes.items())
                 assert zarr_chunks == expected_chunks
 
         return _check_target
@@ -211,19 +171,14 @@ def test_rechunk(
             for index, ds in actual:
                 actual_chunked_dims = {dim: ds.sizes[dim] for dim in target_chunks}
                 assert all(
-                    position.indexed
-                    for dimension, position in index.items()
-                    if dimension.operation == CombineOp.CONCAT
+                    position.indexed for dimension, position in index.items() if dimension.operation == CombineOp.CONCAT
                 )
                 max_possible_chunk_size = {
                     dimension.name: (position.dimsize - position.value)
                     for dimension, position in index.items()
                     if dimension.operation == CombineOp.CONCAT
                 }
-                expected_chunks = {
-                    dim: min(target_chunks[dim], max_possible_chunk_size[dim])
-                    for dim in target_chunks
-                }
+                expected_chunks = {dim: min(target_chunks[dim], max_possible_chunk_size[dim]) for dim in target_chunks}
                 assert actual_chunked_dims == expected_chunks
 
         return _check_chunks

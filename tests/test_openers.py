@@ -3,13 +3,10 @@ from pickle import dumps, loads
 import numpy as np
 import pytest
 import xarray as xr
-from apache_beam.testing.util import assert_that
 from pytest_lazyfixture import lazy_fixture
 
 from pangeo_forge_recipes.openers import open_url, open_with_xarray
 from pangeo_forge_recipes.patterns import FileType
-from pangeo_forge_recipes.transforms import OpenWithKerchunk
-from pangeo_forge_recipes.types import Index
 
 
 @pytest.fixture(
@@ -135,9 +132,7 @@ def test_open_file_with_xarray(url_and_type, cache, load, copy_to_local, xarray_
     )
 
 
-def test_open_file_with_xarray_unknown_filetype(
-    url_and_type, cache, load, copy_to_local, xarray_open_kwargs
-):
+def test_open_file_with_xarray_unknown_filetype(url_and_type, cache, load, copy_to_local, xarray_open_kwargs):
     # Ignore the specified file_type
     url, kwargs, _ = url_and_type
     # Specifying unknown file_type should ensure xarray automatically
@@ -158,19 +153,3 @@ def test_direct_open_with_xarray(public_url_and_type, load, xarray_open_kwargs):
     ds = open_with_xarray(url, file_type=file_type, load=load, xarray_open_kwargs=xr_kwargs)
     validate_fn(ds)
     is_valid_dataset(ds, in_memory=load)
-
-
-def is_valid_inline_threshold():
-    def _is_valid_inline_threshold(indexed_references):
-        assert isinstance(indexed_references[0][0], Index)
-        assert isinstance(indexed_references[0][1][0]["refs"]["lat/0"], list)
-
-    return _is_valid_inline_threshold
-
-
-def test_inline_threshold(pcoll_opened_files, pipeline):
-    input, pattern, cache_url = pcoll_opened_files
-
-    with pipeline as p:
-        output = p | input | OpenWithKerchunk(pattern.file_type, inline_threshold=1)
-        assert_that(output, is_valid_inline_threshold())
