@@ -249,8 +249,8 @@ def _gather_coordinate_dimensions(group: zarr.Group) -> List[str]:
 
 
 def consolidate_dimension_coordinates(
-    singleton_target_store: zarr.storage.FSStore,
-) -> zarr.storage.FSStore:
+    singleton_target_store: zarr.storage.FsspecStore,
+) -> zarr.storage.FsspecStore:
     """Consolidate dimension coordinates chunking"""
     group = zarr.open_group(singleton_target_store)
 

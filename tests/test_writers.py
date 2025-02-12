@@ -22,7 +22,7 @@ from .data_generation import make_ds
 
 @pytest.fixture
 def temp_store(tmp_path):
-    return zarr.storage.FSStore(str(tmp_path))
+    return zarr.storage.FsspecStore(str(tmp_path))
 
 
 def test_store_dataset_fragment(temp_store):
@@ -174,7 +174,7 @@ def test_zarr_consolidate_metadata(
         )
 
     path = os.path.join(tmp_target.root_path, "store")
-    zc = zarr.storage.FSStore(path)
+    zc = zarr.storage.FsspecStore(path)
     assert zc[".zmetadata"] is not None
 
     assert xr.open_zarr(path, consolidated=True)
@@ -200,7 +200,7 @@ def test_zarr_encoding(
             )
             | ConsolidateMetadata()
         )
-    zc = zarr.storage.FSStore(os.path.join(tmp_target.root_path, "store"))
+    zc = zarr.storage.FsspecStore(os.path.join(tmp_target.root_path, "store"))
     z = zarr.open(zc)
     assert z.foo.compressor == compressor
 

@@ -73,7 +73,7 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
     :param store: Input Store for Zarr
     :type store: MutableMapping
     :return: Output Store
-    :rtype: zarr.storage.FSStore
+    :rtype: zarr.storage.FsspecStore
     """
 
     import zarr
@@ -83,15 +83,15 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
             """Creating consolidated metadata for Kerchunk references should not
             yield a performance benefit so consolidating metadata is not supported."""
         )
-    if isinstance(store, zarr.storage.FSStore):
+    if isinstance(store, zarr.storage.FsspecStore):
         zarr.convenience.consolidate_metadata(store)
 
     return store
 
 
 def store_dataset_fragment(
-    item: Tuple[Index, xr.Dataset], target_store: zarr.storage.FSStore
-) -> zarr.storage.FSStore:
+    item: Tuple[Index, xr.Dataset], target_store: zarr.storage.FsspecStore
+) -> zarr.storage.FsspecStore:
     """Store a piece of a dataset in a Zarr store.
 
     :param item: The index and dataset to be stored
@@ -122,7 +122,7 @@ def write_combined_reference(
     output_file_name: str,
     refs_per_component: int = 10000,
     mzz_kwargs: Optional[Dict] = None,
-) -> zarr.storage.FSStore:
+) -> zarr.storage.FsspecStore:
     """Write a kerchunk combined references object to file."""
     file_ext = os.path.splitext(output_file_name)[-1]
     outpath = full_target._full_path(output_file_name)

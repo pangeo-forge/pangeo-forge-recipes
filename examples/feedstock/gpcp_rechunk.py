@@ -19,7 +19,7 @@ pattern = pattern_from_file_sequence(
 )
 
 
-def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+def test_ds(store: zarr.storage.FsspecStore) -> zarr.storage.FsspecStore:
     import xarray as xr
 
     assert xr.open_dataset(store, engine="zarr", chunks={})

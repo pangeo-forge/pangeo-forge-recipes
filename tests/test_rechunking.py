@@ -285,7 +285,7 @@ def test_consolidate_dimension_coordinates():
     group.data.attrs["_ARRAY_DIMENSIONS"] = ["time"]
     group.time.attrs["_ARRAY_DIMENSIONS"] = ["time"]
 
-    consolidated_zarr = consolidate_dimension_coordinates(zarr.storage.FSStore(store_path))
+    consolidated_zarr = consolidate_dimension_coordinates(zarr.storage.FsspecStore(store_path))
     store = zarr.open(consolidated_zarr)
     assert store.time.chunks[0] == 100
     assert store.data.chunks[0] == 10

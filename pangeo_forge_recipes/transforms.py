@@ -419,8 +419,8 @@ class Rechunk(beam.PTransform):
 
 class ConsolidateDimensionCoordinates(beam.PTransform):
     def expand(
-        self, pcoll: beam.PCollection[zarr.storage.FSStore]
-    ) -> beam.PCollection[zarr.storage.FSStore]:
+        self, pcoll: beam.PCollection[zarr.storage.FsspecStore]
+    ) -> beam.PCollection[zarr.storage.FsspecStore]:
         return pcoll | beam.Map(consolidate_dimension_coordinates)
 
 
@@ -615,7 +615,7 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     )
     output_file_name: str = "reference.json"
 
-    def expand(self, references: beam.PCollection) -> beam.PCollection[zarr.storage.FSStore]:
+    def expand(self, references: beam.PCollection) -> beam.PCollection[zarr.storage.FsspecStore]:
         return (
             references
             | CombineReferences(
@@ -692,7 +692,7 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
     def expand(
         self,
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
-    ) -> beam.PCollection[zarr.storage.FSStore]:
+    ) -> beam.PCollection[zarr.storage.FsspecStore]:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema, append_offset=self._append_offset)
         target_chunks = (
