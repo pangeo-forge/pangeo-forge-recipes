@@ -22,12 +22,13 @@ from .data_generation import make_ds
 
 @pytest.fixture
 def temp_store(tmp_path):
-    fs = fsspec.filesystem("file")
+    from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
+
+    fs = AsyncFileSystemWrapper(fsspec.filesystem("file"))
     return zarr.storage.FsspecStore(path=str(tmp_path), fs=fs)
 
 
 def test_store_dataset_fragment(temp_store):
-
     ds = make_ds(non_dim_coords=True)
     schema = ds.to_dict(data=False, encoding=True)
     schema["chunks"] = {}
@@ -203,12 +204,15 @@ def test_zarr_encoding(
             )
             # | ConsolidateMetadata()
         )
-    fs = fsspec.filesystem("file")
+    from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
+
+    fs = AsyncFileSystemWrapper(fsspec.filesystem("file"))
     zc = zarr.storage.FsspecStore(path=os.path.join(tmp_target.root_path, "store"), fs=fs)
     z = zarr.open(zc)
     assert z.foo.compressor == compressor
 
 
+@pytest.mark.skip(reason="kerchunk related issue with Zarr V3")
 @pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
 def test_reference_netcdf(
     netcdf_local_file_pattern_sequential,
