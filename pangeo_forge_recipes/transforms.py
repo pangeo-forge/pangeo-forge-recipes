@@ -685,7 +685,10 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             dim = [d for d in self.combine_dims if d.name == self.append_dim]
             assert dim, f"Append dim not in {self.combine_dims=}."
             assert dim[0].operation == CombineOp.CONCAT, "Append dim operation must be CONCAT."
-            existing_ds = xr.open_dataset(self.get_full_target().get_mapper(), engine="zarr")
+            # TODO: address with Zarr format v2
+            existing_ds = xr.open_dataset(
+                self.get_full_target().get_mapper(), engine="zarr", consolidated=False
+            )
             assert self.append_dim in existing_ds, "Append dim must be in existing dataset."
             self._append_offset = len(existing_ds[self.append_dim])
 

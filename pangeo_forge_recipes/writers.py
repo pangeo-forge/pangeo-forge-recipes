@@ -29,11 +29,13 @@ def _region_for(var: xr.Variable, index: Index) -> Tuple[slice, ...]:
     return tuple(region_slice)
 
 
-def _store_data(vname: str, var: xr.Variable, index: Index, zgroup: zarr.Group) -> None:
+def _store_data(
+    vname: str, var: xr.Variable, index: Index, zgroup: zarr.Group, zarr_attrs: dict
+) -> None:
     zarr_array = zgroup[vname]
     # get encoding for variable from zarr attributes
     var_coded = var.copy()  # copy needed for test suit to avoid modifying inputs in-place
-    var_coded.encoding.update(zarr_array.attrs)
+    var_coded.encoding.update(zarr_attrs)
     var_coded.attrs = {}
     var = xr.backends.zarr.encode_zarr_variable(var_coded)
     data = np.asarray(var.data)
@@ -78,6 +80,7 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
 
     import zarr
 
+    # TODO:  raise error if Zarr format 3 b/c zarr v3 does not support consolidated metadata
     if isinstance(store, fsspec.FSMap) and isinstance(store.fs, ReferenceFileSystem):
         raise ValueError(
             """Creating consolidated metadata for Kerchunk references should not
@@ -100,6 +103,7 @@ def store_dataset_fragment(
 
     index, ds = item
     zgroup = zarr.open_group(target_store)
+    xr_store = xr.backends.zarr.ZarrStore.open_group(target_store)
     # TODO: check that the dataset and the index are compatible
 
     # only store coords if this is the first item in a merge dim
@@ -108,9 +112,19 @@ def store_dataset_fragment(
             # if this variable contains a concat dim, we always store it
             possible_concat_dims = [index.find_concat_dim(dim) for dim in da.dims]
             if any(possible_concat_dims) or _is_first_item(index):
-                _store_data(vname, da.variable, index, zgroup)
+                store_var = xr_store.open_store_variable(vname)
+                _store_data(
+                    vname,
+                    da.variable,
+                    index,
+                    zgroup,
+                    zarr_attrs=store_var.encoding | store_var.attrs,
+                )
     for vname, da in ds.data_vars.items():
-        _store_data(vname, da.variable, index, zgroup)
+        store_var = xr_store.open_store_variable(vname)
+        _store_data(
+            vname, da.variable, index, zgroup, zarr_attrs=store_var.encoding | store_var.attrs
+        )
 
     return target_store
 

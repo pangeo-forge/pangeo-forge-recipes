@@ -26,6 +26,7 @@ import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline
+from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
 from pytest_lazyfixture import lazy_fixture
@@ -523,17 +524,17 @@ def netcdf_local_file_pattern_sequential_with_coordinateless_dimension(
 
 @pytest.fixture()
 def tmp_target(tmpdir_factory):
-    fs = fsspec.get_filesystem_class("file")()
+    fs = fsspec.filesystem("file", auto_mkdir=True)
+    async_fs = AsyncFileSystemWrapper(fs)
     path = str(tmpdir_factory.mktemp("target"))
-    return FSSpecTarget(fs, path)
+    return FSSpecTarget(async_fs, path)
 
 
 @pytest.fixture()
 def tmp_cache(tmpdir_factory):
+    fs = fsspec.filesystem("file", auto_mkdir=True)
     path = str(tmpdir_factory.mktemp("cache"))
-    fs = fsspec.get_filesystem_class("file")()
-    cache = CacheFSSpecTarget(fs, path)
-    return cache
+    return CacheFSSpecTarget(fs, path)
 
 
 @pytest.fixture()

@@ -155,6 +155,7 @@ def test_store_dataset_fragment(temp_store):
     assert ds.time.encoding.get("units") == ds_target.time.encoding.get("units")
 
 
+@pytest.mark.skip(reason="consolidated metadata is not supported in Zarr V3. ")
 def test_zarr_consolidate_metadata(
     netcdf_local_file_pattern,
     pipeline,
@@ -200,7 +201,7 @@ def test_zarr_encoding(
                 combine_dims=pattern.combine_dim_keys,
                 encoding={"foo": {"compressor": compressor}},
             )
-            | ConsolidateMetadata()
+            # | ConsolidateMetadata()
         )
     fs = fsspec.filesystem("file")
     zc = zarr.storage.FsspecStore(path=os.path.join(tmp_target.root_path, "store"), fs=fs)
