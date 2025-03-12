@@ -24,12 +24,14 @@ from .data_generation import make_ds
 def temp_store(tmp_path):
     from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
 
-    fs = AsyncFileSystemWrapper(fsspec.filesystem("file"))
+    fs = AsyncFileSystemWrapper(fsspec.filesystem("file", auto_mkdir=True))
     return zarr.storage.FsspecStore(path=str(tmp_path), fs=fs)
 
 
 def test_store_dataset_fragment(temp_store):
     ds = make_ds(non_dim_coords=True)
+    mapper = temp_store.fs.sync_fs.get_mapper(temp_store.path)
+
     schema = ds.to_dict(data=False, encoding=True)
     schema["chunks"] = {}
 
@@ -40,16 +42,17 @@ def test_store_dataset_fragment(temp_store):
     schema_to_zarr(schema, temp_store, {"time": 2})
 
     # at this point the dimension coordinates are just dummy values
-    expected_chunks = ["lon/0", "lat/0"] + [f"time/{n}" for n in range(5)]
-    actual_chunks = [item for item in temp_store if ".z" not in item]
+    expected_chunks = ["lon/c/0", "lat/c/0"] + [f"time/c/{n}" for n in range(5)]
+
+    actual_chunks = [item for item in mapper if ".z" not in item and not item.endswith("zarr.json")]
     assert set(expected_chunks) == set(actual_chunks)
 
     # variables are not written
-    assert "foo/0.0.0" not in temp_store
-    assert "bar/0.0.0" not in temp_store
+    assert "foo/c/0.0.0" not in temp_store
+    assert "bar/c/0.0.0" not in temp_store
     # non-dim coords are not written
-    assert "baz/0" not in temp_store
-    assert "timestep/0" not in temp_store
+    assert "baz/c/0" not in temp_store
+    assert "timestep/c/0" not in temp_store
 
     # for testing purposed, we now delete all dimension coordinates.
     # this helps us verify that chunks are re-written at the correct time
@@ -190,7 +193,7 @@ def test_zarr_encoding(
     tmp_target,
 ):
     pattern = netcdf_local_file_pattern
-    compressor = zarr.codecs.BloscCodec(cname="zstd", clevel=3)
+    compressors = (zarr.codecs.BloscCodec(typesize=8, cname="zstd", clevel=3, shuffle="shuffle"),)
     with pipeline as p:
         (
             p
@@ -200,7 +203,7 @@ def test_zarr_encoding(
                 target_root=tmp_target,
                 store_name="store",
                 combine_dims=pattern.combine_dim_keys,
-                encoding={"foo": {"compressor": compressor}},
+                encoding={"foo": {"compressors": compressors}},
             )
             # | ConsolidateMetadata()
         )
@@ -209,7 +212,7 @@ def test_zarr_encoding(
     fs = AsyncFileSystemWrapper(fsspec.filesystem("file"))
     zc = zarr.storage.FsspecStore(path=os.path.join(tmp_target.root_path, "store"), fs=fs)
     z = zarr.open(zc)
-    assert z.foo.compressor == compressor
+    assert z["foo"].compressors == compressors
 
 
 @pytest.mark.skip(reason="kerchunk related issue with Zarr V3")

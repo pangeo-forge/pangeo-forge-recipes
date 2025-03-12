@@ -13,8 +13,8 @@ POSIX_MAX_FNAME_LENGTH = 255
 
 
 def _do_target_ops(target):
-    mapper = target.get_mapper()
-    mapper["foo"] = b"bar"
+    store = target.get_mapper()
+    store.set("foo", b"bar")
     with open(target.root_path + "/foo") as f:
         res = f.read()
     assert res == "bar"
@@ -25,14 +25,14 @@ def _do_target_ops(target):
             pass
 
 
-def test_target(tmp_target):
-    _do_target_ops(tmp_target)
+async def test_target(tmp_target):
+    await _do_target_ops(tmp_target)
 
 
-def test_from_url(tmpdir_factory):
+async def test_from_url(tmpdir_factory):
     path = str(tmpdir_factory.mktemp("target"))
     target = FSSpecTarget.from_url(path)
-    _do_target_ops(target)
+    await _do_target_ops(target)
 
 
 def test_cache(tmp_cache):

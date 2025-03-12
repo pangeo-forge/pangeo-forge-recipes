@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 import xarray as xr
 import zarr
+from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
 
 from pangeo_forge_recipes.rechunking import (
     GroupKey,
@@ -272,23 +273,25 @@ def test_combine_fragments_errors():
 
 
 def test_consolidate_dimension_coordinates():
+    rng = np.random.default_rng(seed=0)
     td = TemporaryDirectory()
     store_path = os.path.join(td.name + "tmp.zarr")
     group = zarr.group(store=store_path, overwrite=True)
-    group.create(name="data", shape=100, chunks=10, dtype="i4")
-    group.create(name="time", shape=100, chunks=10, dtype="i4")
-    group.data[:] = np.random.randn(*group.data.shape)
-    group.time[:] = np.arange(100)
+    data = group.create(name="data", shape=100, chunks=10, dtype="i4")
+    data[:] = rng.standard_normal(*data.shape)
+    time = group.create(name="time", shape=100, chunks=10, dtype="i4")
+    time[:] = np.arange(100)
 
     # If you don't provide these attrs,
     # consolidate_dimension_coordinates does not
     # raise an error, while Xarray does
-    group.data.attrs["_ARRAY_DIMENSIONS"] = ["time"]
-    group.time.attrs["_ARRAY_DIMENSIONS"] = ["time"]
+    data.attrs["_ARRAY_DIMENSIONS"] = ["time"]
+    time.attrs["_ARRAY_DIMENSIONS"] = ["time"]
     fs = fsspec.filesystem("file")
+    async_fs = AsyncFileSystemWrapper(fs)
     consolidated_zarr = consolidate_dimension_coordinates(
-        zarr.storage.FsspecStore(path=store_path, fs=fs)
+        zarr.storage.FsspecStore(path=store_path, fs=async_fs)
     )
     store = zarr.open(consolidated_zarr)
-    assert store.time.chunks[0] == 100
-    assert store.data.chunks[0] == 10
+    assert store["time"].chunks[0] == 100
+    assert store["data"].chunks[0] == 10
