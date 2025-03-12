@@ -13,11 +13,6 @@ POSIX_MAX_FNAME_LENGTH = 255
 
 
 async def _do_target_ops(target):
-    # store = target.get_mapper()
-    # await store.set("foo", b"bar")
-    # with open(target.root_path + "/foo") as f:
-    #     res = f.read()
-    # assert res == "bar"
     with pytest.raises(FileNotFoundError):
         await target.rm("baz")
     with pytest.raises(FileNotFoundError):
