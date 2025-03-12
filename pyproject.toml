@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pangeo-forge-recipes"
 dynamic = ["version"]
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 description = "Pipeline tools for building and publishing analysis ready datasets."
 readme = "README.md"
 authors = [
@@ -18,25 +18,25 @@ classifiers = [
   "Intended Audience :: Science/Research",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering",
 ]
 license = { text = "Apache-2.0" }
 keywords = ["pangeo", "data"]
 dependencies = [
-  "apache-beam>=2.48",
+  "apache-beam>=2.53",
   "cftime",
   "dask",
   "fastparquet",
   "fsspec[http]",
   "h5netcdf",
   "h5py",
-  "kerchunk!=0.2.6",
+  "kerchunk>=0.2.8",
   "netcdf4",
   "numcodecs",
-  "xarray",
-  "zarr",
+  "xarray>=2025.1.1",
+  "zarr>=3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -49,6 +49,7 @@ test = [
   "pytest-sugar",
   "pytest-timeout",
   "pytest-reportlog",
+  "pytest-asyncio",
   "s3fs",
   "gcsfs",
   "scipy",

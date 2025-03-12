@@ -23,7 +23,7 @@ concat_dim = ConcatDim("time", dates, nitems_per_file=1)
 pattern = FilePattern(make_url, concat_dim)
 
 
-def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+def test_ds(store: zarr.storage.FsspecStore) -> zarr.storage.FsspecStore:
     # This fails integration test if not imported here
     # TODO: see if --setup-file option for runner fixes this
     import xarray as xr

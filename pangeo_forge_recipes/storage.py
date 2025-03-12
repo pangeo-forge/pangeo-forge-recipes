@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import fsspec
 from fsspec.implementations.local import LocalFileSystem
-from zarr.storage import FSStore
+from zarr.storage import FsspecStore
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,10 @@ class FSSpecTarget(AbstractTarget):
 
     def get_mapper(self) -> fsspec.mapping.FSMap:
         """Get a mutable mapping object suitable for storing Zarr data."""
-        return FSStore(self.root_path, fs=self.fs)
+        from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
+
+        fs = AsyncFileSystemWrapper(self.fs)
+        return FsspecStore(path=self.root_path, fs=fs)
 
     def _full_path(self, path: str):
         return os.path.join(self.root_path, path)
@@ -192,7 +195,6 @@ class CacheFSSpecTarget(FlatFSSpecTarget):
         # check and see if the file already exists in the cache
         logger.info(f"Caching file '{fname}'")
         input_opener = _get_opener(fname, secrets, fsspec_sync_patch, **open_kwargs)
-
         if self.exists(fname):
             cached_size = self.size(fname)
             with input_opener as of:
