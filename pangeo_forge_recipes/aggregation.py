@@ -265,17 +265,17 @@ def schema_to_zarr(
         # if appending, only keep schema for coordinate to append. if we don't drop other
         # coords, we may end up overwriting existing data on the `ds.to_zarr` call below.
         schema["coords"] = {k: v for k, v in schema["coords"].items() if k == append_dim}
-    zarr.config.set({"array.write_empty_chunks": True})
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
     # using mode="w" makes this function idempotent when not appending
 
-    ds.to_zarr(
-        target_store,
-        append_dim=append_dim,
-        mode=("a" if append_dim else "w"),
-        compute=False,
-        zarr_format=3,  # TODO: We force Zarr format 3 here, we should address
-        consolidated=False,
-        encoding=encoding,
-    )
+    with zarr.config.set({"array.write_empty_chunks": True}):
+        ds.to_zarr(
+            target_store,
+            append_dim=append_dim,
+            mode=("a" if append_dim else "w"),
+            compute=False,
+            zarr_format=3,  # TODO: We force Zarr format 3 here, we should address
+            consolidated=False,
+            encoding=encoding,
+        )
     return target_store
