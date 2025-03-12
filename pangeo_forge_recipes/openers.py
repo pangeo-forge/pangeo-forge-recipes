@@ -3,7 +3,7 @@
 import io
 import tempfile
 import warnings
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, cast
 from urllib.parse import urlparse
 
 import xarray as xr
@@ -114,7 +114,9 @@ def _preprocess_url_or_file_obj(
 
 
 def _url_as_str(url_or_file_obj: UrlOrFileObj, remote_protocol: Optional[str] = None) -> str:
-    as_str: str = url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
+    as_str: str = cast(
+        str, url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
+    )
 
     if remote_protocol and not urlparse(as_str).scheme:
         # `.full_path` attributes (which include scheme/protocol) are not present on all
