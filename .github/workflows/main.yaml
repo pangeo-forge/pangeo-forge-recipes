@@ -17,6 +17,7 @@ env:
 
 jobs:
   run-tests:
+    if: github.repository_owner == 'pangeo-forge'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -48,12 +49,23 @@ jobs:
           python -m pip install -U --pre apache-beam
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
+        id: test-run
         run: |
           py.test tests -v -n auto \
             --cov=pangeo_forge_recipes --cov-config .coveragerc \
             --cov-report term-missing \
             --cov-report xml \
-            --durations=10 --durations-min=1.0
+            --durations=10 --durations-min=1.0 \
+            --report-log output-${{ matrix.python-version }}-log.jsonl
+      - name: Generate and publish the report
+        if: |
+          failure()
+          && steps.test-run.outcome == 'failure'
+          && github.event_name == 'schedule'
+        uses: xarray-contrib/issue-from-pytest-log@v1
+        with:
+          log-path: output-${{ matrix.python-version }}-log.jsonl
+          issue-title: ⚠ Nightly upstream-dev CI (${{matrix.python-version}}) failed ⚠
       - name: 🚦 Run Codecov
         if: |
           github.event_name == 'push' ||
