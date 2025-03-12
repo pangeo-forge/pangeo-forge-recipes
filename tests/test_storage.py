@@ -25,10 +25,12 @@ def _do_target_ops(target):
             pass
 
 
+@pytest.mark.asyncio
 async def test_target(tmp_target):
     await _do_target_ops(tmp_target)
 
 
+@pytest.mark.asyncio
 async def test_from_url(tmpdir_factory):
     path = str(tmpdir_factory.mktemp("target"))
     target = FSSpecTarget.from_url(path)
