@@ -48,8 +48,8 @@ def test_store_dataset_fragment(temp_store):
     assert set(expected_chunks) == set(actual_chunks)
 
     # variables are not written
-    assert "foo/c/0.0.0" not in temp_store
-    assert "bar/c/0.0.0" not in temp_store
+    assert "foo/c/0/0/0" not in temp_store
+    assert "bar/c/0/0/0" not in temp_store
     # non-dim coords are not written
     assert "baz/c/0" not in temp_store
     assert "timestep/c/0" not in temp_store
@@ -72,15 +72,15 @@ def test_store_dataset_fragment(temp_store):
     store_dataset_fragment((index_1_1, fragment_1_1), temp_store)
 
     # check that only the expected data has been stored
-    assert "bar/1.0.0" in temp_store
-    assert "bar/0.0.0" not in temp_store
-    assert "foo/1.0.0" not in temp_store
-    assert "foo/0.0.0" not in temp_store
+    assert "bar/c/1/0/0" in temp_store
+    assert "bar/c/0/0/0" not in temp_store
+    assert "foo/c/1/0/0" not in temp_store
+    assert "foo/c/0/0/0" not in temp_store
 
     # because this was not the first element in a merge dim, no coords were written
-    assert "time/1" not in temp_store
-    assert "timestep/1" not in temp_store
-    assert "baz/0.0" not in temp_store
+    assert "time/c/1" not in temp_store
+    assert "timestep/c/1" not in temp_store
+    assert "baz/c/0/0" not in temp_store
 
     # this is the first element of merge dim but NOT concat dim
     fragment_0_1 = ds[["foo"]].isel(time=slice(2, 4))
@@ -93,17 +93,17 @@ def test_store_dataset_fragment(temp_store):
 
     store_dataset_fragment((index_0_1, fragment_0_1), temp_store)
 
-    assert "foo/1.0.0" in temp_store
-    assert "foo/0.0.0" not in temp_store
+    assert "foo/c/1/0/0" in temp_store
+    assert "foo/c/0/0/0" not in temp_store
 
     # the coords with time in them should be stored
-    assert "time/1" in temp_store
-    assert "timestep/1" in temp_store
+    assert "time/c/1" in temp_store
+    assert "timestep/c/1" in temp_store
 
     # but other coords are not
-    assert "lon/0" not in temp_store
-    assert "lat/0" not in temp_store
-    assert "baz/0.0" not in temp_store
+    assert "lon/c/0" not in temp_store
+    assert "lat/c/0" not in temp_store
+    assert "baz/c/0/0" not in temp_store
 
     # let's finally store the first piece
     fragment_0_0 = ds[["foo"]].isel(time=slice(0, 2))
@@ -117,15 +117,15 @@ def test_store_dataset_fragment(temp_store):
     store_dataset_fragment((index_0_0, fragment_0_0), temp_store)
 
     # now vars and coords should be there
-    assert "foo/0.0.0" in temp_store
-    assert "time/0" in temp_store
-    assert "timestep/0" in temp_store
-    assert "lon/0" in temp_store
-    assert "lat/0" in temp_store
-    assert "baz/0.0" in temp_store
+    assert "foo/c/0/0/0" in temp_store
+    assert "time/c/0" in temp_store
+    assert "timestep/c/0" in temp_store
+    assert "lon/c/0" in temp_store
+    assert "lat/c/0" in temp_store
+    assert "baz/c/0/0" in temp_store
 
     # but we haven't stored this var yet
-    assert "bar/0.0.0" not in temp_store
+    assert "bar/c/0/0/0" not in temp_store
 
     fragment_1_0 = ds[["bar"]].isel(time=slice(0, 2))
     index_1_0 = Index(
@@ -137,7 +137,7 @@ def test_store_dataset_fragment(temp_store):
 
     store_dataset_fragment((index_1_0, fragment_1_0), temp_store)
 
-    assert "bar/0.0.0" in temp_store
+    assert "bar/c/0/0/0" in temp_store
 
     # now store everything else
     for nvar, vname in enumerate(["foo", "bar"]):
