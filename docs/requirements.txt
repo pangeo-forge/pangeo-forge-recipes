@@ -5,5 +5,5 @@ sphinx-copybutton==0.5.2
 sphinx-togglebutton==0.3.2
 sphinx-autodoc-typehints==3.1.0
 sphinxext-opengraph==0.9.1
-sphinx-design==0.6.0
+sphinx-design==0.6.1
 -e .
