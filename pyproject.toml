@@ -12,31 +12,31 @@ authors = [
   { name = "Ryan Abernathey", email = "rpa@ldeo.columbia.edu" },
 ]
 classifiers = [
-    "Development Status :: 1 - Planning",
-    "License :: OSI Approved :: Apache Software License",
-    "Operating System :: OS Independent",
-    "Intended Audience :: Science/Research",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering",
+  "Development Status :: 1 - Planning",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
 ]
 license = { text = "Apache-2.0" }
 keywords = ["pangeo", "data"]
 dependencies = [
-    "apache-beam>=2.53",
-    "cftime",
-    "dask",
-    "fastparquet",
-    "fsspec[http]",
-    "h5netcdf",
-    "h5py",
-    "kerchunk>=0.2.8",
-    "netcdf4",
-    "numcodecs",
-    "xarray>=2025.1.1",
-    "zarr>=3.0.0",
+  "apache-beam>=2.53",
+  "cftime",
+  "dask",
+  "fastparquet",
+  "fsspec[http]",
+  "h5netcdf",
+  "h5py",
+  "kerchunk>=0.2.8",
+  "netcdf4",
+  "numcodecs",
+  "xarray>=2025.1.1",
+  "zarr>=3.0.0",
 ]
 
 [project.optional-dependencies]
