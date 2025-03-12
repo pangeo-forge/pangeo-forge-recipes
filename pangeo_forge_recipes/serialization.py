@@ -63,7 +63,7 @@ def dataclass_sha256(dclass: Any, ignore_keys: List[str]) -> bytes:
     :param dclass: The dataclass for which to calculate a hash.
     :param ignore_keys: A list of field names to exclude from the hash calculation.
     """
-    if not is_dataclass(dclass):
+    if not is_dataclass(dclass) or isinstance(dclass, type):
         raise ValueError("dclass must be an instance of a dataclass")
 
     d = asdict(dclass, dict_factory=dict_drop_empty)
