@@ -287,7 +287,7 @@ def test_consolidate_dimension_coordinates():
     # raise an error, while Xarray does
     data.attrs["_ARRAY_DIMENSIONS"] = ["time"]
     time.attrs["_ARRAY_DIMENSIONS"] = ["time"]
-    fs = fsspec.filesystem("file")
+    fs = fsspec.filesystem("file", auto_mkdir=True)
     async_fs = AsyncFileSystemWrapper(fs)
     consolidated_zarr = consolidate_dimension_coordinates(
         zarr.storage.FsspecStore(path=store_path, fs=async_fs)
