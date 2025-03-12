@@ -2,7 +2,7 @@ import apache_beam as beam
 import pytest
 import xarray as xr
 import zarr
-from apache_beam.testing.test_pipeline import TestPipeline
+from apache_beam.testing.test_pipeline import TestPipeline as _TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
 from pytest_lazyfixture import lazy_fixture
 
@@ -58,7 +58,7 @@ def test_OpenURLWithFSSpec(pcoll_opened_files):
 
         return _is_readable
 
-    with TestPipeline() as p:
+    with _TestPipeline() as p:
         output = p | pcoll
 
         assert_that(output, is_not_empty(), label="ouputs not empty")

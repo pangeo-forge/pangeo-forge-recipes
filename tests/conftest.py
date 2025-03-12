@@ -25,7 +25,7 @@ import fsspec
 import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
-from apache_beam.testing.test_pipeline import TestPipeline
+from apache_beam.testing.test_pipeline import TestPipeline as _TestPipeline
 from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
@@ -233,7 +233,7 @@ def pattern(request):
 def pipeline(scope="session"):
     # TODO: make this True and fix the weird ensuing type check errors
     options = PipelineOptions(runtime_type_check=False)
-    with TestPipeline(options=options) as p:
+    with _TestPipeline(options=options) as p:
         yield p
 
 
@@ -245,7 +245,7 @@ def pipeline_parallel(scope="session"):
         direct_running_mode="multi_processing",
         runner="DirectRunner",
     )
-    with TestPipeline(options=options) as p:
+    with _TestPipeline(options=options) as p:
         yield p
 
 
