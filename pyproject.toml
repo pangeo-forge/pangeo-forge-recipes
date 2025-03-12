@@ -49,6 +49,7 @@ test = [
   "pytest-sugar",
   "pytest-timeout",
   "pytest-reportlog",
+  "pytest-asyncio",
   "s3fs",
   "gcsfs",
   "scipy",
