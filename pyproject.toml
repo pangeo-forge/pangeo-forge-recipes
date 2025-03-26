@@ -41,18 +41,18 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "click",
-    "pytest<9.0.0",
-    "pytest-cov",
-    "pytest-xdist",
-    "pytest-lazy-fixture",
-    "pytest-sugar",
-    "pytest-timeout",
-    "pytest-reportlog",
-    "pytest-asyncio",
-    "s3fs",
-    "gcsfs",
-    "scipy",
+  "click",
+  "pytest<9.0.0",
+  "pytest-cov",
+  "pytest-xdist",
+  "pytest-lazy-fixture",
+  "pytest-sugar",
+  "pytest-timeout",
+  "pytest-reportlog",
+  "pytest-asyncio",
+  "s3fs",
+  "gcsfs",
+  "scipy",
 ]
 
 minio = [
