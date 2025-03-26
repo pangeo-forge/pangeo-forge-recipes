@@ -28,15 +28,15 @@ Users are welcome to use this native Beam deployment approach for their recipes 
 Apache Beam (and therefore, Pangeo Forge) supports flexible deployment via "runners",
 which include:
 
-* [DirectRunner](https://beam.apache.org/documentation/runners/direct/):
-Useful for testing during recipe development and, in multithreaded mode, for certain production workloads.
-(Note that Apache Beam does _not_ recommend this runner for production.)
-* [FlinkRunner](https://beam.apache.org/documentation/runners/flink/):
-Executes pipelines using [Apache Flink](https://flink.apache.org/).
-* [DataflowRunner](https://beam.apache.org/documentation/runners/dataflow/):
-Uses the [Google Cloud Dataflow managed service](https://cloud.google.com/dataflow/service/dataflow-service-desc).
-* [DaskRunner](https://beam.apache.org/releases/pydoc/current/apache_beam.runners.dask.dask_runner.html):
-Executes pipelines via [Dask.distributed](https://distributed.dask.org/en/stable/).
+- [DirectRunner](https://beam.apache.org/documentation/runners/direct/):
+  Useful for testing during recipe development and, in multithreaded mode, for certain production workloads.
+  (Note that Apache Beam does _not_ recommend this runner for production.)
+- [FlinkRunner](https://beam.apache.org/documentation/runners/flink/):
+  Executes pipelines using [Apache Flink](https://flink.apache.org/).
+- [DataflowRunner](https://beam.apache.org/documentation/runners/dataflow/):
+  Uses the [Google Cloud Dataflow managed service](https://cloud.google.com/dataflow/service/dataflow-service-desc).
+- [DaskRunner](https://beam.apache.org/releases/pydoc/current/apache_beam.runners.dask.dask_runner.html):
+  Executes pipelines via [Dask.distributed](https://distributed.dask.org/en/stable/).
 
 When deploying with the CLI, the runner is specified via a [](cli.md#configuration-file).
 

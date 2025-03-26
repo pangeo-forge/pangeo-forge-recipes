@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
-from apache_beam.testing.test_pipeline import TestPipeline
+from apache_beam.testing.test_pipeline import TestPipeline as _TestPipeline
 from apache_beam.testing.util import assert_that
 from pytest_lazyfixture import lazy_fixture
 
@@ -29,7 +29,7 @@ def pipeline():
     # Runtime type checking doesn't play well with our Combiner
     # https://github.com/apache/beam/blob/3cddfaf58c69acc624dac16df10357a78ececf59/sdks/python/apache_beam/transforms/core.py#L2505-L2509
     options = PipelineOptions(runtime_type_check=False)
-    with TestPipeline(options=options) as p:
+    with _TestPipeline(options=options) as p:
         yield p
 
 

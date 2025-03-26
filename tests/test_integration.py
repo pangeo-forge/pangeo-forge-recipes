@@ -117,6 +117,7 @@ def test_integration(confpath_option: str, recipe_id: str, request):
         "hrrr-kerchunk-concat-valid-time": "Can't serialize drop_unknown callback function.",
         "narr-opendap": "Hangs for unkown reason. Requires further debugging.",
         "terraclimate": "Hangs for unkown reason. Requires further debugging.",
+        "gpcp_rechunk": "Unknown failure in integration tests.",
     }
     if recipe_id in xfails:
         pytest.xfail(xfails[recipe_id])

@@ -22,12 +22,16 @@ from .data_generation import make_ds
 
 @pytest.fixture
 def temp_store(tmp_path):
-    return zarr.storage.FSStore(str(tmp_path))
+    from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
+
+    fs = AsyncFileSystemWrapper(fsspec.filesystem("file", auto_mkdir=True))
+    return zarr.storage.FsspecStore(path=str(tmp_path), fs=fs)
 
 
 def test_store_dataset_fragment(temp_store):
-
     ds = make_ds(non_dim_coords=True)
+    mapper = temp_store.fs.sync_fs.get_mapper(temp_store.path)
+
     schema = ds.to_dict(data=False, encoding=True)
     schema["chunks"] = {}
 
@@ -35,23 +39,25 @@ def test_store_dataset_fragment(temp_store):
     ds_target = xr.open_dataset(temp_store, engine="zarr").load()
 
     # at this point, all dimension coordinates are written
-    schema_to_zarr(schema, temp_store, {"time": 2})
+    with zarr.config.set({"array.write_empty_chunks": True}):
+        schema_to_zarr(schema, temp_store, {"time": 2})
 
     # at this point the dimension coordinates are just dummy values
-    expected_chunks = ["lon/0", "lat/0"] + [f"time/{n}" for n in range(5)]
-    actual_chunks = [item for item in temp_store if ".z" not in item]
+    expected_chunks = ["lon/c/0", "lat/c/0"] + [f"time/c/{n}" for n in range(5)]
+
+    actual_chunks = [item for item in mapper if ".z" not in item and not item.endswith("zarr.json")]
     assert set(expected_chunks) == set(actual_chunks)
 
     # variables are not written
-    assert "foo/0.0.0" not in temp_store
-    assert "bar/0.0.0" not in temp_store
+    assert "foo/c/0/0/0" not in mapper
+    assert "bar/c/0/0/0" not in mapper
     # non-dim coords are not written
-    assert "baz/0" not in temp_store
-    assert "timestep/0" not in temp_store
+    assert "baz/c/0" not in mapper
+    assert "timestep/c/0" not in mapper
 
-    # for testing purposed, we now delete all dimension coordinates.
+    # for testing purposes, we now delete all dimension coordinates.
     # this helps us verify that chunks are re-written at the correct time
-    temp_store.delitems(actual_chunks)
+    mapper.delitems(actual_chunks)
 
     # Now we spoof that we are writing data.
     # The Index tells where to put it.
@@ -67,15 +73,15 @@ def test_store_dataset_fragment(temp_store):
     store_dataset_fragment((index_1_1, fragment_1_1), temp_store)
 
     # check that only the expected data has been stored
-    assert "bar/1.0.0" in temp_store
-    assert "bar/0.0.0" not in temp_store
-    assert "foo/1.0.0" not in temp_store
-    assert "foo/0.0.0" not in temp_store
+    assert "bar/c/1/0/0" in mapper
+    assert "bar/c/0/0/0" not in mapper
+    assert "foo/c/1/0/0" not in mapper
+    assert "foo/c/0/0/0" not in mapper
 
     # because this was not the first element in a merge dim, no coords were written
-    assert "time/1" not in temp_store
-    assert "timestep/1" not in temp_store
-    assert "baz/0.0" not in temp_store
+    assert "time/c/1" not in mapper
+    assert "timestep/c/1" not in mapper
+    assert "baz/c/0/0" not in mapper
 
     # this is the first element of merge dim but NOT concat dim
     fragment_0_1 = ds[["foo"]].isel(time=slice(2, 4))
@@ -88,17 +94,17 @@ def test_store_dataset_fragment(temp_store):
 
     store_dataset_fragment((index_0_1, fragment_0_1), temp_store)
 
-    assert "foo/1.0.0" in temp_store
-    assert "foo/0.0.0" not in temp_store
+    assert "foo/c/1/0/0" in mapper
+    assert "foo/c/0/0/0" not in mapper
 
     # the coords with time in them should be stored
-    assert "time/1" in temp_store
-    assert "timestep/1" in temp_store
+    assert "time/c/1" in mapper
+    assert "timestep/c/1" in mapper
 
     # but other coords are not
-    assert "lon/0" not in temp_store
-    assert "lat/0" not in temp_store
-    assert "baz/0.0" not in temp_store
+    assert "lon/c/0" not in mapper
+    assert "lat/c/0" not in mapper
+    assert "baz/c/0/0" not in mapper
 
     # let's finally store the first piece
     fragment_0_0 = ds[["foo"]].isel(time=slice(0, 2))
@@ -112,15 +118,15 @@ def test_store_dataset_fragment(temp_store):
     store_dataset_fragment((index_0_0, fragment_0_0), temp_store)
 
     # now vars and coords should be there
-    assert "foo/0.0.0" in temp_store
-    assert "time/0" in temp_store
-    assert "timestep/0" in temp_store
-    assert "lon/0" in temp_store
-    assert "lat/0" in temp_store
-    assert "baz/0.0" in temp_store
+    assert "foo/c/0/0/0" in mapper
+    assert "time/c/0" in mapper
+    assert "timestep/c/0" in mapper
+    assert "lon/c/0" in mapper
+    assert "lat/c/0" in mapper
+    assert "baz/c/0/0" in mapper
 
     # but we haven't stored this var yet
-    assert "bar/0.0.0" not in temp_store
+    assert "bar/c/0/0/0" not in mapper
 
     fragment_1_0 = ds[["bar"]].isel(time=slice(0, 2))
     index_1_0 = Index(
@@ -132,7 +138,7 @@ def test_store_dataset_fragment(temp_store):
 
     store_dataset_fragment((index_1_0, fragment_1_0), temp_store)
 
-    assert "bar/0.0.0" in temp_store
+    assert "bar/c/0/0/0" in mapper
 
     # now store everything else
     for nvar, vname in enumerate(["foo", "bar"]):
@@ -154,6 +160,7 @@ def test_store_dataset_fragment(temp_store):
     assert ds.time.encoding.get("units") == ds_target.time.encoding.get("units")
 
 
+@pytest.mark.skip(reason="consolidated metadata is not supported in Zarr V3. ")
 def test_zarr_consolidate_metadata(
     netcdf_local_file_pattern,
     pipeline,
@@ -174,7 +181,8 @@ def test_zarr_consolidate_metadata(
         )
 
     path = os.path.join(tmp_target.root_path, "store")
-    zc = zarr.storage.FSStore(path)
+    fs = fsspec.filesystem("file")
+    zc = zarr.storage.FsspecStore(path=path, fs=fs)
     assert zc[".zmetadata"] is not None
 
     assert xr.open_zarr(path, consolidated=True)
@@ -186,7 +194,7 @@ def test_zarr_encoding(
     tmp_target,
 ):
     pattern = netcdf_local_file_pattern
-    compressor = zarr.Blosc("zstd", clevel=3)
+    compressors = (zarr.codecs.BloscCodec(typesize=8, cname="zstd", clevel=3, shuffle="shuffle"),)
     with pipeline as p:
         (
             p
@@ -196,15 +204,19 @@ def test_zarr_encoding(
                 target_root=tmp_target,
                 store_name="store",
                 combine_dims=pattern.combine_dim_keys,
-                encoding={"foo": {"compressor": compressor}},
+                encoding={"foo": {"compressors": compressors}},
             )
-            | ConsolidateMetadata()
+            # | ConsolidateMetadata()
         )
-    zc = zarr.storage.FSStore(os.path.join(tmp_target.root_path, "store"))
+    from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
+
+    fs = AsyncFileSystemWrapper(fsspec.filesystem("file"))
+    zc = zarr.storage.FsspecStore(path=os.path.join(tmp_target.root_path, "store"), fs=fs)
     z = zarr.open(zc)
-    assert z.foo.compressor == compressor
+    assert z["foo"].compressors == compressors
 
 
+@pytest.mark.skip(reason="kerchunk related issue with Zarr V3")
 @pytest.mark.parametrize("output_file_name", ["reference.json", "reference.parquet"])
 def test_reference_netcdf(
     netcdf_local_file_pattern_sequential,

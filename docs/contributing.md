@@ -7,11 +7,11 @@ Reporting bugs and requesting new features via GitHub Issues is a very valuable 
 To open a new issue, head over to the relevant issue page:
 
 - <https://github.com/pangeo-forge/pangeo-forge-recipes/issues>:
-For anything related to {doc}`composition/index`.
+  For anything related to {doc}`composition/index`.
 - <https://github.com/pangeo-forge/pangeo-forge-runner/issues>:
-For the {doc}`deployment/cli`.
+  For the {doc}`deployment/cli`.
 - <https://github.com/pangeo-forge/deploy-recipe-action/issues>:
-For the {doc}`deployment/action`.
+  For the {doc}`deployment/action`.
 
 ## Dev environment setup
 
@@ -38,7 +38,6 @@ Finally, create a new git remote pointing to the upstream repo:
 ```bash
 git remote add upstream git@github.com:pangeo-forge/pangeo-forge-recipes.git
 ```
-
 
 ### Create a virtual environment
 
