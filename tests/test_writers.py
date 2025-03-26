@@ -39,7 +39,8 @@ def test_store_dataset_fragment(temp_store):
     ds_target = xr.open_dataset(temp_store, engine="zarr").load()
 
     # at this point, all dimension coordinates are written
-    schema_to_zarr(schema, temp_store, {"time": 2})
+    with zarr.config.set({"array.write_empty_chunks": True}):
+        schema_to_zarr(schema, temp_store, {"time": 2})
 
     # at this point the dimension coordinates are just dummy values
     expected_chunks = ["lon/c/0", "lat/c/0"] + [f"time/c/{n}" for n in range(5)]

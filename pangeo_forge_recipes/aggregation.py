@@ -268,14 +268,14 @@ def schema_to_zarr(
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
     # using mode="w" makes this function idempotent when not appending
 
-    with zarr.config.set({"array.write_empty_chunks": True}):
-        ds.to_zarr(
-            target_store,
-            append_dim=append_dim,
-            mode=("a" if append_dim else "w"),
-            compute=False,
-            zarr_format=3,  # TODO: We force Zarr format 3 here, we should address
-            consolidated=False,
-            encoding=encoding,
-        )
+    ds.to_zarr(
+        target_store,
+        append_dim=append_dim,
+        mode=("a" if append_dim else "w"),
+        compute=False,
+        zarr_format=3,  # TODO: We force Zarr format 3 here, we should address
+        consolidated=False,
+        encoding=encoding,
+    )
+
     return target_store
