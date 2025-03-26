@@ -419,8 +419,8 @@ class Rechunk(beam.PTransform):
 
 class ConsolidateDimensionCoordinates(beam.PTransform):
     def expand(
-        self, pcoll: beam.PCollection[zarr.storage.FSStore]
-    ) -> beam.PCollection[zarr.storage.FSStore]:
+        self, pcoll: beam.PCollection[zarr.storage.FsspecStore]
+    ) -> beam.PCollection[zarr.storage.FsspecStore]:
         return pcoll | beam.Map(consolidate_dimension_coordinates)
 
 
@@ -615,7 +615,7 @@ class WriteCombinedReference(beam.PTransform, ZarrWriterMixin):
     )
     output_file_name: str = "reference.json"
 
-    def expand(self, references: beam.PCollection) -> beam.PCollection[zarr.storage.FSStore]:
+    def expand(self, references: beam.PCollection) -> beam.PCollection[zarr.storage.FsspecStore]:
         return (
             references
             | CombineReferences(
@@ -685,14 +685,17 @@ class StoreToZarr(beam.PTransform, ZarrWriterMixin):
             dim = [d for d in self.combine_dims if d.name == self.append_dim]
             assert dim, f"Append dim not in {self.combine_dims=}."
             assert dim[0].operation == CombineOp.CONCAT, "Append dim operation must be CONCAT."
-            existing_ds = xr.open_dataset(self.get_full_target().get_mapper(), engine="zarr")
+            # TODO: address with Zarr format v2
+            existing_ds = xr.open_dataset(
+                self.get_full_target().get_mapper(), engine="zarr", consolidated=False
+            )
             assert self.append_dim in existing_ds, "Append dim must be in existing dataset."
             self._append_offset = len(existing_ds[self.append_dim])
 
     def expand(
         self,
         datasets: beam.PCollection[Tuple[Index, xr.Dataset]],
-    ) -> beam.PCollection[zarr.storage.FSStore]:
+    ) -> beam.PCollection[zarr.storage.FsspecStore]:
         schema = datasets | DetermineSchema(combine_dims=self.combine_dims)
         indexed_datasets = datasets | IndexItems(schema=schema, append_offset=self._append_offset)
         target_chunks = (

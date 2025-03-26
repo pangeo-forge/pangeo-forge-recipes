@@ -253,13 +253,13 @@ def schema_to_template_ds(
 
 def schema_to_zarr(
     schema: XarraySchema,
-    target_store: zarr.storage.FSStore,
+    target_store: zarr.storage.FsspecStore,
     target_chunks: Optional[Dict[str, int]] = None,
     attrs: Optional[Dict[str, str]] = None,
     consolidated_metadata: Optional[bool] = True,
     encoding: Optional[Dict] = None,
     append_dim: Optional[str] = None,
-) -> zarr.storage.FSStore:
+) -> zarr.storage.FsspecStore:
     """Initialize a zarr group based on a schema."""
     if append_dim:
         # if appending, only keep schema for coordinate to append. if we don't drop other
@@ -267,12 +267,15 @@ def schema_to_zarr(
         schema["coords"] = {k: v for k, v in schema["coords"].items() if k == append_dim}
     ds = schema_to_template_ds(schema, specified_chunks=target_chunks, attrs=attrs)
     # using mode="w" makes this function idempotent when not appending
+
     ds.to_zarr(
         target_store,
         append_dim=append_dim,
         mode=("a" if append_dim else "w"),
         compute=False,
-        consolidated=consolidated_metadata,
+        zarr_format=3,  # TODO: We force Zarr format 3 here, we should address
+        consolidated=False,
         encoding=encoding,
     )
+
     return target_store
