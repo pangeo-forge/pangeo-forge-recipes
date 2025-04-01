@@ -57,6 +57,10 @@ def pytest_addoption(parser):
 # Helper functions --------------------------------------------------------------------------------
 
 
+def dont_split_files(ds, day_param):
+    return [ds], ["foo"]
+
+
 def split_up_files_by_day(ds, day_param):
     gb = ds.resample(time=day_param)
     _, datasets = zip(*gb)
@@ -273,6 +277,11 @@ def pcoll_opened_files(pattern, cache_url, max_concurrency):
 
 
 @pytest.fixture(scope="session")
+def xarray_dataset_one_file_no_time():
+    return make_ds(nt=2).rename({"time": "other"})
+
+
+@pytest.fixture(scope="session")
 def daily_xarray_dataset():
     return make_ds(nt=10)
 
@@ -349,6 +358,13 @@ def netcdf_local_paths_sequential_2d(daily_xarray_dataset, tmpdir_factory):
 )
 def netcdf_local_paths_sequential(request):
     return request.param
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_paths_single(xarray_dataset_one_file_no_time, tmpdir_factory):
+    return make_local_paths(
+        xarray_dataset_one_file_no_time, tmpdir_factory, "D", dont_split_files, file_type="netcdf4"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -479,6 +495,11 @@ def netcdf_local_file_patterns_to_append(netcdf_local_paths_sequential_1d_to_app
 @pytest.fixture(scope="session")
 def netcdf_local_file_pattern_sequential(netcdf_local_paths_sequential):
     return make_file_pattern(netcdf_local_paths_sequential)
+
+
+@pytest.fixture(scope="session")
+def netcdf_local_file_pattern_single(netcdf_local_paths_single):
+    return make_file_pattern(netcdf_local_paths_single)
 
 
 @pytest.fixture(scope="session")
