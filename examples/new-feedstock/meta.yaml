@@ -15,4 +15,4 @@ recipes:
     object: "recipe:recipe"
     store_kwargs:
       store_name: "baltic_sst_nrt_l4.zarr"
-      attrs: {"processed_by": "pangeo-forge"}
+      attrs: { "processed_by": "pangeo-forge" }
