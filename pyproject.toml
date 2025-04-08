@@ -45,7 +45,7 @@ test = [
   "pytest<8.0.0",
   "pytest-cov",
   "pytest-xdist",
-  "pytest-lazy-fixture",
+  "pytest-lazy-fixtures",
   "pytest-sugar",
   "pytest-timeout",
   "pytest-reportlog",

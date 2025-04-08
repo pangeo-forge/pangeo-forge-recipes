@@ -4,7 +4,7 @@ import xarray as xr
 import zarr
 from apache_beam.testing.test_pipeline import TestPipeline as _TestPipeline
 from apache_beam.testing.util import BeamAssertException, assert_that, is_not_empty
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixtures import lf as lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.patterns import ConcatDim, FilePattern, FileType, MergeDim
