@@ -8,7 +8,7 @@ import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.testing.test_pipeline import TestPipeline as _TestPipeline
 from apache_beam.testing.util import assert_that
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixtures import lf as lazy_fixture
 
 from pangeo_forge_recipes.aggregation import dataset_to_schema
 from pangeo_forge_recipes.combiners import CombineXarraySchemas

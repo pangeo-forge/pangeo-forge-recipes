@@ -29,7 +29,7 @@ from apache_beam.testing.test_pipeline import TestPipeline as _TestPipeline
 from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixtures import lf as lazy_fixture
 
 from pangeo_forge_recipes.patterns import (
     ConcatDim,
