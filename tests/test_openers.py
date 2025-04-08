@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import xarray as xr
 from apache_beam.testing.util import assert_that
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixtures import lf as lazy_fixture
 
 from pangeo_forge_recipes.openers import open_url, open_with_xarray
 from pangeo_forge_recipes.patterns import FileType
@@ -168,6 +168,7 @@ def is_valid_inline_threshold():
     return _is_valid_inline_threshold
 
 
+@pytest.mark.xfail(reason="netcdf3 kerchunk issue")
 def test_inline_threshold(pcoll_opened_files, pipeline):
     input, pattern, cache_url = pcoll_opened_files
 

@@ -2,26 +2,27 @@ name: Tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths-ignore:
-    - 'docs/**'
+      - "docs/**"
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
     paths-ignore:
-    - 'docs/**'
+      - "docs/**"
   schedule:
-    - cron: '0 4 * * *'  # run once a day at 4 AM
+    - cron: "0 4 * * *" # run once a day at 4 AM
 
 env:
   PYTEST_ADDOPTS: "--color=yes"
 
 jobs:
   run-tests:
+    if: github.repository_owner == 'pangeo-forge'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11","3.12"]
+        python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,17 +49,28 @@ jobs:
           python -m pip install -U --pre apache-beam
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
+        id: test-run
         run: |
           py.test tests -v -n auto \
             --cov=pangeo_forge_recipes --cov-config .coveragerc \
             --cov-report term-missing \
             --cov-report xml \
-            --durations=10 --durations-min=1.0
+            --durations=10 --durations-min=1.0 \
+            --report-log output-${{ matrix.python-version }}-log.jsonl
+      - name: Generate and publish the report
+        if: |
+          failure()
+          && steps.test-run.outcome == 'failure'
+          && github.event_name == 'schedule'
+        uses: xarray-contrib/issue-from-pytest-log@v1
+        with:
+          log-path: output-${{ matrix.python-version }}-log.jsonl
+          issue-title: ⚠ Nightly upstream-dev CI (${{matrix.python-version}}) failed ⚠
       - name: 🚦 Run Codecov
         if: |
           github.event_name == 'push' ||
           github.event_name == 'pull_request'
-        uses: codecov/codecov-action@v4.5.0
+        uses: codecov/codecov-action@v5.4.0
         with:
           file: ./coverage.xml
           env_vars: OS,PYTHON

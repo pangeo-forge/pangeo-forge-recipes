@@ -215,7 +215,7 @@ class Munge(beam.PTransform):
         return pcoll | beam.Map(self._preproc)
 
 
-def test_ds(store: zarr.storage.FSStore) -> zarr.storage.FSStore:
+def test_ds(store: zarr.storage.FsspecStore) -> zarr.storage.FsspecStore:
     # This fails integration test if not imported here
     # TODO: see if --setup-file option for runner fixes this
     import xarray as xr

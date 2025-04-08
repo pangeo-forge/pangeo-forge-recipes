@@ -12,6 +12,7 @@ following workaround.
 To ingest files from Globus with Pangeo Forge, you must create a
 _fully public Guest Collection and access the files via HTTPS_.
 The specific steps are as follows:
+
 - Verify that the Globus endpoint you want to transfer from uses
   **Globus Connect Server V5**. This method _will not work_ with earlier Globus
   versions (e.g. V4).

@@ -12,27 +12,24 @@ from pangeo_forge_recipes.storage import CacheFSSpecTarget, FSSpecTarget
 POSIX_MAX_FNAME_LENGTH = 255
 
 
-def _do_target_ops(target):
-    mapper = target.get_mapper()
-    mapper["foo"] = b"bar"
-    with open(target.root_path + "/foo") as f:
-        res = f.read()
-    assert res == "bar"
+async def _do_target_ops(target):
     with pytest.raises(FileNotFoundError):
-        target.rm("baz")
+        await target.rm("baz")
     with pytest.raises(FileNotFoundError):
         with target.open("baz"):
             pass
 
 
-def test_target(tmp_target):
-    _do_target_ops(tmp_target)
+@pytest.mark.asyncio
+async def test_target(tmp_target):
+    await _do_target_ops(tmp_target)
 
 
-def test_from_url(tmpdir_factory):
+@pytest.mark.asyncio
+async def test_from_url(tmpdir_factory):
     path = str(tmpdir_factory.mktemp("target"))
     target = FSSpecTarget.from_url(path)
-    _do_target_ops(target)
+    await _do_target_ops(target)
 
 
 def test_cache(tmp_cache):

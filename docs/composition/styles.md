@@ -21,20 +21,17 @@ Below we give a very basic overview of how this recipe is used.
 First you must define a {doc}`file pattern <file_patterns>`.
 Once you have a {class}`FilePattern <pangeo_forge_recipes.patterns.FilePattern>` object,
 the recipe pipeline will contain at a minimum the following transforms applied to the file pattern collection:
-* {class}`pangeo_forge_recipes.transforms.OpenURLWithFSSpec`: retrieves each pattern file using the specified URLs.
-* {class}`pangeo_forge_recipes.transforms.OpenWithXarray`: load each pattern file into an [`xarray.Dataset`](https://docs.xarray.dev/en/stable/generated/xarray.Dataset.html).
-* {class}`pangeo_forge_recipes.transforms.StoreToZarr`: generate a Zarr store by combining the datasets.
-* {class}`pangeo_forge_recipes.transforms.ConsolidateDimensionCoordinates`: consolidate the Dimension Coordinates for dataset read performance.
-* {class}`pangeo_forge_recipes.transforms.ConsolidateMetadata`: calls Zarr's convinience function to consolidate metadata.
+
+- {class}`pangeo_forge_recipes.transforms.OpenURLWithFSSpec`: retrieves each pattern file using the specified URLs.
+- {class}`pangeo_forge_recipes.transforms.OpenWithXarray`: load each pattern file into an [`xarray.Dataset`](https://docs.xarray.dev/en/stable/generated/xarray.Dataset.html).
+- {class}`pangeo_forge_recipes.transforms.StoreToZarr`: generate a Zarr store by combining the datasets.
+- {class}`pangeo_forge_recipes.transforms.ConsolidateDimensionCoordinates`: consolidate the Dimension Coordinates for dataset read performance.
+- {class}`pangeo_forge_recipes.transforms.ConsolidateMetadata`: calls Zarr's convinience function to consolidate metadata. Note. This is not supported in Zarr V3.
 
 ### Open existing Zarr Store
-* {class}`pangeo_forge_recipes.transforms.OpenWithXarray` supports opening existing Zarr stores. This might be useful for rechunking a Zarr store into an alternative chunking scheme.
-An example of this recipe can be found in - {doc}`examples/gpcp-rechunk`
 
-
-
-
-
+- {class}`pangeo_forge_recipes.transforms.OpenWithXarray` supports opening existing Zarr stores. This might be useful for rechunking a Zarr store into an alternative chunking scheme.
+  An example of this recipe can be found in - {doc}`examples/gpcp-rechunk`
 
 ```{tip}
 If using the {class}`pangeo_forge_recipes.transforms.ConsolidateDimensionCoordinates` transform, make sure to chain on the {class}`pangeo_forge_recipes.transforms.ConsolidateMetadata` transform to your recipe.
@@ -55,7 +52,6 @@ selecting this option, it is therefore up to you, the user, to ensure that the i
 {doc}`file pattern <file_patterns>` for the appending recipe are limited to those which you want to
 append.
 ```
-
 
 ## Open with Kerchunk, write to virtual Zarr
 

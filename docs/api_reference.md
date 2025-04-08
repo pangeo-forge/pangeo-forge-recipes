@@ -2,7 +2,6 @@
 
 ## File Patterns
 
-
 ```{eval-rst}
 .. autoclass:: pangeo_forge_recipes.patterns.FilePattern
     :members:
@@ -15,7 +14,6 @@
 .. autoclass:: pangeo_forge_recipes.patterns.ConcatDim
     :members:
 ```
-
 
 ```{eval-rst}
 .. autoclass:: pangeo_forge_recipes.patterns.MergeDim
@@ -49,7 +47,6 @@
     :members:
 ```
 
-
 ## Processing Functions
 
 The [Beam PTransform Style Guide](https://beam.apache.org/contribute/ptransform-style-guide/) recommends:
@@ -80,7 +77,6 @@ The [Beam PTransform Style Guide](https://beam.apache.org/contribute/ptransform-
 ```
 
 ## Combiners
-
 
 ```{eval-rst}
 .. automodule:: pangeo_forge_recipes.combiners

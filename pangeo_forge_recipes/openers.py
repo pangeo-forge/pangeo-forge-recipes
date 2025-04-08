@@ -3,7 +3,7 @@
 import io
 import tempfile
 import warnings
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, cast
 from urllib.parse import urlparse
 
 import xarray as xr
@@ -88,7 +88,7 @@ def _set_engine(file_type, xr_open_kwargs):
     return kw
 
 
-UrlOrFileObj = Union[OpenFileType, str, zarr.storage.FSStore]
+UrlOrFileObj = Union[OpenFileType, str, zarr.storage.FsspecStore]
 
 
 def _preprocess_url_or_file_obj(
@@ -99,9 +99,11 @@ def _preprocess_url_or_file_obj(
 
     if isinstance(url_or_file_obj, str):
         pass
-    elif isinstance(url_or_file_obj, zarr.storage.FSStore):
+    elif isinstance(url_or_file_obj, zarr.storage.FsspecStore):
         if file_type is not FileType.zarr:
-            raise ValueError(f"FSStore object can only be opened as FileType.zarr; got {file_type}")
+            raise ValueError(
+                f"FsspecStore object can only be opened as FileType.zarr; got {file_type}"
+            )
     elif isinstance(url_or_file_obj, io.IOBase):
         # required to make mypy happy
         # LocalFileOpener is a subclass of io.IOBase
@@ -114,7 +116,9 @@ def _preprocess_url_or_file_obj(
 
 
 def _url_as_str(url_or_file_obj: UrlOrFileObj, remote_protocol: Optional[str] = None) -> str:
-    as_str: str = url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
+    as_str: str = cast(
+        str, url_or_file_obj.path if hasattr(url_or_file_obj, "path") else url_or_file_obj
+    )
 
     if remote_protocol and not urlparse(as_str).scheme:
         # `.full_path` attributes (which include scheme/protocol) are not present on all
@@ -201,7 +205,7 @@ def open_with_kerchunk(
 
 
 def open_with_xarray(
-    url_or_file_obj: Union[OpenFileType, str, zarr.storage.FSStore],
+    url_or_file_obj: Union[OpenFileType, str, zarr.storage.FsspecStore],
     file_type: FileType = FileType.unknown,
     load: bool = False,
     copy_to_local=False,

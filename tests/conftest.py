@@ -25,10 +25,11 @@ import fsspec
 import pytest
 import xarray as xr
 from apache_beam.options.pipeline_options import PipelineOptions
-from apache_beam.testing.test_pipeline import TestPipeline
+from apache_beam.testing.test_pipeline import TestPipeline as _TestPipeline
+from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
 
 # need to import this way (rather than use pytest.lazy_fixture) to make it work with dask
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixtures import lf as lazy_fixture
 
 from pangeo_forge_recipes.patterns import (
     ConcatDim,
@@ -232,7 +233,7 @@ def pattern(request):
 def pipeline(scope="session"):
     # TODO: make this True and fix the weird ensuing type check errors
     options = PipelineOptions(runtime_type_check=False)
-    with TestPipeline(options=options) as p:
+    with _TestPipeline(options=options) as p:
         yield p
 
 
@@ -244,7 +245,7 @@ def pipeline_parallel(scope="session"):
         direct_running_mode="multi_processing",
         runner="DirectRunner",
     )
-    with TestPipeline(options=options) as p:
+    with _TestPipeline(options=options) as p:
         yield p
 
 
@@ -523,17 +524,17 @@ def netcdf_local_file_pattern_sequential_with_coordinateless_dimension(
 
 @pytest.fixture()
 def tmp_target(tmpdir_factory):
-    fs = fsspec.get_filesystem_class("file")()
+    fs = fsspec.filesystem("file", auto_mkdir=True)
+    async_fs = AsyncFileSystemWrapper(fs)
     path = str(tmpdir_factory.mktemp("target"))
-    return FSSpecTarget(fs, path)
+    return FSSpecTarget(async_fs, path)
 
 
 @pytest.fixture()
 def tmp_cache(tmpdir_factory):
+    fs = fsspec.filesystem("file", auto_mkdir=True)
     path = str(tmpdir_factory.mktemp("cache"))
-    fs = fsspec.get_filesystem_class("file")()
-    cache = CacheFSSpecTarget(fs, path)
-    return cache
+    return CacheFSSpecTarget(fs, path)
 
 
 @pytest.fixture()

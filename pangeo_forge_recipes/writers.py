@@ -29,11 +29,13 @@ def _region_for(var: xr.Variable, index: Index) -> Tuple[slice, ...]:
     return tuple(region_slice)
 
 
-def _store_data(vname: str, var: xr.Variable, index: Index, zgroup: zarr.Group) -> None:
+def _store_data(
+    vname: str, var: xr.Variable, index: Index, zgroup: zarr.Group, zarr_attrs: dict
+) -> None:
     zarr_array = zgroup[vname]
     # get encoding for variable from zarr attributes
     var_coded = var.copy()  # copy needed for test suit to avoid modifying inputs in-place
-    var_coded.encoding.update(zarr_array.attrs)
+    var_coded.encoding.update(zarr_attrs)
     var_coded.attrs = {}
     var = xr.backends.zarr.encode_zarr_variable(var_coded)
     data = np.asarray(var.data)
@@ -73,25 +75,26 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
     :param store: Input Store for Zarr
     :type store: MutableMapping
     :return: Output Store
-    :rtype: zarr.storage.FSStore
+    :rtype: zarr.storage.FsspecStore
     """
 
     import zarr
 
+    # TODO:  raise error if Zarr format 3 b/c zarr v3 does not support consolidated metadata
     if isinstance(store, fsspec.FSMap) and isinstance(store.fs, ReferenceFileSystem):
         raise ValueError(
             """Creating consolidated metadata for Kerchunk references should not
             yield a performance benefit so consolidating metadata is not supported."""
         )
-    if isinstance(store, zarr.storage.FSStore):
+    if isinstance(store, zarr.storage.FsspecStore):
         zarr.convenience.consolidate_metadata(store)
 
     return store
 
 
 def store_dataset_fragment(
-    item: Tuple[Index, xr.Dataset], target_store: zarr.storage.FSStore
-) -> zarr.storage.FSStore:
+    item: Tuple[Index, xr.Dataset], target_store: zarr.storage.FsspecStore
+) -> zarr.storage.FsspecStore:
     """Store a piece of a dataset in a Zarr store.
 
     :param item: The index and dataset to be stored
@@ -100,6 +103,7 @@ def store_dataset_fragment(
 
     index, ds = item
     zgroup = zarr.open_group(target_store)
+    xr_store = xr.backends.zarr.ZarrStore.open_group(target_store)
     # TODO: check that the dataset and the index are compatible
 
     # only store coords if this is the first item in a merge dim
@@ -108,9 +112,19 @@ def store_dataset_fragment(
             # if this variable contains a concat dim, we always store it
             possible_concat_dims = [index.find_concat_dim(dim) for dim in da.dims]
             if any(possible_concat_dims) or _is_first_item(index):
-                _store_data(vname, da.variable, index, zgroup)
+                store_var = xr_store.open_store_variable(vname)
+                _store_data(
+                    vname,
+                    da.variable,
+                    index,
+                    zgroup,
+                    zarr_attrs=store_var.encoding | store_var.attrs,
+                )
     for vname, da in ds.data_vars.items():
-        _store_data(vname, da.variable, index, zgroup)
+        store_var = xr_store.open_store_variable(vname)
+        _store_data(
+            vname, da.variable, index, zgroup, zarr_attrs=store_var.encoding | store_var.attrs
+        )
 
     return target_store
 
@@ -122,7 +136,7 @@ def write_combined_reference(
     output_file_name: str,
     refs_per_component: int = 10000,
     mzz_kwargs: Optional[Dict] = None,
-) -> zarr.storage.FSStore:
+) -> zarr.storage.FsspecStore:
     """Write a kerchunk combined references object to file."""
     file_ext = os.path.splitext(output_file_name)[-1]
     outpath = full_target._full_path(output_file_name)
