@@ -1,0 +1,4 @@
+storage:
+  target_root: "./recipe_output"
+runner:
+  type: "Direct"
