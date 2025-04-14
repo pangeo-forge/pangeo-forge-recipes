@@ -1,6 +1,7 @@
 """Standalone functions for opening sources as Dataset objects."""
 
 import io
+import logging
 import tempfile
 import warnings
 from typing import Dict, Optional, Union, cast
@@ -11,6 +12,8 @@ import zarr
 
 from .patterns import FileType
 from .storage import CacheFSSpecTarget, OpenFileType, _copy_btw_filesystems, _get_opener
+
+logger = logging.getLogger(__name__)
 
 
 def open_url(
@@ -237,13 +240,18 @@ def open_with_xarray(
         tmp_name = ntf.name
         target_opener = open(tmp_name, mode="wb")
         _copy_btw_filesystems(url_or_file_obj, target_opener)
+        file_url_origin = url_or_file_obj
         url_or_file_obj = tmp_name
 
     url_or_file_obj = _preprocess_url_or_file_obj(url_or_file_obj, file_type)
 
-    ds = xr.open_dataset(url_or_file_obj, **kw)
-    if load:
-        ds.load()
+    try:
+        ds = xr.open_dataset(url_or_file_obj, **kw)
+        if load:
+            ds.load()
+    except Exception as e:
+        logger.debug(f"URL failing to open with Xarray: {file_url_origin}")
+        raise e
 
     if copy_to_local and not load:
         warnings.warn(
