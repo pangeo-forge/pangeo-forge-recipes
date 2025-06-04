@@ -29,7 +29,7 @@ collection of recipes for building conda packages. We hope that Pangeo Forge can
 role for datasets.
 
 ```{warning}
-The infrastucture component of pangeo-forge has been decomissioned.
+The infrastucture component of pangeo-forge has been decomissioned, leaving only the recipe description library (pangeo-forge-recipes).
 ```
 
 ## The Pangeo Forge Paper
