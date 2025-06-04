@@ -1,5 +1,9 @@
 # Deployment
 
+```{warning}
+The CLI of Pangeo Forge (pangeo-forge-runner) is currently unmaintained. It is recommended to use the beam pipeline deployment logic below instead.
+```
+
 ## Advantages of the CLI
 
 The {doc}`cli` (CLI) is the recommended way to deploy Pangeo Forge {doc}`recipes <../composition/index>`,
