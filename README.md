@@ -7,6 +7,8 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![NSF Award 2026932](https://img.shields.io/badge/NSF-2026932-blue)](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2026932&HistoricalAwards=false)
 
+> [!WARNING] > **pangeo-forge-recipes** is currently not under active development. No new features are currently planned, but PR's may be reviewed and accepted. Additionally, bugs might take a while to be addressed.
+
 **pangeo-forge** is an open-source tool designed to aid the extraction, transformation, and loading of datasets. The goal of pangeo-forge is to make it easy to extract datasets from traditional data repositories and deposit them into cloud object storage in analysis-ready, cloud-optimized format.
 
 pangeo-forge is inspired by [conda-forge](https://conda-forge.org/), a community-led collection of recipes for building [Conda](https://docs.conda.io/en/latest/) packages. We hope that pangeo-forge can play the same role for datasets.
