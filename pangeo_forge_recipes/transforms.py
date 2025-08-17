@@ -280,6 +280,10 @@ class DetermineSchema(beam.PTransform):
 
     def expand(self, pcoll: beam.PCollection) -> beam.PCollection:
         schemas = pcoll | beam.MapTuple(lambda k, v: (k, dataset_to_schema(v)))
+        if not self.combine_dims:
+            # if there are no combine_dims, we should have a single item
+            return schemas | beam.Map(lambda item: item[1])
+
         cdims = self.combine_dims.copy()
         while len(cdims) > 0:
             last_dim = cdims.pop()

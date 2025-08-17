@@ -36,7 +36,7 @@ dependencies = [
     "netcdf4",
     "numcodecs >= 0.9.0",
     "xarray >= 0.18.0",
-    "zarr >= 2.12.0",
+    "zarr >= 2.12.0, <3",
 ]
 
 [project.optional-dependencies]

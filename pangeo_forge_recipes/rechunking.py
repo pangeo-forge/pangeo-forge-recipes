@@ -184,6 +184,14 @@ def combine_fragments(
         )
     concat_dims = [dimension for dimension in dimensions if dimension.operation == CombineOp.CONCAT]
 
+    if not concat_dims:
+        if len(fragments) > 1:
+            # this is untested
+            raise ValueError(
+                "Cannot combine fragments with no concat dims if more than one fragment is present."
+            )
+        return fragments[0]
+
     if not all(all(index[dim].indexed for index in all_indexes) for dim in concat_dims):
         raise ValueError(
             "All concat dimension positions must be indexed in order to combine fragments."

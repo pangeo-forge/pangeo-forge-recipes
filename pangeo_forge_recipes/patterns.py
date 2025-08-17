@@ -313,9 +313,25 @@ class FilePattern:
 
 
 def pattern_from_file_sequence(
-    file_list, concat_dim, nitems_per_file=None, **kwargs
+    file_list: List[str],
+    concat_dim: Optional[str],
+    nitems_per_file: Optional[int] = None,
+    **kwargs,
 ) -> FilePattern:
     """Convenience function for creating a FilePattern from a list of files."""
+
+    if concat_dim is None:
+        if len(file_list) == 1:
+
+            def format_function():
+                return file_list[0]
+
+            return FilePattern(format_function, **kwargs)
+        else:
+            raise ValueError(
+                "concat_dim can only be None if file_list contains exactly one file. "
+                f"Received {len(file_list)} files."
+            )
 
     keys = list(range(len(file_list)))
     concat = ConcatDim(name=concat_dim, keys=keys, nitems_per_file=nitems_per_file)
