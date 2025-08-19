@@ -23,17 +23,21 @@ OpenFileType = Union[fsspec.core.OpenFile, fsspec.spec.AbstractBufferedFile, io.
 
 
 def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
-    with input_opener as source:
-        with output_opener as target:
+    try:
+        with input_opener as source, output_opener as target:
             start = time.time()
             interval = 5  # seconds
             bytes_read = log_count = 0
+            bytes_written = 0
+
             while True:
                 data = source.read(BLOCK_SIZE)
                 if not data:
                     break
-                target.write(data)
+                write_len = target.write(data)
                 bytes_read += len(data)
+                bytes_written += write_len
+
                 elapsed = time.time() - start
                 throughput = bytes_read / elapsed
                 if elapsed // interval >= log_count:
@@ -42,7 +46,18 @@ def _copy_btw_filesystems(input_opener, output_opener, BLOCK_SIZE=10_000_000):
                         f"avg throughput over {elapsed/60:.2f} min: {throughput/1e6:.2f} MB/sec"
                     )
                     log_count += 1
-    logger.debug("_copy_btw_filesystems done")
+
+        # Validate data size after copy
+        if bytes_read != bytes_written:
+            error_message = (
+                f"Mismatch in data sizes, read {bytes_read} bytes but wrote {bytes_written} bytes."
+            )
+            logger.error(error_message)
+            raise ValueError(error_message)
+    except Exception as e:
+        logger.error(f"Failed during file copy after reading {bytes_read} bytes: {e}")
+        raise e
+    logger.debug("_copy_btw_filesystems completed successfully")
 
 
 class AbstractTarget(ABC):
