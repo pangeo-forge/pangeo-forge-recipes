@@ -10,7 +10,7 @@ on:
     paths-ignore:
       - "docs/**"
   schedule:
-    - cron: "0 4 * * *" # run once a day at 4 AM
+    - cron: "0 4 1 * *" # run on the first of each month at 4 AM
 
 env:
   PYTEST_ADDOPTS: "--color=yes"
