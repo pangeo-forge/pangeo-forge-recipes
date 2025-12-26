@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import math
 import random
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
@@ -133,6 +136,166 @@ class MapWithConcurrencyLimit(beam.PTransform):
                     ]
                 )
             )
+        )
+
+
+@dataclass
+class TransferFilesWithConcurrency(beam.DoFn):
+    """
+    A DoFn for transferring files with concurrency.
+
+    Attributes:
+        transfer_target: The target directory to which files will be transferred.
+        concurrency_per_executor: The number of concurrent threads per executor.
+        secrets: Optional dictionary containing secrets required for accessing the transfer target.
+        open_kwargs: Optional dictionary of keyword arguments to be passed when opening files.
+        fsspec_sync_patch: Experimental. Likely slower. When enabled, this attempts to
+            replace asynchronous code with synchronous implementations to potentially address
+            deadlocking issues. cf. https://github.com/h5py/h5py/issues/2019
+        max_retries: The maximum number of retries for failed file transfers.
+        initial_backoff: The initial backoff time in seconds before retrying a failed transfer.
+        backoff_factor: The factor by which the backoff time is multiplied after each retry.
+    """
+
+    transfer_target: CacheFSSpecTarget
+    max_concurrency: int
+    secrets: Optional[Dict] = None
+    open_kwargs: Optional[Dict] = None
+    fsspec_sync_patch: bool = False
+    max_retries: int = 3
+    initial_backoff: float = 2.0
+    backoff_factor: float = 2.0
+
+    # TODO: Fall back to lower concurrency per-worker rather than simply retrying per request
+    # TODO: Make sure to keep track of what has succeeded so as not to duplicate reads/writes
+    def process(self, indexed_urls):
+        with ThreadPoolExecutor(max_workers=self.max_concurrency) as executor:
+            futures = {
+                executor.submit(self.transfer_file, index, url): (index, url)
+                for index, url in indexed_urls
+            }
+            for future in as_completed(futures):
+                try:
+                    index, new_url = future.result()
+                    yield (index, new_url)
+                except Exception as e:
+                    _, url = futures[future]
+                    logger.error(f"Error transferring file {url}: {e}")
+
+    def transfer_file(self, index: Index, url: str) -> Tuple[Index, str]:
+        retries = 0
+        while retries <= self.max_retries:
+            try:
+                open_kwargs = self.open_kwargs or {}
+                self.transfer_target.cache_file(
+                    url, self.secrets, self.fsspec_sync_patch, **open_kwargs
+                )
+                return (index, self.transfer_target._full_path(url))
+            except Exception as e:
+                if retries == self.max_retries:
+                    logger.error(f"Max retries reached for {url}: {e}")
+                    raise e
+                else:
+                    backoff_time = self.initial_backoff * (self.backoff_factor**retries)
+                    logger.warning(
+                        f"Error transferring file {url}: {e}. Retrying in {backoff_time} seconds..."
+                    )
+                    time.sleep(backoff_time)
+                    retries += 1
+
+        raise RuntimeError(f"Failed to transfer file {url} after {self.max_retries} attempts.")
+
+
+@dataclass
+class CheckpointFileTransfer(beam.PTransform):
+    """
+    A Beam transform that transfers files to a cache target with concurrency and grouping by key.
+
+    Attributes:
+        transfer_target: The target to which files will be transferred. This can be a string URL
+            or a CacheFSSpecTarget instance.
+        secrets: Optional dictionary containing secrets required for accessing the transfer target.
+        open_kwargs: Optional dictionary of keyword arguments to be passed when opening files.
+        max_executors: The maximum number of executors to be used. Elements will be grouped by this
+            number to limit total cluster concurrency. Default is 20.
+        concurrency_per_executor (Optional[int]): The number of concurrent threads per executor.
+            Default is 10.
+        filter_transferred_files: Attempt to filter file transfers where target URLs already exist.
+        fsspec_sync_patch: Experimental. Likely slower. When enabled, this attempts to
+            replace asynchronous code with synchronous implementations to potentially address
+            deadlocking issues. cf. https://github.com/h5py/h5py/issues/2019
+        max_retries: The maximum number of retries for failed file transfers.
+        initial_backoff: The initial backoff time in seconds before retrying a failed transfer.
+        backoff_factor: The factor by which the backoff time is multiplied after each retry.
+    """
+
+    transfer_target: Union[str, CacheFSSpecTarget]
+    secrets: Optional[dict] = None
+    open_kwargs: Optional[dict] = None
+    max_executors: int = 20
+    concurrency_per_executor: int = 10
+    fsspec_sync_patch: bool = False
+    filter_transferred_files: bool = False
+    max_retries: int = 5
+    initial_backoff: float = 1.0
+    backoff_factor: float = 2.0
+
+    @staticmethod
+    def assign_keys(element, max_executors):
+        """Assign a heuristically balanced key via hashlib for determinacy"""
+        index, url = element
+        key = int(hashlib.md5(url.encode()).hexdigest(), 16) % max_executors
+        return key, element
+
+    @staticmethod
+    def filter_existing_files(element, transfer_target):
+        index, url = element
+        if not transfer_target.exists(url):
+            yield element
+
+    @staticmethod
+    def get_target_urls(element, transfer_target):
+        index, url = element
+        return (index, transfer_target._full_path(url))
+
+    def expand(self, pcoll):
+        if isinstance(self.transfer_target, str):
+            target = CacheFSSpecTarget.from_url(self.transfer_target)
+        else:
+            target = self.transfer_target
+
+        if self.filter_transferred_files:
+            filtered_pcoll = pcoll | "Filter already-transferred" >> beam.ParDo(
+                lambda element: self.filter_existing_files(element, target)
+            )
+        else:
+            filtered_pcoll = pcoll
+
+        transfer_steps = (
+            filtered_pcoll
+            | "Assign keys via hash"
+            >> beam.Map(lambda element: self.assign_keys(element, self.max_executors))
+            | "Group per-executor work" >> beam.GroupByKey()
+            | "Unkey after grouping" >> beam.Values()
+            | "Limited concurrency file transfer"
+            >> beam.ParDo(
+                TransferFilesWithConcurrency(
+                    transfer_target=target,
+                    secrets=self.secrets,
+                    open_kwargs=self.open_kwargs,
+                    max_concurrency=self.concurrency_per_executor,
+                    fsspec_sync_patch=self.fsspec_sync_patch,
+                    max_retries=self.max_retries,
+                    initial_backoff=self.initial_backoff,
+                    backoff_factor=self.backoff_factor,
+                )
+            )
+        )
+
+        return (
+            pcoll
+            | beam.WaitOn(transfer_steps)
+            | beam.Map(lambda element: self.get_target_urls(element, target))
         )
 
 
@@ -315,7 +478,14 @@ class IndexItems(beam.PTransform):
         for dimkey, dimval in index.items():
             if dimkey.operation == CombineOp.CONCAT:
                 item_len_dict = schema["chunks"][dimkey.name]
-                item_lens = [item_len_dict[n] for n in range(len(item_len_dict))]
+                try:
+                    item_lens = [item_len_dict[n] for n in range(len(item_len_dict))]
+                except KeyError as e:
+                    logger.error(f"KeyError while indexing {dimkey.name} with start/stop positions")
+                    logger.error(
+                        f"Key {e.args[0]} not in item_len_dict keys: {list(item_len_dict.keys())}"
+                    )
+                    raise e
                 dimval = augment_index_with_start_stop(dimval, item_lens, append_offset)
             new_index[dimkey] = dimval
         return new_index, ds
