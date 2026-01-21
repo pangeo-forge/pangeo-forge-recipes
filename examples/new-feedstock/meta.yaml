@@ -1,0 +1,18 @@
+title: "Baltic Sea - Sea Surface Temperature Analysis L4"
+description: "For the Baltic Sea- The DMI Sea Surface Temperature analysis aims at providing daily gap-free maps of sea surface temperature, referred as L4 product, at 0.02deg. x 0.02deg. horizontal resolution, using satellite data from infra-red and microwave radiometers. Uses SST nighttime satellite products from these sensors: NOAA AVHRR, Metop AVHRR, Terra MODIS, Aqua MODIS, Aqua AMSR-E, Envisat AATSR, MSG Seviri"
+id: "baltic_sst_nrt_l4"
+doi: "http://doi.org/10.48670/moi-00155"
+provenance:
+  providers:
+    - name: "DMI"
+      roles: ["producer"]
+    - name: "Copernicus Marine Services"
+      roles: ["licensor", "processor"]
+      url: "https://data.marine.copernicus.eu/product/SST_BAL_SST_L4_NRT_OBSERVATIONS_010_007_b/description"
+  license: "Copernicus Marine Service Commitments and Licence"
+recipes:
+  - id: "SST_BAL_SST_L4_NRT_OBSERVATIONS_010_007_b"
+    object: "recipe:recipe"
+    store_kwargs:
+      store_name: "baltic_sst_nrt_l4.zarr"
+      attrs: { "processed_by": "pangeo-forge" }
