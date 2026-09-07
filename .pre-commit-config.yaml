@@ -47,6 +47,6 @@ repos:
         args: ["--no-schema"]
 
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: '0.26'
+    rev: "0.26"
     hooks:
       - id: validate-pyproject
