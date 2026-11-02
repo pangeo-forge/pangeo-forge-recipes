@@ -82,10 +82,8 @@ def consolidate_metadata(store: MutableMapping) -> MutableMapping:
 
     # TODO:  raise error if Zarr format 3 b/c zarr v3 does not support consolidated metadata
     if isinstance(store, fsspec.FSMap) and isinstance(store.fs, ReferenceFileSystem):
-        raise ValueError(
-            """Creating consolidated metadata for Kerchunk references should not
-            yield a performance benefit so consolidating metadata is not supported."""
-        )
+        raise ValueError("""Creating consolidated metadata for Kerchunk references should not
+            yield a performance benefit so consolidating metadata is not supported.""")
     if isinstance(store, zarr.storage.FsspecStore):
         zarr.convenience.consolidate_metadata(store)
 
